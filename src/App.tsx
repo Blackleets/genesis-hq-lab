@@ -20,7 +20,13 @@ import OfficeUpgradeEventList from './components/OfficeUpgradeEvent';
 import MetricsPanel from './components/MetricsPanel';
 
 import { setLanguage, useLanguage, useT } from './i18n/languageStore';
-import { actions, useAgents, useDevMode } from './state/genesisStore';
+import {
+  actions,
+  useAgents,
+  useDevMode,
+  useSelectedAgent,
+  useSelectedModule,
+} from './state/genesisStore';
 import { useLiveBubbles } from './lib/liveBubbles';
 import { pickRole } from './lib/agentHelpers';
 import type { Agent } from './types/genesis';
@@ -35,7 +41,7 @@ function HQView() {
   const lang = useLanguage();
   const agents = useAgents();
   const bubbles = useLiveBubbles();
-  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  const selectedAgent = useSelectedAgent();
   const [hoveredAgent, setHoveredAgent] = useState<Agent | null>(null);
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [roomOpen, setRoomOpen] = useState<RoomId | null>(null);
@@ -86,7 +92,7 @@ function HQView() {
               speakingAgentId={speakingAgentId}
               speakingText={speakingText}
               highlightedAgentId={hoveredAgent?.id ?? selectedAgent?.id ?? null}
-              onAgentClick={(a) => setSelectedAgent((cur) => (cur?.id === a.id ? null : a))}
+              onAgentClick={(a) => actions.setSelectedAgent(selectedAgent?.id === a.id ? null : a.id)}
               onAgentHover={(agent) => setHoveredAgent(agent)}
             />
           </OfficeViewport>
@@ -95,7 +101,7 @@ function HQView() {
           )}
           <AgentInspector
             agent={selectedAgent}
-            onClose={() => setSelectedAgent(null)}
+            onClose={() => actions.setSelectedAgent(null)}
             onAction={() => { /* visual-only */ }}
           />
         </div>
@@ -259,7 +265,7 @@ function ModuleRenderer({ module, setModule }: { module: ModuleId; setModule: (m
 }
 
 export default function App() {
-  const [currentModule, setCurrentModule] = useState<ModuleId>('hq');
+  const currentModule = useSelectedModule();
 
   useEffect(() => {
     actions.tick();
@@ -271,8 +277,8 @@ export default function App() {
     <div className="h-screen w-screen overflow-hidden flex flex-col bg-carbon-300">
       <GenesisHeader currentModule={currentModule} />
       <div className="flex-1 flex min-h-0">
-        <GenesisSidebar currentModule={currentModule} onSelect={setCurrentModule} />
-        <ModuleRenderer module={currentModule} setModule={setCurrentModule} />
+        <GenesisSidebar currentModule={currentModule} onSelect={actions.setSelectedModule} />
+        <ModuleRenderer module={currentModule} setModule={actions.setSelectedModule} />
       </div>
     </div>
   );

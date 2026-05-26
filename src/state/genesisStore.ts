@@ -20,6 +20,7 @@ import { INITIAL_TASKS } from '../data/initialTasks';
 import { FUTURE_AGENTS } from '../data/futureAgents';
 import { MODULES } from '../data/moduleRegistry';
 import { OFFICE_ROOMS } from '../data/officeRooms';
+import type { Lang } from '../i18n/translations';
 import type { Agent } from '../types/genesis';
 import type { Task, TaskType } from '../types/task';
 import type { SystemEvent } from '../types/event';
@@ -39,6 +40,9 @@ export interface GenesisStateShape {
   firedAgents: Record<string, Agent>;
   tasks: Record<string, Task>;
   events: SystemEvent[];
+  selectedLanguage: Lang;
+  selectedModule: ModuleId;
+  selectedAgent: string | null;
   modules: Record<ModuleId, ModuleEntity>;
   officeUpgrades: Record<string, OfficeUpgrade>;
 }
@@ -68,6 +72,9 @@ function buildInitialState(): GenesisStateShape {
         isVisualSeed: true,
       },
     ],
+    selectedLanguage: 'es',
+    selectedModule: 'hq',
+    selectedAgent: null,
     modules: Object.fromEntries(
       MODULES.map((m) => [
         m.id,
@@ -83,13 +90,45 @@ function buildInitialState(): GenesisStateShape {
   };
 }
 
+function hydrateState(saved: Partial<GenesisStateShape>): GenesisStateShape {
+  const base = buildInitialState();
+  const hydratedAgents = saved.agents ?? base.agents;
+  const hydratedModules = saved.modules ?? base.modules;
+  const selectedModule =
+    saved.selectedModule && hydratedModules[saved.selectedModule]
+      ? saved.selectedModule
+      : base.selectedModule;
+  const selectedAgent =
+    saved.selectedAgent && hydratedAgents[saved.selectedAgent]
+      ? saved.selectedAgent
+      : base.selectedAgent;
+
+  return {
+    ...base,
+    ...saved,
+    meta: saved.meta ? { ...base.meta, ...saved.meta } : base.meta,
+    agents: hydratedAgents,
+    hiringQueue: saved.hiringQueue ?? base.hiringQueue,
+    firedAgents: saved.firedAgents ?? base.firedAgents,
+    tasks: saved.tasks ?? base.tasks,
+    events: saved.events ?? base.events,
+    selectedLanguage: saved.selectedLanguage ?? base.selectedLanguage,
+    selectedModule,
+    selectedAgent,
+    modules: hydratedModules,
+    officeUpgrades: saved.officeUpgrades ?? base.officeUpgrades,
+  };
+}
+
 // ---------- store ----------
 
 let state: GenesisStateShape = (() => {
   const loaded = load<GenesisStateShape>();
-  if (loaded && loaded.meta && loaded.agents) return loaded;
+  if (loaded && loaded.meta && loaded.agents) return hydrateState(loaded);
   return buildInitialState();
 })();
+
+save(state);
 
 const listeners = new Set<() => void>();
 
@@ -147,6 +186,22 @@ export const actions = {
 
   setDevMode(devMode: boolean): void {
     commit({ ...state, meta: { ...state.meta, devMode } });
+  },
+
+  setSelectedLanguage(selectedLanguage: Lang): void {
+    if (selectedLanguage === state.selectedLanguage) return;
+    commit({ ...state, selectedLanguage });
+  },
+
+  setSelectedModule(selectedModule: ModuleId): void {
+    if (selectedModule === state.selectedModule) return;
+    commit({ ...state, selectedModule });
+  },
+
+  setSelectedAgent(selectedAgent: string | null): void {
+    const nextSelectedAgent = selectedAgent && state.agents[selectedAgent] ? selectedAgent : null;
+    if (nextSelectedAgent === state.selectedAgent) return;
+    commit({ ...state, selectedAgent: nextSelectedAgent });
   },
 
   hireAgent(candidateId: string): void {
@@ -278,6 +333,7 @@ export const actions = {
       ...state,
       agents: rest,
       firedAgents: { ...state.firedAgents, [agentId]: fired },
+      selectedAgent: state.selectedAgent === agentId ? null : state.selectedAgent,
     };
     next = appendEvent(next, {
       kind: 'agent.fired',
@@ -739,6 +795,21 @@ export function useTasks(): Task[] {
 export function useEvents(): SystemEvent[] {
   const s = useGenesisState();
   return s.events;
+}
+
+export function useSelectedLanguage(): Lang {
+  const s = useGenesisState();
+  return s.selectedLanguage;
+}
+
+export function useSelectedModule(): ModuleId {
+  const s = useGenesisState();
+  return s.selectedModule;
+}
+
+export function useSelectedAgent(): Agent | null {
+  const s = useGenesisState();
+  return s.selectedAgent ? s.agents[s.selectedAgent] ?? null : null;
 }
 
 export function useModules(): ModuleEntity[] {

@@ -5,6 +5,15 @@ at the top. Use one block per session. Be honest about failures.
 
 ---
 
+## 2026-05-27 - Codex
+
+- **Branch:** `feat/genesis-life-os`
+- **Summary:** Centralized the local Genesis UI state in the persistent store. The language store now delegates to `genesisStore`, the app restores language/module/agent selection from one source of truth, metrics now read live store data instead of seeds, and fresh boots still start with only the 5 active agents plus the requested 8-item hiring queue.
+- **Files touched:** `src/state/persistence.ts`, `src/state/genesisStore.ts`, `src/data/futureAgents.ts`, `src/i18n/languageStore.ts`, `src/components/MetricsPanel.tsx`, `src/App.tsx`, `docs/CHANGELOG_AI.md`
+- **Verification:** `npm run typecheck` ok. `npm run build` ok.
+
+---
+
 ## 2026-05-26 — Claude (Sonnet 4.6) — session 4 (Genesis Life OS)
 
 - **Branch:** `feat/genesis-life-os` (renamed from `feat/enterprise-characters`).

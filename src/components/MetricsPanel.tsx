@@ -3,7 +3,8 @@
 // SEED_METRICS (clearly labeled).
 
 import { useT } from '../i18n/languageStore';
-import { SEED_METRICS } from '../data/officeEvents';
+import { useProgress } from '../lib/progressEngine';
+import { useEvents, useModules } from '../state/genesisStore';
 
 function Card({ label, value, hint, color = '#3da9fc' }: { label: string; value: string; hint?: string; color?: string }) {
   return (
@@ -32,18 +33,23 @@ function Bar({ label, value, color = '#3da9fc' }: { label: string; value: number
 
 export default function MetricsPanel() {
   const t = useT();
+  const progress = useProgress();
+  const modules = useModules();
+  const events = useEvents();
+  const hiredAgents = events.filter((event) => event.kind === 'agent.hired').length;
+
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-      <Card label={t('metric.genesisAge')}      value={t('metric.genesisAge.value')} color="#ffd24a" />
-      <Card label={t('metric.activeAgents')}    value={String(SEED_METRICS.activeAgents)} color="#00ff9c" />
-      <Card label={t('metric.hiringQueue')}     value={String(SEED_METRICS.hiringQueue)} color="#7c5cff" />
-      <Card label={t('metric.modulesUnlocked')} value={`${SEED_METRICS.modulesUnlocked} / 9`} color="#3da9fc" />
-      <Bar  label={t('metric.learningLevel')}   value={SEED_METRICS.learningLevel}    color="#22d3ee" />
-      <Bar  label={t('metric.companyHealth')}   value={SEED_METRICS.companyHealth}    color="#00ff9c" />
-      <Card label={t('metric.tasksCompleted')}  value={String(SEED_METRICS.tasksCompleted)} color="#3da9fc" />
-      <Card label={t('metric.officeUpgrades')}  value={String(SEED_METRICS.officeUpgrades)} color="#ffb547" />
-      <Card label={t('metric.agentsHired')}     value={String(SEED_METRICS.agentsHired)} color="#22d3ee" />
-      <Card label={t('metric.agentsFired')}     value={String(SEED_METRICS.agentsFired)} color="#ff4757" />
+      <Card label={t('metric.genesisAge')}      value={`${progress.ageHours.toFixed(1)}h`} color="#ffd24a" />
+      <Card label={t('metric.activeAgents')}    value={String(progress.activeAgents)} color="#00ff9c" />
+      <Card label={t('metric.hiringQueue')}     value={String(progress.hiringQueue)} color="#7c5cff" />
+      <Card label={t('metric.modulesUnlocked')} value={`${progress.modulesUnlocked} / ${modules.length}`} color="#3da9fc" />
+      <Bar  label={t('metric.learningLevel')}   value={progress.learningLevel} color="#22d3ee" />
+      <Bar  label={t('metric.companyHealth')}   value={progress.companyHealth} color="#00ff9c" />
+      <Card label={t('metric.tasksCompleted')}  value={String(progress.tasksCompleted)} color="#3da9fc" />
+      <Card label={t('metric.officeUpgrades')}  value={String(progress.officeUpgradesCompleted)} color="#ffb547" />
+      <Card label={t('metric.agentsHired')}     value={String(hiredAgents)} color="#22d3ee" />
+      <Card label={t('metric.agentsFired')}     value={String(progress.firedAgents)} color="#ff4757" />
     </div>
   );
 }

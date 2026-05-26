@@ -1,50 +1,19 @@
-// Small language store: external state + useSyncExternalStore hook.
-// Persists choice to localStorage. Default = 'es'.
+// Thin language facade over the central Genesis store.
+// The source of truth lives in src/state/genesisStore.ts.
 
-import { useSyncExternalStore } from 'react';
+import { actions, getState, useSelectedLanguage } from '../state/genesisStore';
 import { tr, type Lang, type TKey } from './translations';
 
-const STORAGE_KEY = 'genesis.hq.lang';
-
-function readInitial(): Lang {
-  if (typeof window === 'undefined') return 'es';
-  const v = window.localStorage.getItem(STORAGE_KEY);
-  return v === 'en' ? 'en' : 'es';
-}
-
-let current: Lang = readInitial();
-const listeners = new Set<() => void>();
-
-function notify() {
-  listeners.forEach((l) => l());
-}
-
 export function getLanguage(): Lang {
-  return current;
+  return getState().selectedLanguage;
 }
 
 export function setLanguage(next: Lang): void {
-  if (next === current) return;
-  current = next;
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem(STORAGE_KEY, next);
-  }
-  notify();
-}
-
-function subscribe(listener: () => void): () => void {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
-}
-
-function getSnapshot(): Lang {
-  return current;
+  actions.setSelectedLanguage(next);
 }
 
 export function useLanguage(): Lang {
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  return useSelectedLanguage();
 }
 
 /** React hook that returns a translator bound to the current language. */

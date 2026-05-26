@@ -120,22 +120,9 @@ export const FUTURE_AGENTS: FutureAgent[] = [
     state: 'pending',
   },
   {
-    id: 'future-ui-maintenance',
-    name:    { es: 'Operario de mantenimiento', en: 'UI Maintenance Worker' },
-    role:    { es: 'Actualiza zonas y atiende eventos visuales', en: 'Upgrades zones and handles visual events' },
-    department: 'Operations Room',
-    archetype: 'engineer',
-    unlockReason: {
-      es: 'Se llama cuando una zona requiere mejora.',
-      en: 'Called when a zone needs upgrading.',
-    },
-    unlockCondition: 'office-needs-upgrade',
-    state: 'visual-seed',
-  },
-  {
     id: 'future-office-builder',
-    name:    { es: 'Contratista virtual',      en: 'Virtual Contractor' },
-    role:    { es: 'Construye estaciones nuevas en la oficina', en: 'Builds new stations in the office' },
+    name:    { es: 'Constructor de oficina / contratista virtual', en: 'Office Builder / Virtual Contractor' },
+    role:    { es: 'Construye estaciones nuevas y expande la oficina', en: 'Builds new stations and expands the office' },
     department: 'Operations Room',
     archetype: 'engineer',
     unlockReason: {
@@ -143,6 +130,6 @@ export const FUTURE_AGENTS: FutureAgent[] = [
       en: 'Called when the office needs expansion.',
     },
     unlockCondition: 'office-needs-upgrade',
-    state: 'visual-seed',
+    state: 'pending',
   },
 ];

@@ -2,8 +2,8 @@
 // always writes a versioned envelope so we can migrate later without
 // throwing the previous lab session away.
 
-const STORAGE_KEY = 'genesis.hq.lab.state.v1';
-const SCHEMA_VERSION = 1;
+const STORAGE_KEY = 'genesis.hq.lab.state.v2';
+const SCHEMA_VERSION = 2;
 
 interface Envelope<T> {
   schemaVersion: number;
