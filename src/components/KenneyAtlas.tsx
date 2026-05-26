@@ -62,6 +62,7 @@ export const ARCHETYPE_TO_TILE: Record<Archetype, CharacterTileId> = {
   designer:    'charYellow',
   broadcaster: 'charGreen',
   operator:    'charBrown',
+  intern:      'charGreen',
 };
 
 function AtlasImage({ title }: { title: string }): JSX.Element {

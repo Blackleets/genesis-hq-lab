@@ -5,6 +5,71 @@ at the top. Use one block per session. Be honest about failures.
 
 ---
 
+## 2026-05-26 — Claude (Sonnet 4.6) — session 4 (Genesis Life OS)
+
+- **Branch:** `feat/genesis-life-os` (renamed from `feat/enterprise-characters`).
+- **Summary:** Built the Genesis Life Operating System. Genesis HQ is now
+  the visual representation of a real, persistent local system — not a
+  scripted demo. State lives in `src/state/genesisStore.ts` and persists
+  to `localStorage`. A `tick()` runs every 5s to advance movement, finish
+  onboarding, start/complete tasks. All bubbles and feed entries are
+  derived from real `SystemEvent` entries — no hard-coded conversation
+  script.
+- **What's now live:**
+  - 5 active seed agents (Genesis Core, Market Scanner, Risk Guardian,
+    Memory Curator, HR Evaluator) — others wait in `hiringQueue`.
+  - **Hiring** — clicking "Hire" on a candidate creates a real agent in
+    `status=onboarding` with `onboardingEndsAt = now + 24h`. The tick
+    auto-transitions them to `idle` when the timer elapses. Dev mode
+    surfaces a "Complete onboarding now" button per agent.
+  - **Task engine** — tasks have status, room, assignee, estimatedMs.
+    Assigned agents walk (lerp) to the room; on arrival the task
+    auto-starts; after `estimatedMs` it auto-completes. agent.status
+    derives from this lifecycle (idle → moving → working → idle).
+  - **Live bubbles** — `useLiveBubbles` reads recent voiced events from
+    the store; old `useConversationCycle` is now a thin compat shim.
+  - **Activity feed** — reads from `state.events` (append-only, capped at
+    200 to bound storage).
+  - **Work screens** — `WorkScreen` opens per room with tasks + agents
+    currently in that room. Risk Bunker / Execution Desk show the
+    explicit "execution locked" / "read-only pending" banners.
+  - **Dashboard** — real metrics computed from the store
+    (`progressEngine.computeProgress`).
+  - **Settings** — language toggle, dev mode toggle, reset button
+    (with confirm) to clear persisted state and reboot the lab.
+- **Persisted across reloads:** agents, tasks, events, modules, upgrades,
+  hiring queue, fired agents, devMode, bornAt, language.
+- **Backend:** 0. Polymarket: 0. Trading: 0. Real money: 0. Execution
+  module remains explicitly locked with copy.
+- **Files added (created):**
+  - `src/types/{task,event,hiring,office,progress,module}.ts`
+  - `src/state/{persistence,genesisStore}.ts`
+  - `src/data/{officeRooms,initialAgents,initialTasks}.ts`
+  - `src/lib/{liveBubbles,progressEngine,taskEngine,agentHelpers}.ts`
+  - `src/components/{OnboardingPanel,WorkScreen,GenesisDashboard}.tsx`
+- **Files modified:**
+  - `src/types/genesis.ts` — extended Agent with movement + onboarding
+    fields; role is now `string | { es; en }`.
+  - `src/i18n/translations.ts` — ~30 new keys for Life OS UI.
+  - `src/components/{LiveActivityFeed,HiringQueue,AgentInspector,AgentTooltip}.tsx`
+    — read from store, bilingual.
+  - `src/lib/agentMicroInteractions.ts` — re-exports `useLiveBubbles`.
+  - `src/data/seedAgents.ts` — re-exports `INITIAL_AGENTS` for compat.
+  - `src/experiments/CharacterPlayground.tsx` — guard for new role union.
+  - `src/App.tsx` — module routing + tick loop.
+- **Verification:** `npm run typecheck` exit 0. `npm run build` exit 0
+  (302 KB JS, 17 KB CSS gzip 87 KB / 4 KB).
+- **GitHub push attempt:** `gh` CLI token was expired ("HTTP 401: Bad
+  credentials"). I did NOT push. The local commit is ready. The human
+  needs to run `gh auth login` and then can either let me create the
+  repo or do it themselves.
+- **Notes for next AI:** the office still shows the 5 active agents
+  statically — agents walking between rooms is wired but only fires when
+  a new task is assigned to them. To see movement, fire an assignTask
+  from devtools or wire a UI for it.
+
+---
+
 ## 2026-05-26 — Claude (Opus 4.7) — session 3 (revert)
 
 - **Branch:** `feat/enterprise-characters`

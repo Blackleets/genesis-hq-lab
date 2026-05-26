@@ -1,13 +1,16 @@
-// Trimmed subset of shared/types.ts from the main genesis project.
-// Only the fields the lab UI consumes. Do not extend without updating
-// docs/AI_HANDOFF.md.
+// Core domain types for Genesis HQ Lab.
+// Agents have BOTH visual position and live movement state because the
+// office is the visual representation of the live system.
 
 export type AgentStatus =
+  | 'onboarding'
   | 'idle'
+  | 'moving'
   | 'working'
   | 'thinking'
   | 'debating'
   | 'learning'
+  | 'waiting_review'
   | 'warning'
   | 'failed'
   | 'suspended'
@@ -33,34 +36,59 @@ export type Department =
   | 'Special Ops';
 
 export type Archetype =
-  | 'commander'
-  | 'analyst'
-  | 'sentinel'
-  | 'scientist'
-  | 'listener'
-  | 'mediator'
-  | 'archivist'
-  | 'guardian'
-  | 'reviewer'
-  | 'engineer'
-  | 'designer'
-  | 'broadcaster'
-  | 'operator';
+  | 'commander' | 'analyst' | 'sentinel' | 'scientist' | 'listener'
+  | 'mediator' | 'archivist' | 'guardian' | 'reviewer'
+  | 'engineer' | 'designer' | 'broadcaster' | 'operator' | 'intern';
 
 export interface VisualProfile {
   archetype: Archetype;
   primary: string;
   accent: string;
+  hair?: string;
+  pants?: string;
+  accessory?: 'shield' | 'lock' | 'glasses' | 'crown' | 'clipboard' | 'flask' | 'headset' | 'book' | 'mic' | 'wrench' | 'palette' | 'none';
 }
 
+export type Pose = 'seated' | 'standing';
+export type Facing = 'north' | 'south' | 'east' | 'west';
+export type MovementState = 'still' | 'moving' | 'arrived';
+
+import type { RoomId } from './office';
+import type { TaskType } from './task';
+
+export interface AgentPosition {
+  x: number;
+  y: number;
+  facing?: Facing;
+  pose?: Pose;
+}
+
+/** A live Agent — entity in the store, not a static seed. */
 export interface Agent {
   id: string;
   name: string;
-  role: string;
+  role: { es: string; en: string } | string;
   department: Department;
-  status: AgentStatus;
-  currentTask: string | null;
   rank: AgentRank;
+  status: AgentStatus;
+  /** present when status is working/waiting_review */
+  currentTaskId: string | null;
+  /** legacy text snapshot of current task (for tooltips/legacy) */
+  currentTask: string | null;
+  trustScore: number;
+  learningScore: number;
   visualProfile: VisualProfile;
-  emoji: string | null;
+  position: AgentPosition;
+  targetPosition?: { x: number; y: number };
+  currentRoom: RoomId;
+  targetRoom?: RoomId;
+  movementState: MovementState;
+  /** Onboarding fields (24h flow). Both timestamps stored as ISO strings. */
+  onboardingStartedAt?: string;
+  onboardingEndsAt?: string;
+  hiredAt?: string;
+  isVisualSeed: boolean;
+  emoji?: string | null;
+  /** the kinds of tasks this agent can handle — used for auto-assignment */
+  capabilities: TaskType[];
 }

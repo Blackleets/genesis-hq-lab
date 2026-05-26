@@ -170,7 +170,7 @@ export default function CharacterPlayground(): JSX.Element {
             <div key={agent.id} className="contents">
               <div className="flex flex-col justify-center text-xs">
                 <div className="font-display text-zinc-100">{agent.name}</div>
-                <div className="text-[10px] text-zinc-500 font-mono mt-0.5">{agent.role}</div>
+                <div className="text-[10px] text-zinc-500 font-mono mt-0.5">{typeof agent.role === 'string' ? agent.role : agent.role.en}</div>
                 <div className="text-[10px] text-zinc-600 font-mono mt-1">
                   archetype: <span className="text-zinc-300">{agent.visualProfile.archetype}</span>
                 </div>
