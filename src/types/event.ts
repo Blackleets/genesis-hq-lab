@@ -8,6 +8,8 @@ export type EventKind =
   | 'agent.onboarding.end'
   | 'agent.fired'
   | 'agent.promoted'
+  | 'agent.suspended'
+  | 'agent.retraining'
   | 'agent.warning'
   | 'agent.says'           // pure voice line (no business event)
   | 'task.created'

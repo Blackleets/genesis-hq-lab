@@ -75,6 +75,7 @@ export interface Agent {
   currentTaskId: string | null;
   /** legacy text snapshot of current task (for tooltips/legacy) */
   currentTask: string | null;
+  mistakeCount?: number;
   trustScore: number;
   learningScore: number;
   visualProfile: VisualProfile;

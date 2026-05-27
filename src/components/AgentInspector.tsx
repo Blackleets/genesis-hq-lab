@@ -1,6 +1,5 @@
 // AgentInspector — slide-in panel on the right that appears when an agent
-// is clicked. Shows full data + action buttons. Actions are visual-only
-// (no backend yet). Pixel-style chrome, hard borders. Bilingual.
+// is clicked. Shows full data + action buttons. Bilingual.
 
 import { useT } from '../i18n/languageStore';
 import { tr, type Lang, type TKey } from '../i18n/translations';
@@ -117,16 +116,13 @@ export default function AgentInspector({ agent, onClose, onAction }: Props) {
           </div>
           <div className="grid grid-cols-2 gap-2">
             <ActionButton onClick={() => onAction?.('assign', agent)}>{t('inspector.actionAssign')}</ActionButton>
-            <ActionButton tone="gold" onClick={() => onAction?.('promote', agent)}>{t('inspector.actionPromote')}</ActionButton>
-            <ActionButton onClick={() => onAction?.('retrain', agent)}>{t('inspector.actionRetrain')}</ActionButton>
-            <ActionButton tone="warn" onClick={() => onAction?.('suspend', agent)}>{t('inspector.actionSuspend')}</ActionButton>
+            <ActionButton tone="gold" onClick={() => { actions.promoteAgent(agent.id); onAction?.('promote', agent); }}>{t('inspector.actionPromote')}</ActionButton>
+            <ActionButton onClick={() => { actions.retrainAgent(agent.id); onAction?.('retrain', agent); }}>{t('inspector.actionRetrain')}</ActionButton>
+            <ActionButton tone="warn" onClick={() => { actions.suspendAgent(agent.id); onAction?.('suspend', agent); }}>{t('inspector.actionSuspend')}</ActionButton>
             <ActionButton tone="danger" onClick={() => {
               actions.fireAgent(agent.id);
               onAction?.('fire', agent);
             }}>{t('inspector.actionFire')}</ActionButton>
-          </div>
-          <div className="font-mono text-[10px] text-zinc-600 mt-2 leading-snug">
-            {t('inspector.note')}
           </div>
         </section>
       </div>

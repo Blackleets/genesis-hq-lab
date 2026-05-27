@@ -38,7 +38,7 @@ function stateColor(state: string): string {
 export default function GenesisSidebar({ currentModule, onSelect }: Props) {
   const t = useT();
   return (
-    <aside className="w-[200px] shrink-0 bg-carbon-200 border-r border-trim flex flex-col">
+    <aside className="w-[184px] shrink-0 bg-carbon-200 border-r border-trim flex flex-col">
       <div className="px-3 py-3 border-b border-trim">
         <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-zinc-500">
           {t('sidebar.workspace')}

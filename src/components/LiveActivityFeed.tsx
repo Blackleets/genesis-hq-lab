@@ -46,7 +46,7 @@ export default function LiveActivityFeed() {
   const ordered = [...events].reverse().slice(0, 50);
 
   return (
-    <aside className="h-full w-[280px] shrink-0 bg-carbon-200 border-l border-trim flex flex-col">
+    <aside className="h-full w-[248px] xl:w-[260px] shrink-0 bg-carbon-200 border-l border-trim flex flex-col">
       <header className="px-3 py-2.5 border-b border-trim flex items-center justify-between">
         <div className="font-mono text-[11px] uppercase tracking-wider text-zinc-300">
           {t('feed.title')}
@@ -74,9 +74,6 @@ export default function LiveActivityFeed() {
           </ul>
         )}
       </div>
-      <footer className="px-3 py-2 border-t border-trim font-mono text-[9px] text-zinc-600 leading-snug">
-        {t('feed.footer')}
-      </footer>
     </aside>
   );
 }

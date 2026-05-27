@@ -8,6 +8,8 @@ import GenesisHeader from './components/GenesisHeader';
 import GenesisSidebar from './components/GenesisSidebar';
 import OfficeViewport from './components/OfficeViewport';
 import GenesisOfficeWorld from './components/GenesisOfficeWorld';
+import PixelOfficeCanvas from './components/PixelOfficeCanvas';
+import PixelOfficeViewport from './components/PixelOfficeViewport';
 import LiveActivityFeed from './components/LiveActivityFeed';
 import AgentInspector from './components/AgentInspector';
 import AgentTooltip from './components/AgentTooltip';
@@ -18,10 +20,12 @@ import WorkScreen from './components/WorkScreen';
 import GenesisDashboard from './components/GenesisDashboard';
 import OfficeUpgradeEventList from './components/OfficeUpgradeEvent';
 import MetricsPanel from './components/MetricsPanel';
+import MarketsView from './components/MarketsView';
 
 import { setLanguage, useLanguage, useT } from './i18n/languageStore';
 import {
   actions,
+  useActiveAgents,
   useAgents,
   useDevMode,
   useSelectedAgent,
@@ -33,8 +37,10 @@ import type { Agent } from './types/genesis';
 import type { ModuleId } from './data/moduleRegistry';
 import type { RoomId } from './types/office';
 import { OFFICE_ROOMS } from './data/officeRooms';
+import { PIXEL_CANVAS_HEIGHT, PIXEL_CANVAS_WIDTH } from './data/pixelOfficeMap';
 
 const TICK_MS = 5000;
+const HQ_RENDERER = 'canvas' as const;
 
 function HQView() {
   const t = useT();
@@ -50,10 +56,6 @@ function HQView() {
   const speakingAgentId = firstSpeaker?.agentId ?? null;
   const speakingText = firstSpeaker?.text[lang] ?? null;
 
-  function handleViewportMouseMove(_wx: number, _wy: number, screenX: number, screenY: number) {
-    setHoverPos({ x: screenX, y: screenY });
-  }
-
   if (roomOpen) {
     return (
       <>
@@ -66,7 +68,7 @@ function HQView() {
   return (
     <>
       <main className="flex-1 min-w-0 min-h-0 relative flex flex-col">
-        <div className="bg-carbon-200 border-b border-trim px-3 py-1.5 flex items-center gap-1.5 overflow-x-auto">
+        <div className="bg-carbon-200 border-b border-trim px-3 py-1.5 flex flex-wrap items-center gap-1.5 overflow-hidden">
           <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 shrink-0 mr-1">
             {t('work.title')}:
           </span>
@@ -75,27 +77,42 @@ function HQView() {
               key={rid}
               type="button"
               onClick={() => setRoomOpen(rid)}
-              className="shrink-0 font-mono text-[10px] uppercase tracking-wider px-2 py-1 border border-trim text-zinc-300 hover:bg-white/5"
+              className="shrink-0 font-mono text-[9px] uppercase tracking-[0.12em] px-2 py-1 border border-trim text-zinc-300 hover:bg-white/5"
               style={{ borderColor: `${OFFICE_ROOMS[rid].color}55` }}
             >
               {OFFICE_ROOMS[rid].label[lang]}
             </button>
           ))}
         </div>
-        <div className="flex-1 min-h-0 relative">
-          <OfficeViewport
-            onMouseMoveWorld={handleViewportMouseMove}
-            onMouseLeave={() => setHoveredAgent(null)}
-          >
-            <GenesisOfficeWorld
-              agents={agents}
-              speakingAgentId={speakingAgentId}
-              speakingText={speakingText}
-              highlightedAgentId={hoveredAgent?.id ?? selectedAgent?.id ?? null}
-              onAgentClick={(a) => actions.setSelectedAgent(selectedAgent?.id === a.id ? null : a.id)}
-              onAgentHover={(agent) => setHoveredAgent(agent)}
-            />
-          </OfficeViewport>
+        <div className="flex-1 min-h-0 relative bg-carbon-300">
+          {HQ_RENDERER === 'canvas' ? (
+            <PixelOfficeViewport internalWidth={PIXEL_CANVAS_WIDTH} internalHeight={PIXEL_CANVAS_HEIGHT}>
+              {(scale) => (
+                <PixelOfficeCanvas
+                  scale={scale}
+                  onAgentHover={(agent, screenX, screenY) => {
+                    setHoveredAgent(agent);
+                    setHoverPos({ x: screenX, y: screenY });
+                  }}
+                  onRoomClick={(room) => setRoomOpen(room)}
+                />
+              )}
+            </PixelOfficeViewport>
+          ) : (
+            <OfficeViewport
+              onMouseMoveWorld={(_wx, _wy, screenX, screenY) => setHoverPos({ x: screenX, y: screenY })}
+              onMouseLeave={() => setHoveredAgent(null)}
+            >
+              <GenesisOfficeWorld
+                agents={agents}
+                speakingAgentId={speakingAgentId}
+                speakingText={speakingText}
+                highlightedAgentId={hoveredAgent?.id ?? selectedAgent?.id ?? null}
+                onAgentClick={(a) => actions.setSelectedAgent(selectedAgent?.id === a.id ? null : a.id)}
+                onAgentHover={(agent) => setHoveredAgent(agent)}
+              />
+            </OfficeViewport>
+          )}
           {hoveredAgent && !selectedAgent && (
             <AgentTooltip agent={hoveredAgent} x={hoverPos.x} y={hoverPos.y} />
           )}
@@ -114,7 +131,7 @@ function HQView() {
 function HRView() {
   const t = useT();
   const lang = useLanguage();
-  const agents = useAgents();
+  const agents = useActiveAgents();
   return (
     <main className="flex-1 min-w-0 min-h-0 overflow-y-auto px-8 py-8 bg-carbon-300">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -253,11 +270,11 @@ function ModuleRenderer({ module, setModule }: { module: ModuleId; setModule: (m
     case 'hq':         return <HQView />;
     case 'dashboard':  return <GenesisDashboard onOpenHQ={() => setModule('hq')} />;
     case 'hr':         return <HRView />;
+    case 'markets':    return <MarketsView />;
     case 'progress':   return <ProgressView />;
     case 'settings':   return <SettingsView />;
     case 'factory':
     case 'auto':
-    case 'markets':
     case 'decisions':
     default:
       return <ModulePlaceholder module={module} onBack={() => setModule('hq')} />;

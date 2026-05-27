@@ -33,7 +33,7 @@ export type TaskPriority = 'low' | 'normal' | 'high' | 'critical';
 export interface Task {
   id: string;
   title: { es: string; en: string };
-  description?: { es: string; en: string };
+  description: { es: string; en: string };
   type: TaskType;
   assignedAgentIds: string[];
   room: RoomId;
@@ -43,11 +43,12 @@ export interface Task {
   startedAt?: string;
   completedAt?: string;
   blockedReason?: { es: string; en: string };
-  sourceModule?: ModuleId;
+  sourceModule: ModuleId;
   /** estimated work duration in ms (lab seed timer) */
   estimatedMs: number;
   evidence?: string[];
   output?: { es: string; en: string };
+  isSeed: boolean;
   isReal: boolean;
   isVisualSeed: boolean;
   /** voiced line that fires when the task starts (drives a bubble) */

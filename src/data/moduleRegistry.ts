@@ -143,15 +143,15 @@ export const MODULES: ModuleEntry[] = [
   {
     id: 'markets',
     navKey: 'nav.markets',
-    state: 'locked-polymarket',
+    state: 'ready',
     description: {
       es: 'Aquí se conectará Polymarket de solo lectura para listar mercados reales. Sin trading real.',
-      en: 'Polymarket read-only will be wired here to list real markets. No real trading.',
+      en: 'Read-only snapshot of real Polymarket markets. No real trading.',
     },
     futureActions: [
       { es: 'Listar mercados activos por volumen/liquidez.', en: 'List active markets by volume/liquidity.' },
       { es: 'Mostrar precios, outcomes y fecha de cierre.', en: 'Show prices, outcomes, and end dates.' },
-      { es: 'Si la API falla, mostrar el error real.', en: 'If the API fails, show the real error.' },
+      { es: 'Si el proveedor falla, mostrar el error real.', en: 'If the provider fails, show the real error.' },
     ],
     relation: {
       es: 'El Escáner de mercado leerá estos datos desde su escritorio en HQ.',

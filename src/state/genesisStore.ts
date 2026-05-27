@@ -22,7 +22,7 @@ import { MODULES } from '../data/moduleRegistry';
 import { OFFICE_ROOMS } from '../data/officeRooms';
 import type { Lang } from '../i18n/translations';
 import type { Agent } from '../types/genesis';
-import type { Task, TaskType } from '../types/task';
+import type { Task, TaskStatus, TaskType } from '../types/task';
 import type { SystemEvent } from '../types/event';
 import type { HiringCandidate } from '../types/hiring';
 import type { OfficeUpgrade, RoomId } from '../types/office';
@@ -175,6 +175,72 @@ function appendEvent(s: GenesisStateShape, ev: Omit<SystemEvent, 'id' | 'at'>): 
   return { ...s, events: trimmed };
 }
 
+type TaskCreateInput = {
+  title: Task['title'];
+  description: Task['description'];
+  type: Task['type'];
+  room: Task['room'];
+  priority: Task['priority'];
+  sourceModule: Task['sourceModule'];
+  assignedAgentIds?: Task['assignedAgentIds'];
+  evidence?: Task['evidence'];
+  output?: Task['output'];
+  estimatedMs?: Task['estimatedMs'];
+  isSeed?: Task['isSeed'];
+  isVisualSeed?: Task['isVisualSeed'];
+  isReal?: Task['isReal'];
+  startBubble?: Task['startBubble'];
+};
+
+function syncAgentsFromTasks(agents: Record<string, Agent>, tasks: Record<string, Task>): Record<string, Agent> {
+  const nextAgents: Record<string, Agent> = { ...agents };
+
+  for (const agent of Object.values(nextAgents)) {
+    if (agent.status === 'onboarding' || agent.status === 'fired' || agent.status === 'suspended') continue;
+    const relevantTasks = Object.values(tasks).filter(
+      (task) =>
+        task.assignedAgentIds.includes(agent.id) &&
+        (task.status === 'assigned' || task.status === 'moving' || task.status === 'working' || task.status === 'blocked')
+    );
+
+    if (relevantTasks.length === 0) {
+      nextAgents[agent.id] = {
+        ...agent,
+        status: 'idle',
+        currentTaskId: null,
+        currentTask: null,
+        movementState: 'still',
+      };
+      continue;
+    }
+
+    const priorityTask =
+      relevantTasks.find((task) => task.status === 'blocked') ??
+      relevantTasks.find((task) => task.status === 'moving') ??
+      relevantTasks.find((task) => task.status === 'working') ??
+      relevantTasks[0];
+
+    const derivedStatus =
+      priorityTask.status === 'blocked'
+        ? 'warning'
+        : priorityTask.status === 'moving'
+          ? 'moving'
+          : priorityTask.status === 'working'
+            ? 'working'
+            : 'idle';
+
+    nextAgents[agent.id] = {
+      ...agent,
+      status: derivedStatus,
+      currentTaskId: priorityTask.id,
+      currentTask: priorityTask.title.en,
+      movementState: priorityTask.status === 'moving' ? 'moving' : agent.movementState === 'moving' ? 'arrived' : agent.movementState,
+    };
+  }
+
+  return nextAgents;
+}
+
 // ---------- actions ----------
 
 const TWENTY_FOUR_HOURS_MS = 1000 * 60 * 60 * 24;
@@ -207,8 +273,9 @@ export const actions = {
   hireAgent(candidateId: string): void {
     const candidate = state.hiringQueue[candidateId];
     if (!candidate) return;
-    const room = roomForDepartment(candidate.department);
-    const entry = OFFICE_ROOMS[room].entryPoint;
+    const onboardingRoom: RoomId = 'hr-pod';
+    const onboardingEntry = OFFICE_ROOMS[onboardingRoom].entryPoint;
+    const destinationRoom = roomForDepartment(candidate.department);
     const id = `hired-${candidateId.replace(/^future-/, '')}-${Date.now()}`;
     const now = new Date().toISOString();
     const endsAt = new Date(Date.now() + TWENTY_FOUR_HOURS_MS).toISOString();
@@ -229,8 +296,9 @@ export const actions = {
         accent: '#3da9fc',
         accessory: 'none',
       },
-      position: { ...entry, pose: 'standing', facing: 'south' },
-      currentRoom: room,
+      position: { ...onboardingEntry, x: onboardingEntry.x - 52, y: onboardingEntry.y + 24, pose: 'standing', facing: 'south' },
+      currentRoom: onboardingRoom,
+      targetRoom: destinationRoom,
       movementState: 'still',
       hiredAt: now,
       onboardingStartedAt: now,
@@ -255,8 +323,8 @@ export const actions = {
       },
       voicedBy: 'visual-genesis-core',
       voicedText: {
-        es: `HR, inicia onboarding de ${candidate.name.es}.`,
-        en: `HR, start onboarding for ${candidate.name.en}.`,
+        es: 'Bienvenido a GÃ©nesis. Tu onboarding ha comenzado.',
+        en: 'Welcome to Genesis. Your onboarding has started.',
       },
       isVisualSeed: true,
     });
@@ -290,15 +358,35 @@ export const actions = {
       },
       isVisualSeed: true,
     });
+    next = appendEvent(next, {
+      kind: 'agent.says',
+      severity: 'info',
+      agentId: id,
+      voicedBy: id,
+      voicedText: {
+        es: 'EstarÃ© activo despuÃ©s de mi inducciÃ³n.',
+        en: 'I will be active after onboarding.',
+      },
+      message: {
+        es: `${candidate.name.es} confirmÃ³ que estarÃ¡ activo tras onboarding.`,
+        en: `${candidate.name.en} confirmed it will be active after onboarding.`,
+      },
+      isVisualSeed: true,
+    });
     commit(next);
   },
 
   completeOnboarding(agentId: string): void {
     const a = state.agents[agentId];
     if (!a || a.status !== 'onboarding') return;
+    const destinationRoom = a.targetRoom ?? roomForDepartment(a.department);
+    const destination = OFFICE_ROOMS[destinationRoom].entryPoint;
     const updated: Agent = {
       ...a,
       status: 'idle',
+      currentRoom: destinationRoom,
+      position: { ...destination, pose: 'standing', facing: 'south' },
+      movementState: 'still',
       onboardingEndsAt: undefined,
     };
     let next: GenesisStateShape = {
@@ -353,13 +441,115 @@ export const actions = {
     commit(next);
   },
 
-  createTask(input: Omit<Task, 'id' | 'status' | 'createdAt'>): string {
+  promoteAgent(agentId: string): void {
+    const a = state.agents[agentId];
+    if (!a || a.status === 'fired') return;
+    const ladder: Agent['rank'][] = ['intern', 'junior', 'operator', 'senior', 'lead', 'executive'];
+    const idx = ladder.indexOf(a.rank);
+    if (idx < 0 || idx >= ladder.length - 1) return;
+    const nextRank = ladder[idx + 1];
+    let next: GenesisStateShape = {
+      ...state,
+      agents: { ...state.agents, [agentId]: { ...a, rank: nextRank, status: 'idle' } },
+    };
+    next = appendEvent(next, {
+      kind: 'agent.promoted',
+      severity: 'info',
+      agentId,
+      voicedBy: agentId,
+      voicedText: { es: 'Promovido.', en: 'Promoted.' },
+      message: {
+        es: `${a.name} ascendió a ${nextRank}.`,
+        en: `${a.name} promoted to ${nextRank}.`,
+      },
+      isVisualSeed: false,
+    });
+    commit(next);
+  },
+
+  retrainAgent(agentId: string): void {
+    const a = state.agents[agentId];
+    if (!a || a.status === 'retraining' || a.status === 'fired') return;
+    const taskId = `task-retrain-${agentId}-${Date.now()}`;
+    const task: Task = {
+      id: taskId,
+      title: { es: `Reentrenamiento: ${a.name}`, en: `Retraining: ${a.name}` },
+      description: {
+        es: `Sesión de reentrenamiento para ${a.name}.`,
+        en: `Retraining session for ${a.name}.`,
+      },
+      type: 'agent_training',
+      assignedAgentIds: [agentId],
+      room: 'hr-pod',
+      status: 'queued',
+      priority: 'normal',
+      createdAt: new Date().toISOString(),
+      sourceModule: 'hr',
+      estimatedMs: 1000 * 60 * 10,
+      isSeed: false,
+      isReal: true,
+      isVisualSeed: false,
+    };
+    let next: GenesisStateShape = {
+      ...state,
+      agents: { ...state.agents, [agentId]: { ...a, status: 'retraining' } },
+      tasks: { ...state.tasks, [taskId]: task },
+    };
+    next = appendEvent(next, {
+      kind: 'agent.retraining',
+      severity: 'info',
+      agentId,
+      voicedBy: agentId,
+      voicedText: { es: 'Iniciando reentrenamiento.', en: 'Starting retraining.' },
+      message: {
+        es: `${a.name} entró en reentrenamiento.`,
+        en: `${a.name} entered retraining.`,
+      },
+      isVisualSeed: false,
+    });
+    commit(next);
+  },
+
+  suspendAgent(agentId: string): void {
+    const a = state.agents[agentId];
+    if (!a || a.status === 'suspended' || a.status === 'fired') return;
+    let next: GenesisStateShape = {
+      ...state,
+      agents: { ...state.agents, [agentId]: { ...a, status: 'suspended' } },
+    };
+    next = appendEvent(next, {
+      kind: 'agent.suspended',
+      severity: 'warn',
+      agentId,
+      message: {
+        es: `${a.name} suspendido.`,
+        en: `${a.name} suspended.`,
+      },
+      isVisualSeed: false,
+    });
+    commit(next);
+  },
+
+  createTask(input: TaskCreateInput): string {
     const id = `task-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const task: Task = {
-      ...input,
       id,
+      title: input.title,
+      description: input.description,
+      type: input.type,
+      assignedAgentIds: input.assignedAgentIds ?? [],
+      room: input.room,
       status: 'queued',
+      priority: input.priority,
       createdAt: new Date().toISOString(),
+      sourceModule: input.sourceModule,
+      estimatedMs: input.estimatedMs ?? 1000 * 60 * 5,
+      evidence: input.evidence,
+      output: input.output,
+      isSeed: input.isSeed ?? false,
+      isReal: input.isReal ?? false,
+      isVisualSeed: input.isVisualSeed ?? true,
+      startBubble: input.startBubble,
     };
     let next: GenesisStateShape = { ...state, tasks: { ...state.tasks, [id]: task } };
     next = appendEvent(next, {
@@ -384,42 +574,75 @@ export const actions = {
   assignTask(taskId: string, agentIds: string[]): void {
     const task = state.tasks[taskId];
     if (!task) return;
+    const eligibleAgentIds = agentIds.filter((agentId) => {
+      const agent = state.agents[agentId];
+      if (!agent) return false;
+      if (agent.status === 'onboarding' && task.priority === 'critical') return false;
+      return true;
+    });
     const updated: Task = {
       ...task,
-      assignedAgentIds: agentIds,
+      assignedAgentIds: eligibleAgentIds,
       status: 'assigned',
     };
     // Set agents' target to the task's room
     const updatedAgents: Record<string, Agent> = { ...state.agents };
-    for (const aid of agentIds) {
+    let hasMovement = false;
+    for (const aid of eligibleAgentIds) {
       const a = updatedAgents[aid];
-      if (!a || a.status === 'onboarding') continue;
+      if (!a) continue;
       const target = OFFICE_ROOMS[task.room].entryPoint;
+      const movementState = a.currentRoom === task.room ? 'arrived' : 'moving';
+      hasMovement = hasMovement || movementState === 'moving';
       updatedAgents[aid] = {
         ...a,
         targetRoom: task.room,
         targetPosition: target,
-        movementState: a.currentRoom === task.room ? 'arrived' : 'moving',
-        status: a.currentRoom === task.room ? 'working' : 'moving',
+        movementState,
         currentTaskId: taskId,
-        currentTask: a.role && typeof a.role !== 'string' ? task.title.en : task.title.en,
+        currentTask: task.title.en,
       };
     }
+    const nextTask: Task = { ...updated, status: (hasMovement ? 'moving' : 'assigned') as TaskStatus };
     let next: GenesisStateShape = {
       ...state,
-      tasks: { ...state.tasks, [taskId]: updated },
-      agents: updatedAgents,
+      tasks: { ...state.tasks, [taskId]: nextTask },
+      agents: syncAgentsFromTasks(updatedAgents, { ...state.tasks, [taskId]: nextTask }),
     };
     next = appendEvent(next, {
       kind: 'task.assigned',
       severity: 'info',
       taskId,
+      agentId: eligibleAgentIds[0],
+      voicedBy: eligibleAgentIds[0],
+      voicedText: {
+        es: 'Voy al area asignada.',
+        en: 'Moving to assigned area.',
+      },
       message: {
         es: `Tarea «${task.title.es}» asignada.`,
         en: `Task “${task.title.en}” assigned.`,
       },
       isVisualSeed: true,
     });
+    if (hasMovement && eligibleAgentIds[0]) {
+      next = appendEvent(next, {
+        kind: 'task.moving',
+        severity: 'info',
+        taskId,
+        agentId: eligibleAgentIds[0],
+        voicedBy: eligibleAgentIds[0],
+        voicedText: {
+          es: 'Voy al area asignada.',
+          en: 'Moving to assigned area.',
+        },
+        message: {
+          es: `${state.agents[eligibleAgentIds[0]]?.name ?? 'Agente'} se dirige a ${OFFICE_ROOMS[task.room].label.es}.`,
+          en: `${state.agents[eligibleAgentIds[0]]?.name ?? 'Agent'} is moving to ${OFFICE_ROOMS[task.room].label.en}.`,
+        },
+        isVisualSeed: true,
+      });
+    }
     commit(next);
   },
 
@@ -427,16 +650,9 @@ export const actions = {
     const task = state.tasks[taskId];
     if (!task) return;
     const startedAt = new Date().toISOString();
-    const updated: Task = { ...task, status: 'working', startedAt };
+    const updated: Task = { ...task, status: 'working', startedAt, isReal: true };
     let next: GenesisStateShape = { ...state, tasks: { ...state.tasks, [taskId]: updated } };
-    // mark assigned agents as working
-    const updatedAgents = { ...next.agents };
-    for (const aid of task.assignedAgentIds) {
-      const a = updatedAgents[aid];
-      if (!a) continue;
-      updatedAgents[aid] = { ...a, status: 'working', currentTaskId: taskId };
-    }
-    next = { ...next, agents: updatedAgents };
+    next = { ...next, agents: syncAgentsFromTasks(next.agents, next.tasks) };
     if (task.startBubble) {
       const speaker = task.assignedAgentIds[0];
       next = appendEvent(next, {
@@ -457,6 +673,12 @@ export const actions = {
         kind: 'task.started',
         severity: 'info',
         taskId,
+        agentId: task.assignedAgentIds[0],
+        voicedBy: task.assignedAgentIds[0],
+        voicedText: {
+          es: 'Tarea iniciada.',
+          en: 'Task started.',
+        },
         message: {
           es: `Empezó: ${task.title.es}.`,
           en: `Started: ${task.title.en}.`,
@@ -483,13 +705,10 @@ export const actions = {
       if (!a) continue;
       updatedAgents[aid] = {
         ...a,
-        status: 'idle',
-        currentTaskId: null,
-        currentTask: null,
         learningScore: Math.min(1, a.learningScore + 0.01),
       };
     }
-    next = { ...next, agents: updatedAgents };
+    next = { ...next, agents: syncAgentsFromTasks(updatedAgents, next.tasks) };
     next = appendEvent(next, {
       kind: 'task.completed',
       severity: 'info',
@@ -505,14 +724,105 @@ export const actions = {
       },
       isVisualSeed: true,
     });
+    if (task.type !== 'memory_archive' && next.agents['visual-memory-curator']) {
+      const memoryTaskId = `task-memory-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
+      const memoryTask: Task = {
+        id: memoryTaskId,
+        title: {
+          es: `Archivar aprendizaje: ${task.title.es}`,
+          en: `Archive learning: ${task.title.en}`,
+        },
+        description: {
+          es: `Registrar el aprendizaje generado por ${task.title.es}.`,
+          en: `Record the learning generated by ${task.title.en}.`,
+        },
+        type: 'memory_archive',
+        assignedAgentIds: ['visual-memory-curator'],
+        room: 'memory-archive',
+        status: 'queued',
+        priority: 'normal',
+        createdAt: new Date().toISOString(),
+        sourceModule: 'progress',
+        estimatedMs: 1000 * 60 * 4,
+        evidence: task.output ? [task.output.en] : ['Local task completion'],
+        output: undefined,
+        isSeed: false,
+        isReal: false,
+        isVisualSeed: true,
+        startBubble: {
+          es: 'ArchivarÃ© este aprendizaje.',
+          en: 'I will archive this learning.',
+        },
+      };
+      next = {
+        ...next,
+        tasks: { ...next.tasks, [memoryTaskId]: memoryTask },
+      };
+    }
     commit(next);
+  },
+
+  failTask(taskId: string, reason: { es: string; en: string }): void {
+    const task = state.tasks[taskId];
+    if (!task) return;
+    const updated: Task = {
+      ...task,
+      status: 'failed',
+      blockedReason: reason,
+      completedAt: new Date().toISOString(),
+    };
+    const updatedTasks = { ...state.tasks, [taskId]: updated };
+    const updatedAgents = { ...state.agents };
+    for (const agentId of task.assignedAgentIds) {
+      const agent = updatedAgents[agentId];
+      if (!agent) continue;
+      updatedAgents[agentId] = {
+        ...agent,
+        mistakeCount: (agent.mistakeCount ?? 0) + 1,
+      };
+    }
+    let next: GenesisStateShape = {
+      ...state,
+      tasks: updatedTasks,
+      agents: syncAgentsFromTasks(updatedAgents, updatedTasks),
+    };
+    next = appendEvent(next, {
+      kind: 'task.failed',
+      severity: 'warn',
+      taskId,
+      agentId: task.assignedAgentIds[0],
+      voicedBy: task.assignedAgentIds[0],
+      voicedText: reason,
+      message: {
+        es: `FallÃ³: ${task.title.es}. ${reason.es}`,
+        en: `Failed: ${task.title.en}. ${reason.en}`,
+      },
+      isVisualSeed: true,
+    });
+    commit(next);
+  },
+
+  archiveTask(taskId: string): void {
+    const task = state.tasks[taskId];
+    if (!task) return;
+    const updated: Task = { ...task, status: 'archived' };
+    const updatedTasks = { ...state.tasks, [taskId]: updated };
+    commit({
+      ...state,
+      tasks: updatedTasks,
+      agents: syncAgentsFromTasks(state.agents, updatedTasks),
+    });
   },
 
   blockTask(taskId: string, reason: { es: string; en: string }): void {
     const task = state.tasks[taskId];
     if (!task) return;
     const updated: Task = { ...task, status: 'blocked', blockedReason: reason };
-    let next: GenesisStateShape = { ...state, tasks: { ...state.tasks, [taskId]: updated } };
+    let next: GenesisStateShape = {
+      ...state,
+      tasks: { ...state.tasks, [taskId]: updated },
+      agents: syncAgentsFromTasks(state.agents, { ...state.tasks, [taskId]: updated }),
+    };
     next = appendEvent(next, {
       kind: 'task.blocked',
       severity: 'warn',
@@ -522,6 +832,18 @@ export const actions = {
       message: {
         es: `Bloqueada: ${task.title.es}. ${reason.es}`,
         en: `Blocked: ${task.title.en}. ${reason.en}`,
+      },
+      isVisualSeed: true,
+    });
+    next = appendEvent(next, {
+      kind: 'agent.warning',
+      severity: 'warn',
+      agentId: 'visual-risk-guardian',
+      voicedBy: 'visual-risk-guardian',
+      voicedText: reason,
+      message: {
+        es: `Risk Guardian marcÃ³ una alerta en ${task.title.es}.`,
+        en: `Risk Guardian marked a warning on ${task.title.en}.`,
       },
       isVisualSeed: true,
     });
@@ -615,11 +937,20 @@ export const actions = {
       if (a.status !== 'onboarding') continue;
       if (!a.onboardingEndsAt) continue;
       if (Date.parse(a.onboardingEndsAt) <= now) {
+        const destinationRoom = a.targetRoom ?? roomForDepartment(a.department);
+        const destination = OFFICE_ROOMS[destinationRoom].entryPoint;
         next = {
           ...next,
           agents: {
             ...next.agents,
-            [a.id]: { ...a, status: 'idle', onboardingEndsAt: undefined },
+            [a.id]: {
+              ...a,
+              status: 'idle',
+              currentRoom: destinationRoom,
+              position: { ...destination, pose: 'standing', facing: 'south' },
+              movementState: 'still',
+              onboardingEndsAt: undefined,
+            },
           },
         };
         next = appendEvent(next, {
@@ -657,7 +988,6 @@ export const actions = {
               position: { ...a.position, x: a.targetPosition.x, y: a.targetPosition.y },
               movementState: 'arrived',
               currentRoom: a.targetRoom ?? a.currentRoom,
-              status: a.currentTaskId ? 'working' : 'idle',
             },
           },
         };
@@ -680,21 +1010,15 @@ export const actions = {
 
     // 3) Auto-start assigned tasks where assignee has arrived
     for (const t of Object.values(next.tasks)) {
-      if (t.status !== 'assigned') continue;
+      if (t.status !== 'assigned' && t.status !== 'moving') continue;
       const allHere = t.assignedAgentIds.every((aid) => {
         const a = next.agents[aid];
         return a && a.currentRoom === t.room && a.movementState !== 'moving';
       });
       if (!allHere) continue;
-      const updated: Task = { ...t, status: 'working', startedAt: new Date().toISOString() };
+      const updated: Task = { ...t, status: 'working', startedAt: new Date().toISOString(), isReal: true };
       next = { ...next, tasks: { ...next.tasks, [t.id]: updated } };
-      const updatedAgents = { ...next.agents };
-      for (const aid of t.assignedAgentIds) {
-        const a = updatedAgents[aid];
-        if (!a) continue;
-        updatedAgents[aid] = { ...a, status: 'working', currentTaskId: t.id, currentTask: t.title.en };
-      }
-      next = { ...next, agents: updatedAgents };
+      next = { ...next, agents: syncAgentsFromTasks(next.agents, next.tasks) };
       const speaker = t.assignedAgentIds[0];
       if (t.startBubble) {
         next = appendEvent(next, {
@@ -727,13 +1051,10 @@ export const actions = {
         if (!a) continue;
         updatedAgents[aid] = {
           ...a,
-          status: 'idle',
-          currentTaskId: null,
-          currentTask: null,
           learningScore: Math.min(1, a.learningScore + 0.01),
         };
       }
-      next = { ...next, agents: updatedAgents };
+      next = { ...next, agents: syncAgentsFromTasks(updatedAgents, next.tasks) };
       next = appendEvent(next, {
         kind: 'task.completed',
         severity: 'info',
@@ -750,11 +1071,64 @@ export const actions = {
       dirty = true;
     }
 
-    if (dirty) commit(next);
+    // 5) Evaluate hiring queue unlock conditions
+    const queueBefore = JSON.stringify(next.hiringQueue);
+    next = evaluateHiringQueue(next);
+    if (JSON.stringify(next.hiringQueue) !== queueBefore) dirty = true;
+
+    if (dirty) commit({ ...next, agents: syncAgentsFromTasks(next.agents, next.tasks) });
   },
 };
 
 // ---------- helpers ----------
+
+function evaluateHiringQueue(s: GenesisStateShape): GenesisStateShape {
+  const allTasks = Object.values(s.tasks);
+  const allAgents = Object.values(s.agents);
+  let changed = false;
+  const nextQueue = { ...s.hiringQueue };
+
+  for (const [id, candidate] of Object.entries(nextQueue)) {
+    if (candidate.state !== 'pending') continue;
+    let unlocked = false;
+
+    switch (candidate.unlockCondition) {
+      case 'decisions-5-recorded':
+        unlocked = allTasks.filter((t) => t.type === 'decision_review' && t.status === 'completed').length >= 5;
+        break;
+      case 'learning-level-up': {
+        const scores = allAgents.map((a) => a.learningScore);
+        unlocked = scores.length > 0 && scores.reduce((a, b) => a + b, 0) / scores.length > 0.7;
+        break;
+      }
+      case 'module-unlocked-decisions':
+        unlocked = s.modules['decisions']?.state !== 'locked-backend';
+        break;
+      case 'module-unlocked-markets':
+        unlocked = s.modules['markets']?.state === 'ready';
+        break;
+      case 'tasks-pending-many':
+        unlocked = allTasks.filter((t) => t.status === 'queued' || t.status === 'assigned').length > 3;
+        break;
+      case 'errors-keep-happening':
+        unlocked = allAgents.some((a) => (a.mistakeCount ?? 0) > 2);
+        break;
+      case 'office-needs-upgrade':
+        unlocked = Object.values(s.officeUpgrades).some((u) => u.status === 'requested');
+        break;
+      default:
+        break;
+    }
+
+    if (unlocked) {
+      nextQueue[id] = { ...candidate, state: 'unlockable', unlockedAt: new Date().toISOString() };
+      changed = true;
+    }
+  }
+
+  if (!changed) return s;
+  return { ...s, hiringQueue: nextQueue };
+}
 
 function roomForDepartment(dept: Agent['department']): RoomId {
   switch (dept) {
@@ -777,6 +1151,28 @@ export function useAgents(): Agent[] {
   return Object.values(s.agents);
 }
 
+export function getOnboardingAgents(): Agent[] {
+  return Object.values(state.agents).filter((agent) => agent.status === 'onboarding');
+}
+
+export function useOnboardingAgents(): Agent[] {
+  const s = useGenesisState();
+  return Object.values(s.agents).filter((agent) => agent.status === 'onboarding');
+}
+
+export function getActiveAgents(): Agent[] {
+  return Object.values(state.agents).filter((agent) => agent.status !== 'onboarding');
+}
+
+export function useActiveAgents(): Agent[] {
+  const s = useGenesisState();
+  return Object.values(s.agents).filter((agent) => agent.status !== 'onboarding');
+}
+
+export function getHiringQueue(): HiringCandidate[] {
+  return Object.values(state.hiringQueue);
+}
+
 export function useHiringQueue(): HiringCandidate[] {
   const s = useGenesisState();
   return Object.values(s.hiringQueue);
@@ -790,6 +1186,20 @@ export function useFiredAgents(): Agent[] {
 export function useTasks(): Task[] {
   const s = useGenesisState();
   return Object.values(s.tasks);
+}
+
+export function getActiveTasks(): Task[] {
+  return Object.values(state.tasks).filter((task) =>
+    task.status === 'assigned' || task.status === 'moving' || task.status === 'working' || task.status === 'blocked'
+  );
+}
+
+export function getQueuedTasks(): Task[] {
+  return Object.values(state.tasks).filter((task) => task.status === 'queued');
+}
+
+export function getCompletedTasks(): Task[] {
+  return Object.values(state.tasks).filter((task) => task.status === 'completed');
 }
 
 export function useEvents(): SystemEvent[] {
@@ -842,9 +1252,17 @@ export function useTasksForRoom(room: RoomId): Task[] {
   return useTasks().filter((t) => t.room === room);
 }
 
+export function getTasksByRoom(room: RoomId): Task[] {
+  return Object.values(state.tasks).filter((task) => task.room === room);
+}
+
 // Tasks for one agent
 export function useTasksForAgent(agentId: string): Task[] {
   return useTasks().filter((t) => t.assignedAgentIds.includes(agentId));
+}
+
+export function getTasksByAgent(agentId: string): Task[] {
+  return Object.values(state.tasks).filter((task) => task.assignedAgentIds.includes(agentId));
 }
 
 // Re-export TaskType for convenience

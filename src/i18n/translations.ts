@@ -1,4 +1,4 @@
-// Translation dictionary for Genesis HQ Lab.
+﻿// Translation dictionary for Genesis HQ Lab.
 // Language is one of 'es' (default) or 'en'. Keys are dot-separated paths.
 
 export type Lang = 'es' | 'en';
@@ -6,7 +6,7 @@ export type Lang = 'es' | 'en';
 export const TRANSLATIONS = {
   // ---------------- HEADER ----------------
   'header.title':            { es: 'GÉNESIS HQ',                  en: 'GENESIS HQ' },
-  'header.subtitle':         { es: 'Laboratorio visual — sin datos en vivo', en: 'Visual lab — not live' },
+  'header.subtitle':         { es: 'Sede local · estado persistido', en: 'Local HQ · persisted state' },
   'header.officeStatus':     { es: 'Oficina: en línea',           en: 'Office: online' },
   'header.seedBadge':        { es: 'Datos semilla',                en: 'Seed data' },
   'header.lang.es':          { es: 'ES',                           en: 'ES' },
@@ -14,7 +14,7 @@ export const TRANSLATIONS = {
 
   // ---------------- SIDEBAR / NAV ----------------
   'sidebar.workspace':       { es: 'Workspace',                    en: 'Workspace' },
-  'sidebar.footer':          { es: 'v0.1.0 · laboratorio visual\nbackend: fase 8+', en: 'v0.1.0 · visual lab\nbackend: phase 8+' },
+  'sidebar.footer':          { es: 'v0.1.0 · Génesis local', en: 'v0.1.0 · Genesis local' },
 
   'nav.dashboard':           { es: 'Panel',                        en: 'Dashboard' },
   'nav.hq':                  { es: 'Sede central de Génesis',      en: 'Genesis HQ' },
@@ -43,7 +43,7 @@ export const TRANSLATIONS = {
 
   // ---------------- DASHBOARD ----------------
   'dashboard.title':         { es: 'Panel de Génesis',             en: 'Genesis Dashboard' },
-  'dashboard.intro':         { es: 'Vista general del estado de Génesis. Todas las métricas son datos semilla.', en: 'Overview of Genesis status. All metrics are seed data.' },
+  'dashboard.intro':         { es: 'Vista general del estado de Génesis.', en: 'Overview of Genesis status.' },
   'dashboard.jumpToHQ':      { es: 'Ir a la sede central',         en: 'Open Genesis HQ' },
 
   // ---------------- METRICS ----------------
@@ -58,6 +58,8 @@ export const TRANSLATIONS = {
   'metric.officeUpgrades':   { es: 'Mejoras de oficina',           en: 'Office upgrades' },
   'metric.modulesUnlocked':  { es: 'Módulos desbloqueados',        en: 'Modules unlocked' },
   'metric.hiringQueue':      { es: 'En cola de contratación',      en: 'In hiring queue' },
+  'metric.tasksQueued':      { es: 'Tareas en cola',               en: 'Tasks queued' },
+  'metric.tasksActive':      { es: 'Tareas activas',               en: 'Tasks active' },
 
   // ---------------- HR ----------------
   'hr.title':                { es: 'Génesis HR',                   en: 'Genesis HR' },
@@ -82,7 +84,7 @@ export const TRANSLATIONS = {
   // ---------------- LIVE ACTIVITY FEED ----------------
   'feed.title':              { es: 'Actividad en vivo',            en: 'Live activity' },
   'feed.labBadge':           { es: 'Lab visual',                   en: 'Visual lab' },
-  'feed.footer':             { es: 'Entradas semilla. Logs reales en fase 8+.', en: 'Seeded entries. Real logs in phase 8+.' },
+  'feed.footer':             { es: 'Eventos del sistema en tiempo real.', en: 'Live system events.' },
   'feed.kind.task':          { es: 'tarea',                        en: 'task' },
   'feed.kind.warning':       { es: 'aviso',                        en: 'warning' },
   'feed.kind.hr':            { es: 'hr',                           en: 'hr' },
@@ -104,13 +106,13 @@ export const TRANSLATIONS = {
   'inspector.currentTask':   { es: 'Tarea actual',                 en: 'Current task' },
   'inspector.trust':         { es: 'confianza',                    en: 'trust' },
   'inspector.learning':      { es: 'aprendizaje',                  en: 'learning' },
-  'inspector.actionsTitle':  { es: 'Acciones visual-only',         en: 'Visual-only actions' },
+  'inspector.actionsTitle':  { es: 'Acciones',                     en: 'Actions' },
   'inspector.actionAssign':  { es: 'Asignar tarea',                en: 'Assign task' },
   'inspector.actionPromote': { es: 'Promover',                     en: 'Promote' },
   'inspector.actionRetrain': { es: 'Reentrenar',                   en: 'Retrain' },
   'inspector.actionSuspend': { es: 'Suspender',                    en: 'Suspend' },
   'inspector.actionFire':    { es: 'Despedir',                     en: 'Fire' },
-  'inspector.note':          { es: 'Estos botones aún no tocan backend. Conectados en fase 11+.', en: 'These buttons don’t touch a backend yet. Wired in phase 11+.' },
+  'inspector.note':          { es: "", en: "" },
 
   // ---------------- AGENT STATUSES ----------------
   'status.idle':             { es: 'inactivo',                     en: 'idle' },
@@ -138,13 +140,13 @@ export const TRANSLATIONS = {
   'hiring.hireButton':       { es: 'Contratar',                    en: 'Hire' },
   'hiring.onboardingIn':     { es: 'Onboarding termina en',        en: 'Onboarding ends in' },
   'hiring.onboardingNow':    { es: 'Onboarding listo.',            en: 'Onboarding ready.' },
-  'hiring.completeNow':      { es: 'Completar onboarding (dev)',   en: 'Complete onboarding (dev)' },
+  'hiring.completeNow':      { es: 'Control lab · completar onboarding',   en: 'Lab control · complete onboarding' },
   'hiring.queueEmpty':       { es: 'Sin candidatos pendientes.',   en: 'No pending candidates.' },
 
   'onboarding.title':        { es: 'Onboarding en curso',          en: 'Onboarding in progress' },
   'onboarding.empty':        { es: 'Ningún agente está en onboarding.', en: 'No agent is currently onboarding.' },
   'onboarding.duration':     { es: 'Duración: 24 horas',           en: 'Duration: 24 hours' },
-  'onboarding.hint':         { es: 'Los agentes nuevos no toman tareas críticas durante el onboarding.', en: 'New agents don’t take critical tasks during onboarding.' },
+    'onboarding.hint':         { es: 'Los agentes nuevos no toman tareas críticas durante el onboarding.', en: 'New agents do not take critical tasks during onboarding.' },
 
   'dashboard.realtime':      { es: 'Estado vivo de Génesis (datos locales persistentes).', en: 'Live Genesis state (locally persisted).' },
   'dashboard.section.activity': { es: 'Actividad reciente',        en: 'Recent activity' },
@@ -189,6 +191,8 @@ export const TRANSLATIONS = {
   'settings.devMode.desc':   { es: 'Permite atajos como completar onboarding al instante.', en: 'Enables shortcuts like instant onboarding completion.' },
   'settings.reset':          { es: 'Reiniciar estado',             en: 'Reset state' },
   'settings.reset.confirm':  { es: '¿Borrar el estado guardado y reiniciar Génesis?', en: 'Erase saved state and reset Genesis?' },
+  'onboarding.startedAt':    { es: 'Iniciado',                     en: 'Started at' },
+  'onboarding.endsAt':       { es: 'Finaliza',                     en: 'Ends at' },
 } as const;
 
 export type TKey = keyof typeof TRANSLATIONS;

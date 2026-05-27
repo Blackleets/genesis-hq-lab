@@ -8,6 +8,74 @@ at the top. Use one block per session. Be honest about failures.
 ## 2026-05-27 - Codex
 
 - **Branch:** `feat/genesis-life-os`
+- **Summary:** Upgraded the Markets screen into an operational console: live Polymarket board on the left, real agent execution rail on the right, auto-refresh every 30 seconds, queued task visibility, and recent execution events from the store.
+- **Files touched:** `src/components/MarketsView.tsx`, `docs/CHANGELOG_AI.md`
+- **Verification:** `npm run typecheck` ok. `npm run build` ok.
+
+## 2026-05-27 - Codex
+
+- **Branch:** `feat/genesis-life-os`
+- **Summary:** Added a minimal local read-only backend for Polymarket and replaced the `markets` placeholder with a real Markets screen backed by normalized Gamma API data. No trading, no wallet flow, no fake data.
+- **Files touched:** `package.json`, `server/index.mjs`, `server/polymarket.mjs`, `src/components/MarketsView.tsx`, `src/lib/marketsClient.ts`, `src/App.tsx`, `src/data/moduleRegistry.ts`, `docs/CHANGELOG_AI.md`
+- **Verification:** `npm run typecheck` ok. `npm run build` ok. Backend smoke-tested on `http://127.0.0.1:8787/api/health` and `http://127.0.0.1:8787/api/polymarket/events?limit=2`.
+
+## 2026-05-27 - Codex
+
+- **Branch:** `feat/genesis-life-os`
+- **Summary:** Added a real local life loop to the Genesis HQ canvas renderer. The office now updates through `requestAnimationFrame`, agents animate and move between room workstations from real task/store state, onboarding agents stay active in HR, fired agents render in a fired archive, and event-driven speech bubbles appear temporarily over the correct agents without changing backend or product logic.
+- **Files touched:** `src/components/PixelOfficeCanvas.tsx`, `src/lib/pixelCanvasRenderer.ts`, `src/lib/pixelLifeLoop.ts`, `src/lib/agentMovement.ts`, `src/lib/conversationEngine.ts`, `src/data/officeWorkstations.ts`, `src/state/genesisStore.ts`, `docs/CHANGELOG_AI.md`
+- **Verification:** `npm run typecheck` ok. `npm run build` ok. Preview checked locally on `http://127.0.0.1:4173/`.
+
+---
+
+## 2026-05-27 - Codex
+
+- **Branch:** `feat/genesis-life-os`
+- **Summary:** Replaced the Genesis HQ center map with a new canvas-based pixel office renderer and kept the old SVG world as legacy fallback. The new renderer uses a fixed low-resolution canvas, integer-grid furniture and agent placement, sprite registry + office map data, store-driven agents, hitboxes for hover/click selection, and no internal canvas scroll.
+- **Files touched:** `src/App.tsx`, `src/components/PixelOfficeCanvas.tsx`, `src/components/PixelOfficeViewport.tsx`, `src/lib/pixelCanvasRenderer.ts`, `src/data/pixelOfficeMap.ts`, `src/data/pixelSpriteMap.ts`, `docs/CHANGELOG_AI.md`
+- **Verification:** `npm run typecheck` ok. `npm run build` ok. Preview checked locally on `http://127.0.0.1:4173/`.
+
+---
+
+## 2026-05-27 - Codex
+
+- **Branch:** `feat/genesis-life-os`
+- **Summary:** Polished Genesis HQ fit-to-screen and office composition without touching live logic. The viewport now scales a fixed office world into the available space with no internal map scroll, tabs no longer force horizontal overflow, side panels are slimmer, and the office scene uses tighter sprite proportions and softer zone separation for a more coherent pixel-office look.
+- **Files touched:** `src/components/OfficeViewport.tsx`, `src/components/GenesisOfficeWorld.tsx`, `src/components/AgentSprite.tsx`, `src/components/PixelSprite.tsx`, `src/App.tsx`, `src/components/LiveActivityFeed.tsx`, `src/components/GenesisSidebar.tsx`, `docs/CHANGELOG_AI.md`
+- **Verification:** `npm run typecheck` ok. `npm run build` ok. Preview checked locally on `http://127.0.0.1:4173/` with no internal horizontal map scroll detected.
+
+---
+
+## 2026-05-27 - Codex
+
+- **Branch:** `feat/genesis-life-os`
+- **Summary:** Integrated the `free-office-pixel-art` pack into Genesis HQ without changing store logic. The office world now uses real pixel sprites for core furniture and agents, keeps the existing one-screen layout, and documents the asset credits and extraction path for the lab.
+- **Files touched:** `docs/ASSET_CREDITS.md`, `src/assets/officePixelAssets.ts`, `src/components/PixelSprite.tsx`, `src/components/AgentSprite.tsx`, `src/components/GenesisOfficeWorld.tsx`, `docs/CHANGELOG_AI.md`
+- **Verification:** `npm run typecheck` ok. `npm run build` ok.
+
+---
+
+## 2026-05-27 - Codex
+
+- **Branch:** `feat/genesis-life-os`
+- **Summary:** Implemented the local Task Engine phase. Tasks now have the requested local model fields, the store exposes create/assign/start/complete/fail/archive and task selectors, agent status derives from task state, failures can increment `mistakeCount`, and completed tasks spawn a local memory-archive follow-up for `Memory Curator`.
+- **Files touched:** `src/types/task.ts`, `src/types/genesis.ts`, `src/data/initialTasks.ts`, `src/state/genesisStore.ts`, `src/components/MetricsPanel.tsx`, `docs/CHANGELOG_AI.md`
+- **Verification:** `npm run typecheck` ok. `npm run build` ok.
+
+---
+
+## 2026-05-27 - Codex
+
+- **Branch:** `feat/genesis-life-os`
+- **Summary:** Implemented the local Hiring Queue + 24h onboarding flow without backend changes. Hiring now creates a real onboarding agent in `hr-pod`, removes the candidate from the queue, blocks critical task assignment during onboarding, shows onboarding timing controls in Genesis HR, and keeps feed events for hired / onboarding started / onboarding completed.
+- **Files touched:** `src/state/genesisStore.ts`, `src/components/OnboardingPanel.tsx`, `src/App.tsx`, `src/i18n/translations.ts`, `docs/CHANGELOG_AI.md`
+- **Verification:** `npm run typecheck` ok. `npm run build` ok.
+
+---
+
+## 2026-05-27 - Codex
+
+- **Branch:** `feat/genesis-life-os`
 - **Summary:** Centralized the local Genesis UI state in the persistent store. The language store now delegates to `genesisStore`, the app restores language/module/agent selection from one source of truth, metrics now read live store data instead of seeds, and fresh boots still start with only the 5 active agents plus the requested 8-item hiring queue.
 - **Files touched:** `src/state/persistence.ts`, `src/state/genesisStore.ts`, `src/data/futureAgents.ts`, `src/i18n/languageStore.ts`, `src/components/MetricsPanel.tsx`, `src/App.tsx`, `docs/CHANGELOG_AI.md`
 - **Verification:** `npm run typecheck` ok. `npm run build` ok.

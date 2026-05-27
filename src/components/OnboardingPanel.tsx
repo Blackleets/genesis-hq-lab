@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { useLanguage, useT } from '../i18n/languageStore';
-import { actions, useAgents, useDevMode } from '../state/genesisStore';
+import { actions, useOnboardingAgents } from '../state/genesisStore';
 import { pickRole } from '../lib/agentHelpers';
 
 function formatRemaining(endsAt: string, now: number, lang: 'es' | 'en'): string {
@@ -20,8 +20,7 @@ function formatRemaining(endsAt: string, now: number, lang: 'es' | 'en'): string
 export default function OnboardingPanel() {
   const t = useT();
   const lang = useLanguage();
-  const agents = useAgents().filter((a) => a.status === 'onboarding');
-  const devMode = useDevMode();
+  const agents = useOnboardingAgents();
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -59,15 +58,17 @@ export default function OnboardingPanel() {
                     </span>
                   )}
                 </div>
-                {devMode && (
-                  <button
-                    type="button"
-                    onClick={() => actions.completeOnboarding(a.id)}
-                    className="mt-2 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 border border-emerald-400/60 text-emerald-300 bg-carbon-300 hover:bg-emerald-400/10"
-                  >
-                    {t('hiring.completeNow')}
-                  </button>
-                )}
+                <div className="mt-2 space-y-1 font-mono text-[10px] text-zinc-500">
+                  <div>{t('onboarding.startedAt')}: {a.onboardingStartedAt ?? '—'}</div>
+                  <div>{t('onboarding.endsAt')}: {a.onboardingEndsAt ?? '—'}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => actions.completeOnboarding(a.id)}
+                  className="mt-3 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 border border-emerald-400/60 text-emerald-300 bg-carbon-300 hover:bg-emerald-400/10"
+                >
+                  {t('hiring.completeNow')}
+                </button>
               </li>
             );
           })}

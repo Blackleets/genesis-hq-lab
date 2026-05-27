@@ -44,9 +44,11 @@ export default function MetricsPanel() {
       <Card label={t('metric.activeAgents')}    value={String(progress.activeAgents)} color="#00ff9c" />
       <Card label={t('metric.hiringQueue')}     value={String(progress.hiringQueue)} color="#7c5cff" />
       <Card label={t('metric.modulesUnlocked')} value={`${progress.modulesUnlocked} / ${modules.length}`} color="#3da9fc" />
+      <Card label={t('metric.tasksQueued')}      value={String(progress.tasksQueued)} color="#9ca3af" />
+      <Card label={t('metric.tasksActive')}      value={String(progress.tasksActive)} color="#3da9fc" />
+      <Card label={t('metric.tasksCompleted')}  value={String(progress.tasksCompleted)} color="#00ff9c" />
       <Bar  label={t('metric.learningLevel')}   value={progress.learningLevel} color="#22d3ee" />
       <Bar  label={t('metric.companyHealth')}   value={progress.companyHealth} color="#00ff9c" />
-      <Card label={t('metric.tasksCompleted')}  value={String(progress.tasksCompleted)} color="#3da9fc" />
       <Card label={t('metric.officeUpgrades')}  value={String(progress.officeUpgradesCompleted)} color="#ffb547" />
       <Card label={t('metric.agentsHired')}     value={String(hiredAgents)} color="#22d3ee" />
       <Card label={t('metric.agentsFired')}     value={String(progress.firedAgents)} color="#ff4757" />

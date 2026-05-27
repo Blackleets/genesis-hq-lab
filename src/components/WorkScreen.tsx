@@ -5,7 +5,7 @@
 
 import { useLanguage, useT } from '../i18n/languageStore';
 import { OFFICE_ROOMS } from '../data/officeRooms';
-import { useAgents, useTasksForRoom } from '../state/genesisStore';
+import { useAgents, useModuleById, useTasksForRoom } from '../state/genesisStore';
 import type { RoomId } from '../types/office';
 import { pickRole } from '../lib/agentHelpers';
 import type { TaskStatus } from '../types/task';
@@ -41,6 +41,8 @@ export default function WorkScreen({ room, onClose }: Props) {
 
   const isExec = room === 'execution-desk';
   const isMarket = room === 'market-desk';
+  const decisionsModule = useModuleById('decisions');
+  const isExecLocked = isExec && decisionsModule?.state === 'locked-backend';
 
   return (
     <main className="flex-1 min-w-0 min-h-0 overflow-y-auto px-8 py-8 bg-carbon-300">
@@ -61,7 +63,7 @@ export default function WorkScreen({ room, onClose }: Props) {
           </button>
         </header>
 
-        {isExec && (
+        {isExecLocked && (
           <div className="border border-red-400/40 bg-red-500/10 px-4 py-3 font-mono text-[12px] text-red-200">
             {t('work.execLocked')}
           </div>
