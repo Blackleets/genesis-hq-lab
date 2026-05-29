@@ -8,6 +8,8 @@ import { getRiskMetrics } from './trading/riskManager.mjs';
 import { getRecentDebates } from './trading/debateRoom.mjs';
 import { getLeaderboard } from './memory/agentScoring.mjs';
 import { getVetoStats } from './memory/mistakePrevention.mjs';
+import { executeCommand, getCommandHistory } from './command/commandExecutor.mjs';
+import { getOrgState, getStatusSummary } from './command/orgState.mjs';
 
 const HOST = process.env.HOST || '127.0.0.1';
 const PORT = Number(process.env.PORT || 8787);
@@ -178,6 +180,7 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // Legacy order endpoint (kept for backwards compat)
   if (url.pathname === '/api/agent/order' && req.method === 'POST') {
     let body = '';
     req.on('data', c => body += c);
@@ -189,6 +192,39 @@ const server = createServer(async (req, res) => {
         sendJson(res, 200, { ok: true, message: 'Order received. Agents will reorganize.' });
       } catch (e) { sendJson(res, 400, { ok: false, error: e.message }); }
     });
+    return;
+  }
+
+  // ── Command system — natural language founder control ─────────────────────────
+
+  if (url.pathname === '/api/command' && req.method === 'POST') {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', async () => {
+      try {
+        const { command } = JSON.parse(body);
+        if (!command?.trim()) { sendJson(res, 400, { ok: false, error: 'command required' }); return; }
+        const result = await executeCommand(command);
+        sendJson(res, 200, { ok: true, ...result });
+      } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    });
+    return;
+  }
+
+  if (url.pathname === '/api/command/history') {
+    try {
+      const history = getCommandHistory(30);
+      sendJson(res, 200, { ok: true, history });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  if (url.pathname === '/api/command/status') {
+    try {
+      const state   = getOrgState();
+      const summary = getStatusSummary();
+      sendJson(res, 200, { ok: true, state, summary });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;
   }
 

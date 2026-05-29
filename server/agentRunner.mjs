@@ -15,10 +15,11 @@
 //   7. Log status to console + write to data/memory/
 
 import { generateMarketingContent } from './decisionEngine.mjs';
-import { getCapital, getOpenTrades, getSnapshot, getRecentLessons } from './memoryStore.mjs';
+import { getCapital, getSnapshot, getRecentLessons } from './memoryStore.mjs';
 import { runTradingCycle, runLearningCycle } from './trading/workflow.mjs';
 import { getTreasury } from './trading/treasury.mjs';
 import { getDashboardMetrics } from './trading/analytics.mjs';
+import { getOrgState, processExpiredSchedules, getRiskSettings, isDeptActive } from './command/orgState.mjs';
 
 const INTERVAL_MS   = 5 * 60 * 1000;  // 5 minutes
 const AGENT_ID      = 'market-agent-1';
@@ -36,13 +37,38 @@ async function tick() {
   console.log(`[agentRunner] TICK #${tickCount} — ${new Date().toLocaleTimeString()}`);
 
   try {
+    // ── Step 0: Read org-state and obey founder orders ──
+    processExpiredSchedules();
+    const orgState = getOrgState();
+
+    if (orgState.mode === 'rest') {
+      console.log('[agentRunner] 💤 REST mode — all agents paused by founder order');
+      return summarize(start);
+    }
+
+    if (orgState.mode === 'emergency') {
+      console.log('[agentRunner] 🚨 EMERGENCY mode — only sentinel active');
+      return summarize(start);
+    }
+
+    if (VERBOSE) {
+      console.log(`[agentRunner] Mode: ${orgState.mode} | Risk: ${orgState.riskTolerance}`);
+      if (orgState.focus) console.log(`[agentRunner] Focus: ${orgState.focus.topic}`);
+      if (orgState.goal) console.log(`[agentRunner] Goal: ${orgState.goal.description}`);
+    }
+
     // ── Learning cycle first (close resolved trades, generate lessons) ──
     const learning = await runLearningCycle();
     if (learning.closed > 0) {
       console.log(`[agentRunner] Learning: ${learning.closed} trades closed, ${learning.learned} lessons generated`);
     }
 
-    // ── Trading cycle (scan → qualify → debate → size → execute) ──
+    // ── Trading cycle — only if dept is active ──
+    if (!isDeptActive('prediction_markets')) {
+      console.log('[agentRunner] Prediction markets paused by founder order');
+      return summarize(start);
+    }
+
     const trading = await runTradingCycle();
     console.log(`[agentRunner] Cycle: scanned=${trading.scanned} qualified=${trading.qualified} vetoed=${trading.vetoed} debated=${trading.debated} executed=${trading.executed}`);
 
