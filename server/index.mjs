@@ -1,13 +1,14 @@
 import { createServer } from 'node:http';
 import { fetchPolymarketEventsSnapshot, fetchPolymarketHealth } from './polymarket.mjs';
 import { generateClaudePlan } from './claudePlanner.mjs';
+import { getSnapshot, getCapital, getTrades, getLessons, getAgentStats, addHumanOrder } from './memoryStore.mjs';
 
 const HOST = process.env.HOST || '127.0.0.1';
 const PORT = Number(process.env.PORT || 8787);
 
 function applyCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
 
@@ -73,6 +74,56 @@ const server = createServer(async (req, res) => {
       ok: false,
       error: 'method_not_allowed',
       message: 'Only GET is allowed',
+    });
+    return;
+  }
+
+  // ── Agent memory endpoints ──────────────────────────────────────────────────
+
+  if (url.pathname === '/api/agent/status') {
+    try {
+      const snapshot = await getSnapshot();
+      sendJson(res, 200, { ok: true, ...snapshot });
+    } catch {
+      sendJson(res, 200, { ok: true, capital: { total: 10000, available: 10000 }, trades: { open: 0, closed: 0, all: [] }, lessons: [], agentStats: {}, performance: { totalTrades: 0, winRate: 0, totalPnL: 0 } });
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/agent/trades') {
+    try {
+      const trades = await getTrades();
+      sendJson(res, 200, { ok: true, trades: trades.slice(-50) });
+    } catch { sendJson(res, 200, { ok: true, trades: [] }); }
+    return;
+  }
+
+  if (url.pathname === '/api/agent/lessons') {
+    try {
+      const lessons = await getLessons();
+      sendJson(res, 200, { ok: true, lessons: lessons.slice(-20) });
+    } catch { sendJson(res, 200, { ok: true, lessons: [] }); }
+    return;
+  }
+
+  if (url.pathname === '/api/agent/stats') {
+    try {
+      const stats = await getAgentStats();
+      sendJson(res, 200, { ok: true, stats });
+    } catch { sendJson(res, 200, { ok: true, stats: {} }); }
+    return;
+  }
+
+  if (url.pathname === '/api/agent/order' && req.method === 'POST') {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', async () => {
+      try {
+        const { order, priority = 'high' } = JSON.parse(body);
+        if (!order?.trim()) { sendJson(res, 400, { ok: false, error: 'order required' }); return; }
+        await addHumanOrder({ order, priority, source: 'human' });
+        sendJson(res, 200, { ok: true, message: 'Order received. Agents will reorganize.' });
+      } catch (e) { sendJson(res, 400, { ok: false, error: e.message }); }
     });
     return;
   }
