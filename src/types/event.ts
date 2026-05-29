@@ -11,11 +11,14 @@ export type EventKind =
   | 'agent.suspended'
   | 'agent.retraining'
   | 'agent.warning'
+  | 'agent.moving'
+  | 'agent.arrived'
   | 'agent.says'           // pure voice line (no business event)
   | 'task.created'
   | 'task.assigned'
   | 'task.moving'
   | 'task.started'
+  | 'task.progress'
   | 'task.blocked'
   | 'task.completed'
   | 'task.failed'
@@ -23,7 +26,15 @@ export type EventKind =
   | 'office.upgrade.in_progress'
   | 'office.upgrade.completed'
   | 'module.unlocked'
-  | 'language.changed';
+  | 'language.changed'
+  | 'trade.opened'
+  | 'trade.closed'
+  | 'trade.profit'
+  | 'trade.loss'
+  | 'agent.mentoring'
+  | 'agent.auto_fired'
+  | 'agent.auto_suspended'
+  | 'agent.self_trained';
 
 export type EventSeverity = 'info' | 'warn' | 'critical';
 

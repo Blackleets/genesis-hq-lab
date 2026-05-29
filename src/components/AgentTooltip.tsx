@@ -35,7 +35,7 @@ export default function AgentTooltip({ agent, x, y }: Props) {
         {agent.currentTask && (
           <div className="text-zinc-500 max-w-[260px] mt-1">
             <span className="uppercase tracking-wider text-zinc-600">{t('inspector.currentTask')}</span>{' '}
-            <span className="text-zinc-300">{agent.currentTask}</span>
+            <span className="text-zinc-300">{agent.currentTask[lang]}</span>
           </div>
         )}
       </div>

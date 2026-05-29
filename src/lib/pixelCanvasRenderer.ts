@@ -3,6 +3,7 @@ import { pixelSpriteMap } from '../data/pixelSpriteMap';
 import type { ActiveBubble } from './conversationEngine';
 import type { VisualAgentState } from './agentMovement';
 import type { Agent } from '../types/genesis';
+import type { Lang } from '../i18n/translations';
 
 export interface PixelOfficeHitbox {
   kind: 'agent' | 'room';
@@ -126,19 +127,33 @@ export function drawPixelOfficeScene(
   renderAgents: PixelRenderAgent[],
   bubbles: ActiveBubble[],
   hoveredAgentId: string | null,
+  lang: Lang = 'en',
+  taskProgressMap: Record<string, number> = {},
+  devMode: boolean = false,
+  blockedRoomIds: Set<string> = new Set(),
 ) {
   ctx.clearRect(0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT);
   ctx.imageSmoothingEnabled = false;
 
   drawFloor(ctx);
   drawRugs(ctx);
+  drawTaskAlertGlow(ctx, blockedRoomIds);
   drawWalls(ctx);
   drawFurniture(ctx, sprites);
+  // Room labels are static chrome → draw before agents so bubbles sit on top.
+  drawLabels(ctx, lang);
+  drawRoomOccupancyBadges(ctx, renderAgents);
   const hitboxes = drawAgents(ctx, sprites, renderAgents);
-  drawSpeechBubbles(ctx, renderAgents, bubbles);
   drawSelectionHighlights(ctx, renderAgents, hoveredAgentId);
   drawIndicators(ctx, renderAgents);
-  drawLabels(ctx);
+  drawTaskProgressArcs(ctx, renderAgents, taskProgressMap);
+  drawAgentLabels(ctx, renderAgents);
+  drawAgentWorkPanels(ctx, renderAgents, taskProgressMap);
+  // Speech bubbles are dynamic → always render on top of everything.
+  drawSpeechBubbles(ctx, renderAgents, bubbles);
+  if (devMode) drawDevModeOverlays(ctx, renderAgents);
+  drawClock(ctx);
+  drawMinimap(ctx, renderAgents);
 
   hitboxes.push(...PIXEL_ZONES.map((zone) => ({
     kind: 'room' as const,
@@ -150,6 +165,45 @@ export function drawPixelOfficeScene(
   })));
 
   return hitboxes;
+}
+
+function drawTaskProgressArcs(
+  ctx: CanvasRenderingContext2D,
+  agents: PixelRenderAgent[],
+  taskProgressMap: Record<string, number>,
+) {
+  for (const renderAgent of agents) {
+    const pct = taskProgressMap[renderAgent.agent.id];
+    if (renderAgent.visual.animation !== 'work' || !pct || pct <= 0) continue;
+    ctx.save();
+    ctx.globalAlpha = 0.6;
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    const cx = renderAgent.visual.x + 10;
+    const cy = renderAgent.visual.y - 22;
+    const startAngle = -Math.PI / 2;
+    const endAngle = startAngle + 2 * Math.PI * Math.min(pct, 1);
+    ctx.arc(cx, cy, 6, startAngle, endAngle, false);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawDevModeOverlays(
+  ctx: CanvasRenderingContext2D,
+  agents: PixelRenderAgent[],
+) {
+  ctx.save();
+  ctx.font = '7px monospace';
+  ctx.fillStyle = '#00ff9c';
+  ctx.globalAlpha = 0.85;
+  for (const renderAgent of agents) {
+    const name = renderAgent.agent.name;
+    const short = name.length > 10 ? name.slice(0, 9) + '…' : name;
+    ctx.fillText(short, renderAgent.visual.x - 14, renderAgent.visual.y - 28);
+  }
+  ctx.restore();
 }
 
 function drawFloor(ctx: CanvasRenderingContext2D) {
@@ -262,27 +316,177 @@ function drawAgents(
   return hitboxes;
 }
 
+// Map room IDs to 2-letter codes shown in the work panel
+const ROOM_CODE: Record<string, string> = {
+  'market-desk':    'MK',
+  'risk-bunker':    'RK',
+  'memory-archive': 'MA',
+  'hr-pod':         'HR',
+  'board-room':     'BD',
+  'debate-room':    'DB',
+  'strategy-lab':   'ST',
+  'execution-desk': 'EX',
+  'open-workspace': 'WS',
+};
+
+function drawAgentLabels(ctx: CanvasRenderingContext2D, agents: PixelRenderAgent[]) {
+  ctx.save();
+  ctx.font = '7px monospace';
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'center';
+
+  for (const ra of agents) {
+    if (ra.visual.animation === 'fired') continue;
+
+    const firstName = ra.agent.name.split(' ')[0].slice(0, 9);
+    const textW = Math.round(firstName.length * 4.0) + 2;
+    const lx = ra.visual.x;
+    const ly = ra.visual.y + 9;
+
+    // Dark backing for readability
+    ctx.globalAlpha = 0.65;
+    ctx.fillStyle = '#0d1016';
+    ctx.fillRect(lx - textW / 2 - 3, ly - 7, textW + 6, 9);
+    ctx.globalAlpha = 1;
+
+    // Status dot (4×4) to the left of the name
+    ctx.fillStyle = statusColor(ra.visual.animation);
+    ctx.fillRect(lx - textW / 2 - 2, ly - 5, 3, 3);
+
+    // Name text
+    const isActive = ra.visual.animation === 'work' || ra.visual.animation === 'talk';
+    ctx.fillStyle = isActive ? '#e4e4e7' : '#71717a';
+    ctx.fillText(firstName, lx + 1, ly);
+  }
+
+  ctx.textAlign = 'left';
+  ctx.restore();
+}
+
+function drawAgentWorkPanels(
+  ctx: CanvasRenderingContext2D,
+  agents: PixelRenderAgent[],
+  taskProgressMap: Record<string, number>,
+) {
+  ctx.save();
+  const PW = 56; // panel width
+  const PH = 18; // panel height
+
+  for (const ra of agents) {
+    if (ra.visual.animation !== 'work' && ra.visual.animation !== 'talk') continue;
+
+    const px = Math.max(2, Math.min(PIXEL_CANVAS_WIDTH - PW - 2, ra.visual.x - PW / 2));
+    const py = Math.max(2, ra.visual.y - 54);
+
+    // Panel background
+    ctx.globalAlpha = 0.88;
+    ctx.fillStyle = '#0f1420';
+    ctx.fillRect(px, py, PW, PH);
+    ctx.globalAlpha = 1;
+
+    // Accent border (blue/green depending on state)
+    ctx.strokeStyle = ra.visual.animation === 'work' ? '#00ff9c66' : '#3da9fc66';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(px + 0.5, py + 0.5, PW - 1, PH - 1);
+
+    // Room code badge
+    const code = ROOM_CODE[ra.agent.currentRoom ?? ''] ?? '??';
+    ctx.font = '6px monospace';
+    ctx.fillStyle = ra.visual.animation === 'work' ? '#00ff9c' : '#3da9fc';
+    ctx.fillText(code, px + 3, py + 8);
+
+    // Progress bar or pulsing dots
+    const pct = taskProgressMap[ra.agent.id];
+    const barX = px + 17;
+    const barY = py + 4;
+    const barW = PW - 20;
+
+    ctx.fillStyle = '#1e2535';
+    ctx.fillRect(barX, barY, barW, 5);
+
+    if (pct !== undefined && pct > 0) {
+      ctx.fillStyle = '#00ff9c';
+      ctx.fillRect(barX, barY, Math.round(barW * Math.min(pct, 1)), 5);
+    } else {
+      // Pulsing dots when no progress data — alternate with frameIndex
+      const dotColor = ra.visual.frameIndex === 0 ? '#3da9fc' : '#1e4a6e';
+      for (let i = 0; i < 3; i++) {
+        ctx.fillStyle = i === ra.visual.frameIndex ? '#3da9fc' : dotColor;
+        ctx.fillRect(barX + i * 7 + 2, barY + 1, 3, 3);
+      }
+    }
+
+    // Task percentage text
+    if (pct !== undefined && pct > 0) {
+      ctx.font = '5px monospace';
+      ctx.fillStyle = '#6b7280';
+      ctx.fillText(`${Math.round(pct * 100)}%`, px + 3, py + 17);
+    }
+  }
+
+  ctx.restore();
+}
+
+const BUBBLE_CHAR_PX = 4.4;   // approx width of one 8px-monospace glyph
+const BUBBLE_MAX_WIDTH = 132; // px — caps how wide a bubble can grow
+const BUBBLE_MAX_VISIBLE = 4; // only the freshest N bubbles render at once
+
+function truncateToWidth(text: string, maxWidth: number): string {
+  const maxChars = Math.floor((maxWidth - 12) / BUBBLE_CHAR_PX);
+  if (text.length <= maxChars) return text;
+  if (maxChars <= 1) return '…';
+  return text.slice(0, maxChars - 1).trimEnd() + '…';
+}
+
 function drawSpeechBubbles(
   ctx: CanvasRenderingContext2D,
   agents: PixelRenderAgent[],
   bubbles: ActiveBubble[],
 ) {
-  for (const bubble of bubbles) {
+  // Show only the freshest few bubbles so the floor never fills with text.
+  const visible = [...bubbles]
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, BUBBLE_MAX_VISIBLE);
+
+  // Track occupied label/bubble bands to avoid stacking text on the same row.
+  const occupied: Array<{ x: number; y: number; w: number; h: number }> = [];
+
+  for (const bubble of visible) {
     const agent = agents.find((entry) => entry.agent.id === bubble.agentId);
     if (!agent) continue;
 
-    const text = bubble.text;
-    const bubbleWidth = Math.min(104, Math.max(52, text.length * 4 + 12));
-    const bubbleX = Math.max(8, Math.min(PIXEL_CANVAS_WIDTH - bubbleWidth - 8, agent.visual.x - bubbleWidth / 2));
-    const bubbleY = Math.max(8, agent.visual.y - 40);
+    const text = truncateToWidth(bubble.text, BUBBLE_MAX_WIDTH);
+    const bubbleWidth = Math.min(BUBBLE_MAX_WIDTH, Math.max(48, Math.round(text.length * BUBBLE_CHAR_PX) + 12));
+    const bubbleX = Math.max(6, Math.min(PIXEL_CANVAS_WIDTH - bubbleWidth - 6, agent.visual.x - bubbleWidth / 2));
+    let bubbleY = Math.max(6, agent.visual.y - 42);
 
+    // Nudge bubble up if it collides with an already-placed bubble.
+    for (let guard = 0; guard < 4; guard++) {
+      const clash = occupied.some(
+        (o) => bubbleY < o.y + o.h && bubbleY + 16 > o.y && bubbleX < o.x + o.w && bubbleX + bubbleWidth > o.x,
+      );
+      if (!clash) break;
+      bubbleY = Math.max(4, bubbleY - 18);
+    }
+    occupied.push({ x: bubbleX, y: bubbleY, w: bubbleWidth, h: 16 });
+
+    // Drop shadow for separation from the floor/labels.
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(bubbleX + 1, bubbleY + 1, bubbleWidth, 16);
+    // Bubble body + border.
     ctx.fillStyle = BUBBLE_BG;
     ctx.fillRect(bubbleX, bubbleY, bubbleWidth, 16);
-    ctx.fillStyle = '#8d7d5e';
+    ctx.strokeStyle = '#b9ad8e';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(bubbleX + 0.5, bubbleY + 0.5, bubbleWidth - 1, 15);
+    // Tail.
+    ctx.fillStyle = BUBBLE_BG;
     ctx.fillRect(bubbleX + 8, bubbleY + 16, 6, 4);
+    // Text.
     ctx.fillStyle = BUBBLE_TEXT;
     ctx.font = '8px monospace';
-    ctx.fillText(text, bubbleX + 4, bubbleY + 11);
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(text, bubbleX + 5, bubbleY + 11);
   }
 }
 
@@ -312,14 +516,20 @@ function drawIndicators(ctx: CanvasRenderingContext2D, agents: PixelRenderAgent[
   }
 }
 
-function drawLabels(ctx: CanvasRenderingContext2D) {
-  ctx.fillStyle = '#c7d1dd';
+function drawLabels(ctx: CanvasRenderingContext2D, lang: Lang) {
   ctx.font = '8px monospace';
+  ctx.textBaseline = 'alphabetic';
   for (const zone of PIXEL_ZONES) {
-    ctx.globalAlpha = 0.72;
-    ctx.fillText(zone.label.en.toUpperCase(), zone.labelX, zone.labelY);
+    const label = zone.label[lang].toUpperCase();
+    const w = Math.round(label.length * 4.4) + 8;
+    // Dark backing pill keeps the label readable under bubbles/furniture.
+    ctx.globalAlpha = 0.55;
+    ctx.fillStyle = '#0d1016';
+    ctx.fillRect(zone.labelX - 3, zone.labelY - 8, w, 11);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#d7dee6';
+    ctx.fillText(label, zone.labelX, zone.labelY);
   }
-  ctx.globalAlpha = 1;
 }
 
 function statusColor(animation: VisualAgentState['animation']) {
@@ -341,6 +551,119 @@ function statusColor(animation: VisualAgentState['animation']) {
     default:
       return '#b7bec7';
   }
+}
+
+function drawTaskAlertGlow(ctx: CanvasRenderingContext2D, blockedRoomIds: Set<string>) {
+  if (blockedRoomIds.size === 0) return;
+  ctx.save();
+  for (const zone of PIXEL_ZONES) {
+    if (!blockedRoomIds.has(zone.id)) continue;
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = 'rgba(255,71,87,0.08)';
+    ctx.fillRect(zone.x, zone.y, zone.width, zone.height);
+    ctx.globalAlpha = 0.4;
+    ctx.strokeStyle = '#ff4757';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(zone.x, zone.y, zone.width, zone.height);
+  }
+  ctx.restore();
+}
+
+function agentStatusDotColor(animation: VisualAgentState['animation']): string {
+  switch (animation) {
+    case 'work':       return '#00ff9c';
+    case 'walk':       return '#3da9fc';
+    case 'onboarding': return '#ffd24a';
+    case 'warning':    return '#ff4757';
+    case 'fired':      return '#ff4757';
+    default:           return '#4a5568';
+  }
+}
+
+function drawRoomOccupancyBadges(ctx: CanvasRenderingContext2D, agents: PixelRenderAgent[]) {
+  ctx.save();
+  for (const zone of PIXEL_ZONES) {
+    const zoneAgents = agents.filter((a) => a.agent.currentRoom === zone.id);
+    if (zoneAgents.length === 0) continue;
+    const allWorking = zoneAgents.every((a) => a.visual.animation === 'work');
+    const anyWorking = zoneAgents.some((a) => a.visual.animation === 'work');
+    const color = allWorking ? '#00ff9c' : anyWorking ? '#3da9fc' : '#4a5568';
+    const bx = zone.x + zone.width - 12;
+    const by = zone.y + 10;
+    ctx.beginPath();
+    ctx.arc(bx, by, 7, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.85;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.font = '7px monospace';
+    ctx.fillStyle = '#16181d';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(zoneAgents.length), bx, by + 0.5);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+  }
+  ctx.restore();
+}
+
+function drawClock(ctx: CanvasRenderingContext2D) {
+  ctx.save();
+  ctx.font = '7px monospace';
+  ctx.fillStyle = '#4a5568';
+  ctx.globalAlpha = 0.8;
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  ctx.fillText(time, PIXEL_CANVAS_WIDTH - 52, 11);
+  ctx.restore();
+}
+
+function drawMinimap(ctx: CanvasRenderingContext2D, agents: PixelRenderAgent[]) {
+  const MW = 128;
+  const MH = 72;
+  const MX = PIXEL_CANVAS_WIDTH - MW - 6;
+  const MY = PIXEL_CANVAS_HEIGHT - MH - 6;
+  const scaleX = MW / PIXEL_CANVAS_WIDTH;
+  const scaleY = MH / PIXEL_CANVAS_HEIGHT;
+
+  ctx.save();
+  ctx.globalAlpha = 0.85;
+  ctx.fillStyle = '#0e1117';
+  ctx.fillRect(MX, MY, MW, MH);
+  ctx.globalAlpha = 0.5;
+  ctx.strokeStyle = '#27272a';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(MX, MY, MW, MH);
+
+  // Draw zones
+  ctx.globalAlpha = 0.4;
+  for (const zone of PIXEL_ZONES) {
+    ctx.fillStyle = zone.rugColor;
+    ctx.fillRect(
+      MX + zone.x * scaleX,
+      MY + zone.y * scaleY,
+      zone.width * scaleX,
+      zone.height * scaleY,
+    );
+  }
+
+  // Draw agent dots
+  ctx.globalAlpha = 1;
+  for (const ra of agents) {
+    ctx.fillStyle = agentStatusDotColor(ra.visual.animation);
+    ctx.fillRect(
+      MX + ra.visual.x * scaleX - 1,
+      MY + ra.visual.y * scaleY - 1,
+      2,
+      2,
+    );
+  }
+
+  // Label
+  ctx.globalAlpha = 0.5;
+  ctx.font = '5px monospace';
+  ctx.fillStyle = '#6b7280';
+  ctx.fillText('MAP', MX + 3, MY + 7);
+  ctx.restore();
 }
 
 export function pickHitbox(hitboxes: PixelOfficeHitbox[], x: number, y: number) {

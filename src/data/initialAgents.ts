@@ -52,7 +52,7 @@ export const INITIAL_AGENTS: Agent[] = [
     movementState: 'still',
     hiredAt: new Date().toISOString(),
     isVisualSeed: true,
-    capabilities: ['market_scan', 'system_check'],
+    capabilities: ['market_scan', 'signal_generation', 'paper_trade', 'system_check'],
   },
   {
     id: 'visual-risk-guardian',
@@ -75,7 +75,7 @@ export const INITIAL_AGENTS: Agent[] = [
     movementState: 'still',
     hiredAt: new Date().toISOString(),
     isVisualSeed: true,
-    capabilities: ['risk_review', 'decision_review'],
+    capabilities: ['risk_review', 'decision_review', 'paper_trade', 'performance_review'],
   },
   {
     id: 'visual-memory-curator',

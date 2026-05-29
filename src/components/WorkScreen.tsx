@@ -3,13 +3,64 @@
 // room and tasks active in it. Acts as the entry point for future
 // module-specific UIs.
 
+import { useEffect, useState } from 'react';
 import { useLanguage, useT } from '../i18n/languageStore';
 import { OFFICE_ROOMS } from '../data/officeRooms';
 import { useAgents, useModuleById, useTasksForRoom } from '../state/genesisStore';
 import type { RoomId } from '../types/office';
 import { pickRole } from '../lib/agentHelpers';
-import type { TaskStatus } from '../types/task';
+import type { Task, TaskStatus } from '../types/task';
 import type { TKey } from '../i18n/translations';
+
+function formatMs(ms: number): string {
+  if (ms <= 0) return '✓';
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return rem > 0 ? `${m}m ${rem}s` : `${m}m`;
+}
+
+function taskBarColor(type: Task['type']): string {
+  switch (type) {
+    case 'market_scan':    return '#3da9fc';
+    case 'risk_review':    return '#ff4757';
+    case 'decision_review':return '#ffd24a';
+    case 'memory_archive': return '#7c5cff';
+    case 'hr_review':      return '#00ff9c';
+    case 'agent_training': return '#22d3ee';
+    default:               return '#9ca3af';
+  }
+}
+
+function TaskProgressBar({ task }: { task: Task }) {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!task.startedAt || !task.estimatedMs) return;
+    const update = () => setElapsed(Date.now() - new Date(task.startedAt!).getTime());
+    update();
+    const id = window.setInterval(update, 1000);
+    return () => window.clearInterval(id);
+  }, [task.startedAt, task.estimatedMs]);
+
+  if (!task.startedAt || !task.estimatedMs) return null;
+
+  const pct = Math.min(elapsed / task.estimatedMs, 1);
+  const remaining = Math.max(0, task.estimatedMs - elapsed);
+  const color = taskBarColor(task.type);
+
+  return (
+    <div className="mt-1.5">
+      <div className="h-[2px] bg-carbon-300 w-full">
+        <div className="h-full transition-none" style={{ width: `${pct * 100}%`, background: color }} />
+      </div>
+      <div className="font-mono text-[9px] text-zinc-500 mt-0.5">
+        {pct >= 1 ? '✓' : formatMs(remaining)}
+      </div>
+    </div>
+  );
+}
 
 interface Props {
   room: RoomId;
@@ -97,6 +148,7 @@ export default function WorkScreen({ room, onClose }: Props) {
                         {t(taskStatusKey(task.status))}
                       </span>
                     </div>
+                    {task.status === 'working' && <TaskProgressBar task={task} />}
                     {task.description && (
                       <div className="font-mono text-[11px] text-zinc-400 mt-1">{task.description[lang]}</div>
                     )}
@@ -131,7 +183,7 @@ export default function WorkScreen({ room, onClose }: Props) {
                       {a.department} · {a.rank} · {a.status}
                     </div>
                     {a.currentTask && (
-                      <div className="font-mono text-[11px] text-zinc-300 italic mt-1">"{a.currentTask}"</div>
+                      <div className="font-mono text-[11px] text-zinc-300 italic mt-1">"{a.currentTask[lang]}"</div>
                     )}
                   </li>
                 ))}

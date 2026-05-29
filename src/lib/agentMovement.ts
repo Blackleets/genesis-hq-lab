@@ -214,12 +214,18 @@ function resolveDesiredTarget(
 }
 
 function idleRoomOffset(baseX: number, baseY: number, now: number, seed: number) {
-  const pattern = (Math.floor(now / 2400) + seed) % 4;
+  // Keep roam tight (≤12px) so agents with nearby workstations don't overlap.
+  // Each seed gets its own quadrant, so agents in the same room drift apart.
+  const pattern = (Math.floor(now / 3200) + seed) % 6;
+  const quadrantX = (seed % 2 === 0 ? 1 : -1) * 6;
+  const quadrantY = (seed % 3 === 0 ? 1 : -1) * 4;
   const offsets = [
-    { x: 0, y: 0 },
-    { x: 8, y: 0 },
-    { x: -8, y: 6 },
-    { x: 4, y: -6 },
+    { x: 0,           y: 0           },
+    { x: quadrantX,   y: -8          },
+    { x: -quadrantX,  y: quadrantY   },
+    { x: quadrantX,   y: quadrantY   },
+    { x: -quadrantX,  y: -4          },
+    { x: 4,           y: quadrantY   },
   ];
   return {
     x: Math.round(baseX + offsets[pattern].x),

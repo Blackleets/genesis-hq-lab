@@ -21,6 +21,7 @@ import ChatBubble, { type BubbleKind } from './ChatBubble';
 import { ARCHETYPE_TO_TILE } from './KenneyAtlas';
 import RoleOverlay from './RoleOverlay';
 import { buildSoftTintMatrix, filterIdFor } from '../lib/colorMatrix';
+import { useLanguage } from '../i18n/languageStore';
 
 interface Props {
   agent: Agent;
@@ -78,6 +79,7 @@ export default function KenneyCharacter({
   chatter,
   onClick,
 }: Props) {
+  const lang = useLanguage();
   const { primary, accent, archetype } = agent.visualProfile;
 
   // Backend invariant: working without currentTask → render as idle.
@@ -95,7 +97,7 @@ export default function KenneyCharacter({
   let bubbleText: string | undefined;
   if (chatter) { bubbleKind = 'task'; bubbleText = chatter; }
   else if (agent.currentTask && effectiveStatus !== 'idle') {
-    bubbleKind = 'task'; bubbleText = agent.currentTask;
+    bubbleKind = 'task'; bubbleText = agent.currentTask[lang];
   }
   else if (isThinking) bubbleKind = 'thinking';
   else if (isDebating) bubbleKind = 'debating';
@@ -172,7 +174,7 @@ export default function KenneyCharacter({
       <ChatBubble kind={bubbleKind} text={bubbleText} accent={accent} />
 
       {/* hover tooltip */}
-      <title>{`${agent.name}\n${agent.role}${agent.currentTask ? `\n${agent.currentTask}` : ''}`}</title>
+      <title>{`${agent.name}\n${typeof agent.role === 'string' ? agent.role : agent.role[lang]}${agent.currentTask ? `\n${agent.currentTask[lang]}` : ''}`}</title>
     </motion.g>
   );
 }

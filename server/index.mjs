@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { fetchPolymarketEventsSnapshot, fetchPolymarketHealth } from './polymarket.mjs';
+import { generateClaudePlan } from './claudePlanner.mjs';
 
 const HOST = process.env.HOST || '127.0.0.1';
 const PORT = Number(process.env.PORT || 8787);
@@ -33,7 +34,41 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  if (req.method !== 'GET' || !req.url) {
+  if (!req.url) {
+    sendJson(res, 400, { ok: false, error: 'bad_request', message: 'Missing URL' });
+    return;
+  }
+
+  const url = new URL(req.url, `http://${req.headers.host ?? `${HOST}:${PORT}`}`);
+
+  // POST /api/plan — handled before the GET-only guard below.
+  if (url.pathname === '/api/plan' && req.method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', async () => {
+      try {
+        const { goal } = JSON.parse(body);
+        if (!goal || typeof goal !== 'string' || goal.trim().length === 0) {
+          sendJson(res, 400, { ok: false, error: 'missing_goal', message: 'goal is required' });
+          return;
+        }
+        const tasks = await generateClaudePlan(goal.trim().slice(0, 400));
+        sendJson(res, 200, { ok: true, tasks });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Plan generation failed';
+        const isKeyMissing = message.includes('ANTHROPIC_API_KEY');
+        sendJson(res, isKeyMissing ? 501 : 502, {
+          ok: false,
+          error: isKeyMissing ? 'api_key_missing' : 'plan_failed',
+          message,
+        });
+      }
+    });
+    return;
+  }
+
+  // All other routes are GET-only.
+  if (req.method !== 'GET') {
     sendJson(res, 405, {
       ok: false,
       error: 'method_not_allowed',
@@ -42,14 +77,27 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  const url = new URL(req.url, `http://${req.headers.host ?? `${HOST}:${PORT}`}`);
-
   if (url.pathname === '/api/health') {
     sendJson(res, 200, {
       ok: true,
       service: 'genesis-hq-lab-backend',
       mode: 'read-only',
       now: new Date().toISOString(),
+    });
+    return;
+  }
+
+  // GET /api/metrics — readable by MCP server and external tools
+  if (url.pathname === '/api/metrics') {
+    sendJson(res, 200, {
+      ok: true,
+      service: 'genesis-hq-lab',
+      note: 'Live metrics are stored client-side. For real-time data, subscribe to SSE or use the frontend state.',
+      endpoints: {
+        health: '/api/health',
+        plan: 'POST /api/plan',
+        polymarket: '/api/polymarket/events',
+      },
     });
     return;
   }

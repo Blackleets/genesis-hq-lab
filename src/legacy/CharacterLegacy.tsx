@@ -342,7 +342,7 @@ export default function CharacterLegacy({ agent, x, y, pose, onClick, chatter }:
   let bubbleKind: BubbleKind = 'idle';
   let bubbleText: string | undefined;
   if (chatter) { bubbleKind = 'task'; bubbleText = chatter; }
-  else if (agent.currentTask && effectiveStatus !== 'idle') { bubbleKind = 'task'; bubbleText = agent.currentTask; }
+  else if (agent.currentTask && effectiveStatus !== 'idle') { bubbleKind = 'task'; bubbleText = typeof agent.currentTask === 'string' ? agent.currentTask : agent.currentTask.en; }
   else if (isThinking) bubbleKind = 'thinking';
   else if (isDebating) bubbleKind = 'debating';
   else if (isLearning) bubbleKind = 'learning';

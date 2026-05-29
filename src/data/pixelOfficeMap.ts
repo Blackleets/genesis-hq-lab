@@ -54,7 +54,7 @@ export interface WallSegment {
 export const PIXEL_ZONES: PixelZone[] = [
   {
     id: 'market-desk',
-    label: { es: 'Market Desk', en: 'Market Desk' },
+    label: { es: 'Escritorio de Mercado', en: 'Market Desk' },
     x: 28, y: 44, width: 196, height: 118,
     rugColor: '#274055',
     labelX: 34, labelY: 40,
@@ -62,7 +62,7 @@ export const PIXEL_ZONES: PixelZone[] = [
   },
   {
     id: 'strategy-lab',
-    label: { es: 'Strategy Lab', en: 'Strategy Lab' },
+    label: { es: 'Lab. de Estrategia', en: 'Strategy Lab' },
     x: 238, y: 44, width: 170, height: 118,
     rugColor: '#374638',
     labelX: 246, labelY: 40,
@@ -70,7 +70,7 @@ export const PIXEL_ZONES: PixelZone[] = [
   },
   {
     id: 'risk-bunker',
-    label: { es: 'Risk Bunker', en: 'Risk Bunker' },
+    label: { es: 'Búnker de Riesgo', en: 'Risk Bunker' },
     x: 432, y: 32, width: 344, height: 132,
     rugColor: '#553325',
     labelX: 440, labelY: 28,
@@ -78,7 +78,7 @@ export const PIXEL_ZONES: PixelZone[] = [
   },
   {
     id: 'open-workspace',
-    label: { es: 'Open Workspace', en: 'Open Workspace' },
+    label: { es: 'Espacio Abierto', en: 'Open Workspace' },
     x: 30, y: 184, width: 398, height: 126,
     rugColor: '#47363e',
     labelX: 36, labelY: 180,
@@ -86,7 +86,7 @@ export const PIXEL_ZONES: PixelZone[] = [
   },
   {
     id: 'memory-archive',
-    label: { es: 'Memory Archive', en: 'Memory Archive' },
+    label: { es: 'Archivo de Memoria', en: 'Memory Archive' },
     x: 432, y: 166, width: 344, height: 138,
     rugColor: '#40382d',
     labelX: 440, labelY: 162,
@@ -94,7 +94,7 @@ export const PIXEL_ZONES: PixelZone[] = [
   },
   {
     id: 'debate-room',
-    label: { es: 'Debate Area', en: 'Debate Area' },
+    label: { es: 'Sala de Debate', en: 'Debate Area' },
     x: 30, y: 330, width: 184, height: 112,
     rugColor: '#4c343f',
     labelX: 36, labelY: 326,
@@ -102,7 +102,7 @@ export const PIXEL_ZONES: PixelZone[] = [
   },
   {
     id: 'board-room',
-    label: { es: 'Board Room', en: 'Board Room' },
+    label: { es: 'Sala de Juntas', en: 'Board Room' },
     x: 224, y: 330, width: 168, height: 112,
     rugColor: '#594528',
     labelX: 232, labelY: 326,
@@ -110,7 +110,7 @@ export const PIXEL_ZONES: PixelZone[] = [
   },
   {
     id: 'hr-pod',
-    label: { es: 'Genesis HR', en: 'Genesis HR' },
+    label: { es: 'Génesis HR', en: 'Genesis HR' },
     x: 408, y: 330, width: 172, height: 112,
     rugColor: '#55412c',
     labelX: 416, labelY: 326,
@@ -118,7 +118,7 @@ export const PIXEL_ZONES: PixelZone[] = [
   },
   {
     id: 'execution-desk',
-    label: { es: 'Execution Desk', en: 'Execution Desk' },
+    label: { es: 'Mesa de Ejecución', en: 'Execution Desk' },
     x: 594, y: 330, width: 182, height: 112,
     rugColor: '#334528',
     labelX: 602, labelY: 326,
@@ -126,18 +126,18 @@ export const PIXEL_ZONES: PixelZone[] = [
   },
   {
     id: 'coffee-lounge',
-    label: { es: 'Coffee Lounge', en: 'Coffee Lounge' },
+    label: { es: 'Zona de Café', en: 'Coffee Lounge' },
     x: 34, y: 184, width: 108, height: 58,
     rugColor: '#48342b',
-    labelX: 40, labelY: 180,
+    labelX: 40, labelY: 202,
     anchor: { x: 88, y: 214 },
   },
   {
     id: 'genesis-core',
-    label: { es: 'Genesis Core', en: 'Genesis Core' },
+    label: { es: 'Núcleo Génesis', en: 'Genesis Core' },
     x: 442, y: 330, width: 120, height: 60,
     rugColor: '#4a3d2f',
-    labelX: 446, labelY: 326,
+    labelX: 448, labelY: 352,
     anchor: { x: 502, y: 360 },
   },
 ];

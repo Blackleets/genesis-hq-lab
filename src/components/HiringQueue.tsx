@@ -54,8 +54,13 @@ export default function HiringQueue() {
               <div className="text-zinc-300 text-[12px] leading-snug mb-3">{a.unlockReason[lang]}</div>
               <button
                 type="button"
-                onClick={() => actions.hireAgent(a.id)}
-                className="font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 border border-emerald-400/60 text-emerald-300 bg-carbon-300 hover:bg-emerald-400/10"
+                onClick={() => a.state === 'unlockable' && actions.hireAgent(a.id)}
+                disabled={a.state !== 'unlockable'}
+                className={`font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 border ${
+                  a.state === 'unlockable'
+                    ? 'border-emerald-400/60 text-emerald-300 bg-carbon-300 hover:bg-emerald-400/10 cursor-pointer'
+                    : 'border-zinc-600/40 text-zinc-600 bg-carbon-300 cursor-not-allowed'
+                }`}
               >
                 {t('hiring.hireButton')} →
               </button>

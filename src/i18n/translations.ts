@@ -6,7 +6,7 @@ export type Lang = 'es' | 'en';
 export const TRANSLATIONS = {
   // ---------------- HEADER ----------------
   'header.title':            { es: 'GÉNESIS HQ',                  en: 'GENESIS HQ' },
-  'header.subtitle':         { es: 'Sede local · estado persistido', en: 'Local HQ · persisted state' },
+  'header.subtitle':         { es: 'Agentes IA · Polymarket · Capital real', en: 'AI Agents · Polymarket · Real capital' },
   'header.officeStatus':     { es: 'Oficina: en línea',           en: 'Office: online' },
   'header.seedBadge':        { es: 'Datos semilla',                en: 'Seed data' },
   'header.lang.es':          { es: 'ES',                           en: 'ES' },
@@ -25,6 +25,11 @@ export const TRANSLATIONS = {
   'nav.decisions':           { es: 'Decisiones',                   en: 'Decisions' },
   'nav.progress':            { es: 'Progreso',                     en: 'Progress' },
   'nav.settings':            { es: 'Ajustes',                      en: 'Settings' },
+  'nav.wallet':              { es: 'Wallet',                        en: 'Wallet' },
+  'nav.marketing':           { es: 'Marketing',                    en: 'Marketing' },
+  'nav.tech':                { es: 'Tech Studio',                  en: 'Tech Studio' },
+  'nav.console':             { es: 'Consola',                      en: 'Console' },
+  'nav.integrations':        { es: 'Integraciones',                en: 'Integrations' },
 
   // ---------------- MODULE STATES ----------------
   'state.ready':             { es: 'listo',                        en: 'ready' },
@@ -43,7 +48,7 @@ export const TRANSLATIONS = {
 
   // ---------------- DASHBOARD ----------------
   'dashboard.title':         { es: 'Panel de Génesis',             en: 'Genesis Dashboard' },
-  'dashboard.intro':         { es: 'Vista general del estado de Génesis.', en: 'Overview of Genesis status.' },
+  'dashboard.intro':         { es: 'Empresa de IA: agentes que operan en Polymarket para ganar capital. Supervisa performance en tiempo real.', en: 'AI trading company: agents operate on Polymarket to grow capital. Monitor real-time performance here.' },
   'dashboard.jumpToHQ':      { es: 'Ir a la sede central',         en: 'Open Genesis HQ' },
 
   // ---------------- METRICS ----------------
@@ -58,8 +63,9 @@ export const TRANSLATIONS = {
   'metric.officeUpgrades':   { es: 'Mejoras de oficina',           en: 'Office upgrades' },
   'metric.modulesUnlocked':  { es: 'Módulos desbloqueados',        en: 'Modules unlocked' },
   'metric.hiringQueue':      { es: 'En cola de contratación',      en: 'In hiring queue' },
-  'metric.tasksQueued':      { es: 'Tareas en cola',               en: 'Tasks queued' },
-  'metric.tasksActive':      { es: 'Tareas activas',               en: 'Tasks active' },
+  'metric.tasksQueued':        { es: 'Tareas en cola',               en: 'Tasks queued' },
+  'metric.tasksActive':        { es: 'Tareas activas',               en: 'Tasks active' },
+  'metric.onboardingAgents':   { es: 'En onboarding',               en: 'Onboarding' },
 
   // ---------------- HR ----------------
   'hr.title':                { es: 'Génesis HR',                   en: 'Genesis HR' },
@@ -114,6 +120,20 @@ export const TRANSLATIONS = {
   'inspector.actionFire':    { es: 'Despedir',                     en: 'Fire' },
   'inspector.note':          { es: "", en: "" },
 
+  // ---------------- WALLET ----------------
+  'wallet.title':            { es: 'Conexión de Wallet',            en: 'Wallet Connect' },
+  'wallet.intro':            { es: 'Conecta tu wallet de Polygon para habilitar el modo de trading real.', en: 'Connect your Polygon wallet to enable real trading mode.' },
+  'wallet.connect.metamask': { es: 'Conectar MetaMask',             en: 'Connect MetaMask' },
+  'wallet.connect.wc':       { es: 'WalletConnect',                 en: 'WalletConnect' },
+  'wallet.disconnect':       { es: 'Desconectar',                   en: 'Disconnect' },
+  'wallet.connected':        { es: 'Wallet conectada',              en: 'Wallet connected' },
+  'wallet.disconnected':     { es: 'Sin wallet',                    en: 'Not connected' },
+  'wallet.realMode':         { es: 'Modo real habilitado',          en: 'Real trading enabled' },
+  'wallet.balance.matic':    { es: 'Balance MATIC',                 en: 'MATIC balance' },
+  'wallet.balance.usdc':     { es: 'Balance USDC',                  en: 'USDC balance' },
+  'wallet.network':          { es: 'Red',                           en: 'Network' },
+  'wallet.note':             { es: 'Para operar en Polymarket necesitas USDC en Polygon. El paper trading no requiere wallet.', en: 'To trade on Polymarket you need USDC on Polygon. Paper trading does not require a wallet.' },
+
   // ---------------- AGENT STATUSES ----------------
   'status.idle':             { es: 'inactivo',                     en: 'idle' },
   'status.working':          { es: 'trabajando',                   en: 'working' },
@@ -145,10 +165,10 @@ export const TRANSLATIONS = {
 
   'onboarding.title':        { es: 'Onboarding en curso',          en: 'Onboarding in progress' },
   'onboarding.empty':        { es: 'Ningún agente está en onboarding.', en: 'No agent is currently onboarding.' },
-  'onboarding.duration':     { es: 'Duración: 24 horas',           en: 'Duration: 24 hours' },
+  'onboarding.duration':     { es: 'Duración: 3 min (lab)',         en: 'Duration: 3 min (lab)' },
     'onboarding.hint':         { es: 'Los agentes nuevos no toman tareas críticas durante el onboarding.', en: 'New agents do not take critical tasks during onboarding.' },
 
-  'dashboard.realtime':      { es: 'Estado vivo de Génesis (datos locales persistentes).', en: 'Live Genesis state (locally persisted).' },
+  'dashboard.realtime':  { es: 'Los agentes operan en Polymarket en tiempo real. Capital inicial $10,000 USD (paper trading).', en: 'Agents trade on Polymarket in real-time. Starting capital $10,000 USD (paper trading).' },
   'dashboard.section.activity': { es: 'Actividad reciente',        en: 'Recent activity' },
   'dashboard.section.tasks':    { es: 'Tareas en curso',           en: 'Active tasks' },
   'dashboard.section.upgrades': { es: 'Mejoras de oficina',        en: 'Office upgrades' },
@@ -193,6 +213,44 @@ export const TRANSLATIONS = {
   'settings.reset.confirm':  { es: '¿Borrar el estado guardado y reiniciar Génesis?', en: 'Erase saved state and reset Genesis?' },
   'onboarding.startedAt':    { es: 'Iniciado',                     en: 'Started at' },
   'onboarding.endsAt':       { es: 'Finaliza',                     en: 'Ends at' },
+
+  // ---------------- FACTORY ----------------
+  'factory.title':           { es: 'Fábrica de Agentes',           en: 'Agent Factory' },
+  'factory.intro':           { es: 'Crea un agente personalizado y agrégalo a la oficina.',  en: 'Create a custom agent and add it to the office.' },
+  'factory.form.name':       { es: 'Nombre del agente',            en: 'Agent name' },
+  'factory.form.role':       { es: 'Rol (aparece en el perfil)',   en: 'Role (shown in profile)' },
+  'factory.form.dept':       { es: 'Departamento',                 en: 'Department' },
+  'factory.form.archetype':  { es: 'Arquetipo visual',             en: 'Visual archetype' },
+  'factory.form.color':      { es: 'Color primario',               en: 'Primary color' },
+  'factory.submit':          { es: 'Crear agente',                 en: 'Create agent' },
+  'factory.success':         { es: 'Agente creado. Aparecerá en HR en onboarding.', en: 'Agent created. Will appear in HR in onboarding.' },
+
+  // ---------------- DECISIONS ----------------
+  'decisions.title':         { es: 'Decisiones',                   en: 'Decisions' },
+  'decisions.intro':         { es: 'Registra decisiones para revisión por el equipo de Génesis.', en: 'Log decisions for review by the Genesis team.' },
+  'decisions.new':           { es: 'Nueva decisión',               en: 'New decision' },
+  'decisions.form.title':    { es: 'Título de la decisión',        en: 'Decision title' },
+  'decisions.form.context':  { es: 'Contexto / razón',             en: 'Context / reason' },
+  'decisions.form.optionA':  { es: 'Opción A',                     en: 'Option A' },
+  'decisions.form.optionB':  { es: 'Opción B',                     en: 'Option B' },
+  'decisions.submit':        { es: 'Registrar',                    en: 'Log decision' },
+  'decisions.resolve':       { es: 'Resolver',                     en: 'Resolve' },
+  'decisions.outcome':       { es: 'Resultado',                    en: 'Outcome' },
+  'decisions.empty':         { es: 'Sin decisiones registradas.',  en: 'No decisions logged yet.' },
+  'decisions.status.pending':{ es: 'pendiente',                    en: 'pending' },
+  'decisions.status.resolved':{ es: 'resuelta',                   en: 'resolved' },
+  'decisions.hint':          { es: 'Cada decisión crea una tarea de revisión en la Sala de Juntas.', en: 'Each decision creates a review task in the Board Room.' },
+
+  // ---------------- AUTO ----------------
+  'auto.title':              { es: 'Agente Automático',            en: 'Auto-Agent Mode' },
+  'auto.intro':              { es: 'Define un objetivo y Génesis propondrá un plan de tareas para ejecutarlo.', en: 'Define a goal and Genesis will propose a task plan to execute it.' },
+  'auto.form.goal':          { es: 'Objetivo (describe qué quieres lograr)',  en: 'Goal (describe what you want to achieve)' },
+  'auto.form.agents':        { es: 'Agentes involucrados',         en: 'Agents involved' },
+  'auto.propose':            { es: 'Proponer plan',                en: 'Propose plan' },
+  'auto.execute':            { es: 'Ejecutar plan',                en: 'Execute plan' },
+  'auto.plan.title':         { es: 'Plan propuesto',               en: 'Proposed plan' },
+  'auto.plan.empty':         { es: 'Escribe un objetivo para generar el plan.', en: 'Enter a goal to generate the plan.' },
+  'auto.success':            { es: 'Plan ejecutado. Las tareas aparecerán en la oficina.', en: 'Plan executed. Tasks will appear in the office.' },
 } as const;
 
 export type TKey = keyof typeof TRANSLATIONS;

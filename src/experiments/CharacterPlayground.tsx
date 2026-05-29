@@ -179,7 +179,7 @@ export default function CharacterPlayground(): JSX.Element {
                 </div>
                 {agent.currentTask && (
                   <div className="text-[10px] text-zinc-500 font-mono mt-1 italic line-clamp-2">
-                    "{agent.currentTask}"
+                    "{typeof agent.currentTask === 'string' ? agent.currentTask : agent.currentTask.en}"
                   </div>
                 )}
               </div>

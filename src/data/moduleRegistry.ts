@@ -18,7 +18,12 @@ export type ModuleId =
   | 'markets'
   | 'decisions'
   | 'progress'
-  | 'settings';
+  | 'settings'
+  | 'wallet'
+  | 'marketing'
+  | 'tech'
+  | 'console'
+  | 'integrations';
 
 export type ModuleState =
   | 'ready'
@@ -53,7 +58,7 @@ export const MODULES: ModuleEntry[] = [
   {
     id: 'dashboard',
     navKey: 'nav.dashboard',
-    state: 'visual-only',
+    state: 'ready',
     description: {
       es: 'Vista general de Génesis: agentes activos, nivel de aprendizaje, salud de la empresa y módulos desbloqueados.',
       en: 'Overview of Genesis: active agents, learning level, company health, and unlocked modules.',
@@ -89,7 +94,7 @@ export const MODULES: ModuleEntry[] = [
   {
     id: 'factory',
     navKey: 'nav.factory',
-    state: 'locked-backend',
+    state: 'ready',
     description: {
       es: 'Aquí se crearán agentes manualmente o desde plantillas de agency-agents.',
       en: 'Here agents will be created manually or from agency-agents templates.',
@@ -107,7 +112,7 @@ export const MODULES: ModuleEntry[] = [
   {
     id: 'auto',
     navKey: 'nav.auto',
-    state: 'locked-backend',
+    state: 'ready',
     description: {
       es: 'Escribe un objetivo. Génesis propondrá un equipo de agentes para ejecutarlo.',
       en: 'Write an objective. Genesis proposes a team of agents to execute it.',
@@ -125,7 +130,7 @@ export const MODULES: ModuleEntry[] = [
   {
     id: 'hr',
     navKey: 'nav.hr',
-    state: 'visual-only',
+    state: 'ready',
     description: {
       es: 'Recursos humanos de Génesis: plantilla actual, cola de contratación y recomendaciones del Evaluador.',
       en: 'Genesis HR: current roster, hiring queue, and Evaluator recommendations.',
@@ -161,7 +166,7 @@ export const MODULES: ModuleEntry[] = [
   {
     id: 'decisions',
     navKey: 'nav.decisions',
-    state: 'locked-backend',
+    state: 'ready',
     description: {
       es: 'Decisiones tomadas por Génesis con razones, riesgos y resultado.',
       en: 'Decisions taken by Genesis with reasons, risks, and outcomes.',
@@ -179,7 +184,7 @@ export const MODULES: ModuleEntry[] = [
   {
     id: 'progress',
     navKey: 'nav.progress',
-    state: 'visual-only',
+    state: 'ready',
     description: {
       es: 'Métricas de crecimiento de Génesis: edad, aprendizaje, contrataciones, mejoras.',
       en: 'Genesis growth metrics: age, learning, hires, upgrades.',
@@ -210,6 +215,96 @@ export const MODULES: ModuleEntry[] = [
     relation: {
       es: 'No afecta la oficina visual. Afectará a Génesis real desde fase 8.',
       en: 'Doesn’t affect the visual office. Will affect real Genesis from phase 8.',
+    },
+  },
+  {
+    id: 'wallet',
+    navKey: 'nav.wallet',
+    state: 'ready',
+    description: {
+      es: 'Conecta tu wallet de Polygon para habilitar trading real con USDC en Polymarket.',
+      en: 'Connect your Polygon wallet to enable real USDC trading on Polymarket.',
+    },
+    futureActions: [
+      { es: 'Ver balance MATIC y USDC en tiempo real.', en: 'View real-time MATIC and USDC balance.' },
+      { es: 'Habilitar modo de trading real.',           en: 'Enable real trading mode.' },
+      { es: 'Firmar órdenes en Polymarket via CLOB.',    en: 'Sign orders on Polymarket via CLOB.' },
+    ],
+    relation: {
+      es: 'Cuando conectada, los agentes trader operarán con capital real.',
+      en: 'When connected, trader agents will operate with real capital.',
+    },
+  },
+  {
+    id: 'marketing',
+    navKey: 'nav.marketing',
+    state: 'ready',
+    description: {
+      es: 'División de Marketing & Growth. Campañas, contenido, SEO y análisis de crecimiento gestionados por agentes especializados.',
+      en: 'Marketing & Growth division. Campaigns, content, SEO, and growth analysis managed by specialized agents.',
+    },
+    futureActions: [
+      { es: 'Lanzar campañas con agente CMO.', en: 'Launch campaigns with CMO agent.' },
+      { es: 'Medir embudo de conversión.', en: 'Measure conversion funnel.' },
+      { es: 'Integración con Google Ads y SEMrush.', en: 'Google Ads and SEMrush integration.' },
+    ],
+    relation: {
+      es: 'Los agentes de Marketing operan desde Growth Room y Design Studio en HQ.',
+      en: 'Marketing agents operate from Growth Room and Design Studio in HQ.',
+    },
+  },
+  {
+    id: 'tech',
+    navKey: 'nav.tech',
+    state: 'ready',
+    description: {
+      es: 'División Tecnológica & Operaciones. Sprint board, code review, QA y deploys gestionados por agentes de ingeniería.',
+      en: 'Tech & Operations division. Sprint board, code review, QA, and deployments managed by engineering agents.',
+    },
+    futureActions: [
+      { es: 'Sprint board con backlog y kanban.', en: 'Sprint board with backlog and kanban.' },
+      { es: 'Velocity chart semanal.', en: 'Weekly velocity chart.' },
+      { es: 'Integración con GitHub para deploy log.', en: 'GitHub integration for deploy log.' },
+    ],
+    relation: {
+      es: 'Los agentes Tech operan desde Operations Room en HQ.',
+      en: 'Tech agents operate from Operations Room in HQ.',
+    },
+  },
+  {
+    id: 'console',
+    navKey: 'nav.console',
+    state: 'ready',
+    description: {
+      es: 'Consola de delegación. Escribe qué quieres lograr y los agentes lo ejecutan en tiempo real con seguimiento en vivo.',
+      en: 'Delegation console. Write what you want to achieve and agents execute it in real time with live tracking.',
+    },
+    futureActions: [
+      { es: 'Historial de comandos persistente.', en: 'Persistent command history.' },
+      { es: 'Asignación automática por capacidades.', en: 'Auto-assignment by capabilities.' },
+      { es: 'Feedback adaptativo con Claude.', en: 'Adaptive feedback with Claude.' },
+    ],
+    relation: {
+      es: 'Los comandos de la consola crean tareas que los agentes ejecutan en Génesis HQ.',
+      en: 'Console commands create tasks that agents execute in Genesis HQ.',
+    },
+  },
+  {
+    id: 'integrations',
+    navKey: 'nav.integrations',
+    state: 'ready',
+    description: {
+      es: 'Conecta Genesis HQ a plataformas externas. Los agentes ejecutan trabajo real en Facebook, LinkedIn, Slack, GitHub y más.',
+      en: 'Connect Genesis HQ to external platforms. Agents execute real work on Facebook, LinkedIn, Slack, GitHub, and more.',
+    },
+    futureActions: [
+      { es: 'OAuth automático para redes sociales.', en: 'Automatic OAuth for social networks.' },
+      { es: 'Historial de sincronizaciones por plataforma.', en: 'Sync history per platform.' },
+      { es: 'Rate limits y cuotas en tiempo real.', en: 'Real-time rate limits and quotas.' },
+    ],
+    relation: {
+      es: 'Los agentes de Marketing y Tech usan estas integraciones para ejecutar trabajo en plataformas externas.',
+      en: 'Marketing and Tech agents use these integrations to execute work on external platforms.',
     },
   },
 ];

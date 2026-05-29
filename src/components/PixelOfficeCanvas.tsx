@@ -2,14 +2,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   actions,
   useAgents,
+  useDevMode,
   useEvents,
   useFiredAgents,
+  usePositions,
   useSelectedAgent,
   useSelectedLanguage,
   useTasks,
 } from '../state/genesisStore';
 import type { Agent } from '../types/genesis';
 import type { RoomId } from '../types/office';
+import AgentWorkOverlay from './AgentWorkOverlay';
+import type { PixelRenderAgent } from '../lib/pixelCanvasRenderer';
 import {
   buildRenderAgents,
   drawPixelOfficeScene,
@@ -37,6 +41,7 @@ export default function PixelOfficeCanvas({ scale, onAgentHover, onRoomClick }: 
   const events = useEvents();
   const lang = useSelectedLanguage();
   const selectedAgent = useSelectedAgent();
+  const devMode = useDevMode();
   const latestRef = useRef({
     agents,
     firedAgents,
@@ -44,10 +49,15 @@ export default function PixelOfficeCanvas({ scale, onAgentHover, onRoomClick }: 
     events,
     lang,
     selectedAgentId: selectedAgent?.id ?? null,
+    devMode,
   });
+  const openPositions = usePositions();
   const [sprites, setSprites] = useState<LoadedSpriteMap | null>(null);
   const [hoveredAgentId, setHoveredAgentId] = useState<string | null>(null);
+  const [activeOverlays, setActiveOverlays] = useState<PixelRenderAgent[]>([]);
+  const [overlayProgress, setOverlayProgress] = useState<Record<string, number>>({});
   const hoveredAgentIdRef = useRef<string | null>(null);
+  const overlayUpdateRef = useRef<number>(0);
   const config = useMemo(() => getPixelRendererConfig(), []);
 
   latestRef.current = {
@@ -57,6 +67,7 @@ export default function PixelOfficeCanvas({ scale, onAgentHover, onRoomClick }: 
     events,
     lang,
     selectedAgentId: selectedAgent?.id ?? null,
+    devMode,
   };
   hoveredAgentIdRef.current = hoveredAgentId;
 
@@ -96,6 +107,21 @@ export default function PixelOfficeCanvas({ scale, onAgentHover, onRoomClick }: 
         life.visualAgents,
         snapshot.selectedAgentId,
       );
+      const taskProgressMap: Record<string, number> = {};
+      const blockedRoomIds = new Set<string>();
+      for (const task of snapshot.tasks) {
+        if (task.status === 'blocked' && task.room) {
+          blockedRoomIds.add(task.room);
+        }
+        if (task.status === 'working' && task.startedAt && task.estimatedMs) {
+          // Use Date.now() — task.startedAt is wall-clock, not RAF timestamp
+          const elapsed = Date.now() - new Date(task.startedAt).getTime();
+          const pct = Math.max(0, Math.min(elapsed / task.estimatedMs, 1));
+          for (const agentId of (task.assignedAgentIds ?? [])) {
+            taskProgressMap[agentId] = pct;
+          }
+        }
+      }
       ctx.imageSmoothingEnabled = false;
       hitboxesRef.current = drawPixelOfficeScene(
         ctx,
@@ -103,7 +129,22 @@ export default function PixelOfficeCanvas({ scale, onAgentHover, onRoomClick }: 
         renderAgents,
         life.bubbles,
         hoveredAgentIdRef.current,
+        snapshot.lang,
+        taskProgressMap,
+        snapshot.devMode,
+        blockedRoomIds,
       );
+
+      // Update HTML overlays at ~5fps to avoid excessive re-renders
+      if (timestamp - overlayUpdateRef.current > 200) {
+        overlayUpdateRef.current = timestamp;
+        const working = renderAgents.filter(
+          (ra) => ra.visual.animation === 'work' || ra.visual.animation === 'talk',
+        );
+        setActiveOverlays(working);
+        setOverlayProgress({ ...taskProgressMap });
+      }
+
       frameId = window.requestAnimationFrame(tick);
     };
 
@@ -160,19 +201,39 @@ export default function PixelOfficeCanvas({ scale, onAgentHover, onRoomClick }: 
   }
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={config.width}
-      height={config.height}
-      className="block"
-      style={{
-        width: `${config.width}px`,
-        height: `${config.height}px`,
-        imageRendering: 'pixelated',
-      }}
-      onMouseMove={handlePointerMove}
-      onMouseLeave={handlePointerLeave}
-      onClick={handleClick}
-    />
+    <div className="relative" style={{ width: `${config.width}px`, height: `${config.height}px` }}>
+      <canvas
+        ref={canvasRef}
+        width={config.width}
+        height={config.height}
+        className="block absolute inset-0"
+        style={{ imageRendering: 'pixelated' }}
+        onMouseMove={handlePointerMove}
+        onMouseLeave={handlePointerLeave}
+        onClick={handleClick}
+      />
+      {/* HTML work overlays — positioned in canvas pixel space (800×450) */}
+      {activeOverlays.map((ra) => {
+        const agentTasks = tasks.filter(
+          (t) =>
+            t.assignedAgentIds.includes(ra.agent.id) &&
+            (t.status === 'working' || t.status === 'assigned'),
+        );
+        const currentTask = agentTasks[0] ?? null;
+        const agentPosition = openPositions.find((p) => p.agentId === ra.agent.id && p.status === 'open') ?? null;
+        return (
+          <AgentWorkOverlay
+            key={ra.agent.id}
+            agent={ra.agent}
+            visualX={ra.visual.x}
+            visualY={ra.visual.y}
+            task={currentTask}
+            position={agentPosition}
+            lang={lang}
+            progress={overlayProgress[ra.agent.id]}
+          />
+        );
+      })}
+    </div>
   );
 }

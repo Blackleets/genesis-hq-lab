@@ -45,7 +45,7 @@ function bubbleFromEvent(event: SystemEvent, lang: Lang, now: number): ActiveBub
 
   const text =
     event.voicedText?.[lang] ??
-    fallbackBubbleText(event.kind, lang);
+    fallbackBubbleText(event.kind, lang, event.id);
 
   if (!text) return null;
 
@@ -60,56 +60,64 @@ function bubbleFromEvent(event: SystemEvent, lang: Lang, now: number): ActiveBub
   };
 }
 
-function fallbackBubbleText(kind: SystemEvent['kind'], lang: Lang): string | null {
-  const es = {
+const PROGRESS_PHRASES_ES = [
+  'Procesando datos...',
+  'Revisando documentos.',
+  'Analizando resultados.',
+  'Ejecutando protocolo.',
+  'Verificando estado.',
+  'Compilando informe.',
+  'Monitoreando sistema.',
+  'En progreso.',
+];
+
+const PROGRESS_PHRASES_EN = [
+  'Processing data...',
+  'Reviewing documents.',
+  'Analyzing results.',
+  'Running protocol.',
+  'Checking status.',
+  'Compiling report.',
+  'Monitoring system.',
+  'In progress.',
+];
+
+function fallbackBubbleText(kind: SystemEvent['kind'], lang: Lang, seed?: string): string | null {
+  if (kind === 'task.progress') {
+    const pool = lang === 'es' ? PROGRESS_PHRASES_ES : PROGRESS_PHRASES_EN;
+    const idx = seed ? (seed.charCodeAt(seed.length - 1) % pool.length) : 0;
+    return pool[idx];
+  }
+
+  const es: Partial<Record<SystemEvent['kind'], string | null>> = {
     'task.assigned': 'Voy al area asignada.',
     'task.started': 'Tarea iniciada.',
-    'task.completed': 'Tarea completada.',
+    'task.completed': 'Completado.',
     'task.failed': 'Revisando evidencia.',
-    'task.blocked': 'Riesgo detectado.',
+    'task.blocked': 'Bloqueado. Necesito ayuda.',
     'agent.warning': 'Riesgo detectado.',
-    'agent.onboarding.start': 'Onboarding iniciado.',
+    'agent.onboarding.start': 'Iniciando onboarding.',
     'agent.onboarding.end': 'Listo para trabajar.',
     'agent.hired': 'Bienvenido a Genesis.',
     'agent.fired': 'Traslado al archivo.',
-    'agent.says': null,
-    'system.boot': null,
-    'task.created': null,
     'task.moving': 'Voy al area asignada.',
-    'office.upgrade.requested': null,
-    'office.upgrade.in_progress': null,
-    'office.upgrade.completed': null,
-    'module.unlocked': null,
-    'language.changed': null,
-    'agent.promoted': null,
-    'agent.suspended': null,
     'agent.retraining': 'Iniciando reentrenamiento.',
-  } as const;
+  };
 
-  const en = {
+  const en: Partial<Record<SystemEvent['kind'], string | null>> = {
     'task.assigned': 'Moving to assigned area.',
     'task.started': 'Task started.',
-    'task.completed': 'Task completed.',
+    'task.completed': 'Completed.',
     'task.failed': 'Reviewing evidence.',
-    'task.blocked': 'Risk detected.',
+    'task.blocked': 'Blocked. Need assistance.',
     'agent.warning': 'Risk detected.',
-    'agent.onboarding.start': 'Onboarding started.',
+    'agent.onboarding.start': 'Starting onboarding.',
     'agent.onboarding.end': 'Ready for work.',
     'agent.hired': 'Welcome to Genesis.',
     'agent.fired': 'Moving to archive.',
-    'agent.says': null,
-    'system.boot': null,
-    'task.created': null,
     'task.moving': 'Moving to assigned area.',
-    'office.upgrade.requested': null,
-    'office.upgrade.in_progress': null,
-    'office.upgrade.completed': null,
-    'module.unlocked': null,
-    'language.changed': null,
-    'agent.promoted': null,
-    'agent.suspended': null,
     'agent.retraining': 'Starting retraining.',
-  } as const;
+  };
 
   return (lang === 'es' ? es[kind] : en[kind]) ?? null;
 }

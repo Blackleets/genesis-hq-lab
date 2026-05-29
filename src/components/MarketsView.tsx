@@ -16,6 +16,14 @@ import {
   type MarketsClientError,
   type PolymarketSnapshotResponse,
 } from '../lib/marketsClient';
+import {
+  useCapital,
+  usePositions,
+  useGenesisState,
+} from '../state/genesisStore';
+import { evaluatePaperTrades } from '../lib/tradingEngine';
+import TradingHistoryView from './TradingHistoryView';
+import LiveTradingPanel from './LiveTradingPanel';
 
 const AUTO_REFRESH_MS = 30_000;
 const EXECUTION_EVENT_KINDS = new Set([
@@ -241,7 +249,7 @@ function AgentExecutionCard({
       </div>
 
       <div className="mt-2 font-mono text-[11px] leading-snug text-zinc-200">
-        {task ? task.title[language] : agent.currentTask || (language === 'es' ? 'Sin tarea activa.' : 'No active task.')}
+        {task ? task.title[language] : agent.currentTask?.[language] || (language === 'es' ? 'Sin tarea activa.' : 'No active task.')}
       </div>
 
       {task ? (
@@ -267,17 +275,43 @@ export default function MarketsView() {
   const tasks = useTasks();
   const events = useEvents();
   const selectedAgent = useSelectedAgent();
+  const capital = useCapital();
+  const openPositions = usePositions();
   const [snapshot, setSnapshot] = useState<PolymarketSnapshotResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryIn, setRetryIn] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<'live' | 'positions'>('live');
+  const [closingId, setClosingId] = useState<string | null>(null);
+  const closedPositions = useGenesisState().closedPositions;
+
+  const traderAgents = useMemo(() => {
+    const tradingDepts = ['Market Room', 'Risk Office', 'Strategy Lab', 'Execution Desk'];
+    const traderList = agents.filter((a) => tradingDepts.includes(a.department));
+    return traderList.map((a) => {
+      const agentClosed = closedPositions.filter((p) => p.agentId === a.id);
+      const agentOpen = openPositions.filter((p) => p.agentId === a.id && p.status === 'open');
+      const wins = agentClosed.filter((p) => (p.pnl ?? 0) > 0).length;
+      const pnl = agentClosed.reduce((s, p) => s + (p.pnl ?? 0), 0);
+      const allocated = agentOpen.reduce((s, p) => s + p.capitalAllocated, 0);
+      return {
+        id: a.id,
+        name: a.name,
+        trades: agentClosed.length,
+        wins,
+        winRate: agentClosed.length > 0 ? wins / agentClosed.length : null,
+        pnl,
+        allocated,
+      };
+    });
+  }, [agents, closedPositions, openPositions]);
 
   const copy = useMemo(() => ({
     title: language === 'es' ? 'Mercados' : 'Markets',
     intro:
       language === 'es'
-        ? 'Snapshot real de Polymarket en modo solo lectura. Sin trading, sin wallet y sin datos inventados.'
-        : 'Live Polymarket snapshot in read-only mode. No trading, no wallet, and no fabricated data.',
+        ? 'Mercados reales de Polymarket. Los agentes trader analizan precios en vivo y abren posiciones de paper trading para ganar capital.'
+        : 'Live Polymarket markets. Trader agents analyze real-time prices and open paper-trading positions to grow capital.',
     refresh: language === 'es' ? 'Actualizar' : 'Refresh',
     backendHint:
       language === 'es'
@@ -347,6 +381,7 @@ export default function MarketsView() {
     try {
       const next = await loadPolymarketSnapshot(8);
       setSnapshot(next);
+      evaluatePaperTrades(next.events);
     } catch (cause) {
       const clientError = cause as MarketsClientError;
       if (clientError.code === 'provider_unreachable') {
@@ -372,6 +407,7 @@ export default function MarketsView() {
         const next = await loadPolymarketSnapshot(8);
         if (!disposed) {
           setSnapshot(next);
+          evaluatePaperTrades(next.events);
         }
       } catch (cause) {
         if (!disposed) {
@@ -457,7 +493,7 @@ export default function MarketsView() {
           </section>
         ) : null}
 
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <section className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <div className="border border-trim bg-carbon-200 px-4 py-3">
             <div className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">
               {language === 'es' ? 'Auto refresh' : 'Auto refresh'}
@@ -476,9 +512,172 @@ export default function MarketsView() {
             </div>
             <div className="font-mono text-lg text-zinc-100">{marketSummary.marketTasks}</div>
           </div>
+          <div className="border border-trim bg-carbon-200 px-4 py-3">
+            <div className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">
+              {language === 'es' ? 'Posiciones abiertas' : 'Open positions'}
+            </div>
+            <div
+              className="font-mono text-lg"
+              style={{ color: openPositions.length > 0 ? '#3da9fc' : '#4a5568' }}
+            >
+              {openPositions.length}
+            </div>
+            <div className="font-mono text-[10px] text-zinc-600 mt-0.5">
+              {language === 'es' ? `Capital: $${capital.toFixed(0)}` : `Capital: $${capital.toFixed(0)}`}
+            </div>
+          </div>
         </section>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.7fr)_360px] gap-4 items-start">
+        {/* Portfolio Intelligence */}
+        {traderAgents.length > 0 && (
+          <section className="border border-trim bg-carbon-200">
+            <header className="px-4 py-2.5 border-b border-trim font-mono text-[11px] uppercase tracking-wider text-zinc-300">
+              {language === 'es' ? 'Portfolio Intelligence' : 'Portfolio Intelligence'}
+            </header>
+            <div className="divide-y divide-trim">
+              {traderAgents.map((trader) => {
+                const allocPct = capital > 0 ? (trader.allocated / capital) * 100 : 0;
+                return (
+                  <div key={trader.id} className="px-4 py-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-mono text-[12px] text-zinc-100">{trader.name}</span>
+                        {trader.trades > 0 && (
+                          <span
+                            className="font-mono text-[9px] px-1.5 border"
+                            style={{
+                              color: trader.pnl >= 0 ? '#00ff9c' : '#ff4757',
+                              borderColor: trader.pnl >= 0 ? '#00ff9c44' : '#ff475744',
+                            }}
+                          >
+                            {trader.pnl >= 0 ? '+' : ''}${trader.pnl.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="font-mono text-[9px] text-zinc-500">
+                        {trader.trades} {language === 'es' ? 'trades' : 'trades'}
+                        {trader.winRate !== null && ` · ${(trader.winRate * 100).toFixed(0)}% win`}
+                        {trader.trades === 0 && ` · ${language === 'es' ? 'sin historial' : 'no history'}`}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between font-mono text-[9px] text-zinc-500 mb-1">
+                        <span>{language === 'es' ? 'Capital asignado' : 'Allocated capital'}</span>
+                        <span className="text-zinc-300">
+                          {trader.allocated > 0 ? `$${trader.allocated.toFixed(0)} (${allocPct.toFixed(0)}%)` : '—'}
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-carbon-300 border border-trim">
+                        <div
+                          style={{ width: `${Math.min(allocPct, 100)}%`, background: '#00ff9c', height: '100%' }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {/* Free capital row */}
+              <div className="px-4 py-2.5">
+                <div className="flex justify-between font-mono text-[9px] text-zinc-500 mb-1">
+                  <span>{language === 'es' ? 'Capital disponible' : 'Free capital'}</span>
+                  <span className="text-zinc-300">
+                    ${Math.max(0, capital - traderAgents.reduce((s, t) => s + t.allocated, 0)).toFixed(0)}
+                    {' '}({Math.max(0, 100 - traderAgents.reduce((s, t) => s + (capital > 0 ? (t.allocated / capital) * 100 : 0), 0)).toFixed(0)}%)
+                  </span>
+                </div>
+                <div className="h-1.5 bg-carbon-300 border border-trim">
+                  <div
+                    style={{
+                      width: `${Math.max(0, 100 - traderAgents.reduce((s, t) => s + (capital > 0 ? (t.allocated / capital) * 100 : 0), 0))}%`,
+                      background: '#4a5568', height: '100%',
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        <LiveTradingPanel />
+
+        {openPositions.length > 0 && (
+          <section className="border border-trim bg-carbon-200">
+            <header className="px-4 py-2.5 border-b border-trim font-mono text-[11px] uppercase tracking-wider text-zinc-300">
+              {language === 'es' ? 'Detalle de posiciones' : 'Position detail'}
+            </header>
+            <ul className="divide-y divide-trim">
+              {openPositions.map((pos) => {
+                const unrealizedPnL = (pos.currentPrice - pos.entryPrice) * pos.shares * (pos.outcome === 'YES' ? 1 : -1);
+                const agent = agents.find((a) => a.id === pos.agentId);
+                const isClosing = closingId === pos.id;
+                return (
+                  <li key={pos.id} className="px-4 py-3 flex items-center justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-mono text-[9px] uppercase tracking-wider text-zinc-500 mb-0.5">
+                        {agent?.name ?? pos.agentId} · {pos.outcome}
+                      </div>
+                      <div className="font-mono text-[11px] text-zinc-200 truncate">{pos.question[language]}</div>
+                      <div className="font-mono text-[9px] text-zinc-500 mt-0.5">
+                        {pos.shares} shares @ ${pos.entryPrice.toFixed(3)} → ${pos.currentPrice.toFixed(3)}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div
+                        className="font-mono text-sm"
+                        style={{ color: unrealizedPnL >= 0 ? '#00ff9c' : '#ff4757' }}
+                      >
+                        {unrealizedPnL >= 0 ? '+' : ''}${unrealizedPnL.toFixed(2)}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={isClosing}
+                        onClick={() => {
+                          setClosingId(pos.id);
+                          actions.closePosition(pos.id, pos.currentPrice);
+                          setClosingId(null);
+                        }}
+                        className="font-mono text-[10px] uppercase tracking-wider border border-red-400/50 text-red-300 px-2 py-1 hover:bg-red-400/10 disabled:opacity-40"
+                      >
+                        {isClosing ? '…' : (language === 'es' ? 'Cerrar' : 'Close')}
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
+        {/* View tabs */}
+        <div className="flex gap-1 border-b border-trim pb-0">
+          {(['live', 'positions'] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className="font-mono text-[11px] uppercase tracking-wider px-4 py-2 hover:text-zinc-200"
+              style={{
+                color: activeTab === tab ? '#3da9fc' : '#6b7280',
+                borderBottom: activeTab === tab ? '2px solid #3da9fc' : '2px solid transparent',
+              }}
+            >
+              {tab === 'live'
+                ? (language === 'es' ? 'Mercados en vivo' : 'Live markets')
+                : (language === 'es' ? 'Historial de trades' : 'Trade history')}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'positions' ? (
+          <section className="border border-trim bg-carbon-200">
+            <header className="px-4 py-2.5 border-b border-trim font-mono text-[11px] uppercase tracking-wider text-zinc-300">
+              {language === 'es' ? 'Historial de trades cerrados' : 'Closed trade history'}
+            </header>
+            <TradingHistoryView />
+          </section>
+        ) : null}
+
+        {activeTab === 'live' && <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.7fr)_360px] gap-4 items-start">
           <section className="space-y-4 min-w-0">
             <div className="border border-trim bg-carbon-200 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -595,7 +794,7 @@ export default function MarketsView() {
               </div>
             </section>
           </aside>
-        </div>
+        </div>}
       </div>
     </main>
   );

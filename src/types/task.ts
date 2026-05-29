@@ -15,7 +15,21 @@ export type TaskType =
   | 'decision_review'
   | 'maintenance'
   | 'language_update'
-  | 'system_check';
+  | 'system_check'
+  | 'paper_trade'
+  | 'signal_generation'
+  | 'peer_training'
+  | 'performance_review'
+  | 'campaign_launch'
+  | 'content_creation'
+  | 'growth_analysis'
+  | 'seo_audit'
+  | 'ads_review'
+  | 'sprint_planning'
+  | 'code_review'
+  | 'qa_testing'
+  | 'deployment'
+  | 'bug_fix';
 
 export type TaskStatus =
   | 'queued'

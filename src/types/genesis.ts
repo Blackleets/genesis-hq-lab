@@ -73,8 +73,8 @@ export interface Agent {
   status: AgentStatus;
   /** present when status is working/waiting_review */
   currentTaskId: string | null;
-  /** legacy text snapshot of current task (for tooltips/legacy) */
-  currentTask: string | null;
+  /** bilingual snapshot of current task title (for tooltips/quick display) */
+  currentTask: { es: string; en: string } | null;
   mistakeCount?: number;
   trustScore: number;
   learningScore: number;
@@ -92,4 +92,10 @@ export interface Agent {
   emoji?: string | null;
   /** the kinds of tasks this agent can handle — used for auto-assignment */
   capabilities: TaskType[];
+  totalPnL?: number;
+  tradeCount?: number;
+  winRate?: number;
+  specialization?: 'quant' | 'risk' | 'analyst' | 'mentor';
+  /** consecutive idle ticks without a task (used for auto-training trigger) */
+  idleTicks?: number;
 }

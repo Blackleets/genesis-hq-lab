@@ -27,8 +27,22 @@ import type { SystemEvent } from '../types/event';
 import type { HiringCandidate } from '../types/hiring';
 import type { OfficeUpgrade, RoomId } from '../types/office';
 import type { ModuleEntity, ModuleId, ModuleState } from '../types/module';
+import type { PaperPosition } from '../types/trading';
 
 // ---------- shape ----------
+
+export interface DecisionRecord {
+  id: string;
+  title: string;
+  context: string;
+  optionA: string;
+  optionB: string;
+  status: 'pending' | 'resolved';
+  outcome?: string;
+  createdAt: string;
+  resolvedAt?: string;
+  taskId?: string;
+}
 
 export interface GenesisStateShape {
   meta: {
@@ -45,6 +59,50 @@ export interface GenesisStateShape {
   selectedAgent: string | null;
   modules: Record<ModuleId, ModuleEntity>;
   officeUpgrades: Record<string, OfficeUpgrade>;
+  decisions: Record<string, DecisionRecord>;
+  capital: number;
+  positions: Record<string, PaperPosition>;
+  closedPositions: PaperPosition[];
+  capitalHistory: { at: string; value: number }[];
+  walletAddress: string | null;
+  walletConnected: boolean;
+  commandHistory: CommandHistoryEntry[];
+  connectors: ConnectorConfig[];
+}
+
+export interface CommandHistoryEntry {
+  id: string;
+  at: string;
+  command: string;
+  taskIds: string[];
+  status: 'running' | 'done' | 'partial';
+}
+
+export type PlatformId =
+  | 'slack' | 'github' | 'notion' | 'sheets'
+  | 'facebook' | 'instagram' | 'linkedin' | 'twitter'
+  | 'google_ads' | 'tiktok' | 'make' | 'webhook';
+
+export interface ConnectorConfig {
+  id: string;
+  name: string;
+  platform: PlatformId;
+  config: {
+    webhookUrl?: string;
+    apiKey?: string;
+    token?: string;
+    url?: string;
+    channelId?: string;
+    repoOwner?: string;
+    repoName?: string;
+    databaseId?: string;
+    [key: string]: string | undefined;
+  };
+  status: 'connected' | 'disconnected' | 'error' | 'pending';
+  capabilities: string[];
+  lastUsed?: string;
+  lastError?: string;
+  syncCount?: number;
 }
 
 // ---------- initial state ----------
@@ -87,12 +145,34 @@ function buildInitialState(): GenesisStateShape {
       ])
     ) as Record<ModuleId, ModuleEntity>,
     officeUpgrades: {},
+    decisions: {},
+    capital: 10_000,
+    positions: {},
+    closedPositions: [],
+    capitalHistory: [{ at: now, value: 10_000 }],
+    walletAddress: null,
+    walletConnected: false,
+    commandHistory: [],
+    connectors: [],
   };
+}
+
+function mergeAgentCapabilities(saved: Record<string, Agent>): Record<string, Agent> {
+  const result = { ...saved };
+  for (const template of INITIAL_AGENTS) {
+    const existing = result[template.id];
+    if (!existing) continue;
+    const missing = template.capabilities.filter((c) => !existing.capabilities.includes(c));
+    if (missing.length === 0) continue;
+    result[template.id] = { ...existing, capabilities: [...existing.capabilities, ...missing] };
+  }
+  return result;
 }
 
 function hydrateState(saved: Partial<GenesisStateShape>): GenesisStateShape {
   const base = buildInitialState();
-  const hydratedAgents = saved.agents ?? base.agents;
+  const rawAgents = saved.agents ?? base.agents;
+  const hydratedAgents = mergeAgentCapabilities(rawAgents);
   const hydratedModules = saved.modules ?? base.modules;
   const selectedModule =
     saved.selectedModule && hydratedModules[saved.selectedModule]
@@ -117,6 +197,15 @@ function hydrateState(saved: Partial<GenesisStateShape>): GenesisStateShape {
     selectedAgent,
     modules: hydratedModules,
     officeUpgrades: saved.officeUpgrades ?? base.officeUpgrades,
+    decisions: saved.decisions ?? base.decisions,
+    capital: saved.capital ?? base.capital,
+    positions: saved.positions ?? base.positions,
+    closedPositions: saved.closedPositions ?? base.closedPositions,
+    capitalHistory: saved.capitalHistory ?? base.capitalHistory,
+    walletAddress: saved.walletAddress ?? base.walletAddress,
+    walletConnected: saved.walletConnected ?? base.walletConnected,
+    commandHistory: saved.commandHistory ?? base.commandHistory,
+    connectors: saved.connectors ?? base.connectors,
   };
 }
 
@@ -233,7 +322,7 @@ function syncAgentsFromTasks(agents: Record<string, Agent>, tasks: Record<string
       ...agent,
       status: derivedStatus,
       currentTaskId: priorityTask.id,
-      currentTask: priorityTask.title.en,
+      currentTask: priorityTask.title,
       movementState: priorityTask.status === 'moving' ? 'moving' : agent.movementState === 'moving' ? 'arrived' : agent.movementState,
     };
   }
@@ -243,7 +332,7 @@ function syncAgentsFromTasks(agents: Record<string, Agent>, tasks: Record<string
 
 // ---------- actions ----------
 
-const TWENTY_FOUR_HOURS_MS = 1000 * 60 * 60 * 24;
+const ONBOARDING_DURATION_MS = 3 * 60 * 1000; // 3 minutes — lab demo pace
 
 export const actions = {
   reset(): void {
@@ -278,7 +367,7 @@ export const actions = {
     const destinationRoom = roomForDepartment(candidate.department);
     const id = `hired-${candidateId.replace(/^future-/, '')}-${Date.now()}`;
     const now = new Date().toISOString();
-    const endsAt = new Date(Date.now() + TWENTY_FOUR_HOURS_MS).toISOString();
+    const endsAt = new Date(Date.now() + ONBOARDING_DURATION_MS).toISOString();
     const newAgent: Agent = {
       id,
       name: candidate.name.en,
@@ -323,7 +412,7 @@ export const actions = {
       },
       voicedBy: 'visual-genesis-core',
       voicedText: {
-        es: 'Bienvenido a GÃ©nesis. Tu onboarding ha comenzado.',
+        es: 'Bienvenido a Génesis. Tu onboarding ha comenzado.',
         en: 'Welcome to Genesis. Your onboarding has started.',
       },
       isVisualSeed: true,
@@ -364,11 +453,11 @@ export const actions = {
       agentId: id,
       voicedBy: id,
       voicedText: {
-        es: 'EstarÃ© activo despuÃ©s de mi inducciÃ³n.',
+        es: 'Estaré activo después de mi inducción.',
         en: 'I will be active after onboarding.',
       },
       message: {
-        es: `${candidate.name.es} confirmÃ³ que estarÃ¡ activo tras onboarding.`,
+        es: `${candidate.name.es} confirmó que estará activo tras onboarding.`,
         en: `${candidate.name.en} confirmed it will be active after onboarding.`,
       },
       isVisualSeed: true,
@@ -530,6 +619,117 @@ export const actions = {
     commit(next);
   },
 
+  createAgentFromFactory(input: {
+    name: string;
+    role: string;
+    department: Agent['department'];
+    archetype: Agent['visualProfile']['archetype'];
+    primaryColor: string;
+  }): void {
+    const id = `factory-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const now = new Date().toISOString();
+    const endsAt = new Date(Date.now() + ONBOARDING_DURATION_MS).toISOString();
+    const onboardingRoom: RoomId = 'hr-pod';
+    const onboardingEntry = OFFICE_ROOMS[onboardingRoom].entryPoint;
+    const destinationRoom = roomForDepartment(input.department);
+    const newAgent: Agent = {
+      id,
+      name: input.name,
+      role: { es: input.role, en: input.role },
+      department: input.department,
+      rank: 'junior',
+      status: 'onboarding',
+      currentTaskId: null,
+      currentTask: null,
+      trustScore: 0.50,
+      learningScore: 0.10,
+      visualProfile: {
+        archetype: input.archetype,
+        primary: input.primaryColor,
+        accent: '#3da9fc',
+        accessory: 'none',
+      },
+      position: { ...onboardingEntry, x: onboardingEntry.x - 52, y: onboardingEntry.y + 24, pose: 'standing', facing: 'south' },
+      currentRoom: onboardingRoom,
+      targetRoom: destinationRoom,
+      movementState: 'still',
+      hiredAt: now,
+      onboardingStartedAt: now,
+      onboardingEndsAt: endsAt,
+      isVisualSeed: false,
+      capabilities: [],
+    };
+    let next: GenesisStateShape = { ...state, agents: { ...state.agents, [id]: newAgent } };
+    next = appendEvent(next, {
+      kind: 'agent.hired',
+      severity: 'info',
+      agentId: id,
+      message: {
+        es: `Fábrica creó un nuevo agente: ${input.name}.`,
+        en: `Factory created a new agent: ${input.name}.`,
+      },
+      voicedBy: 'visual-genesis-core',
+      voicedText: { es: `Bienvenido, ${input.name}.`, en: `Welcome, ${input.name}.` },
+      isVisualSeed: false,
+    });
+    commit(next);
+  },
+
+  addDecision(input: { title: string; context: string; optionA: string; optionB: string }): void {
+    const id = `decision-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const now = new Date().toISOString();
+    const record: DecisionRecord = {
+      id,
+      title: input.title,
+      context: input.context,
+      optionA: input.optionA,
+      optionB: input.optionB,
+      status: 'pending',
+      createdAt: now,
+    };
+    let next: GenesisStateShape = { ...state, decisions: { ...state.decisions, [id]: record } };
+    // Create a real decision_review task in the board room
+    const taskId = `task-dec-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const task: Task = {
+      id: taskId,
+      title: { es: `Decisión: ${input.title}`, en: `Decision: ${input.title}` },
+      description: { es: input.context, en: input.context },
+      type: 'decision_review',
+      assignedAgentIds: [],
+      room: 'board-room',
+      status: 'queued',
+      priority: 'high',
+      createdAt: now,
+      sourceModule: 'decisions',
+      estimatedMs: 5 * 60 * 1000,
+      isSeed: false,
+      isReal: true,
+      isVisualSeed: false,
+    };
+    next = { ...next, tasks: { ...next.tasks, [taskId]: task }, decisions: { ...next.decisions, [id]: { ...record, taskId } } };
+    next = appendEvent(next, {
+      kind: 'task.created',
+      severity: 'info',
+      taskId,
+      message: {
+        es: `Nueva decisión registrada: ${input.title}.`,
+        en: `New decision logged: ${input.title}.`,
+      },
+      voicedBy: 'visual-genesis-core',
+      voicedText: { es: 'Decisión registrada para revisión.', en: 'Decision logged for review.' },
+      isVisualSeed: false,
+    });
+    commit(next);
+  },
+
+  resolveDecision(id: string, outcome: string): void {
+    const record = state.decisions[id];
+    if (!record || record.status === 'resolved') return;
+    const updated: DecisionRecord = { ...record, status: 'resolved', outcome, resolvedAt: new Date().toISOString() };
+    const next: GenesisStateShape = { ...state, decisions: { ...state.decisions, [id]: updated } };
+    commit(next);
+  },
+
   createTask(input: TaskCreateInput): string {
     const id = `task-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const task: Task = {
@@ -600,7 +800,7 @@ export const actions = {
         targetPosition: target,
         movementState,
         currentTaskId: taskId,
-        currentTask: task.title.en,
+        currentTask: task.title,
       };
     }
     const nextTask: Task = { ...updated, status: (hasMovement ? 'moving' : 'assigned') as TaskStatus };
@@ -626,21 +826,22 @@ export const actions = {
       isVisualSeed: true,
     });
     if (hasMovement && eligibleAgentIds[0]) {
+      const movingAgent = state.agents[eligibleAgentIds[0]];
       next = appendEvent(next, {
-        kind: 'task.moving',
+        kind: 'agent.moving',
         severity: 'info',
         taskId,
         agentId: eligibleAgentIds[0],
         voicedBy: eligibleAgentIds[0],
         voicedText: {
-          es: 'Voy al area asignada.',
-          en: 'Moving to assigned area.',
+          es: `Voy a ${OFFICE_ROOMS[task.room].label.es}.`,
+          en: `Moving to ${OFFICE_ROOMS[task.room].label.en}.`,
         },
         message: {
-          es: `${state.agents[eligibleAgentIds[0]]?.name ?? 'Agente'} se dirige a ${OFFICE_ROOMS[task.room].label.es}.`,
-          en: `${state.agents[eligibleAgentIds[0]]?.name ?? 'Agent'} is moving to ${OFFICE_ROOMS[task.room].label.en}.`,
+          es: `${movingAgent?.name ?? 'Agente'} se dirige a ${OFFICE_ROOMS[task.room].label.es}.`,
+          en: `${movingAgent?.name ?? 'Agent'} is moving to ${OFFICE_ROOMS[task.room].label.en}.`,
         },
-        isVisualSeed: true,
+        isVisualSeed: false,
       });
     }
     commit(next);
@@ -750,7 +951,7 @@ export const actions = {
         isReal: false,
         isVisualSeed: true,
         startBubble: {
-          es: 'ArchivarÃ© este aprendizaje.',
+          es: 'Archivaré este aprendizaje.',
           en: 'I will archive this learning.',
         },
       };
@@ -794,7 +995,7 @@ export const actions = {
       voicedBy: task.assignedAgentIds[0],
       voicedText: reason,
       message: {
-        es: `FallÃ³: ${task.title.es}. ${reason.es}`,
+        es: `Falló: ${task.title.es}. ${reason.es}`,
         en: `Failed: ${task.title.en}. ${reason.en}`,
       },
       isVisualSeed: true,
@@ -842,7 +1043,7 @@ export const actions = {
       voicedBy: 'visual-risk-guardian',
       voicedText: reason,
       message: {
-        es: `Risk Guardian marcÃ³ una alerta en ${task.title.es}.`,
+        es: `Risk Guardian marcó una alerta en ${task.title.es}.`,
         en: `Risk Guardian marked a warning on ${task.title.en}.`,
       },
       isVisualSeed: true,
@@ -926,6 +1127,169 @@ export const actions = {
     commit(next);
   },
 
+  // ---------- wallet actions ----------
+
+  setWallet(address: string | null): void {
+    commit({ ...state, walletAddress: address, walletConnected: !!address });
+  },
+
+  // ---------- command console actions ----------
+
+  addCommandHistory(entry: CommandHistoryEntry): void {
+    const history = [entry, ...state.commandHistory].slice(0, 50);
+    commit({ ...state, commandHistory: history });
+  },
+
+  updateCommandStatus(id: string, status: CommandHistoryEntry['status']): void {
+    const commandHistory = state.commandHistory.map((e) =>
+      e.id === id ? { ...e, status } : e
+    );
+    commit({ ...state, commandHistory });
+  },
+
+  // ---------- connector actions ----------
+
+  addConnector(connector: ConnectorConfig): void {
+    const connectors = [...state.connectors.filter((c) => c.id !== connector.id), connector];
+    commit({ ...state, connectors });
+  },
+
+  removeConnector(id: string): void {
+    commit({ ...state, connectors: state.connectors.filter((c) => c.id !== id) });
+  },
+
+  updateConnector(id: string, patch: Partial<ConnectorConfig>): void {
+    const connectors = state.connectors.map((c) => c.id === id ? { ...c, ...patch } : c);
+    commit({ ...state, connectors });
+  },
+
+  // ---------- paper trading actions ----------
+
+  openPosition(agentId: string, marketId: string, question: { es: string; en: string }, outcome: 'YES' | 'NO', entryPrice: number, shares: number): void {
+    const agent = state.agents[agentId];
+    if (!agent) return;
+    const capitalAllocated = entryPrice * shares;
+    if (capitalAllocated > state.capital) return;
+    const id = `pos-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const position: PaperPosition = {
+      id, marketId, question, outcome, entryPrice, currentPrice: entryPrice,
+      shares, capitalAllocated, openedAt: new Date().toISOString(),
+      agentId, confidence: agent.learningScore, status: 'open', isReal: true,
+    };
+    let next: GenesisStateShape = {
+      ...state,
+      capital: state.capital - capitalAllocated,
+      positions: { ...state.positions, [id]: position },
+    };
+    next = appendEvent(next, {
+      kind: 'trade.opened',
+      severity: 'info',
+      agentId,
+      message: {
+        es: `${agent.name} abrió ${outcome} en «${question.es}» @ $${entryPrice.toFixed(3)} (${shares} shares).`,
+        en: `${agent.name} opened ${outcome} on "${question.en}" @ $${entryPrice.toFixed(3)} (${shares} shares).`,
+      },
+      voicedBy: agentId,
+      voicedText: {
+        es: `Entré ${outcome} a $${entryPrice.toFixed(2)}.`,
+        en: `Entered ${outcome} at $${entryPrice.toFixed(2)}.`,
+      },
+      isVisualSeed: false,
+    });
+    commit(next);
+  },
+
+  closePosition(positionId: string, exitPrice: number): void {
+    const pos = state.positions[positionId];
+    if (!pos || pos.status !== 'open') return;
+    const pnl = (exitPrice - pos.entryPrice) * pos.shares * (pos.outcome === 'YES' ? 1 : -1);
+    const closed: PaperPosition = {
+      ...pos, exitPrice, pnl, closedAt: new Date().toISOString(), status: 'closed',
+      currentPrice: exitPrice,
+    };
+    const { [positionId]: _, ...restPositions } = state.positions;
+    void _;
+    const closedList = [...state.closedPositions, closed].slice(-200);
+    const agent = state.agents[pos.agentId];
+    const updatedAgent = agent
+      ? {
+          ...agent,
+          totalPnL: (agent.totalPnL ?? 0) + pnl,
+          tradeCount: (agent.tradeCount ?? 0) + 1,
+          winRate: (() => {
+            const wins = (agent.winRate ?? 0) * (agent.tradeCount ?? 0) + (pnl > 0 ? 1 : 0);
+            const total = (agent.tradeCount ?? 0) + 1;
+            return wins / total;
+          })(),
+        }
+      : agent;
+    let next: GenesisStateShape = {
+      ...state,
+      capital: state.capital + pos.capitalAllocated + pnl,
+      positions: restPositions,
+      closedPositions: closedList,
+      agents: agent && updatedAgent
+        ? { ...state.agents, [pos.agentId]: updatedAgent }
+        : state.agents,
+    };
+    const isPnlPositive = pnl >= 0;
+    next = appendEvent(next, {
+      kind: isPnlPositive ? 'trade.profit' : 'trade.loss',
+      severity: isPnlPositive ? 'info' : 'warn',
+      agentId: pos.agentId,
+      message: {
+        es: `${agent?.name ?? pos.agentId} cerró posición ${pos.outcome} @ $${exitPrice.toFixed(3)} — P&L: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}.`,
+        en: `${agent?.name ?? pos.agentId} closed ${pos.outcome} @ $${exitPrice.toFixed(3)} — P&L: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}.`,
+      },
+      voicedBy: pos.agentId,
+      voicedText: {
+        es: `P&L: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}.`,
+        en: `P&L: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}.`,
+      },
+      isVisualSeed: false,
+    });
+    next = appendEvent(next, {
+      kind: 'trade.closed',
+      severity: 'info',
+      agentId: pos.agentId,
+      message: {
+        es: `Posición cerrada. Capital actual: $${(state.capital + pos.capitalAllocated + pnl).toFixed(2)}.`,
+        en: `Position closed. Current capital: $${(state.capital + pos.capitalAllocated + pnl).toFixed(2)}.`,
+      },
+      isVisualSeed: false,
+    });
+    commit(next);
+  },
+
+  markPositionsToMarket(latestPrices: Record<string, number>): void {
+    const openPositions = Object.values(state.positions);
+    if (openPositions.length === 0) return;
+    let changed = false;
+    const updatedPositions = { ...state.positions };
+    for (const pos of openPositions) {
+      const price = latestPrices[pos.marketId];
+      if (price === undefined) continue;
+      const effectivePrice = pos.outcome === 'YES' ? price : 1 - price;
+      if (Math.abs(effectivePrice - pos.currentPrice) < 0.001) continue;
+      updatedPositions[pos.id] = { ...pos, currentPrice: effectivePrice };
+      changed = true;
+    }
+    if (!changed) return;
+    commit({ ...state, positions: updatedPositions });
+  },
+
+  snapshotCapital(): void {
+    const totalOpenValue = Object.values(state.positions).reduce(
+      (sum, pos) => sum + pos.currentPrice * pos.shares, 0
+    );
+    const totalCapital = state.capital + totalOpenValue;
+    const history = [
+      ...state.capitalHistory,
+      { at: new Date().toISOString(), value: totalCapital },
+    ].slice(-500);
+    commit({ ...state, capitalHistory: history });
+  },
+
   // ---------- tick: time-driven transitions ----------
   tick(): void {
     const now = Date.now();
@@ -979,6 +1343,7 @@ export const actions = {
       const dy = a.targetPosition.y - a.position.y;
       const dist = Math.hypot(dx, dy);
       if (dist < 4) {
+        const arrivedRoom = a.targetRoom ?? a.currentRoom;
         next = {
           ...next,
           agents: {
@@ -987,10 +1352,25 @@ export const actions = {
               ...a,
               position: { ...a.position, x: a.targetPosition.x, y: a.targetPosition.y },
               movementState: 'arrived',
-              currentRoom: a.targetRoom ?? a.currentRoom,
+              currentRoom: arrivedRoom,
             },
           },
         };
+        next = appendEvent(next, {
+          kind: 'agent.arrived',
+          severity: 'info',
+          agentId: a.id,
+          voicedBy: a.id,
+          voicedText: {
+            es: 'Llegué. A trabajar.',
+            en: 'Arrived. Time to work.',
+          },
+          message: {
+            es: `${a.name} llegó a ${OFFICE_ROOMS[arrivedRoom]?.label.es ?? arrivedRoom}.`,
+            en: `${a.name} arrived at ${OFFICE_ROOMS[arrivedRoom]?.label.en ?? arrivedRoom}.`,
+          },
+          isVisualSeed: false,
+        });
         dirty = true;
       } else {
         const step = 40; // world units per tick (~5s tick)
@@ -1034,6 +1414,20 @@ export const actions = {
           },
           isVisualSeed: true,
         });
+      } else {
+        next = appendEvent(next, {
+          kind: 'task.started',
+          severity: 'info',
+          taskId: t.id,
+          agentId: speaker,
+          voicedBy: speaker,
+          voicedText: { es: 'Iniciando tarea.', en: 'Starting task.' },
+          message: {
+            es: `Empezó: ${t.title.es}.`,
+            en: `Started: ${t.title.en}.`,
+          },
+          isVisualSeed: true,
+        });
       }
       dirty = true;
     }
@@ -1049,9 +1443,15 @@ export const actions = {
       for (const aid of t.assignedAgentIds) {
         const a = updatedAgents[aid];
         if (!a) continue;
+        // peer_training: senior +0.02, junior +0.08; other tasks: +0.02
+        let scoreBoost = 0.02;
+        if (t.type === 'peer_training') {
+          const isSenior = ['senior', 'lead', 'executive'].includes(a.rank);
+          scoreBoost = isSenior ? 0.02 : 0.08;
+        }
         updatedAgents[aid] = {
           ...a,
-          learningScore: Math.min(1, a.learningScore + 0.01),
+          learningScore: Math.min(1, a.learningScore + scoreBoost),
         };
       }
       next = { ...next, agents: syncAgentsFromTasks(updatedAgents, next.tasks) };
@@ -1071,10 +1471,92 @@ export const actions = {
       dirty = true;
     }
 
+    // 4.5) Periodic task.progress bubbles for working agents (~every 28s)
+    const PROGRESS_INTERVAL = 28_000;
+    for (const t of Object.values(next.tasks)) {
+      if (t.status !== 'working' || !t.startedAt) continue;
+      const startedMs = Date.parse(t.startedAt);
+      if (now - startedMs < 10_000) continue;
+      const speaker = t.assignedAgentIds[0];
+      if (!speaker) continue;
+      const lastProgress = next.events
+        .slice(-60)
+        .reverse()
+        .find((e) => e.kind === 'task.progress' && e.taskId === t.id);
+      const lastAt = lastProgress ? Date.parse(lastProgress.at) : startedMs;
+      if (now - lastAt < PROGRESS_INTERVAL) continue;
+      next = appendEvent(next, {
+        kind: 'task.progress',
+        severity: 'info',
+        taskId: t.id,
+        agentId: speaker,
+        voicedBy: speaker,
+        message: {
+          es: `Trabajando en: ${t.title.es}.`,
+          en: `Working on: ${t.title.en}.`,
+        },
+        isVisualSeed: false,
+      });
+      dirty = true;
+    }
+
+    // 4.6) Recycle completed seed tasks so agents stay busy (20s cooldown)
+    for (const t of Object.values(next.tasks)) {
+      if (t.status !== 'completed' || !t.isSeed) continue;
+      const age = t.completedAt ? (now - Date.parse(t.completedAt)) : Infinity;
+      if (age < 20_000) continue;
+      const recycled: Task = {
+        ...t,
+        status: 'assigned',
+        isReal: false,
+        startedAt: undefined,
+        completedAt: undefined,
+      };
+      next = { ...next, tasks: { ...next.tasks, [t.id]: recycled } };
+      // Mark agents as moving so they walk back to workstation
+      const updatedAgents = { ...next.agents };
+      for (const aid of t.assignedAgentIds) {
+        const a = updatedAgents[aid];
+        if (!a || a.status === 'fired' || a.status === 'onboarding') continue;
+        const target = OFFICE_ROOMS[t.room]?.entryPoint;
+        if (!target) continue;
+        updatedAgents[aid] = {
+          ...a,
+          targetRoom: t.room,
+          targetPosition: target,
+          movementState: a.currentRoom === t.room ? 'arrived' : 'moving',
+        };
+      }
+      next = { ...next, agents: syncAgentsFromTasks(updatedAgents, next.tasks) };
+      dirty = true;
+    }
+
     // 5) Evaluate hiring queue unlock conditions
     const queueBefore = JSON.stringify(next.hiringQueue);
     next = evaluateHiringQueue(next);
     if (JSON.stringify(next.hiringQueue) !== queueBefore) dirty = true;
+
+    // 6) Error pipeline — auto-suspend/fire agents by mistakeCount
+    const pipelineBefore = JSON.stringify(next.agents);
+    next = runErrorPipelineInTick(next);
+    if (JSON.stringify(next.agents) !== pipelineBefore) dirty = true;
+
+    // 7) Auto-training — idle agents + peer learning
+    const trainingBefore = JSON.stringify(next.tasks);
+    next = runAutoTrainingInTick(next, now);
+    if (JSON.stringify(next.tasks) !== trainingBefore) dirty = true;
+
+    // 8) Snapshot capital every tick
+    const totalOpenValue = Object.values(next.positions).reduce(
+      (sum, pos) => sum + pos.currentPrice * pos.shares, 0
+    );
+    const totalCapital = next.capital + totalOpenValue;
+    const newHistory = [
+      ...next.capitalHistory,
+      { at: new Date().toISOString(), value: totalCapital },
+    ].slice(-500);
+    next = { ...next, capitalHistory: newHistory };
+    dirty = true;
 
     if (dirty) commit({ ...next, agents: syncAgentsFromTasks(next.agents, next.tasks) });
   },
@@ -1085,6 +1567,8 @@ export const actions = {
 function evaluateHiringQueue(s: GenesisStateShape): GenesisStateShape {
   const allTasks = Object.values(s.tasks);
   const allAgents = Object.values(s.agents);
+  const completedEvents = s.events.filter((e) => e.kind === 'task.completed').length;
+  const failedEvents   = s.events.filter((e) => e.kind === 'task.failed').length;
   let changed = false;
   const nextQueue = { ...s.hiringQueue };
 
@@ -1094,11 +1578,13 @@ function evaluateHiringQueue(s: GenesisStateShape): GenesisStateShape {
 
     switch (candidate.unlockCondition) {
       case 'decisions-5-recorded':
-        unlocked = allTasks.filter((t) => t.type === 'decision_review' && t.status === 'completed').length >= 5;
+        // Count task.completed events — seed tasks recycle so we track history via events
+        unlocked = completedEvents >= 5;
         break;
       case 'learning-level-up': {
         const scores = allAgents.map((a) => a.learningScore);
-        unlocked = scores.length > 0 && scores.reduce((a, b) => a + b, 0) / scores.length > 0.7;
+        // Threshold 0.65: initial avg is ~0.70, fires on first tick; matches UI copy "supere 0.5"
+        unlocked = scores.length > 0 && scores.reduce((a, b) => a + b, 0) / scores.length >= 0.65;
         break;
       }
       case 'module-unlocked-decisions':
@@ -1108,10 +1594,12 @@ function evaluateHiringQueue(s: GenesisStateShape): GenesisStateShape {
         unlocked = s.modules['markets']?.state === 'ready';
         break;
       case 'tasks-pending-many':
-        unlocked = allTasks.filter((t) => t.status === 'queued' || t.status === 'assigned').length > 3;
+        // Count all active tasks (working counts too — seeds are always active)
+        unlocked = allTasks.filter((t) => t.status === 'queued' || t.status === 'assigned' || t.status === 'working').length > 3;
         break;
       case 'errors-keep-happening':
-        unlocked = allAgents.some((a) => (a.mistakeCount ?? 0) > 2);
+        // Count task.failed events — mistakeCount is not incremented by any current action
+        unlocked = failedEvents >= 2;
         break;
       case 'office-needs-upgrade':
         unlocked = Object.values(s.officeUpgrades).some((u) => u.status === 'requested');
@@ -1128,6 +1616,193 @@ function evaluateHiringQueue(s: GenesisStateShape): GenesisStateShape {
 
   if (!changed) return s;
   return { ...s, hiringQueue: nextQueue };
+}
+
+function runErrorPipelineInTick(s: GenesisStateShape): GenesisStateShape {
+  let next = s;
+  for (const a of Object.values(next.agents)) {
+    const mistakes = a.mistakeCount ?? 0;
+    if (mistakes < 2) continue;
+    if (mistakes >= 5 && a.status !== 'fired') {
+      const { [a.id]: _, ...rest } = next.agents;
+      void _;
+      const fired: Agent = { ...a, status: 'fired' };
+      next = {
+        ...next,
+        agents: rest,
+        firedAgents: { ...next.firedAgents, [a.id]: fired },
+        selectedAgent: next.selectedAgent === a.id ? null : next.selectedAgent,
+      };
+      next = appendEvent(next, {
+        kind: 'agent.auto_fired',
+        severity: 'critical',
+        agentId: a.id,
+        message: {
+          es: `${a.name} despedido automáticamente por ${mistakes} errores acumulados.`,
+          en: `${a.name} auto-fired after ${mistakes} accumulated mistakes.`,
+        },
+        voicedBy: 'visual-hr-evaluator',
+        voicedText: { es: 'Despido automático ejecutado.', en: 'Auto-termination executed.' },
+        isVisualSeed: false,
+      });
+    } else if (mistakes >= 3 && a.status !== 'suspended' && a.status !== 'fired') {
+      next = {
+        ...next,
+        agents: { ...next.agents, [a.id]: { ...a, status: 'suspended' } },
+      };
+      next = appendEvent(next, {
+        kind: 'agent.auto_suspended',
+        severity: 'warn',
+        agentId: a.id,
+        message: {
+          es: `${a.name} suspendido automáticamente por ${mistakes} errores.`,
+          en: `${a.name} auto-suspended after ${mistakes} mistakes.`,
+        },
+        isVisualSeed: false,
+      });
+    } else if (mistakes === 2) {
+      const lastWarning = [...next.events].reverse().find(
+        (e) => e.kind === 'agent.warning' && e.agentId === a.id
+      );
+      if (!lastWarning) {
+        next = appendEvent(next, {
+          kind: 'agent.warning',
+          severity: 'warn',
+          agentId: a.id,
+          voicedBy: 'visual-risk-guardian',
+          voicedText: { es: 'Demasiados errores. Última advertencia.', en: 'Too many mistakes. Final warning.' },
+          message: {
+            es: `${a.name} recibió advertencia formal: ${mistakes} errores registrados.`,
+            en: `${a.name} received formal warning: ${mistakes} mistakes recorded.`,
+          },
+          isVisualSeed: false,
+        });
+      }
+    }
+  }
+  return next;
+}
+
+function runAutoTrainingInTick(s: GenesisStateShape, now: number): GenesisStateShape {
+  let next = s;
+  const allTasks = Object.values(next.tasks);
+
+  // Increment idleTicks for agents without active tasks; reset for busy ones
+  const updatedAgents = { ...next.agents };
+  for (const a of Object.values(updatedAgents)) {
+    if (a.status === 'fired' || a.status === 'onboarding' || a.status === 'suspended') continue;
+    const hasBusyTask = allTasks.some(
+      (t) =>
+        t.assignedAgentIds.includes(a.id) &&
+        (t.status === 'assigned' || t.status === 'moving' || t.status === 'working')
+    );
+    if (hasBusyTask) {
+      updatedAgents[a.id] = { ...a, idleTicks: 0 };
+    } else {
+      updatedAgents[a.id] = { ...a, idleTicks: (a.idleTicks ?? 0) + 1 };
+    }
+  }
+  next = { ...next, agents: updatedAgents };
+
+  // Auto-training: agents idle for >= 2 ticks with learningScore < 0.9
+  for (const a of Object.values(next.agents)) {
+    if ((a.idleTicks ?? 0) < 2) continue;
+    if (a.learningScore >= 0.9) continue;
+    if (a.status === 'fired' || a.status === 'onboarding' || a.status === 'suspended' || a.status === 'retraining') continue;
+    const alreadyTraining = allTasks.some(
+      (t) => t.type === 'agent_training' && t.assignedAgentIds.includes(a.id) &&
+        (t.status === 'queued' || t.status === 'assigned' || t.status === 'working')
+    );
+    if (alreadyTraining) continue;
+    const taskId = `task-autotrain-${a.id}-${now}`;
+    const trainTask: Task = {
+      id: taskId,
+      title: { es: `Auto-estudio: ${a.name}`, en: `Self-study: ${a.name}` },
+      description: { es: `${a.name} inició auto-entrenamiento al detectar tiempo libre.`, en: `${a.name} started self-study after idle time detected.` },
+      type: 'agent_training',
+      assignedAgentIds: [a.id],
+      room: 'hr-pod',
+      status: 'queued',
+      priority: 'low',
+      createdAt: new Date(now).toISOString(),
+      sourceModule: 'hr',
+      estimatedMs: 5 * 60 * 1000,
+      isSeed: false,
+      isReal: true,
+      isVisualSeed: false,
+    };
+    next = { ...next, tasks: { ...next.tasks, [taskId]: trainTask } };
+    next = appendEvent(next, {
+      kind: 'agent.self_trained',
+      severity: 'info',
+      agentId: a.id,
+      voicedBy: a.id,
+      voicedText: { es: 'Aprovecharé para estudiar.', en: 'Using downtime to study.' },
+      message: {
+        es: `${a.name} inició auto-estudio (sin tareas activas).`,
+        en: `${a.name} started self-study (no active tasks).`,
+      },
+      isVisualSeed: false,
+    });
+  }
+
+  // Peer learning: senior teaches junior
+  const seniors = Object.values(next.agents).filter(
+    (a) => ['senior', 'lead', 'executive'].includes(a.rank) &&
+      a.learningScore > 0.75 && a.status === 'idle' && (a.idleTicks ?? 0) >= 1
+  );
+  const juniors = Object.values(next.agents).filter(
+    (a) => ['intern', 'junior'].includes(a.rank) &&
+      a.learningScore < 0.5 && a.status === 'idle'
+  );
+
+  for (const senior of seniors) {
+    for (const junior of juniors) {
+      if (senior.id === junior.id) continue;
+      const pairActive = Object.values(next.tasks).some(
+        (t) => t.type === 'peer_training' &&
+          t.assignedAgentIds.includes(senior.id) && t.assignedAgentIds.includes(junior.id) &&
+          (t.status === 'queued' || t.status === 'assigned' || t.status === 'working')
+      );
+      if (pairActive) continue;
+      const taskId = `task-peer-${senior.id}-${junior.id}-${now}`;
+      const peerTask: Task = {
+        id: taskId,
+        title: { es: `Mentoría: ${senior.name} → ${junior.name}`, en: `Mentoring: ${senior.name} → ${junior.name}` },
+        description: { es: `Sesión de mentoría entre ${senior.name} y ${junior.name}.`, en: `Mentoring session between ${senior.name} and ${junior.name}.` },
+        type: 'peer_training',
+        assignedAgentIds: [senior.id, junior.id],
+        room: 'hr-pod',
+        status: 'queued',
+        priority: 'low',
+        createdAt: new Date(now).toISOString(),
+        sourceModule: 'hr',
+        estimatedMs: 8 * 60 * 1000,
+        isSeed: false,
+        isReal: true,
+        isVisualSeed: false,
+      };
+      next = { ...next, tasks: { ...next.tasks, [taskId]: peerTask } };
+      next = appendEvent(next, {
+        kind: 'agent.mentoring',
+        severity: 'info',
+        agentId: senior.id,
+        voicedBy: senior.id,
+        voicedText: {
+          es: `Voy a enseñarle a ${junior.name}.`,
+          en: `I'll mentor ${junior.name}.`,
+        },
+        message: {
+          es: `${senior.name} inició mentoría con ${junior.name}.`,
+          en: `${senior.name} started mentoring ${junior.name}.`,
+        },
+        isVisualSeed: false,
+      });
+      break; // un senior solo enseña a un junior por tick
+    }
+  }
+
+  return next;
 }
 
 function roomForDepartment(dept: Agent['department']): RoomId {
@@ -1237,6 +1912,11 @@ export function useOfficeUpgrades(): OfficeUpgrade[] {
   return Object.values(s.officeUpgrades);
 }
 
+export function useDecisions(): DecisionRecord[] {
+  const s = useGenesisState();
+  return Object.values(s.decisions).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
 export function useDevMode(): boolean {
   const s = useGenesisState();
   return s.meta.devMode;
@@ -1261,9 +1941,66 @@ export function useTasksForAgent(agentId: string): Task[] {
   return useTasks().filter((t) => t.assignedAgentIds.includes(agentId));
 }
 
+export function useTaskById(id: string | null | undefined): Task | null {
+  const s = useGenesisState();
+  if (!id) return null;
+  return s.tasks[id] ?? null;
+}
+
 export function getTasksByAgent(agentId: string): Task[] {
   return Object.values(state.tasks).filter((task) => task.assignedAgentIds.includes(agentId));
 }
 
 // Re-export TaskType for convenience
 export type { TaskType };
+
+// ---------- trading selectors ----------
+
+export function useCapital(): number {
+  const s = useGenesisState();
+  return s.capital;
+}
+
+export function usePositions(): PaperPosition[] {
+  const s = useGenesisState();
+  return Object.values(s.positions);
+}
+
+export function useCapitalHistory(): { at: string; value: number }[] {
+  const s = useGenesisState();
+  return s.capitalHistory;
+}
+
+export function useWallet() {
+  const s = useGenesisState();
+  return { address: s.walletAddress, connected: s.walletConnected };
+}
+
+export function useTradingStats() {
+  const s = useGenesisState();
+  const closed = s.closedPositions;
+  const wins = closed.filter((p) => (p.pnl ?? 0) > 0).length;
+  const losses = closed.filter((p) => (p.pnl ?? 0) <= 0).length;
+  const totalPnL = closed.reduce((sum, p) => sum + (p.pnl ?? 0), 0);
+  const openPositionsValue = Object.values(s.positions).reduce(
+    (sum, p) => sum + (p.currentPrice - p.entryPrice) * p.shares, 0
+  );
+  return {
+    totalTrades: closed.length,
+    wins,
+    losses,
+    winRate: closed.length > 0 ? wins / closed.length : 0,
+    totalPnL,
+    openPositionsValue,
+  };
+}
+
+export function useCommandHistory(): CommandHistoryEntry[] {
+  const s = useGenesisState();
+  return s.commandHistory;
+}
+
+export function useConnectors(): ConnectorConfig[] {
+  const s = useGenesisState();
+  return s.connectors;
+}
