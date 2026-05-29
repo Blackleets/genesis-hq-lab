@@ -14,18 +14,11 @@
 //   6. Generate lessons from closed trades
 //   7. Log status to console + write to data/memory/
 
-import { scanMarkets } from './marketScanner.mjs';
-import { analyzeMarkets, generateMarketingContent } from './decisionEngine.mjs';
-import { checkAndLearn, expireStalesTrades } from './learningLoop.mjs';
-import {
-  getCapital, saveTrade, getOpenTrades, getSnapshot,
-  getAgentStats, getRecentLessons,
-} from './memoryStore.mjs';
-// SQLite memory system — active after trades close
-import { analyzeClosedTrade } from './memory/learningEngine.mjs';
-import { updateAfterTrade, getLeaderboard } from './memory/agentScoring.mjs';
-import { checkVeto, logVeto } from './memory/mistakePrevention.mjs';
-import { saveTrade as dbSaveTrade } from './memory/tradingMemory.mjs';
+import { generateMarketingContent } from './decisionEngine.mjs';
+import { getCapital, getOpenTrades, getSnapshot, getRecentLessons } from './memoryStore.mjs';
+import { runTradingCycle, runLearningCycle } from './trading/workflow.mjs';
+import { getTreasury } from './trading/treasury.mjs';
+import { getDashboardMetrics } from './trading/analytics.mjs';
 
 const INTERVAL_MS   = 5 * 60 * 1000;  // 5 minutes
 const AGENT_ID      = 'market-agent-1';
@@ -43,86 +36,15 @@ async function tick() {
   console.log(`[agentRunner] TICK #${tickCount} — ${new Date().toLocaleTimeString()}`);
 
   try {
-    // ── Step 1: Check and learn from resolved trades first ──
-    const { checked, closed, lessons } = await checkAndLearn();
-    await expireStalesTrades();
-    if (closed > 0) console.log(`[agentRunner] Closed ${closed} trades, generated ${lessons} lessons`);
-
-    // ── Step 2: Scan markets ──
-    const markets = await scanMarkets();
-    if (markets.length === 0) {
-      console.log('[agentRunner] No markets available, skipping decision');
-      return summarize(start);
+    // ── Learning cycle first (close resolved trades, generate lessons) ──
+    const learning = await runLearningCycle();
+    if (learning.closed > 0) {
+      console.log(`[agentRunner] Learning: ${learning.closed} trades closed, ${learning.learned} lessons generated`);
     }
 
-    // ── Step 3: Get current state ──
-    const [capital, openTrades] = await Promise.all([getCapital(), getOpenTrades()]);
-    const openCount = openTrades.length;
-
-    if (VERBOSE) {
-      console.log(`[agentRunner] Capital: $${capital.available.toFixed(2)} available`);
-      console.log(`[agentRunner] Open trades: ${openCount}/5`);
-      console.log(`[agentRunner] Top market: ${markets[0]?.question?.slice(0, 60)}...`);
-    }
-
-    // ── Step 4: Get decision from Claude ──
-    const decision = await analyzeMarkets(markets, openCount);
-    if (!decision) return summarize(start);
-
-    console.log(`[agentRunner] Decision: ${decision.action}${decision.action === 'BUY' ? ` — ${decision.outcome} on "${decision.marketQuestion?.slice(0, 50)}"` : ''}`);
-    if (decision.action === 'SKIP') {
-      console.log(`[agentRunner] Skip reason: ${decision.skipReason ?? decision.reason}`);
-      return summarize(start);
-    }
-
-    // ── Step 5: Execute paper trade ──
-    if (decision.action === 'BUY') {
-      if (!decision.marketId) {
-        console.warn('[agentRunner] BUY decision missing marketId, skipping');
-        return summarize(start);
-      }
-
-      const tradeCapital = Math.min(
-        decision.capitalUsed ?? (capital.available * 0.05),
-        capital.available * 0.05  // enforce 5% max
-      );
-      const shares = decision.shares ?? Math.floor(tradeCapital / decision.entryPrice);
-
-      if (shares < 1 || tradeCapital < 0.5) {
-        console.log('[agentRunner] Trade too small (< $0.50), skipping');
-        return summarize(start);
-      }
-
-      const trade = {
-        id:             `trade-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        agentId:        AGENT_ID,
-        marketId:       decision.marketId,
-        marketSource:   decision.marketSource,
-        marketQuestion: decision.marketQuestion,
-        outcome:        decision.outcome,
-        entryPrice:     decision.entryPrice,
-        shares,
-        capitalUsed:    tradeCapital,
-        confidence:     decision.confidence,
-        reason:         decision.reason,
-        evidence:       decision.evidence,
-        risk:           decision.risk,
-        status:         'open',
-        openedAt:       new Date().toISOString(),
-        daysToClose:    decision.daysToClose,
-      };
-
-      await saveTrade(trade);
-
-      // Update available capital (deduct from available, will be restored on close)
-      capital.available -= tradeCapital;
-      capital.inTrades  += tradeCapital;
-      await Promise.resolve(); // saveTrade already handles capital through closeTrade
-
-      console.log(`[agentRunner] TRADE OPENED: ${trade.outcome} on ${trade.marketSource}:${trade.marketId}`);
-      console.log(`[agentRunner]   Capital: $${tradeCapital.toFixed(2)} | Confidence: ${(decision.confidence*100).toFixed(0)}%`);
-      console.log(`[agentRunner]   Evidence: ${decision.evidence?.join(' + ')}`);
-    }
+    // ── Trading cycle (scan → qualify → debate → size → execute) ──
+    const trading = await runTradingCycle();
+    console.log(`[agentRunner] Cycle: scanned=${trading.scanned} qualified=${trading.qualified} vetoed=${trading.vetoed} debated=${trading.debated} executed=${trading.executed}`);
 
     return summarize(start);
 
@@ -169,8 +91,17 @@ async function marketingTick() {
 
 async function summarize(startMs) {
   const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);
-  const snapshot = await getSnapshot();
-  console.log(`[agentRunner] Tick done in ${elapsed}s | Open: ${snapshot.trades.open} | Closed: ${snapshot.trades.closed} | PnL: $${snapshot.performance.totalPnL.toFixed(2)} | Lessons: ${(await getRecentLessons(999)).length}`);
+  try {
+    const treasury = getTreasury();
+    const metrics  = getDashboardMetrics();
+    console.log(
+      `[agentRunner] Tick ${elapsed}s | Capital: $${treasury.available.toFixed(2)} | ` +
+      `Open: ${metrics.risk.openTrades} | WinRate: ${(metrics.performance.winRate*100).toFixed(1)}% | ` +
+      `PnL: $${metrics.performance.totalPnl.toFixed(2)} | Brier: ${metrics.risk.brierScore?.score ?? 'N/A'}`
+    );
+  } catch {
+    console.log(`[agentRunner] Tick done in ${elapsed}s`);
+  }
 }
 
 // ─── Main loop ────────────────────────────────────────────────────────────────

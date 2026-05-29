@@ -1,0 +1,225 @@
+// debateRoom.mjs — structured multi-agent debate before any trade.
+// Bull agent vs Bear agent, arbitrated by a third voice.
+// All 3 voices generated in ONE Claude Haiku call (~$0.0003).
+// Prevents impulsive decisions. Forces thesis articulation.
+
+import db, { tx } from '../db/database.mjs';
+import { nanoid } from '../utils.mjs';
+
+const CLAUDE_API = 'https://api.anthropic.com/v1/messages';
+
+const DEBATE_SYSTEM = `You are Genesis HQ's debate facilitator.
+You generate a structured investment debate between three agents:
+- BULL: argues for the trade (provides evidence, states confidence)
+- BEAR: argues against (challenges evidence, identifies risks)
+- ARBITER: weighs both sides, makes the final call
+
+Rules for the debate:
+- No emotional language. Facts and probabilities only.
+- Bull must cite at least 2 specific reasons to trade.
+- Bear must identify at least 1 specific risk or weakness.
+- Arbiter must reference arguments from both sides before deciding.
+- If Bull confidence < 0.65 OR Bear confidence > 0.55, ARBITER votes SKIP.
+- Confidence = probability the YES outcome wins (not "confidence in the debate").
+
+Respond ONLY with valid JSON. No markdown. No explanation outside the JSON.`;
+
+// ─── Run a debate for a specific market ───────────────────────────────────────
+
+export async function runDebate(market, contextLessons = [], contextRules = []) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    // No API key: use rule-based decision
+    return fallbackDebate(market);
+  }
+
+  const lessonsCtx = contextLessons.length > 0
+    ? `\nPrevious lessons relevant to this category:\n${contextLessons.slice(0, 4).map(l => `- ${l.lesson_text || l.lesson}`).join('\n')}`
+    : '';
+
+  const rulesCtx = contextRules.length > 0
+    ? `\nActive rules:\n${contextRules.slice(0, 4).map(r => `- ${r.rule_text}`).join('\n')}`
+    : '';
+
+  const userPrompt = `MARKET TO DEBATE:
+Source: ${market.source?.toUpperCase() ?? 'POLYMARKET'}
+Question: "${market.question}"
+Category: ${market.category ?? 'general'}
+YES price: ${(market.yesPrice * 100).toFixed(1)}% | NO price: ${(market.noPrice * 100).toFixed(1)}%
+24h Volume: $${Math.round(market.volume24h ?? 0).toLocaleString()}
+Total Volume: $${Math.round(market.volumeTotal ?? 0).toLocaleString()}
+Days to close: ${market.daysToClose}
+Market score: ${market.score?.toFixed(3) ?? 'N/A'}
+${lessonsCtx}
+${rulesCtx}
+
+Generate the full debate and decision. Respond with:
+{
+  "bull": {
+    "thesis": "1-2 sentence argument for YES",
+    "evidence": ["specific reason 1", "specific reason 2"],
+    "confidence": 0.XX,
+    "position_recommended": "YES"
+  },
+  "bear": {
+    "thesis": "1-2 sentence argument against",
+    "evidence": ["specific risk or counter-signal"],
+    "confidence": 0.XX,
+    "position_recommended": "NO or SKIP"
+  },
+  "arbiter": {
+    "summary": "1-2 sentence synthesis of the debate",
+    "winning_argument": "bull | bear | inconclusive",
+    "final_confidence": 0.XX,
+    "final_outcome_bet": "YES | NO",
+    "action": "TRADE | SKIP",
+    "skip_reason": "only if action=SKIP: specific reason"
+  }
+}`;
+
+  try {
+    const res = await fetch(CLAUDE_API, {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 700,
+        system: DEBATE_SYSTEM,
+        messages: [{ role: 'user', content: userPrompt }],
+      }),
+      signal: AbortSignal.timeout(25000),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Claude ${res.status}: ${err.slice(0, 200)}`);
+    }
+
+    const data = await res.json();
+    const raw  = data.content?.[0]?.text ?? '';
+
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('No JSON in response');
+    const debate = JSON.parse(match[0]);
+
+    // Validate and enforce rules
+    const result = enforceDebateRules(debate, market);
+    await saveDebate(market, debate, result);
+    return result;
+
+  } catch (err) {
+    console.warn(`[debateRoom] Error for "${market.question?.slice(0,40)}":`, err.message);
+    return fallbackDebate(market);
+  }
+}
+
+// ─── Enforce rules on debate outcome ─────────────────────────────────────────
+
+function enforceDebateRules(debate, market) {
+  const arb = debate.arbiter;
+  let action = arb.action ?? 'SKIP';
+  let skipReason = arb.skip_reason;
+
+  // Hard rules that override arbiter's decision
+  if (arb.final_confidence < 0.65) {
+    action = 'SKIP';
+    skipReason = `Final confidence ${arb.final_confidence} below 0.65 minimum`;
+  }
+
+  if (debate.bear?.confidence > 0.58) {
+    action = 'SKIP';
+    skipReason = `Bear confidence ${debate.bear.confidence} too high — significant opposing signal`;
+  }
+
+  if (market.daysToClose > 45) {
+    action = 'SKIP';
+    skipReason = `Market closes in ${market.daysToClose} days — exceeds 45-day limit`;
+  }
+
+  if ((market.volumeTotal ?? 0) < 5000) {
+    action = 'SKIP';
+    skipReason = `Total volume $${market.volumeTotal} below $5000 minimum`;
+  }
+
+  return {
+    action,
+    skipReason: action === 'SKIP' ? (skipReason ?? 'Debate inconclusive') : null,
+    outcome:       arb.final_outcome_bet ?? 'YES',
+    confidence:    arb.final_confidence ?? 0.5,
+    bull:          debate.bull,
+    bear:          debate.bear,
+    arbiterSummary: arb.summary,
+    winningArgument: arb.winning_argument,
+  };
+}
+
+// ─── Fallback when no Claude API ─────────────────────────────────────────────
+
+function fallbackDebate(market) {
+  // Pure math: only trade if implied probability vs market price shows edge
+  const marketPrice = market.yesPrice;
+  const score = market.score ?? 0;
+
+  // Require strong score AND price in "interesting" range
+  if (score > 0.6 && marketPrice >= 0.35 && marketPrice <= 0.70) {
+    return {
+      action:         'TRADE',
+      outcome:        marketPrice >= 0.5 ? 'YES' : 'NO',
+      confidence:     0.62,  // conservative floor
+      bull:           { thesis: 'Favorable odds and volume (rule-based)', evidence: ['Volume > threshold', 'Price in edge range'], confidence: 0.62 },
+      bear:           { thesis: 'No AI analysis available', evidence: ['Claude API unavailable'], confidence: 0.45 },
+      arbiterSummary: 'Rule-based decision: score and price criteria met',
+      winningArgument:'bull',
+      skipReason:     null,
+    };
+  }
+
+  return {
+    action:         'SKIP',
+    skipReason:     'Rule-based: score or price criteria not met (no Claude API)',
+    outcome:        'YES',
+    confidence:     0,
+    bull:           null,
+    bear:           null,
+    arbiterSummary: 'Insufficient criteria without AI analysis',
+    winningArgument:'bear',
+  };
+}
+
+// ─── Persist debate to database ───────────────────────────────────────────────
+
+async function saveDebate(market, debate, result) {
+  tx(() => {
+    db.prepare(`
+      INSERT OR IGNORE INTO team_memory
+        (id, event_type, participants, topic, summary, outcome, decision_made, created_at)
+      VALUES (?, 'debate', '["bull-agent","bear-agent","arbiter"]', ?, ?, ?, ?, datetime('now'))
+    `).run(
+      `debate-${nanoid()}`,
+      market.question?.slice(0, 100) ?? market.market_id,
+      result.arbiterSummary,
+      result.action,
+      JSON.stringify({
+        action: result.action,
+        confidence: result.confidence,
+        bull_confidence: debate.bull?.confidence,
+        bear_confidence: debate.bear?.confidence,
+        winner: result.winningArgument,
+      }),
+    );
+  });
+}
+
+// ─── Get recent debates for dashboard ────────────────────────────────────────
+
+export function getRecentDebates(limit = 10) {
+  return db.prepare(`
+    SELECT * FROM team_memory
+    WHERE event_type = 'debate'
+    ORDER BY created_at DESC LIMIT ?
+  `).all(limit);
+}

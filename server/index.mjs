@@ -2,6 +2,12 @@ import { createServer } from 'node:http';
 import { fetchPolymarketEventsSnapshot, fetchPolymarketHealth } from './polymarket.mjs';
 import { generateClaudePlan } from './claudePlanner.mjs';
 import { getSnapshot, getCapital, getTrades, getLessons, getAgentStats, addHumanOrder } from './memoryStore.mjs';
+import { getDashboardMetrics } from './trading/analytics.mjs';
+import { getTreasury, getCapitalHistory } from './trading/treasury.mjs';
+import { getRiskMetrics } from './trading/riskManager.mjs';
+import { getRecentDebates } from './trading/debateRoom.mjs';
+import { getLeaderboard } from './memory/agentScoring.mjs';
+import { getVetoStats } from './memory/mistakePrevention.mjs';
 
 const HOST = process.env.HOST || '127.0.0.1';
 const PORT = Number(process.env.PORT || 8787);
@@ -111,6 +117,64 @@ const server = createServer(async (req, res) => {
       const stats = await getAgentStats();
       sendJson(res, 200, { ok: true, stats });
     } catch { sendJson(res, 200, { ok: true, stats: {} }); }
+    return;
+  }
+
+  // ── Trading system endpoints ─────────────────────────────────────────────────
+
+  if (url.pathname === '/api/trading/dashboard') {
+    try {
+      const metrics = getDashboardMetrics();
+      sendJson(res, 200, { ok: true, ...metrics });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  if (url.pathname === '/api/trading/treasury') {
+    try {
+      const treasury = getTreasury();
+      sendJson(res, 200, { ok: true, treasury });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  if (url.pathname === '/api/trading/risk') {
+    try {
+      const risk = getRiskMetrics();
+      sendJson(res, 200, { ok: true, risk });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  if (url.pathname === '/api/trading/debates') {
+    try {
+      const debates = getRecentDebates(20);
+      sendJson(res, 200, { ok: true, debates });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  if (url.pathname === '/api/trading/leaderboard') {
+    try {
+      const agents = getLeaderboard();
+      sendJson(res, 200, { ok: true, agents });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  if (url.pathname === '/api/trading/vetoes') {
+    try {
+      const vetoes = getVetoStats();
+      sendJson(res, 200, { ok: true, vetoes });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  if (url.pathname === '/api/trading/capital-history') {
+    try {
+      const history = getCapitalHistory(100);
+      sendJson(res, 200, { ok: true, history });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;
   }
 
