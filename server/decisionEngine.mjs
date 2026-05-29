@@ -3,6 +3,8 @@
 // Cost: ~$0.0002 per decision = ~$1.80/month at 5-min intervals.
 
 import { getRecentLessons, getCapital, logDecision } from './memoryStore.mjs';
+import { getDecisionContext } from './memory/learningEngine.mjs';
+import { checkVeto, logVeto } from './memory/mistakePrevention.mjs';
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 
@@ -72,16 +74,38 @@ export async function analyzeMarkets(markets, openTradesCount = 0) {
     return { action: 'SKIP', reason: 'Max 5 trades abiertos simultáneamente (Regla #1)' };
   }
 
-  const [lessons, capital] = await Promise.all([getRecentLessons(8), getCapital()]);
+  // Get SQLite memory context (lessons, rules, mistake patterns)
+  const topMarket = markets[0];
+  const dbContext = topMarket
+    ? getDecisionContext(topMarket.category ?? 'general', topMarket.yesPrice - 0.1, topMarket.yesPrice + 0.1)
+    : { lessons: [], rules: [], patterns: [], agent: null };
+
+  const [jsonLessons, capital] = await Promise.all([getRecentLessons(5), getCapital()]);
 
   const maxPerTrade = Math.floor(capital.available * 0.05); // 5% rule
   if (maxPerTrade < 1) {
     return { action: 'SKIP', reason: 'Capital insuficiente (< $1 disponible)' };
   }
 
-  const lessonsText = lessons.length > 0
-    ? `\nLECCIONES APRENDIDAS (aplicar siempre):\n${lessons.map((l, i) => `${i+1}. ${l.lesson}`).join('\n')}`
+  // Merge SQLite lessons + JSON file lessons (SQLite wins, more structured)
+  const allLessons = [
+    ...dbContext.lessons.map(l => ({ lesson: l.lesson_text, rule: l.new_rule })),
+    ...jsonLessons.map(l => ({ lesson: l.lesson })),
+  ].slice(0, 10);
+
+  const lessonsText = allLessons.length > 0
+    ? `\nLECCIONES APRENDIDAS (aplicar siempre):\n${allLessons.map((l, i) => `${i+1}. ${l.lesson}${l.rule ? ` → Regla: ${l.rule}` : ''}`).join('\n')}`
     : '\nSin lecciones previas aún.';
+
+  // Inject mistake patterns as hard warnings
+  const patternText = dbContext.patterns.length > 0
+    ? `\nPATRONES DE ERROR CONOCIDOS (evitar):\n${dbContext.patterns.map(p => `⚠ ${p.pattern_desc}`).join('\n')}`
+    : '';
+
+  // Inject active rules
+  const rulesText = dbContext.rules.length > 0
+    ? `\nREGLAS ACTIVAS:\n${dbContext.rules.slice(0, 6).map(r => `${r.rule_type === 'hard_constraint' ? '🔴' : '🟡'} ${r.rule_text}`).join('\n')}`
+    : '';
 
   const marketsText = markets.slice(0, 12).map((m, i) =>
     `[${i+1}] ${m.source.toUpperCase()} | ${m.question}\n` +
@@ -94,6 +118,8 @@ Operas SOLO con paper trading (dinero simulado con precios reales).
 
 ${CONSTITUTION}
 ${lessonsText}
+${patternText}
+${rulesText}
 
 Capital disponible: $${capital.available.toFixed(2)}
 Máximo por trade: $${maxPerTrade.toFixed(2)} (5% del capital)

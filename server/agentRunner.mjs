@@ -21,6 +21,11 @@ import {
   getCapital, saveTrade, getOpenTrades, getSnapshot,
   getAgentStats, getRecentLessons,
 } from './memoryStore.mjs';
+// SQLite memory system — active after trades close
+import { analyzeClosedTrade } from './memory/learningEngine.mjs';
+import { updateAfterTrade, getLeaderboard } from './memory/agentScoring.mjs';
+import { checkVeto, logVeto } from './memory/mistakePrevention.mjs';
+import { saveTrade as dbSaveTrade } from './memory/tradingMemory.mjs';
 
 const INTERVAL_MS   = 5 * 60 * 1000;  // 5 minutes
 const AGENT_ID      = 'market-agent-1';
