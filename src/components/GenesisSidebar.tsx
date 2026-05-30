@@ -4,7 +4,7 @@
 import { Building2, Boxes, Sparkles, Users, BrainCircuit, Activity, FileText, Settings, Gauge, Wallet, Megaphone, Code, Terminal, Workflow } from 'lucide-react';
 import GenesisLockup from './GenesisLogo';
 import { useT, useLanguage } from '../i18n/languageStore';
-import { MODULES, type ModuleId, stateTKey } from '../data/moduleRegistry';
+import { MODULES, type ModuleId } from '../data/moduleRegistry';
 import type { TKey } from '../i18n/translations';
 
 interface Props {
@@ -69,16 +69,6 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
   },
 ];
 
-function stateColor(state: string): string {
-  switch (state) {
-    case 'ready':             return 'bg-emerald-400';
-    case 'visual-only':       return 'bg-amber-400';
-    case 'locked-backend':    return 'bg-zinc-500';
-    case 'locked-polymarket': return 'bg-violet-400';
-    case 'disabled-phase-8':  return 'bg-red-400';
-    default:                  return 'bg-zinc-500';
-  }
-}
 
 const MODULE_MAP = Object.fromEntries(MODULES.map((m) => [m.id, m]));
 
@@ -94,58 +84,62 @@ export default function GenesisSidebar({ currentModule, onSelect }: Props) {
       </div>
 
       {/* Grouped nav */}
-      <nav className="flex-1 overflow-y-auto py-1">
+      <nav className="flex-1 overflow-y-auto py-2 space-y-4">
         {SIDEBAR_GROUPS.map((group) => {
-          // Filter to only modules that exist in the registry
-          const groupModules = group.modules
-            .map((id) => MODULE_MAP[id])
-            .filter(Boolean);
+          const groupModules = group.modules.map((id) => MODULE_MAP[id]).filter(Boolean);
           if (groupModules.length === 0) return null;
 
           return (
-            <div key={group.labelEn} className="mb-1">
-              {/* Group header */}
+            <div key={group.labelEn}>
+              {/* Section label */}
               <div
-                className="px-3 pt-2.5 pb-1 font-mono text-[8px] uppercase tracking-widest flex items-center gap-1.5"
-                style={{ color: group.color }}
+                className="px-4 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] select-none"
+                style={{ color: group.color, opacity: 0.7 }}
               >
-                <span className="inline-block w-1 h-1 rounded-full" style={{ background: group.color }} />
                 {lang === 'es' ? group.labelEs : group.labelEn}
               </div>
 
-              {/* Group modules */}
-              {groupModules.map((m) => {
-                const Icon = ICONS[m.id];
-                const active = m.id === currentModule;
-                return (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => onSelect(m.id)}
-                    className={`group w-full flex items-center gap-2.5 px-3 py-1.5 font-mono text-[11px] text-left transition-colors ${
-                      active
-                        ? 'bg-carbon-300 text-zinc-100'
-                        : 'text-zinc-500 hover:text-zinc-200 hover:bg-carbon-300/50'
-                    }`}
-                  >
-                    <Icon
-                      className="w-3.5 h-3.5 shrink-0"
-                      style={active ? { color: group.color } : undefined}
-                    />
-                    <span className="flex-1 truncate">{t(m.navKey as TKey)}</span>
-                    <span
-                      className={`shrink-0 inline-block w-1.5 h-1.5 rounded-full ${stateColor(m.state)}`}
-                      title={t(stateTKey(m.state) as TKey)}
-                    />
-                  </button>
-                );
-              })}
+              {/* Items */}
+              <div>
+                {groupModules.map((m) => {
+                  const Icon = ICONS[m.id];
+                  const active = m.id === currentModule;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => onSelect(m.id)}
+                      className="relative w-full flex items-center gap-3 px-4 py-2 text-[13px] text-left transition-all duration-100"
+                      style={{
+                        color: active ? '#f4f4f5' : '#71717a',
+                        background: active ? 'rgba(255,255,255,0.04)' : 'transparent',
+                        borderLeft: active ? `2px solid ${group.color}` : '2px solid transparent',
+                      }}
+                      onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLElement).style.color = '#d4d4d8'; }}
+                      onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLElement).style.color = '#71717a'; }}
+                    >
+                      <Icon
+                        className="shrink-0 transition-colors"
+                        style={{
+                          width: 15,
+                          height: 15,
+                          color: active ? group.color : 'currentColor',
+                          opacity: active ? 1 : 0.7,
+                        }}
+                      />
+                      <span className="flex-1 truncate font-medium leading-none">
+                        {t(m.navKey as TKey)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           );
         })}
       </nav>
 
-      <footer className="px-3 py-2.5 border-t border-trim font-mono text-[8px] text-zinc-700 leading-snug">
+      <footer className="px-4 py-2.5 border-t border-trim text-[10px] text-zinc-700 leading-snug">
         {t('sidebar.footer')}
       </footer>
     </aside>
