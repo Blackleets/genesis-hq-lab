@@ -1,6 +1,6 @@
 import type { Agent } from '../types/genesis';
-import { officeAssets } from '../assets/officePixelAssets';
-import PixelSprite from './PixelSprite';
+import GenesisWorker from './GenesisWorker';
+import { eyeShapeForAnim, paletteForAgent, workerAnimForAgent } from '../lib/genesisWorkerDesign';
 
 interface Props {
   agent: Agent;
@@ -10,9 +10,7 @@ interface Props {
   onHover?: (agent: Agent | null) => void;
 }
 
-const OUTLINE = '#0a0c12';
-const CHARACTER_HEIGHT = 52;
-const CHARACTER_WIDTH = 52;
+const CHARACTER_SIZE = 52;
 
 function statusHalo(status: Agent['status']): string | null {
   switch (status) {
@@ -27,93 +25,22 @@ function statusHalo(status: Agent['status']): string | null {
   }
 }
 
-function pickCharacter(agent: Agent): { src: string; frame?: { x: number; y: number; width: number; height: number; sourceWidth: number; sourceHeight: number } } {
-  if (agent.id === 'visual-genesis-core') return { src: officeAssets.characters.boss };
-  if (agent.id === 'visual-market-scanner') return { src: officeAssets.characters.worker1 };
-  if (agent.id === 'visual-risk-guardian') return { src: officeAssets.characters.worker2 };
-  if (agent.id === 'visual-memory-curator') {
-    if (agent.movementState === 'moving') {
-      return {
-        src: officeAssets.animations.juliaWalkForward,
-        frame: { x: 64, y: 0, width: 64, height: 64, sourceWidth: 256, sourceHeight: 64 },
-      };
-    }
-    return {
-      src: officeAssets.characters.juliaIdle,
-      frame: { x: 0, y: 0, width: 32, height: 32, sourceWidth: 128, sourceHeight: 32 },
-    };
-  }
-  if (agent.id === 'visual-hr-evaluator') return { src: officeAssets.characters.worker4 };
-  if (agent.department === 'Genesis HR') return { src: officeAssets.characters.worker4 };
-  if (agent.department === 'Risk Office') return { src: officeAssets.characters.worker2 };
-  if (agent.department === 'Memory Archive') {
-    return {
-      src: officeAssets.characters.juliaIdle,
-      frame: { x: 0, y: 0, width: 32, height: 32, sourceWidth: 128, sourceHeight: 32 },
-    };
-  }
-  return { src: officeAssets.characters.worker1 };
-}
-
-function Accessory({ kind, accent }: { kind: NonNullable<Agent['visualProfile']['accessory']>; accent: string }) {
-  switch (kind) {
-    case 'crown':
-      return (
-        <g shapeRendering="crispEdges">
-          <rect x={6} y={-2} width={2} height={2} fill="#ffd24a" />
-          <rect x={11} y={-3} width={3} height={3} fill="#ffd24a" />
-          <rect x={17} y={-2} width={2} height={2} fill="#ffd24a" />
-          <rect x={6} y={0} width={13} height={2} fill={accent} />
-        </g>
-      );
-    case 'shield':
-      return (
-        <g shapeRendering="crispEdges">
-          <rect x={24} y={24} width={6} height={8} fill={OUTLINE} />
-          <rect x={24} y={24} width={6} height={2} fill="#ffb547" />
-          <rect x={24} y={26} width={6} height={6} fill="#ff4757" />
-        </g>
-      );
-    case 'glasses':
-      return (
-        <g shapeRendering="crispEdges">
-          <rect x={8} y={10} width={5} height={4} fill={OUTLINE} />
-          <rect x={17} y={10} width={5} height={4} fill={OUTLINE} />
-          <rect x={13} y={11} width={4} height={2} fill={OUTLINE} />
-        </g>
-      );
-    case 'clipboard':
-      return (
-        <g shapeRendering="crispEdges">
-          <rect x={23} y={24} width={7} height={10} fill="#e6dac0" />
-          <rect x={23} y={24} width={7} height={2} fill={accent} />
-        </g>
-      );
-    case 'book':
-      return (
-        <g shapeRendering="crispEdges">
-          <rect x={22} y={25} width={9} height={7} fill={OUTLINE} />
-          <rect x={22} y={25} width={9} height={2} fill={accent} />
-        </g>
-      );
-    case 'none':
-    default:
-      return null;
-  }
-}
-
 export default function AgentSprite({ agent, isSpeaking, highlighted, onClick, onHover }: Props) {
   const haloColor = statusHalo(agent.status);
   const dim = agent.status === 'fired' || agent.status === 'suspended';
-  const { src, frame } = pickCharacter(agent);
-  const spriteHeight = CHARACTER_HEIGHT;
-  const spriteWidth = CHARACTER_WIDTH;
-  const anchorX = agent.position.x - spriteWidth / 2;
-  const anchorY = agent.position.y - spriteHeight + 10;
+
+  const palette = paletteForAgent(agent);
+  const anim = workerAnimForAgent(agent.status, agent.movementState);
+  const eye = eyeShapeForAnim(anim);
+
+  const size = CHARACTER_SIZE;
+  const anchorX = agent.position.x - size / 2;
+  // feet (~grid row 14) rest on the ground line at position.y
+  const anchorY = agent.position.y - size * 0.875;
 
   return (
     <g
-      style={{ cursor: onClick ? 'pointer' : undefined, opacity: dim ? 0.45 : 1 }}
+      style={{ cursor: onClick ? 'pointer' : undefined }}
       onClick={onClick}
       onMouseEnter={() => onHover?.(agent)}
       onMouseLeave={() => onHover?.(null)}
@@ -122,19 +49,16 @@ export default function AgentSprite({ agent, isSpeaking, highlighted, onClick, o
       {haloColor && <ellipse cx={agent.position.x} cy={agent.position.y + 1} rx={19} ry={5} fill={haloColor} opacity={0.28} />}
       {highlighted && <ellipse cx={agent.position.x} cy={agent.position.y + 1} rx={23} ry={6} fill="#fff" opacity={0.14} />}
 
-      <PixelSprite
-        src={src}
-        alt={agent.name}
+      <GenesisWorker
+        palette={palette}
+        anim={anim}
+        eye={eye}
+        accessory={agent.visualProfile.accessory}
         x={anchorX}
         y={anchorY}
-        width={spriteWidth}
-        height={spriteHeight}
-        frame={frame}
+        size={size}
+        dim={dim}
       />
-
-      <g transform={`translate(${anchorX + 14}, ${anchorY + 7})`}>
-        <Accessory kind={agent.visualProfile.accessory ?? 'none'} accent={agent.visualProfile.accent} />
-      </g>
 
       {isSpeaking && (
         <g shapeRendering="crispEdges">
