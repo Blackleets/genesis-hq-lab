@@ -1,7 +1,8 @@
 // GenesisSidebar — left-rail nav with division groups.
 // Modules are organized into 5 themed sections to reflect the company structure.
 
-import { Building2, Boxes, Sparkles, Users, BrainCircuit, Activity, FileText, Settings, Gauge, Wallet, Megaphone, Code, Terminal, Workflow, LayoutDashboard } from 'lucide-react';
+import { Building2, Boxes, Sparkles, Users, BrainCircuit, Activity, FileText, Settings, Gauge, Wallet, Megaphone, Code, Terminal, Workflow } from 'lucide-react';
+import GenesisLockup from './GenesisLogo';
 import { useT, useLanguage } from '../i18n/languageStore';
 import { MODULES, type ModuleId, stateTKey } from '../data/moduleRegistry';
 import type { TKey } from '../i18n/translations';
@@ -12,20 +13,20 @@ interface Props {
 }
 
 const ICONS: Record<ModuleId, typeof Building2> = {
-  dashboard:     Gauge,
-  hq:            Building2,
-  factory:       Boxes,
-  auto:          Sparkles,
-  hr:            Users,
-  markets:       Activity,
-  decisions:     BrainCircuit,
-  progress:      FileText,
-  settings:      Settings,
-  wallet:        Wallet,
-  marketing:     Megaphone,
-  tech:          Code,
-  console:       Terminal,
-  integrations:  Workflow,
+  dashboard:    Gauge,
+  hq:           Building2,
+  factory:      Boxes,
+  auto:         Sparkles,
+  hr:           Users,
+  markets:      Activity,
+  decisions:    BrainCircuit,
+  progress:     FileText,
+  settings:     Settings,
+  wallet:       Wallet,
+  marketing:    Megaphone,
+  tech:         Code,
+  console:      Terminal,
+  integrations: Workflow,
 };
 
 interface SidebarGroup {
@@ -88,16 +89,8 @@ export default function GenesisSidebar({ currentModule, onSelect }: Props) {
   return (
     <aside className="w-[196px] shrink-0 bg-carbon-200 border-r border-trim flex flex-col">
       {/* Company identity */}
-      <div className="px-4 py-3 border-b border-trim">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-6 h-6 bg-emerald-500/20 border border-emerald-500/40 shrink-0">
-            <LayoutDashboard className="w-3.5 h-3.5 text-emerald-400" />
-          </div>
-          <div>
-            <div className="font-mono text-[11px] font-bold tracking-wide text-zinc-100">GENESIS HQ</div>
-            <div className="font-mono text-[8px] uppercase tracking-widest text-zinc-600">Corp · GNSS</div>
-          </div>
-        </div>
+      <div className="px-3.5 py-3 border-b border-trim">
+        <GenesisLockup size="sm" markSize={26} showTagline />
       </div>
 
       {/* Grouped nav */}
