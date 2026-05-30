@@ -20,6 +20,8 @@ import type { Agent } from '../types/genesis';
 import CapitalChart from './charts/CapitalChart';
 import AgentPerformanceChart from './charts/AgentPerformanceChart';
 import AgentLivePanel from './AgentLivePanel';
+import SkillsPanel from './SkillsPanel';
+import ResearchSignalsPanel from './ResearchSignalsPanel';
 import { OFFICE_ROOMS } from '../data/officeRooms';
 import { MODULE_BY_ID, stateTKey } from '../data/moduleRegistry';
 import type { TKey } from '../i18n/translations';
@@ -168,6 +170,12 @@ export default function GenesisDashboard({ onOpenHQ }: Props) {
           </div>
           <AgentLivePanel />
         </section>
+
+        {/* Research signals + agent skills (live from backend) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <ResearchSignalsPanel />
+          <SkillsPanel />
+        </div>
 
         {/* 4 Division cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">

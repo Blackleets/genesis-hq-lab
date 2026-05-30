@@ -24,6 +24,8 @@ import {
 import { evaluatePaperTrades } from '../lib/tradingEngine';
 import TradingHistoryView from './TradingHistoryView';
 import LiveTradingPanel from './LiveTradingPanel';
+import AgentLivePanel from './AgentLivePanel';
+import ResearchSignalsPanel from './ResearchSignalsPanel';
 
 const AUTO_REFRESH_MS = 30_000;
 const EXECUTION_EVENT_KINDS = new Set([
@@ -470,6 +472,29 @@ export default function MarketsView() {
             <span>{copy.refresh}</span>
           </button>
         </header>
+
+        {/* Real agent trading — live from the backend runner (not the simulation below) */}
+        <section>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="font-mono text-[9px] uppercase tracking-widest text-emerald-400">
+              {language === 'es' ? 'Operaciones reales del agente · En vivo' : 'Real agent trades · Live'}
+            </span>
+            <div className="flex-1 h-px bg-trim" />
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div className="lg:col-span-2"><AgentLivePanel /></div>
+            <div><ResearchSignalsPanel /></div>
+          </div>
+        </section>
+
+        {/* Simulation / live market prices (Polymarket snapshot + store playground) */}
+        <div className="flex items-center gap-2 pt-2">
+          <span className="font-mono text-[9px] uppercase tracking-widest text-zinc-600">
+            {language === 'es' ? 'Mercados & Simulación' : 'Markets & Simulation'}
+          </span>
+          <div className="flex-1 h-px bg-trim" />
+        </div>
 
         {loading ? <StatusBanner kind="loading" language={language} /> : null}
         {!loading && error ? (

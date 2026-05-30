@@ -54,6 +54,26 @@ export interface AgentLesson {
   created_at: string;
 }
 
+export interface AgentSignal {
+  id: string;
+  source: string;
+  signal_text: string;
+  category: string;
+  confidence: number;
+  proved_correct: number | null;
+  created_at: string;
+}
+
+export interface SkillVersion {
+  agent: string;
+  version: number;
+  status: string;
+  brier: number | null;
+  win_rate: number | null;
+  calibration: number | null;
+  deployed_at: string | null;
+}
+
 export interface TradingDashboard {
   ok: boolean;
   treasury: {
@@ -102,6 +122,8 @@ export interface OrgStatus {
 export const agentClient = {
   getTrades:   () => get<{ ok: boolean; trades: AgentTrade[] }>('/api/agent/trades'),
   getLessons:  () => get<{ ok: boolean; lessons: AgentLesson[] }>('/api/agent/lessons'),
+  getSignals:  () => get<{ ok: boolean; signals: AgentSignal[]; accuracy: { total: number; correct: number; rate: number | null } }>('/api/agent/signals'),
+  getSkills:   () => get<{ ok: boolean; deployed: SkillVersion[] }>('/api/agent/skills'),
   getDashboard:() => get<TradingDashboard>('/api/trading/dashboard'),
   getStatus:   () => get<OrgStatus>('/api/command/status'),
   getHealth:   () => get<{ ok: boolean }>('/api/health'),
