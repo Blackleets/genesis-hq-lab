@@ -15,6 +15,7 @@ import { analyzeClosedTrade } from '../memory/learningEngine.mjs';
 import { closeTrade } from '../memory/tradingMemory.mjs';
 import { settleTradeCapital } from './treasury.mjs';
 import { getMarketStatus } from '../marketScanner.mjs';
+import { researchMarket, getMarketSignals } from '../research/researchAgent.mjs';
 import db from '../db/database.mjs';
 
 // ─── STEP 1 — SCAN ────────────────────────────────────────────────────────────
@@ -71,7 +72,16 @@ function stepVetoCheck(market) {
 async function stepDebate(market) {
   const ctx = getDecisionContext(market.category ?? 'general', market.yesPrice - 0.1, market.yesPrice + 0.1);
 
-  const result = await runDebate(market, ctx.lessons, ctx.rules);
+  // Fresh research signals (free news/HN sentiment) for this market
+  let signals = [];
+  try {
+    const signal = await researchMarket(market);
+    if (signal) signals = [signal];
+    // Plus any recent stored signals for the category
+    signals = [...signals, ...getMarketSignals(market)];
+  } catch { /* research is best-effort, never blocks a trade */ }
+
+  const result = await runDebate(market, ctx.lessons, ctx.rules, signals);
 
   console.log(`[workflow] DEBATE: ${result.action} (${market.question?.slice(0,40)})`);
   if (result.action === 'SKIP') {

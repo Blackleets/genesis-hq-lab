@@ -9,6 +9,7 @@ import { getRecentDebates } from './trading/debateRoom.mjs';
 import { getLeaderboard } from './memory/agentScoring.mjs';
 import { getVetoStats } from './memory/mistakePrevention.mjs';
 import { getRecentTrades } from './memory/tradingMemory.mjs';
+import { getSignalAccuracy } from './research/signalExtractor.mjs';
 import db from './db/database.mjs';
 import { executeCommand, getCommandHistory } from './command/commandExecutor.mjs';
 import { getOrgState, getStatusSummary } from './command/orgState.mjs';
@@ -188,6 +189,18 @@ const server = createServer(async (req, res) => {
       const vetoes = getVetoStats();
       sendJson(res, 200, { ok: true, vetoes });
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  if (url.pathname === '/api/agent/signals') {
+    try {
+      const signals = db.prepare(`
+        SELECT id, source, signal_text, category, confidence, proved_correct, created_at
+        FROM signals ORDER BY created_at DESC LIMIT 20
+      `).all();
+      const accuracy = getSignalAccuracy();
+      sendJson(res, 200, { ok: true, signals, accuracy });
+    } catch (e) { sendJson(res, 200, { ok: true, signals: [], accuracy: { total: 0, correct: 0, rate: null } }); }
     return;
   }
 

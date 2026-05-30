@@ -26,11 +26,11 @@ Respond ONLY with valid JSON. No markdown. No explanation outside the JSON.`;
 
 // ─── Run a debate for a specific market ───────────────────────────────────────
 
-export async function runDebate(market, contextLessons = [], contextRules = []) {
+export async function runDebate(market, contextLessons = [], contextRules = [], contextSignals = []) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    // No API key: use rule-based decision
-    return fallbackDebate(market);
+    // No API key: use rule-based decision (now considers research signals)
+    return fallbackDebate(market, contextSignals);
   }
 
   const lessonsCtx = contextLessons.length > 0
@@ -39,6 +39,10 @@ export async function runDebate(market, contextLessons = [], contextRules = []) 
 
   const rulesCtx = contextRules.length > 0
     ? `\nActive rules:\n${contextRules.slice(0, 4).map(r => `- ${r.rule_text}`).join('\n')}`
+    : '';
+
+  const signalsCtx = contextSignals.length > 0
+    ? `\nLive research signals (free news/sentiment — weigh but don't blindly trust):\n${contextSignals.slice(0, 4).map(s => `- ${s.text || s.signal_text}`).join('\n')}`
     : '';
 
   const userPrompt = `MARKET TO DEBATE:
@@ -52,6 +56,7 @@ Days to close: ${market.daysToClose}
 Market score: ${market.score?.toFixed(3) ?? 'N/A'}
 ${lessonsCtx}
 ${rulesCtx}
+${signalsCtx}
 
 Generate the full debate and decision. Respond with:
 {
@@ -159,20 +164,40 @@ function enforceDebateRules(debate, market) {
 
 // ─── Fallback when no Claude API ─────────────────────────────────────────────
 
-function fallbackDebate(market) {
-  // Pure math: only trade if implied probability vs market price shows edge
+function fallbackDebate(market, contextSignals = []) {
+  // Pure math + research signals: trade only when price edge AND sentiment align.
   const marketPrice = market.yesPrice;
   const score = market.score ?? 0;
 
+  // Summarize research sentiment (from free news/HN). Net = bullish - bearish strength.
+  let net = 0;
+  let signalNote = 'no research signal';
+  const fresh = contextSignals.find((s) => s.sentiment); // live signal object
+  if (fresh) {
+    net = fresh.sentiment === 'bullish' ? fresh.strength
+        : fresh.sentiment === 'bearish' ? -fresh.strength
+        : 0;
+    signalNote = `${fresh.sentiment} (${fresh.strength})`;
+  }
+
   // Require strong score AND price in "interesting" range
   if (score > 0.6 && marketPrice >= 0.35 && marketPrice <= 0.70) {
+    // Direction: lean on research sentiment; fall back to price when neutral
+    const outcome = net > 0.15 ? 'YES'
+                  : net < -0.15 ? 'NO'
+                  : marketPrice >= 0.5 ? 'YES' : 'NO';
+
+    // Confidence: base 0.62, bumped when research agrees with the bet
+    const agrees = (outcome === 'YES' && net > 0) || (outcome === 'NO' && net < 0);
+    const confidence = Math.min(0.78, 0.62 + (agrees ? Math.abs(net) * 0.15 : 0));
+
     return {
       action:         'TRADE',
-      outcome:        marketPrice >= 0.5 ? 'YES' : 'NO',
-      confidence:     0.62,  // conservative floor
-      bull:           { thesis: 'Favorable odds and volume (rule-based)', evidence: ['Volume > threshold', 'Price in edge range'], confidence: 0.62 },
-      bear:           { thesis: 'No AI analysis available', evidence: ['Claude API unavailable'], confidence: 0.45 },
-      arbiterSummary: 'Rule-based decision: score and price criteria met',
+      outcome,
+      confidence:     Math.round(confidence * 100) / 100,
+      bull:           { thesis: 'Favorable odds, volume, and research sentiment (rule-based)', evidence: ['Volume > threshold', 'Price in edge range', `Research: ${signalNote}`], confidence },
+      bear:           { thesis: 'No AI debate; relying on heuristics', evidence: ['Claude API unavailable'], confidence: 0.45 },
+      arbiterSummary: `Rule-based: price edge + research ${signalNote}`,
       winningArgument:'bull',
       skipReason:     null,
     };
@@ -180,7 +205,7 @@ function fallbackDebate(market) {
 
   return {
     action:         'SKIP',
-    skipReason:     'Rule-based: score or price criteria not met (no Claude API)',
+    skipReason:     `Rule-based: score/price criteria not met (research: ${signalNote})`,
     outcome:        'YES',
     confidence:     0,
     bull:           null,
