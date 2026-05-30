@@ -288,6 +288,34 @@ CREATE TABLE IF NOT EXISTS ceo_directives (
   created_at      TEXT NOT NULL
 );
 
+-- ─── SKILL VERSIONS — SkillOpt deployment + rollback ledger ───────────────────
+
+CREATE TABLE IF NOT EXISTS skill_versions (
+  id              TEXT PRIMARY KEY,
+  agent           TEXT NOT NULL,             -- 'polymarket_agent', etc.
+  version         INTEGER NOT NULL,
+  parent_version  INTEGER,
+  file_path       TEXT NOT NULL,             -- skills/<agent>/skill_vNNNN.md
+  status          TEXT NOT NULL DEFAULT 'candidate', -- 'candidate','deployed','rejected','reverted'
+  -- Validation metrics (held-out)
+  brier           REAL,
+  win_rate        REAL,
+  calibration     REAL,
+  val_n           INTEGER DEFAULT 0,
+  -- Gate result
+  gate_passed     INTEGER DEFAULT 0,
+  gate_notes      TEXT,
+  -- Provenance
+  resolves_lessons TEXT DEFAULT '[]',        -- JSON array of lesson_ids this edit addresses
+  created_at      TEXT NOT NULL,
+  deployed_at     TEXT,
+  reverted_at     TEXT,
+  reason          TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_skill_agent  ON skill_versions(agent);
+CREATE INDEX IF NOT EXISTS idx_skill_status ON skill_versions(status);
+
 -- Seed default agent profile if not exists
 INSERT OR IGNORE INTO agent_profiles (id, name, role, department, level, created_at)
 VALUES

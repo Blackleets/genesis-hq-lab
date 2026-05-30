@@ -10,6 +10,7 @@ import { getLeaderboard } from './memory/agentScoring.mjs';
 import { getVetoStats } from './memory/mistakePrevention.mjs';
 import { getRecentTrades } from './memory/tradingMemory.mjs';
 import { getSignalAccuracy } from './research/signalExtractor.mjs';
+import { getAllDeployed, getSkillHistory } from './skills/skillRegistry.mjs';
 import db from './db/database.mjs';
 import { executeCommand, getCommandHistory } from './command/commandExecutor.mjs';
 import { getOrgState, getStatusSummary } from './command/orgState.mjs';
@@ -189,6 +190,16 @@ const server = createServer(async (req, res) => {
       const vetoes = getVetoStats();
       sendJson(res, 200, { ok: true, vetoes });
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  if (url.pathname === '/api/agent/skills') {
+    try {
+      const deployed = getAllDeployed();
+      const agent = url.searchParams.get('agent');
+      const history = agent ? getSkillHistory(agent) : null;
+      sendJson(res, 200, { ok: true, deployed, history });
+    } catch (e) { sendJson(res, 200, { ok: true, deployed: [], history: null }); }
     return;
   }
 

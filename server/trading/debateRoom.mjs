@@ -8,7 +8,11 @@ import { nanoid } from '../utils.mjs';
 
 const CLAUDE_API = 'https://api.anthropic.com/v1/messages';
 
-const DEBATE_SYSTEM = `You are Genesis HQ's debate facilitator.
+import { getSkillPrompt } from '../skills/skillLoader.mjs';
+
+// Fallback prompt if skills/polymarket_agent/best_skill.md is missing or unreadable.
+// The deployed skill.md (when present) replaces this — see resolveSystemPrompt().
+const DEBATE_SYSTEM_FALLBACK = `You are Genesis HQ's debate facilitator.
 You generate a structured investment debate between three agents:
 - BULL: argues for the trade (provides evidence, states confidence)
 - BEAR: argues against (challenges evidence, identifies risks)
@@ -20,9 +24,16 @@ Rules for the debate:
 - Bear must identify at least 1 specific risk or weakness.
 - Arbiter must reference arguments from both sides before deciding.
 - If Bull confidence < 0.65 OR Bear confidence > 0.55, ARBITER votes SKIP.
-- Confidence = probability the YES outcome wins (not "confidence in the debate").
+- Confidence = probability the YES outcome wins (not "confidence in the debate").`;
 
-Respond ONLY with valid JSON. No markdown. No explanation outside the JSON.`;
+const JSON_DIRECTIVE = `\n\nRespond ONLY with valid JSON. No markdown. No explanation outside the JSON.`;
+
+// Resolve the system prompt: deployed skill.md if available, else inline fallback.
+// The JSON directive is always appended so output format never depends on the skill.
+function resolveSystemPrompt(agent = 'polymarket_agent') {
+  const skill = getSkillPrompt(agent);
+  return (skill ?? DEBATE_SYSTEM_FALLBACK) + JSON_DIRECTIVE;
+}
 
 // ─── Run a debate for a specific market ───────────────────────────────────────
 
@@ -93,7 +104,7 @@ Generate the full debate and decision. Respond with:
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 700,
-        system: DEBATE_SYSTEM,
+        system: resolveSystemPrompt('polymarket_agent'),
         messages: [{ role: 'user', content: userPrompt }],
       }),
       signal: AbortSignal.timeout(25000),
