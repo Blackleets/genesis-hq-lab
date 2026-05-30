@@ -328,6 +328,16 @@ const server = createServer(async (req, res) => {
   notFound(res);
 });
 
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`[genesis-hq-lab-backend] Port ${PORT} is already in use. ` +
+      `Another server is running — stop it first (e.g. close the other 'npm start'), ` +
+      `or set PORT in .env to a free port.`);
+    process.exit(1);
+  }
+  throw err;
+});
+
 server.listen(PORT, HOST, () => {
   console.log(`[genesis-hq-lab-backend] listening on http://${HOST}:${PORT}`);
 });

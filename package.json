@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "server": "node --env-file-if-exists=.env server/index.mjs",
-    "start": "concurrently -n server,web -c green,cyan \"npm run server\" \"npm run dev\"",
+    "start": "concurrently -n server,agent,web -c green,magenta,cyan -k \"npm run server\" \"npm run agent\" \"npm run dev\"",
+    "start:ui": "concurrently -n server,web -c green,cyan -k \"npm run server\" \"npm run dev\"",
     "mcp": "node server/mcpServer.mjs",
     "agent": "node --env-file-if-exists=.env server/agentRunner.mjs",
     "agent:once": "node --env-file-if-exists=.env server/agentRunner.mjs --once",

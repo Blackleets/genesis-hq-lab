@@ -22,6 +22,10 @@ const db = new Database(DB_PATH, { verbose: process.env.DB_VERBOSE ? console.log
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 db.pragma('synchronous = NORMAL');
+// Concurrency: server + agent runner are separate processes sharing this DB.
+// WAL allows many readers + one writer; busy_timeout makes writers retry instead
+// of throwing "database is locked" when they briefly contend.
+db.pragma('busy_timeout = 5000');
 
 // Apply schema (idempotent — CREATE TABLE IF NOT EXISTS)
 function migrate() {
