@@ -19,6 +19,7 @@ import {
 import type { Agent } from '../types/genesis';
 import CapitalChart from './charts/CapitalChart';
 import AgentPerformanceChart from './charts/AgentPerformanceChart';
+import AgentLivePanel from './AgentLivePanel';
 import { OFFICE_ROOMS } from '../data/officeRooms';
 import { MODULE_BY_ID, stateTKey } from '../data/moduleRegistry';
 import type { TKey } from '../i18n/translations';
@@ -156,6 +157,17 @@ export default function GenesisDashboard({ onOpenHQ }: Props) {
             <span className="font-mono text-[11px] text-amber-200 truncate">{criticalEvent.message[lang]}</span>
           </div>
         )}
+
+        {/* Live agent runner — real paper trading from backend */}
+        <section>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="font-mono text-[9px] uppercase tracking-widest text-zinc-500">
+              {lang === 'es' ? 'Agente de Trading · En Vivo' : 'Trading Agent · Live'}
+            </span>
+            <div className="flex-1 h-px bg-trim" />
+          </div>
+          <AgentLivePanel />
+        </section>
 
         {/* 4 Division cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">

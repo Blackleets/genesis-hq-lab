@@ -8,6 +8,8 @@ import { getRiskMetrics } from './trading/riskManager.mjs';
 import { getRecentDebates } from './trading/debateRoom.mjs';
 import { getLeaderboard } from './memory/agentScoring.mjs';
 import { getVetoStats } from './memory/mistakePrevention.mjs';
+import { getRecentTrades } from './memory/tradingMemory.mjs';
+import db from './db/database.mjs';
 import { executeCommand, getCommandHistory } from './command/commandExecutor.mjs';
 import { getOrgState, getStatusSummary } from './command/orgState.mjs';
 
@@ -100,17 +102,34 @@ const server = createServer(async (req, res) => {
 
   if (url.pathname === '/api/agent/trades') {
     try {
-      const trades = await getTrades();
-      sendJson(res, 200, { ok: true, trades: trades.slice(-50) });
-    } catch { sendJson(res, 200, { ok: true, trades: [] }); }
+      // Read from SQLite (where agent runner writes), fall back to JSON store
+      const trades = getRecentTrades(50);
+      sendJson(res, 200, { ok: true, trades });
+    } catch {
+      try {
+        const trades = await getTrades();
+        sendJson(res, 200, { ok: true, trades: trades.slice(-50) });
+      } catch { sendJson(res, 200, { ok: true, trades: [] }); }
+    }
     return;
   }
 
   if (url.pathname === '/api/agent/lessons') {
     try {
-      const lessons = await getLessons();
-      sendJson(res, 200, { ok: true, lessons: lessons.slice(-20) });
-    } catch { sendJson(res, 200, { ok: true, lessons: [] }); }
+      // Read from SQLite lessons table
+      const lessons = db.prepare(`
+        SELECT id, lesson_text, why_failed, new_rule, category, severity,
+               times_prevented_loss, created_at
+        FROM lessons WHERE deprecated = 0
+        ORDER BY created_at DESC LIMIT 20
+      `).all();
+      sendJson(res, 200, { ok: true, lessons });
+    } catch {
+      try {
+        const lessons = await getLessons();
+        sendJson(res, 200, { ok: true, lessons: lessons.slice(-20) });
+      } catch { sendJson(res, 200, { ok: true, lessons: [] }); }
+    }
     return;
   }
 
