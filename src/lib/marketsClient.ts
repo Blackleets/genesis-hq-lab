@@ -53,17 +53,10 @@ export interface MarketsClientError extends Error {
   code?: string;
 }
 
+import { apiUrl } from './apiBase';
+
 function getApiBase() {
-  const envBase = import.meta.env.VITE_MARKETS_API_BASE;
-  if (envBase && envBase.trim().length > 0) {
-    return envBase.replace(/\/$/, '');
-  }
-
-  if (typeof window !== 'undefined') {
-    return `${window.location.protocol}//${window.location.hostname}:8787/api`;
-  }
-
-  return 'http://127.0.0.1:8787/api';
+  return apiUrl('/api');
 }
 
 export async function loadPolymarketSnapshot(limit = 8): Promise<PolymarketSnapshotResponse> {

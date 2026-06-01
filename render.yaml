@@ -1,0 +1,25 @@
+# Backend + agente 24/7 en Render (gratis con limitaciones).
+# Conecta el repo en https://dashboard.render.com → New → Blueprint
+
+services:
+  - type: web
+    name: genesis-hq-backend
+    runtime: node
+    plan: free
+    branch: feat/genesis-life-os
+    buildCommand: npm install
+    startCommand: npm run start:render
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: 10000
+      - key: ANTHROPIC_API_KEY
+        sync: false
+    disk:
+      name: genesis-data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1

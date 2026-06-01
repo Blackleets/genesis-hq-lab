@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ExternalLink, RefreshCcw, WifiOff } from 'lucide-react';
 import { useLanguage } from '../i18n/languageStore';
 import {
+  actions,
   useAgents,
   useEvents,
   useSelectedAgent,

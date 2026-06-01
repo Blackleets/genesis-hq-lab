@@ -1,15 +1,11 @@
-// agentClient — fetches live agent runner data from the backend (:8787).
+// agentClient — fetches live agent runner data from the backend.
 // All endpoints are read-only. Errors return null so UI degrades gracefully.
 
-function getBase(): string {
-  // En el navegador usamos el proxy Vite (/api → :8787) o mismo origen en prod.
-  if (typeof window !== 'undefined') return '';
-  return 'http://127.0.0.1:8787';
-}
+import { apiUrl } from './apiBase';
 
 async function get<T>(path: string): Promise<T | null> {
   try {
-    const res = await fetch(`${getBase()}${path}`, {
+    const res = await fetch(apiUrl(path), {
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
@@ -148,7 +144,7 @@ export const agentClient = {
 
   sendCommand: async (command: string) => {
     try {
-      const res = await fetch(`${getBase()}/api/command`, {
+      const res = await fetch(apiUrl('/api/command'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command }),
