@@ -1,3 +1,5 @@
+// DEPRECATED — el UI ya no llama evaluatePaperTrades().
+// El trading vive en server/trading/workflow.mjs + SQLite.
 // Paper trading engine — evaluates market signals and opens/closes positions.
 // Called from MarketsView after each data refresh so it always has live prices.
 

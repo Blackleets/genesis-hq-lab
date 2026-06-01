@@ -41,10 +41,12 @@ Violating them is grounds for the human operator to roll back your changes.
 ## 4. Data integrity
 
 - **Never invent data and present it as real.** If you don't have a backend
-  response, show a clearly labeled placeholder ("Mock data — not connected")
-  or an empty state. Never hardcode fake numbers as if they were live.
-- **Never connect this lab to real money.** No real trading, no real wallets,
-  no real on-chain transactions. Simulated only.
+  response, show a clearly labeled empty state or "Backend offline — npm run start".
+  Never hardcode fake numbers as if they were live.
+- **Trading metrics come from the backend only** (`/api/trading/dashboard`,
+  `/api/agent/trades`). Do not reintroduce local simulated positions in the UI.
+- **Real-money Polymarket CLOB is not implemented yet.** Until it is, be explicit
+  that execution is agent-managed in SQLite, not on-chain.
 - If an API/provider is not configured, the UI must say
   `"Provider not configured"` explicitly. No silent fallbacks that fabricate
   responses.

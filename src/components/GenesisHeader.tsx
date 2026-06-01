@@ -6,6 +6,7 @@ import { useAccount } from 'wagmi';
 import { setLanguage, useLanguage, useT } from '../i18n/languageStore';
 import { MODULE_BY_ID, type ModuleId } from '../data/moduleRegistry';
 import { useEvents } from '../state/genesisStore';
+import { useAgentData } from '../hooks/useAgentData';
 
 interface Props {
   currentModule: ModuleId;
@@ -74,6 +75,7 @@ export default function GenesisHeader({ currentModule, onNavigate }: Props & { o
   const t = useT();
   const entry = MODULE_BY_ID[currentModule];
   const events = useEvents();
+  const { online, lastSync } = useAgentData();
   const { address, isConnected } = useAccount();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const bellRef = useRef<HTMLDivElement>(null);
@@ -133,9 +135,12 @@ export default function GenesisHeader({ currentModule, onNavigate }: Props & { o
           <span className="inline-block w-2 h-2 bg-emerald-400" />
           {t('header.officeStatus')}
         </div>
-        <div className="hidden md:flex items-center gap-2 font-mono text-[10px] text-emerald-300 uppercase tracking-wider">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />
-          {lang === 'es' ? 'Paper trading · Polymarket live' : 'Paper trading · Polymarket live'}
+        <div className="hidden md:flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider"
+          style={{ color: online ? '#00ff9c' : '#ff4757' }}>
+          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: 'currentColor' }} />
+          {online
+            ? (lang === 'es' ? `Agente live${lastSync ? ` · ${lastSync}` : ''}` : `Agent live${lastSync ? ` · ${lastSync}` : ''}`)
+            : (lang === 'es' ? 'Backend offline' : 'Backend offline')}
         </div>
 
         {/* Wallet chip */}

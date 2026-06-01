@@ -203,6 +203,20 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === '/api/agent/marketing') {
+    try {
+      const { readFile } = await import('node:fs/promises');
+      const { join, dirname } = await import('node:path');
+      const { fileURLToPath } = await import('node:url');
+      const __dir = dirname(fileURLToPath(import.meta.url));
+      const raw = await readFile(join(__dir, '..', 'data', 'memory', 'marketing.json'), 'utf8');
+      sendJson(res, 200, { ok: true, ...JSON.parse(raw) });
+    } catch {
+      sendJson(res, 200, { ok: true, content: null, message: 'No marketing content generated yet. Start npm run agent.' });
+    }
+    return;
+  }
+
   if (url.pathname === '/api/agent/signals') {
     try {
       const signals = db.prepare(`
@@ -272,12 +286,26 @@ const server = createServer(async (req, res) => {
   }
 
   if (url.pathname === '/api/health') {
-    sendJson(res, 200, {
-      ok: true,
-      service: 'genesis-hq-lab-backend',
-      mode: 'read-only',
-      now: new Date().toISOString(),
-    });
+    try {
+      const treasury = getTreasury();
+      const openTrades = getRecentTrades(500).filter((t) => t.status === 'open').length;
+      sendJson(res, 200, {
+        ok: true,
+        service: 'genesis-hq-lab-backend',
+        now: new Date().toISOString(),
+        agent: {
+          capital: treasury.total,
+          isPaused: treasury.isPaused ?? false,
+          openTrades,
+        },
+      });
+    } catch {
+      sendJson(res, 200, {
+        ok: true,
+        service: 'genesis-hq-lab-backend',
+        now: new Date().toISOString(),
+      });
+    }
     return;
   }
 
@@ -286,7 +314,7 @@ const server = createServer(async (req, res) => {
     sendJson(res, 200, {
       ok: true,
       service: 'genesis-hq-lab',
-      note: 'Live metrics are stored client-side. For real-time data, subscribe to SSE or use the frontend state.',
+      note: 'Trading metrics from SQLite via /api/trading/dashboard and /api/agent/trades.',
       endpoints: {
         health: '/api/health',
         plan: 'POST /api/plan',

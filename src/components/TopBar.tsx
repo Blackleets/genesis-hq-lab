@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLanguage } from '../i18n/languageStore';
-import {
-  useCapital, usePositions, useTradingStats,
-  useActiveAgents, useOnboardingAgents, useWallet,
-} from '../state/genesisStore';
+import { useLiveTrading } from '../hooks/useLiveTrading';
+import { useActiveAgents, useOnboardingAgents, useWallet } from '../state/genesisStore';
 
 function truncateAddress(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
@@ -11,9 +9,7 @@ function truncateAddress(addr: string): string {
 
 export default function TopBar() {
   const lang = useLanguage();
-  const capital = useCapital();
-  const stats = useTradingStats();
-  const positions = usePositions();
+  const live = useLiveTrading();
   const activeAgents = useActiveAgents();
   const onboardingAgents = useOnboardingAgents();
   const wallet = useWallet();
@@ -25,36 +21,44 @@ export default function TopBar() {
     return () => window.clearInterval(id);
   }, []);
 
-  const unrealizedPnL = positions.reduce(
-    (sum, p) => sum + (p.currentPrice - p.entryPrice) * p.shares * (p.outcome === 'YES' ? 1 : -1),
-    0
-  );
-  const totalPnL = stats.totalPnL + unrealizedPnL;
+  const totalPnL = live.totalPnL;
   const pnlColor = totalPnL >= 0 ? '#00ff9c' : '#ff4757';
-  const capitalColor = capital >= 10_000 ? '#00ff9c' : '#ff4757';
+  const capitalColor = live.online && live.capital >= 10_000 ? '#00ff9c' : live.online ? '#ff4757' : '#71717a';
 
   return (
     <div className="shrink-0 h-8 bg-carbon-200 border-b border-trim flex items-center px-4 gap-4 font-mono text-[10px] uppercase tracking-wider overflow-hidden">
       <span className="text-zinc-400 shrink-0">Genesis HQ</span>
       <span className="text-zinc-700">|</span>
-      <span className="text-zinc-500 shrink-0">
-        {lang === 'es' ? 'Capital' : 'Cap'}:{' '}
-        <span style={{ color: capitalColor }}>
-          ${capital.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-        </span>
-      </span>
-      <span className="text-zinc-700">|</span>
-      <span className="text-zinc-500 shrink-0">
-        P&L:{' '}
-        <span style={{ color: pnlColor }}>
-          {totalPnL >= 0 ? '+' : ''}${totalPnL.toFixed(2)}
-        </span>
-        {unrealizedPnL !== 0 && (
-          <span className="text-zinc-600 ml-1">
-            ({unrealizedPnL >= 0 ? '+' : ''}${unrealizedPnL.toFixed(2)} {lang === 'es' ? 'no real.' : 'unreal.'})
+      {live.online ? (
+        <>
+          <span className="text-zinc-500 shrink-0">
+            {lang === 'es' ? 'Capital' : 'Cap'}:{' '}
+            <span style={{ color: capitalColor }}>
+              ${live.capital.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
           </span>
-        )}
-      </span>
+          <span className="text-zinc-700">|</span>
+          <span className="text-zinc-500 shrink-0">
+            P&L:{' '}
+            <span style={{ color: pnlColor }}>
+              {totalPnL >= 0 ? '+' : ''}${totalPnL.toFixed(2)}
+            </span>
+          </span>
+          {live.openTrades.length > 0 && (
+            <>
+              <span className="text-zinc-700">|</span>
+              <span className="text-zinc-500 shrink-0">
+                {lang === 'es' ? 'Abiertas' : 'Open'}:{' '}
+                <span className="text-zinc-200">{live.openTrades.length}</span>
+              </span>
+            </>
+          )}
+        </>
+      ) : (
+        <span className="text-amber-400/90 shrink-0">
+          {lang === 'es' ? 'Backend offline — npm run start' : 'Backend offline — npm run start'}
+        </span>
+      )}
       <span className="text-zinc-700">|</span>
       <span className="text-zinc-500 shrink-0">
         {lang === 'es' ? 'Ags' : 'Ags'}:{' '}
@@ -69,10 +73,10 @@ export default function TopBar() {
       <span className="text-zinc-700 ml-auto">|</span>
       <span
         className="flex items-center gap-1.5 shrink-0"
-        style={{ color: livePulse ? '#00ff9c' : '#4a5568' }}
+        style={{ color: live.online ? (livePulse ? '#00ff9c' : '#4a5568') : '#ff4757' }}
       >
         <span className="inline-block w-1.5 h-1.5 rounded-full bg-current" />
-        LIVE
+        {live.online ? 'LIVE' : 'OFFLINE'}
       </span>
     </div>
   );

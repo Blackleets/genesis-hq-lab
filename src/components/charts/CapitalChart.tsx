@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { useCapitalHistory } from '../../state/genesisStore';
+import { useLiveTrading } from '../../hooks/useLiveTrading';
+import { useLanguage } from '../../i18n/languageStore';
 
 const INITIAL_CAPITAL = 10_000;
 
@@ -13,21 +14,30 @@ function formatRelative(at: string): string {
 }
 
 export default function CapitalChart() {
-  const history = useCapitalHistory();
+  const live = useLiveTrading();
+  const lang = useLanguage();
 
   const data = useMemo(
     () =>
-      history.map((h) => ({
+      live.capitalHistory.map((h) => ({
         label: formatRelative(h.at),
         value: Math.round(h.value * 100) / 100,
       })),
-    [history]
+    [live.capitalHistory],
   );
+
+  if (!live.online) {
+    return (
+      <div className="px-4 py-6 font-mono text-[11px] text-amber-400/90">
+        {lang === 'es' ? 'Backend offline' : 'Backend offline'}
+      </div>
+    );
+  }
 
   if (data.length < 2) {
     return (
       <div className="px-4 py-6 font-mono text-[11px] text-zinc-600">
-        Waiting for data…
+        {lang === 'es' ? 'Esperando historial del agente…' : 'Waiting for agent history…'}
       </div>
     );
   }

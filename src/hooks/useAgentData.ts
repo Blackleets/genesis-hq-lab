@@ -2,7 +2,7 @@
 // Returns null while loading; components degrade gracefully when backend is offline.
 
 import { useState, useEffect, useCallback } from 'react';
-import { agentClient, type TradingDashboard, type AgentTrade, type AgentLesson, type OrgStatus, type AgentSignal, type SkillVersion } from '../lib/agentClient';
+import { agentClient, type TradingDashboard, type AgentTrade, type AgentLesson, type OrgStatus, type AgentSignal, type SkillVersion, type MarketingContent } from '../lib/agentClient';
 
 const POLL_MS = 10_000;
 
@@ -13,6 +13,7 @@ export interface AgentData {
   signals:   AgentSignal[];
   signalAccuracy: { total: number; correct: number; rate: number | null } | null;
   skills:    SkillVersion[];
+  marketing: MarketingContent | null;
   status:    OrgStatus | null;
   online:    boolean;
   lastSync:  string | null;
@@ -26,6 +27,7 @@ export function useAgentData(): AgentData {
     signals:   [],
     signalAccuracy: null,
     skills:    [],
+    marketing: null,
     status:    null,
     online:    false,
     lastSync:  null,
@@ -38,12 +40,13 @@ export function useAgentData(): AgentData {
       return;
     }
 
-    const [dashboard, tradesRes, lessonsRes, signalsRes, skillsRes, status] = await Promise.all([
+    const [dashboard, tradesRes, lessonsRes, signalsRes, skillsRes, marketing, status] = await Promise.all([
       agentClient.getDashboard(),
       agentClient.getTrades(),
       agentClient.getLessons(),
       agentClient.getSignals(),
       agentClient.getSkills(),
+      agentClient.getMarketing(),
       agentClient.getStatus(),
     ]);
 
@@ -54,6 +57,7 @@ export function useAgentData(): AgentData {
       signals:   signalsRes?.signals ?? [],
       signalAccuracy: signalsRes?.accuracy ?? null,
       skills:    skillsRes?.deployed ?? [],
+      marketing: marketing ?? null,
       status:    status ?? null,
       online:    true,
       lastSync:  new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),

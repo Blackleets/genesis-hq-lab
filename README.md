@@ -1,35 +1,33 @@
 # Genesis HQ Lab
 
-Isolated experimentation space for the **Genesis HQ** visual layer —
-pixel-art top-down office, animated agents, conversation bubbles,
-Kenney/RPG asset integration, and any UI/UX prototypes that should not
-risk the main `genesis` project.
+Experimentation and **operational surface** for **Genesis HQ** — pixel-art office,
+autonomous trading agent (Polymarket data + SQLite execution), and module UI.
 
-> **Why this repo exists:** the main Genesis project has a working backend
-> (Fastify + SQLite + agents + decisions) and we do not want UI experiments
-> breaking it. Everything visual happens here first; only proven results
-> graduate back to `../genesis`.
+> Isolated from the main `../genesis` project so visual and agent experiments
+> do not break production.
 
 ---
 
 ## What's inside
 
-- React 19 + Vite 7 + TypeScript
-- Tailwind CSS 3
-- Framer Motion (for tiny per-sprite animations)
-- Lucide React (for non-sprite icons in the surrounding UI)
-- No backend. This lab uses static mocks or reads JSON fixtures from
-  `src/fixtures/` for prototyping. Mocks must be clearly labeled.
+- React 19 + Vite 7 + TypeScript + Tailwind
+- **Backend** (`server/`) — Node HTTP API, SQLite, agent runner (5 min ticks)
+- **Trading pipeline** — SCAN → VETO → DEBATE → EXECUTE (real market data; execution in DB)
+- **HQ canvas** — pixel office with live agent state
 
 ## Quick start
 
 ```bash
 npm install
-npm run dev     # http://localhost:5173
-npm run build   # production build (typecheck + bundle)
-npm run lint    # ESLint
-npm run preview # serve the production build locally
+npm run start     # server + agent + web together
+npm run dev       # frontend only (needs server for live data)
+npm run build
+npm run lint
 ```
+
+**Live data requires:** `npm run start` (or `npm run server` + `npm run agent` + `npm run dev`).
+
+Optional: copy `.env.example` → `.env` and set `ANTHROPIC_API_KEY` for AI debates/plans.
 
 ## Project structure
 
@@ -61,6 +59,5 @@ Full rules: `AGENTS.md`.
 
 ## Status
 
-Bootstrap only. No features yet. The first real task is to port a small
-Genesis HQ slice (one room with a few agents) into this lab so we can
-iterate visuals without touching `../genesis`.
+Operational lab: backend agent + UI wired to **real SQLite trades** (not local mock positions).
+Next milestone: Polymarket CLOB for on-chain execution.

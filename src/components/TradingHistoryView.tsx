@@ -1,12 +1,14 @@
 import { useMemo } from 'react';
 import { useLanguage } from '../i18n/languageStore';
-import { useGenesisState, useTradingStats } from '../state/genesisStore';
+import { useLiveTrading } from '../hooks/useLiveTrading';
+import { useAgents } from '../state/genesisStore';
+import type { AgentTrade } from '../lib/agentClient';
 
 function exportToCsv(rows: ReturnType<typeof buildRows>) {
-  const header = 'Agent,Market,Outcome,Entry,Exit,PnL,Opened,Closed\n';
+  const header = 'Agent,Market,Outcome,Entry,PnL,Status,Opened,Closed\n';
   const body = rows.map((r) =>
-    [r.agentName, r.question, r.outcome, r.entryPrice.toFixed(3), r.exitPrice?.toFixed(3) ?? '—',
-     r.pnl?.toFixed(2) ?? '—', r.openedAt, r.closedAt ?? '—'].join(',')
+    [r.agentName, r.question, r.outcome, r.entryPrice.toFixed(3),
+     r.pnl?.toFixed(2) ?? '—', r.status, r.openedAt, r.closedAt ?? '—'].join(',')
   ).join('\n');
   const blob = new Blob([header + body], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
@@ -17,37 +19,48 @@ function exportToCsv(rows: ReturnType<typeof buildRows>) {
   URL.revokeObjectURL(url);
 }
 
-function buildRows(closedPositions: ReturnType<typeof useGenesisState>['closedPositions'], agentMap: Record<string, string>) {
-  return [...closedPositions]
-    .sort((a, b) => (b.closedAt ?? '').localeCompare(a.closedAt ?? ''))
-    .map((p) => ({
-      id: p.id,
-      agentName: agentMap[p.agentId] ?? p.agentId,
-      question: p.question.en,
-      outcome: p.outcome,
-      entryPrice: p.entryPrice,
-      exitPrice: p.exitPrice,
-      pnl: p.pnl,
-      openedAt: new Date(p.openedAt).toLocaleString(),
-      closedAt: p.closedAt ? new Date(p.closedAt).toLocaleString() : undefined,
+function buildRows(trades: AgentTrade[], agentMap: Record<string, string>) {
+  return [...trades]
+    .sort((a, b) => (b.closed_at ?? b.opened_at).localeCompare(a.closed_at ?? a.opened_at))
+    .map((t) => ({
+      id: t.id,
+      agentName: agentMap[t.agent_id] ?? t.agent_id,
+      question: t.market_question,
+      outcome: t.outcome,
+      entryPrice: t.entry_price,
+      pnl: t.pnl,
+      status: t.status,
+      openedAt: new Date(t.opened_at).toLocaleString(),
+      closedAt: t.closed_at ? new Date(t.closed_at).toLocaleString() : undefined,
     }));
 }
 
 export default function TradingHistoryView() {
   const lang = useLanguage();
-  const state = useGenesisState();
-  const stats = useTradingStats();
+  const live = useLiveTrading();
+  const agents = useAgents();
 
   const agentMap = useMemo(
-    () => Object.fromEntries(Object.values(state.agents).map((a) => [a.id, a.name])),
-    [state.agents]
+    () => Object.fromEntries(agents.map((a) => [a.id, a.name])),
+    [agents],
   );
-  const rows = useMemo(() => buildRows(state.closedPositions, agentMap), [state.closedPositions, agentMap]);
+  const rows = useMemo(
+    () => buildRows(live.closedTrades, agentMap),
+    [live.closedTrades, agentMap],
+  );
+
+  if (!live.online) {
+    return (
+      <div className="px-4 py-8 font-mono text-[12px] text-amber-400/90">
+        {lang === 'es' ? 'Backend offline — sin historial de trades.' : 'Backend offline — no trade history.'}
+      </div>
+    );
+  }
 
   if (rows.length === 0) {
     return (
       <div className="px-4 py-8 font-mono text-[12px] text-zinc-500">
-        {lang === 'es' ? 'Sin trades cerrados aún.' : 'No closed trades yet.'}
+        {lang === 'es' ? 'Sin trades cerrados aún. El agente opera cada 5 min con npm run agent.' : 'No closed trades yet. Agent runs every 5 min with npm run agent.'}
       </div>
     );
   }
@@ -56,10 +69,10 @@ export default function TradingHistoryView() {
     <div className="space-y-3">
       <div className="flex items-center justify-between px-4 pt-3">
         <div className="flex gap-4 font-mono text-[11px]">
-          <span className="text-zinc-500">{lang === 'es' ? 'Trades' : 'Trades'}: <span className="text-zinc-200">{stats.totalTrades}</span></span>
-          <span className="text-zinc-500">Win rate: <span style={{ color: '#ffd24a' }}>{(stats.winRate * 100).toFixed(0)}%</span></span>
-          <span className="text-zinc-500">P&L: <span style={{ color: stats.totalPnL >= 0 ? '#00ff9c' : '#ff4757' }}>
-            {stats.totalPnL >= 0 ? '+' : ''}${stats.totalPnL.toFixed(2)}
+          <span className="text-zinc-500">{lang === 'es' ? 'Trades' : 'Trades'}: <span className="text-zinc-200">{live.totalTrades}</span></span>
+          <span className="text-zinc-500">Win rate: <span style={{ color: '#ffd24a' }}>{(live.winRate * 100).toFixed(0)}%</span></span>
+          <span className="text-zinc-500">P&L: <span style={{ color: live.totalPnL >= 0 ? '#00ff9c' : '#ff4757' }}>
+            {live.totalPnL >= 0 ? '+' : ''}${live.totalPnL.toFixed(2)}
           </span></span>
         </div>
         <button
@@ -79,7 +92,6 @@ export default function TradingHistoryView() {
               <th className="px-4 py-2 text-left">{lang === 'es' ? 'Mercado' : 'Market'}</th>
               <th className="px-3 py-2 text-center">Out</th>
               <th className="px-3 py-2 text-right">{lang === 'es' ? 'Entrada' : 'Entry'}</th>
-              <th className="px-3 py-2 text-right">{lang === 'es' ? 'Salida' : 'Exit'}</th>
               <th className="px-3 py-2 text-right">P&L</th>
               <th className="px-4 py-2 text-right">{lang === 'es' ? 'Cerrado' : 'Closed'}</th>
             </tr>
@@ -96,13 +108,12 @@ export default function TradingHistoryView() {
                 <td className="px-3 py-2 text-center">
                   <span
                     className="px-1.5 py-0.5 text-[9px] uppercase tracking-wider"
-                    style={{ color: r.outcome === 'YES' ? '#00ff9c' : '#ff4757', border: `1px solid currentColor` }}
+                    style={{ color: r.outcome === 'YES' ? '#00ff9c' : '#ff4757', border: '1px solid currentColor' }}
                   >
                     {r.outcome}
                   </span>
                 </td>
                 <td className="px-3 py-2 text-right text-zinc-400">${r.entryPrice.toFixed(3)}</td>
-                <td className="px-3 py-2 text-right text-zinc-400">{r.exitPrice !== undefined ? `$${r.exitPrice.toFixed(3)}` : '—'}</td>
                 <td
                   className="px-3 py-2 text-right"
                   style={{ color: (r.pnl ?? 0) >= 0 ? '#00ff9c' : '#ff4757' }}

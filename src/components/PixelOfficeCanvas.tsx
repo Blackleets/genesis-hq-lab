@@ -5,7 +5,6 @@ import {
   useDevMode,
   useEvents,
   useFiredAgents,
-  usePositions,
   useSelectedAgent,
   useSelectedLanguage,
   useTasks,
@@ -51,7 +50,6 @@ export default function PixelOfficeCanvas({ scale, onAgentHover, onRoomClick }: 
     selectedAgentId: selectedAgent?.id ?? null,
     devMode,
   });
-  const openPositions = usePositions();
   const [sprites, setSprites] = useState<LoadedSpriteMap | null>(null);
   const [hoveredAgentId, setHoveredAgentId] = useState<string | null>(null);
   const [activeOverlays, setActiveOverlays] = useState<PixelRenderAgent[]>([]);
@@ -220,7 +218,7 @@ export default function PixelOfficeCanvas({ scale, onAgentHover, onRoomClick }: 
             (t.status === 'working' || t.status === 'assigned'),
         );
         const currentTask = agentTasks[0] ?? null;
-        const agentPosition = openPositions.find((p) => p.agentId === ra.agent.id && p.status === 'open') ?? null;
+        const agentPosition = null;
         return (
           <AgentWorkOverlay
             key={ra.agent.id}

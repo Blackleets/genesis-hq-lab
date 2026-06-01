@@ -2,9 +2,8 @@
 // All endpoints are read-only. Errors return null so UI degrades gracefully.
 
 function getBase(): string {
-  if (typeof window !== 'undefined') {
-    return `${window.location.protocol}//${window.location.hostname}:8787`;
-  }
+  // En el navegador usamos el proxy Vite (/api → :8787) o mismo origen en prod.
+  if (typeof window !== 'undefined') return '';
   return 'http://127.0.0.1:8787';
 }
 
@@ -117,6 +116,24 @@ export interface OrgStatus {
   summary: string;
 }
 
+export interface MarketingContent {
+  ok: boolean;
+  insight?: string;
+  headline?: string;
+  tweet?: string;
+  linkedin?: string;
+  generatedAt?: string;
+  content?: null;
+  message?: string;
+}
+
+export interface HealthStatus {
+  ok: boolean;
+  service?: string;
+  now?: string;
+  agent?: { capital: number; isPaused: boolean; openTrades: number };
+}
+
 // ─── API calls ────────────────────────────────────────────────────────────────
 
 export const agentClient = {
@@ -126,7 +143,8 @@ export const agentClient = {
   getSkills:   () => get<{ ok: boolean; deployed: SkillVersion[] }>('/api/agent/skills'),
   getDashboard:() => get<TradingDashboard>('/api/trading/dashboard'),
   getStatus:   () => get<OrgStatus>('/api/command/status'),
-  getHealth:   () => get<{ ok: boolean }>('/api/health'),
+  getHealth:   () => get<HealthStatus>('/api/health'),
+  getMarketing:() => get<MarketingContent>('/api/agent/marketing'),
 
   sendCommand: async (command: string) => {
     try {

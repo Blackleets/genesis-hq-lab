@@ -157,9 +157,10 @@ export default function WalletView() {
               </div>
             </section>
 
-            <div className="border border-emerald-400/40 bg-emerald-500/5 px-4 py-3 font-mono text-[12px] text-emerald-200 flex items-center gap-2">
-              <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-              {t('wallet.realMode')}
+            <div className="border border-zinc-700 bg-carbon-200 px-4 py-3 font-mono text-[11px] text-zinc-400 leading-relaxed">
+              {lang === 'es'
+                ? 'Wallet conectada — saldo on-chain en lectura. El trading lo ejecuta el agente backend (SQLite), no esta wallet aún.'
+                : 'Wallet connected — on-chain balance read-only. Trading is executed by the backend agent (SQLite), not this wallet yet.'}
             </div>
 
             <button

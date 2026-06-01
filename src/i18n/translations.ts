@@ -122,7 +122,7 @@ export const TRANSLATIONS = {
 
   // ---------------- WALLET ----------------
   'wallet.title':            { es: 'Conexión de Wallet',            en: 'Wallet Connect' },
-  'wallet.intro':            { es: 'Conecta tu wallet de Polygon para habilitar el modo de trading real.', en: 'Connect your Polygon wallet to enable real trading mode.' },
+  'wallet.intro':            { es: 'Consulta saldo on-chain. El agente backend ejecuta trades en SQLite hasta integrar CLOB Polymarket.', en: 'View on-chain balance. Backend agent executes trades in SQLite until Polymarket CLOB is integrated.' },
   'wallet.connect.metamask': { es: 'Conectar MetaMask',             en: 'Connect MetaMask' },
   'wallet.connect.wc':       { es: 'WalletConnect',                 en: 'WalletConnect' },
   'wallet.disconnect':       { es: 'Desconectar',                   en: 'Disconnect' },
@@ -132,7 +132,7 @@ export const TRANSLATIONS = {
   'wallet.balance.matic':    { es: 'Balance MATIC',                 en: 'MATIC balance' },
   'wallet.balance.usdc':     { es: 'Balance USDC',                  en: 'USDC balance' },
   'wallet.network':          { es: 'Red',                           en: 'Network' },
-  'wallet.note':             { es: 'Para operar en Polymarket necesitas USDC en Polygon. El paper trading no requiere wallet.', en: 'To trade on Polymarket you need USDC on Polygon. Paper trading does not require a wallet.' },
+  'wallet.note':             { es: 'Trading: datos reales del agente (npm run start). Wallet: solo lectura de MATIC/USDC.', en: 'Trading: real agent data (npm run start). Wallet: read-only MATIC/USDC balance.' },
 
   // ---------------- AGENT STATUSES ----------------
   'status.idle':             { es: 'inactivo',                     en: 'idle' },
@@ -168,7 +168,7 @@ export const TRANSLATIONS = {
   'onboarding.duration':     { es: 'Duración: 3 min (lab)',         en: 'Duration: 3 min (lab)' },
     'onboarding.hint':         { es: 'Los agentes nuevos no toman tareas críticas durante el onboarding.', en: 'New agents do not take critical tasks during onboarding.' },
 
-  'dashboard.realtime':  { es: 'Los agentes operan en Polymarket en tiempo real. Capital inicial $10,000 USD (paper trading).', en: 'Agents trade on Polymarket in real-time. Starting capital $10,000 USD (paper trading).' },
+  'dashboard.realtime':  { es: 'Métricas de trading desde el backend SQLite. Requiere npm run start.', en: 'Trading metrics from SQLite backend. Requires npm run start.' },
   'dashboard.section.activity': { es: 'Actividad reciente',        en: 'Recent activity' },
   'dashboard.section.tasks':    { es: 'Tareas en curso',           en: 'Active tasks' },
   'dashboard.section.upgrades': { es: 'Mejoras de oficina',        en: 'Office upgrades' },

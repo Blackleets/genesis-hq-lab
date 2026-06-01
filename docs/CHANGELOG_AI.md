@@ -5,6 +5,13 @@ at the top. Use one block per session. Be honest about failures.
 
 ---
 
+## 2026-06-01 — Auto
+
+- **Branch:** (working tree)
+- **Summary:** Removed demo/mock trading UI. All capital, P&L, positions and history now read from backend SQLite via `useLiveTrading`. Disabled local `evaluatePaperTrades`. Added `/api/agent/marketing`, enriched `/api/health`. Removed fake wallet "real mode" and simulated marketing funnel.
+- **Files touched:** `src/hooks/useLiveTrading.ts`, `src/hooks/useAgentData.ts`, `src/lib/agentClient.ts`, `src/components/TopBar.tsx`, `GenesisDashboard.tsx`, `MarketsView.tsx`, `LiveTradingPanel.tsx`, `TradingHistoryView.tsx`, `CapitalChart.tsx`, `ProgressView.tsx`, `MarketingView.tsx`, `WalletView.tsx`, `GenesisHeader.tsx`, `src/i18n/translations.ts`, `server/index.mjs`, `AGENTS.md`, `README.md`, `.env.example`, `docs/CHANGELOG_AI.md`
+- **Verification:** not run (no node_modules in session)
+
 ## 2026-05-27 - Codex
 
 - **Branch:** `feat/genesis-life-os`

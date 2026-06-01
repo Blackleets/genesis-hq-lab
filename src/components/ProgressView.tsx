@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useLanguage } from '../i18n/languageStore';
-import { useActiveAgents, useEvents, useTasks, useTradingStats } from '../state/genesisStore';
+import { useActiveAgents, useEvents, useTasks } from '../state/genesisStore';
+import { useLiveTrading } from '../hooks/useLiveTrading';
 import { useProgress } from '../lib/progressEngine';
 import CapitalChart from './charts/CapitalChart';
 
@@ -22,7 +23,7 @@ export default function ProgressView() {
   const events = useEvents();
   const tasks = useTasks();
   const progress = useProgress();
-  const tradingStats = useTradingStats();
+  const live = useLiveTrading();
 
   const learningData = useMemo(
     () =>
@@ -114,9 +115,9 @@ export default function ProgressView() {
             <CapitalChart />
             <div className="grid grid-cols-3 border-t border-trim">
               {[
-                { label: 'Trades', value: String(tradingStats.totalTrades), color: '#3da9fc' },
-                { label: 'Win rate', value: tradingStats.totalTrades > 0 ? `${(tradingStats.winRate * 100).toFixed(0)}%` : '—', color: '#ffd24a' },
-                { label: 'P&L', value: `${tradingStats.totalPnL >= 0 ? '+' : ''}$${tradingStats.totalPnL.toFixed(0)}`, color: tradingStats.totalPnL >= 0 ? '#00ff9c' : '#ff4757' },
+                { label: 'Trades', value: live.online ? String(live.totalTrades) : '—', color: '#3da9fc' },
+                { label: 'Win rate', value: live.online && live.totalTrades > 0 ? `${(live.winRate * 100).toFixed(0)}%` : '—', color: '#ffd24a' },
+                { label: 'P&L', value: live.online ? `${live.totalPnL >= 0 ? '+' : ''}$${live.totalPnL.toFixed(0)}` : '—', color: live.totalPnL >= 0 ? '#00ff9c' : '#ff4757' },
               ].map(({ label, value, color }) => (
                 <div key={label} className="px-4 py-2 border-r border-trim last:border-r-0">
                   <div className="font-mono text-[9px] uppercase tracking-wider text-zinc-600">{label}</div>

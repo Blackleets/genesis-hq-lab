@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { ExternalLink, RefreshCcw, WifiOff } from 'lucide-react';
 import { useLanguage } from '../i18n/languageStore';
 import {
-  actions,
   useAgents,
   useEvents,
   useSelectedAgent,
@@ -16,12 +15,7 @@ import {
   type MarketsClientError,
   type PolymarketSnapshotResponse,
 } from '../lib/marketsClient';
-import {
-  useCapital,
-  usePositions,
-  useGenesisState,
-} from '../state/genesisStore';
-import { evaluatePaperTrades } from '../lib/tradingEngine';
+import { useLiveTrading } from '../hooks/useLiveTrading';
 import TradingHistoryView from './TradingHistoryView';
 import LiveTradingPanel from './LiveTradingPanel';
 import AgentLivePanel from './AgentLivePanel';
@@ -277,25 +271,26 @@ export default function MarketsView() {
   const tasks = useTasks();
   const events = useEvents();
   const selectedAgent = useSelectedAgent();
-  const capital = useCapital();
-  const openPositions = usePositions();
+  const live = useLiveTrading();
   const [snapshot, setSnapshot] = useState<PolymarketSnapshotResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryIn, setRetryIn] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'live' | 'positions'>('live');
-  const [closingId, setClosingId] = useState<string | null>(null);
-  const closedPositions = useGenesisState().closedPositions;
+
+  const openPositions = live.openTrades;
+  const closedPositions = live.closedTrades;
+  const capital = live.capital;
 
   const traderAgents = useMemo(() => {
     const tradingDepts = ['Market Room', 'Risk Office', 'Strategy Lab', 'Execution Desk'];
     const traderList = agents.filter((a) => tradingDepts.includes(a.department));
     return traderList.map((a) => {
-      const agentClosed = closedPositions.filter((p) => p.agentId === a.id);
-      const agentOpen = openPositions.filter((p) => p.agentId === a.id && p.status === 'open');
+      const agentClosed = closedPositions.filter((p) => p.agent_id === a.id);
+      const agentOpen = openPositions.filter((p) => p.agent_id === a.id && p.status === 'open');
       const wins = agentClosed.filter((p) => (p.pnl ?? 0) > 0).length;
       const pnl = agentClosed.reduce((s, p) => s + (p.pnl ?? 0), 0);
-      const allocated = agentOpen.reduce((s, p) => s + p.capitalAllocated, 0);
+      const allocated = agentOpen.reduce((s, p) => s + p.capital_used, 0);
       return {
         id: a.id,
         name: a.name,
@@ -312,8 +307,8 @@ export default function MarketsView() {
     title: language === 'es' ? 'Mercados' : 'Markets',
     intro:
       language === 'es'
-        ? 'Mercados reales de Polymarket. Los agentes trader analizan precios en vivo y abren posiciones de paper trading para ganar capital.'
-        : 'Live Polymarket markets. Trader agents analyze real-time prices and open paper-trading positions to grow capital.',
+        ? 'Mercados reales de Polymarket. Trades y capital desde el agente backend (SQLite). Ejecuta npm run start.'
+        : 'Live Polymarket markets. Trades and capital from the backend agent (SQLite). Run npm run start.',
     refresh: language === 'es' ? 'Actualizar' : 'Refresh',
     backendHint:
       language === 'es'
@@ -383,7 +378,6 @@ export default function MarketsView() {
     try {
       const next = await loadPolymarketSnapshot(8);
       setSnapshot(next);
-      evaluatePaperTrades(next.events);
     } catch (cause) {
       const clientError = cause as MarketsClientError;
       if (clientError.code === 'provider_unreachable') {
@@ -409,7 +403,6 @@ export default function MarketsView() {
         const next = await loadPolymarketSnapshot(8);
         if (!disposed) {
           setSnapshot(next);
-          evaluatePaperTrades(next.events);
         }
       } catch (cause) {
         if (!disposed) {
@@ -632,39 +625,20 @@ export default function MarketsView() {
             </header>
             <ul className="divide-y divide-trim">
               {openPositions.map((pos) => {
-                const unrealizedPnL = (pos.currentPrice - pos.entryPrice) * pos.shares * (pos.outcome === 'YES' ? 1 : -1);
-                const agent = agents.find((a) => a.id === pos.agentId);
-                const isClosing = closingId === pos.id;
+                const agent = agents.find((a) => a.id === pos.agent_id);
                 return (
                   <li key={pos.id} className="px-4 py-3 flex items-center justify-between gap-4">
                     <div className="min-w-0 flex-1">
                       <div className="font-mono text-[9px] uppercase tracking-wider text-zinc-500 mb-0.5">
-                        {agent?.name ?? pos.agentId} · {pos.outcome}
+                        {agent?.name ?? pos.agent_id} · {pos.outcome}
                       </div>
-                      <div className="font-mono text-[11px] text-zinc-200 truncate">{pos.question[language]}</div>
+                      <div className="font-mono text-[11px] text-zinc-200 truncate">{pos.market_question}</div>
                       <div className="font-mono text-[9px] text-zinc-500 mt-0.5">
-                        {pos.shares} shares @ ${pos.entryPrice.toFixed(3)} → ${pos.currentPrice.toFixed(3)}
+                        {pos.shares} shares @ ${pos.entry_price.toFixed(3)} · ${pos.capital_used.toFixed(2)} USDC
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div
-                        className="font-mono text-sm"
-                        style={{ color: unrealizedPnL >= 0 ? '#00ff9c' : '#ff4757' }}
-                      >
-                        {unrealizedPnL >= 0 ? '+' : ''}${unrealizedPnL.toFixed(2)}
-                      </div>
-                      <button
-                        type="button"
-                        disabled={isClosing}
-                        onClick={() => {
-                          setClosingId(pos.id);
-                          actions.closePosition(pos.id, pos.currentPrice);
-                          setClosingId(null);
-                        }}
-                        className="font-mono text-[10px] uppercase tracking-wider border border-red-400/50 text-red-300 px-2 py-1 hover:bg-red-400/10 disabled:opacity-40"
-                      >
-                        {isClosing ? '…' : (language === 'es' ? 'Cerrar' : 'Close')}
-                      </button>
+                    <div className="font-mono text-[9px] text-zinc-600 shrink-0 uppercase">
+                      {language === 'es' ? 'Gestionado por agente' : 'Agent-managed'}
                     </div>
                   </li>
                 );

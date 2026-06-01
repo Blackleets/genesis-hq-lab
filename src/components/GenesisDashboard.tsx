@@ -6,16 +6,14 @@ import { useT, useLanguage } from '../i18n/languageStore';
 import { useProgress } from '../lib/progressEngine';
 import {
   useActiveAgents,
-  useCapital,
   useEvents,
   useOnboardingAgents,
-  usePositions,
   useTasks,
-  useTradingStats,
   useModules,
   useOfficeUpgrades,
   useHiringQueue,
 } from '../state/genesisStore';
+import { useLiveTrading } from '../hooks/useLiveTrading';
 import type { Agent } from '../types/genesis';
 import CapitalChart from './charts/CapitalChart';
 import AgentPerformanceChart from './charts/AgentPerformanceChart';
@@ -75,9 +73,7 @@ export default function GenesisDashboard({ onOpenHQ }: Props) {
   const activeAgents = useActiveAgents();
   const onboardingAgents = useOnboardingAgents();
   const allAgentsForUtil = [...activeAgents, ...onboardingAgents];
-  const capital = useCapital();
-  const positions = usePositions();
-  const tradingStats = useTradingStats();
+  const live = useLiveTrading();
   const [showPerfChart, setShowPerfChart] = useState(false);
 
   const activeTasks = tasks.filter(
@@ -96,10 +92,7 @@ export default function GenesisDashboard({ onOpenHQ }: Props) {
     ['Growth Room', 'Design Studio'].includes(a.department)
   );
 
-  const unrealizedPnL = positions.reduce(
-    (sum, p) => sum + (p.currentPrice - p.entryPrice) * p.shares * (p.outcome === 'YES' ? 1 : -1), 0
-  );
-  const totalPnL = tradingStats.totalPnL + unrealizedPnL;
+  const totalPnL = live.totalPnL;
   const taskHealth = completedTasks.length + failedTasks.length > 0
     ? completedTasks.length / (completedTasks.length + failedTasks.length)
     : null;
@@ -122,13 +115,13 @@ export default function GenesisDashboard({ onOpenHQ }: Props) {
                 {lang === 'es' ? 'EDAD' : 'AGE'}: <span className="text-amber-400">{progress.ageHours.toFixed(1)}h</span>
               </span>
               <span className="text-zinc-500">
-                CAP: <span style={{ color: capital >= 10000 ? '#00ff9c' : '#ff4757' }}>
-                  ${capital.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                CAP: <span style={{ color: live.online && live.capital >= 10000 ? '#00ff9c' : live.online ? '#ff4757' : '#71717a' }}>
+                  {live.online ? `$${live.capital.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—'}
                 </span>
               </span>
               <span className="text-zinc-500">
-                P&L: <span style={{ color: totalPnL >= 0 ? '#00ff9c' : '#ff4757' }}>
-                  {totalPnL >= 0 ? '+' : ''}${totalPnL.toFixed(2)}
+                P&L: <span style={{ color: live.online ? (totalPnL >= 0 ? '#00ff9c' : '#ff4757') : '#71717a' }}>
+                  {live.online ? `${totalPnL >= 0 ? '+' : ''}$${totalPnL.toFixed(2)}` : '—'}
                 </span>
               </span>
               <span className="text-zinc-500">
@@ -160,7 +153,7 @@ export default function GenesisDashboard({ onOpenHQ }: Props) {
           </div>
         )}
 
-        {/* Live agent runner — real paper trading from backend */}
+        {/* Live agent runner — datos reales del backend SQLite */}
         <section>
           <div className="flex items-center gap-2 mb-2">
             <span className="font-mono text-[9px] uppercase tracking-widest text-zinc-500">
@@ -187,12 +180,14 @@ export default function GenesisDashboard({ onOpenHQ }: Props) {
             <div className="font-mono text-2xl font-bold" style={{ color: totalPnL >= 0 ? '#00ff9c' : '#ff4757' }}>
               {totalPnL >= 0 ? '+' : ''}${totalPnL.toFixed(0)}
             </div>
-            <div className="font-mono text-[9px] text-zinc-500 mt-1">P&L · {positions.length} pos · {tradingStats.totalTrades} trades</div>
+            <div className="font-mono text-[9px] text-zinc-500 mt-1">
+              P&L · {live.openTrades.length} pos · {live.totalTrades} trades
+            </div>
             <div className="mt-2 h-1 bg-carbon-300">
-              <div style={{ width: `${Math.min((tradingStats.winRate ?? 0) * 100, 100)}%`, background: '#00ff9c', height: '100%' }} />
+              <div style={{ width: `${Math.min((live.winRate ?? 0) * 100, 100)}%`, background: '#00ff9c', height: '100%' }} />
             </div>
             <div className="font-mono text-[9px] text-zinc-600 mt-1">
-              {tradingAgents.length} {lang === 'es' ? 'agentes' : 'agents'} · win rate {tradingStats.totalTrades > 0 ? `${(tradingStats.winRate * 100).toFixed(0)}%` : '—'}
+              {tradingAgents.length} {lang === 'es' ? 'agentes' : 'agents'} · win rate {live.totalTrades > 0 ? `${(live.winRate * 100).toFixed(0)}%` : '—'}
             </div>
           </div>
 
@@ -272,8 +267,8 @@ export default function GenesisDashboard({ onOpenHQ }: Props) {
             <span className="font-mono text-[11px] uppercase tracking-wider text-zinc-300">
               {lang === 'es' ? 'Capital & P&L' : 'Capital & P&L'}
             </span>
-            <span className="font-mono text-[11px]" style={{ color: capital >= 10_000 ? '#00ff9c' : '#ff4757' }}>
-              ${capital.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <span className="font-mono text-[11px]" style={{ color: live.online && live.capital >= 10_000 ? '#00ff9c' : live.online ? '#ff4757' : '#71717a' }}>
+              {live.online ? `$${live.capital.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
             </span>
           </header>
           <CapitalChart />
@@ -282,9 +277,9 @@ export default function GenesisDashboard({ onOpenHQ }: Props) {
               <div className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">P&L total</div>
               <div
                 className="font-mono text-lg mt-0.5"
-                style={{ color: tradingStats.totalPnL >= 0 ? '#00ff9c' : '#ff4757' }}
+                style={{ color: live.online ? (live.totalPnL >= 0 ? '#00ff9c' : '#ff4757') : '#71717a' }}
               >
-                {tradingStats.totalPnL >= 0 ? '+' : ''}${tradingStats.totalPnL.toFixed(2)}
+                {live.online ? `${live.totalPnL >= 0 ? '+' : ''}$${live.totalPnL.toFixed(2)}` : '—'}
               </div>
             </div>
             <div className="border border-trim bg-carbon-300 px-3 py-2">
@@ -292,13 +287,13 @@ export default function GenesisDashboard({ onOpenHQ }: Props) {
                 {lang === 'es' ? 'Posiciones' : 'Positions'}
               </div>
               <div className="font-mono text-lg mt-0.5" style={{ color: '#3da9fc' }}>
-                {positions.length}
+                {live.online ? live.openTrades.length : '—'}
               </div>
             </div>
             <div className="border border-trim bg-carbon-300 px-3 py-2">
               <div className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Win rate</div>
               <div className="font-mono text-lg mt-0.5" style={{ color: '#ffd24a' }}>
-                {tradingStats.totalTrades > 0 ? `${(tradingStats.winRate * 100).toFixed(0)}%` : '—'}
+                {live.online && live.totalTrades > 0 ? `${(live.winRate * 100).toFixed(0)}%` : '—'}
               </div>
             </div>
           </div>
