@@ -499,7 +499,7 @@ function drawAgents(
       ctx.lineWidth = 1;
       const bx = cx - 28, by = cy - 50, bw = 56, bh = 16;
       ctx.beginPath();
-      ctx.roundRect(bx, by, bw, bh, 3);
+      roundRectPath(ctx, bx, by, bw, bh, 3);
       ctx.fill();
       ctx.stroke();
       ctx.fillStyle = '#1a1a2e';

@@ -81,12 +81,18 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // Guard against excessively large request bodies
+  if (req.headers['content-length'] && parseInt(req.headers['content-length'], 10) > 65536) {
+    sendJson(res, 413, { ok: false, error: 'Request body too large' });
+    return;
+  }
+
   const url = new URL(req.url, `http://${req.headers.host ?? `${HOST}:${PORT}`}`);
 
   // POST /internal/broadcast — localhost-only push channel for agentRunner events
   // Must be before the GET-only guard below.
   if (url.pathname === '/internal/broadcast' && req.method === 'POST') {
-    const ip = req.headers['x-forwarded-for'] ?? req.socket?.remoteAddress ?? '';
+    const ip = req.socket?.remoteAddress ?? '';
     if (!ip.includes('127.0.0.1') && !ip.includes('::1') && !ip.includes('localhost')) {
       sendJson(res, 403, { ok: false, error: 'Forbidden' });
       return;
@@ -380,6 +386,11 @@ const server = createServer(async (req, res) => {
       let parsed = {};
       try { parsed = JSON.parse(body || '{}'); } catch { /* ignore */ }
       const agent = parsed?.agent ?? 'market-scanner';
+      const ALLOWED_AGENTS = ['market-scanner', 'risk-guardian', 'polymarket_agent', 'kalshi_agent', 'research_agent', 'marketing_agent', 'risk_agent'];
+      if (!ALLOWED_AGENTS.includes(agent)) {
+        sendJson(res, 400, { ok: false, error: `Unknown agent: ${agent}` });
+        return;
+      }
       skilloptJob.running = true;
       skilloptJob.startedAt = new Date().toISOString();
       skilloptJob.agent = agent;
