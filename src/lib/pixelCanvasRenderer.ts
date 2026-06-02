@@ -1,5 +1,6 @@
 import { PIXEL_CANVAS_HEIGHT, PIXEL_CANVAS_WIDTH, PIXEL_DOORS, PIXEL_FURNITURE, PIXEL_WALLS, PIXEL_ZONES } from '../data/pixelOfficeMap';
 import { pixelSpriteMap } from '../data/pixelSpriteMap';
+import { drawCreature, type CreatureKind } from './seaCreatures';
 import type { ActiveBubble } from './conversationEngine';
 import type { VisualAgentState } from './agentMovement';
 import type { Agent } from '../types/genesis';
@@ -269,47 +270,84 @@ function drawFurniture(ctx: CanvasRenderingContext2D, sprites: LoadedSpriteMap) 
   }
 }
 
+// Map an agent to its sea creature. CEO=whale, trader=shark, risk=pufferfish,
+// memory=octopus, HR=crab, research/analyst=squid, generic=fish.
+function creatureForAgent(agent: Agent): CreatureKind {
+  switch (agent.id) {
+    case 'visual-genesis-core':   return 'whale';
+    case 'visual-market-scanner': return 'shark';
+    case 'visual-risk-guardian':  return 'pufferfish';
+    case 'visual-memory-curator': return 'octopus';
+    case 'visual-hr-evaluator':   return 'crab';
+  }
+  const dept = (agent.department ?? '').toLowerCase();
+  if (dept.includes('board'))  return 'whale';
+  if (dept.includes('market') || dept.includes('trad') || dept.includes('execution')) return 'shark';
+  if (dept.includes('risk'))   return 'pufferfish';
+  if (dept.includes('memory')) return 'octopus';
+  if (dept.includes('hr') || dept.includes('people')) return 'crab';
+  if (dept.includes('research') || dept.includes('strategy') || dept.includes('market room')) return 'squid';
+  return 'fish';
+}
+
+function glowForState(animation: VisualAgentState['animation']): string | null {
+  switch (animation) {
+    case 'work':    return '#00ff9c';
+    case 'talk':    return '#22d3ee';
+    case 'warning': return '#ff4757';
+    case 'think':   return '#a855f7';
+    default:        return null;
+  }
+}
+
 function drawAgents(
   ctx: CanvasRenderingContext2D,
-  sprites: LoadedSpriteMap,
+  _sprites: LoadedSpriteMap,
   agents: PixelRenderAgent[],
 ) {
   const hitboxes: PixelOfficeHitbox[] = [];
 
   for (const renderAgent of agents) {
-    const image = sprites[renderAgent.spritePath];
-    if (!image) continue;
+    const { visual, agent } = renderAgent;
+    const isFired = visual.animation === 'fired';
 
-    const isFired = renderAgent.visual.animation === 'fired';
-    if (isFired) ctx.globalAlpha = 0.4;
+    // Floor point (bottom-center) with bob applied
+    const cx = visual.x;
+    const cy = visual.y - visual.bobOffset;
 
-    const drawX = renderAgent.visual.x - Math.round(renderAgent.visual.width / 2);
-    const drawY = renderAgent.visual.y - Math.round(renderAgent.visual.height * 0.85) - renderAgent.visual.bobOffset;
+    // Shadow on the floor
+    ctx.save();
+    ctx.globalAlpha = isFired ? 0.2 : 0.4;
+    ctx.fillStyle = '#000000';
+    ctx.beginPath();
+    ctx.ellipse(visual.x, visual.y + 1, 11, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
 
-    ctx.fillStyle = '#00000066';
-    ctx.fillRect(drawX + 6, renderAgent.visual.y - 2, renderAgent.visual.width - 12, 4);
+    // The creature
+    drawCreature(ctx, creatureForAgent(agent), cx, cy, {
+      frame: visual.frameIndex,
+      facingLeft: visual.facing === 'west',
+      glow: glowForState(visual.animation),
+      alpha: isFired ? 0.4 : 1,
+    });
 
-    if (renderAgent.frame) {
-      const { sx, sy, sw, sh } = renderAgent.frame;
-      ctx.drawImage(image, sx, sy, sw, sh, drawX, drawY, renderAgent.visual.width, renderAgent.visual.height);
-    } else {
-      ctx.drawImage(image, drawX, drawY, renderAgent.visual.width, renderAgent.visual.height);
-    }
-
-    if (renderAgent.agent.status === 'onboarding') {
+    // Onboarding badge
+    if (agent.status === 'onboarding') {
       ctx.fillStyle = '#ffb547';
-      ctx.fillRect(drawX + renderAgent.visual.width - 8, drawY + 2, 6, 6);
+      ctx.fillRect(cx + 8, cy - 24, 6, 6);
     }
 
-    if (isFired) ctx.globalAlpha = 1;
-
+    // Hitbox: a box around the creature footprint
+    const drawX = visual.x - Math.round(visual.width / 2);
+    const drawY = cy - Math.round(visual.height * 0.95);
     hitboxes.push({
       kind: 'agent',
-      id: renderAgent.agent.id,
+      id: agent.id,
       x: drawX,
       y: drawY,
-      width: renderAgent.visual.width,
-      height: renderAgent.visual.height,
+      width: visual.width,
+      height: visual.height,
     });
   }
 
@@ -497,8 +535,9 @@ function drawSelectionHighlights(
 ) {
   for (const renderAgent of agents) {
     if (!renderAgent.selected && hoveredAgentId !== renderAgent.agent.id) continue;
+    const cy = renderAgent.visual.y - renderAgent.visual.bobOffset;
     const drawX = renderAgent.visual.x - Math.round(renderAgent.visual.width / 2);
-    const drawY = renderAgent.visual.y - Math.round(renderAgent.visual.height * 0.85) - renderAgent.visual.bobOffset;
+    const drawY = cy - Math.round(renderAgent.visual.height * 0.95);
     ctx.strokeStyle = renderAgent.selected ? SELECTION : '#ffffff';
     ctx.lineWidth = 2;
     ctx.strokeRect(drawX - 2, drawY - 2, renderAgent.visual.width + 4, renderAgent.visual.height + 4);
