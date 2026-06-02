@@ -324,12 +324,21 @@ function drawAgents(
     ctx.fill();
     ctx.restore();
 
+    // Per-agent blink: a short blink every ~3.2s, phase-offset by agent id.
+    const now = Date.now();
+    const seed = agent.id.charCodeAt(agent.id.length - 1) * 137;
+    const blink = ((now + seed) % 3200) < 140;
+    const active = visual.animation === 'work' || visual.animation === 'talk';
+
     // The creature
     drawCreature(ctx, creatureForAgent(agent), cx, cy, {
       frame: visual.frameIndex,
       facingLeft: visual.facing === 'west',
       glow: glowForState(visual.animation),
       alpha: isFired ? 0.4 : 1,
+      blink,
+      active,
+      nowMs: now,
     });
 
     // Onboarding badge
