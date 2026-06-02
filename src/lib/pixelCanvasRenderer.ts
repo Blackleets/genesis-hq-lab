@@ -30,8 +30,6 @@ export interface PixelRenderAgent {
 const FLOOR_LINE = '#2a1f15';
 const WALL = '#1b1f29';
 const WALL_EDGE = '#2c3442';
-const BUBBLE_BG = '#f0e9d6';
-const BUBBLE_TEXT = '#16181d';
 const SELECTION = '#ffd24a';
 
 export function getPixelRendererConfig() {
@@ -139,7 +137,7 @@ export function drawPixelOfficeScene(
   drawFloor(ctx);
   drawRugs(ctx);
   drawAmbientBubbles(ctx, Date.now());   // aquatic life behind everything
-  drawTaskAlertGlow(ctx, blockedRoomIds);
+  drawTaskAlertGlow(ctx, blockedRoomIds, Date.now());
   drawWalls(ctx);
   drawFurniture(ctx, sprites);
   // Room labels are static chrome → draw before agents so bubbles sit on top.
@@ -313,24 +311,26 @@ function drawFurniture(ctx: CanvasRenderingContext2D, sprites: LoadedSpriteMap) 
   }
 }
 
-// Map an agent to its sea creature. CEO=whale, trader=shark, risk=pufferfish,
-// memory=octopus, HR=crab, research/analyst=squid, generic=fish.
+// Map an agent to its Genesis Worker role (drives color + props).
 function creatureForAgent(agent: Agent): CreatureKind {
   switch (agent.id) {
-    case 'visual-genesis-core':   return 'whale';
-    case 'visual-market-scanner': return 'shark';
-    case 'visual-risk-guardian':  return 'pufferfish';
-    case 'visual-memory-curator': return 'octopus';
-    case 'visual-hr-evaluator':   return 'crab';
+    case 'visual-genesis-core':   return 'ceo';
+    case 'visual-market-scanner': return 'trader';
+    case 'visual-risk-guardian':  return 'risk';
+    case 'visual-memory-curator': return 'memory';
+    case 'visual-hr-evaluator':   return 'analyst';
   }
   const dept = (agent.department ?? '').toLowerCase();
-  if (dept.includes('board'))  return 'whale';
-  if (dept.includes('market') || dept.includes('trad') || dept.includes('execution')) return 'shark';
-  if (dept.includes('risk'))   return 'pufferfish';
-  if (dept.includes('memory')) return 'octopus';
-  if (dept.includes('hr') || dept.includes('people')) return 'crab';
-  if (dept.includes('research') || dept.includes('strategy') || dept.includes('market room')) return 'squid';
-  return 'fish';
+  if (dept.includes('board'))   return 'ceo';
+  if (dept.includes('market') || dept.includes('trad') || dept.includes('execution')) return 'trader';
+  if (dept.includes('risk'))    return 'risk';
+  if (dept.includes('memory'))  return 'memory';
+  if (dept.includes('market') && dept.includes('ing')) return 'marketing';
+  if (dept.includes('marketing')) return 'marketing';
+  if (dept.includes('security') || dept.includes('vigil')) return 'security';
+  if (dept.includes('research') || dept.includes('strategy')) return 'research';
+  if (dept.includes('hr') || dept.includes('people') || dept.includes('analy')) return 'analyst';
+  return 'worker';
 }
 
 function glowForState(animation: VisualAgentState['animation']): string | null {
@@ -382,6 +382,7 @@ function drawAgents(
       blink,
       active,
       nowMs: now,
+      pulse: visual.animation === 'warning',
     });
 
     // Onboarding badge
@@ -528,56 +529,98 @@ function truncateToWidth(text: string, maxWidth: number): string {
   return text.slice(0, maxChars - 1).trimEnd() + '…';
 }
 
+// Rounded-rect path (native roundRect when available, else arcTo fallback).
+function roundRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  const anyCtx = ctx as unknown as { roundRect?: (x: number, y: number, w: number, h: number, r: number) => void };
+  if (typeof anyCtx.roundRect === 'function') { ctx.beginPath(); anyCtx.roundRect(x, y, w, h, r); return; }
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
 function drawSpeechBubbles(
   ctx: CanvasRenderingContext2D,
   agents: PixelRenderAgent[],
   bubbles: ActiveBubble[],
 ) {
-  // Show only the freshest few bubbles so the floor never fills with text.
+  const now = Date.now();
   const visible = [...bubbles]
     .sort((a, b) => b.createdAt - a.createdAt)
     .slice(0, BUBBLE_MAX_VISIBLE);
 
-  // Track occupied label/bubble bands to avoid stacking text on the same row.
   const occupied: Array<{ x: number; y: number; w: number; h: number }> = [];
+
+  ctx.save();
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
 
   for (const bubble of visible) {
     const agent = agents.find((entry) => entry.agent.id === bubble.agentId);
     if (!agent) continue;
 
     const text = truncateToWidth(bubble.text, BUBBLE_MAX_WIDTH);
-    const bubbleWidth = Math.min(BUBBLE_MAX_WIDTH, Math.max(48, Math.round(text.length * BUBBLE_CHAR_PX) + 12));
-    const bubbleX = Math.max(6, Math.min(PIXEL_CANVAS_WIDTH - bubbleWidth - 6, agent.visual.x - bubbleWidth / 2));
-    let bubbleY = Math.max(6, agent.visual.y - 42);
+    const padX = 7;
+    const BH = 18;
+    const bubbleWidth = Math.min(BUBBLE_MAX_WIDTH, Math.max(40, Math.round(text.length * BUBBLE_CHAR_PX) + padX * 2));
+    const ax = agent.visual.x;
+    const bubbleX = Math.max(6, Math.min(PIXEL_CANVAS_WIDTH - bubbleWidth - 6, ax - bubbleWidth / 2));
+    let bubbleY = Math.max(6, agent.visual.y - agent.visual.bobOffset - 64);
 
-    // Nudge bubble up if it collides with an already-placed bubble.
     for (let guard = 0; guard < 4; guard++) {
       const clash = occupied.some(
-        (o) => bubbleY < o.y + o.h && bubbleY + 16 > o.y && bubbleX < o.x + o.w && bubbleX + bubbleWidth > o.x,
+        (o) => bubbleY < o.y + o.h && bubbleY + BH > o.y && bubbleX < o.x + o.w && bubbleX + bubbleWidth > o.x,
       );
       if (!clash) break;
-      bubbleY = Math.max(4, bubbleY - 18);
+      bubbleY = Math.max(4, bubbleY - (BH + 4));
     }
-    occupied.push({ x: bubbleX, y: bubbleY, w: bubbleWidth, h: 16 });
+    occupied.push({ x: bubbleX, y: bubbleY, w: bubbleWidth, h: BH });
 
-    // Drop shadow for separation from the floor/labels.
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.fillRect(bubbleX + 1, bubbleY + 1, bubbleWidth, 16);
-    // Bubble body + border.
-    ctx.fillStyle = BUBBLE_BG;
-    ctx.fillRect(bubbleX, bubbleY, bubbleWidth, 16);
-    ctx.strokeStyle = '#b9ad8e';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(bubbleX + 0.5, bubbleY + 0.5, bubbleWidth - 1, 15);
-    // Tail.
-    ctx.fillStyle = BUBBLE_BG;
-    ctx.fillRect(bubbleX + 8, bubbleY + 16, 6, 4);
-    // Text.
-    ctx.fillStyle = BUBBLE_TEXT;
-    ctx.font = '8px monospace';
-    ctx.textBaseline = 'alphabetic';
-    ctx.fillText(text, bubbleX + 5, bubbleY + 11);
+    // Pop-in scale during the first 160ms.
+    const age = now - bubble.createdAt;
+    const scale = age < 160 ? 0.72 + 0.28 * (age / 160) : 1;
+    const cxB = bubbleX + bubbleWidth / 2, cyB = bubbleY + BH / 2;
+    ctx.save();
+    ctx.translate(cxB, cyB); ctx.scale(scale, scale); ctx.translate(-cxB, -cyB);
+
+    const tailX = Math.max(bubbleX + 6, Math.min(bubbleX + bubbleWidth - 11, ax - 3));
+
+    // Soft drop shadow.
+    ctx.fillStyle = 'rgba(0,0,0,0.32)';
+    roundRectPath(ctx, bubbleX + 1.5, bubbleY + 2, bubbleWidth, BH, 6); ctx.fill();
+
+    // White cloud body + crisp dark border.
+    ctx.fillStyle = '#ffffff';
+    roundRectPath(ctx, bubbleX, bubbleY, bubbleWidth, BH, 6); ctx.fill();
+    ctx.strokeStyle = '#0d1016'; ctx.lineWidth = 1.25;
+    roundRectPath(ctx, bubbleX + 0.6, bubbleY + 0.6, bubbleWidth - 1.2, BH - 1.2, 6); ctx.stroke();
+
+    // Tail pointing down to the agent.
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(tailX, bubbleY + BH - 1);
+    ctx.lineTo(tailX + 7, bubbleY + BH - 1);
+    ctx.lineTo(tailX + 1, bubbleY + BH + 6);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#0d1016'; ctx.lineWidth = 1.1;
+    ctx.beginPath();
+    ctx.moveTo(tailX, bubbleY + BH - 1);
+    ctx.lineTo(tailX + 1, bubbleY + BH + 6);
+    ctx.lineTo(tailX + 7, bubbleY + BH - 1);
+    ctx.stroke();
+
+    // Crisp dark text on white.
+    ctx.fillStyle = '#14181f';
+    ctx.font = '8px ui-sans-serif, system-ui, monospace';
+    ctx.fillText(text, bubbleX + padX, bubbleY + BH / 2 + 0.5);
+
+    ctx.restore();
   }
+
+  ctx.restore();
 }
 
 function drawSelectionHighlights(
@@ -644,15 +687,18 @@ function statusColor(animation: VisualAgentState['animation']) {
   }
 }
 
-function drawTaskAlertGlow(ctx: CanvasRenderingContext2D, blockedRoomIds: Set<string>) {
+function drawTaskAlertGlow(ctx: CanvasRenderingContext2D, blockedRoomIds: Set<string>, nowMs: number) {
   if (blockedRoomIds.size === 0) return;
+  const t = (nowMs % 1200) / 1200;
+  const fillAlpha = 0.04 + Math.sin(t * Math.PI * 2) * 0.04;
+  const strokeAlpha = 0.3 + Math.sin(t * Math.PI * 2) * 0.15;
   ctx.save();
   for (const zone of PIXEL_ZONES) {
     if (!blockedRoomIds.has(zone.id)) continue;
-    ctx.globalAlpha = 0.4;
-    ctx.fillStyle = 'rgba(255,71,87,0.08)';
+    ctx.globalAlpha = fillAlpha;
+    ctx.fillStyle = 'rgba(255,71,87,1)';
     ctx.fillRect(zone.x, zone.y, zone.width, zone.height);
-    ctx.globalAlpha = 0.4;
+    ctx.globalAlpha = strokeAlpha;
     ctx.strokeStyle = '#ff4757';
     ctx.lineWidth = 1;
     ctx.strokeRect(zone.x, zone.y, zone.width, zone.height);
