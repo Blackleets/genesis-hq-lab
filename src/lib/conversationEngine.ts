@@ -42,7 +42,7 @@ export function createConversationRuntime(): ConversationRuntime {
   };
 }
 
-const CHATTER_INTERVAL = 7000;   // a new ambient line about every 7s
+const CHATTER_INTERVAL = 2000;   // a new ambient line about every 7s
 const CHATTER_DURATION = 4200;
 
 export function updateConversationRuntime(

@@ -397,7 +397,7 @@ function drawAgents(
       ctx.fillStyle = '#5c4a30';   // book cover border
       ctx.strokeStyle = '#5c4a30';
       ctx.lineWidth = 0.5;
-      ctx.strokeRect(cx - 6, cy - 8, 11, 6); // outline
+      ctx.strokeRect(cx - 6, cy - 8, 12, 6); // outline
       ctx.restore();
     }
 
@@ -461,7 +461,7 @@ function drawAgentLabels(ctx: CanvasRenderingContext2D, agents: PixelRenderAgent
     ctx.fillRect(lx - textW / 2 - 2, ly - 5, 3, 3);
 
     // Name text
-    const isActive = ra.visual.animation === 'work' || ra.visual.animation === 'talk';
+    const isActive = ra.visual.animation === 'work' || ra.visual.animation === 'talk' || ra.visual.animation === 'retraining';
     ctx.fillStyle = isActive ? '#e4e4e7' : '#71717a';
     ctx.fillText(firstName, lx + 1, ly);
   }
@@ -696,6 +696,8 @@ function statusColor(animation: VisualAgentState['animation']) {
       return '#a855f7';
     case 'onboarding':
       return '#ffb547';
+    case 'retraining':
+      return '#22d3ee';
     case 'fired':
       return '#ff4757';
     default:

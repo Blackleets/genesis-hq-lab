@@ -261,7 +261,7 @@ function resolveDesiredTarget(
     baseTargetX: baseStation.x,
     baseTargetY: baseStation.y,
     workstationId: baseStation.id,
-    animation: agent.status === 'warning' ? 'warning' : agent.status === 'thinking' ? 'think' : agent.status === 'retraining' ? 'retraining' : 'idle',
+    animation: agent.status === 'warning' ? 'warning' : agent.status === 'thinking' ? 'think' : 'idle',
     idleUntil: shouldPickNewIdle ? now + 2800 + (index % 3) * 500 : idleUntil,
   };
 }
