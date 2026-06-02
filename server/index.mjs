@@ -3,7 +3,7 @@ import { fetchPolymarketEventsSnapshot, fetchPolymarketHealth } from './polymark
 import { generateClaudePlan } from './claudePlanner.mjs';
 import { getSnapshot, getCapital, getTrades, getLessons, getAgentStats, addHumanOrder } from './memoryStore.mjs';
 import { getDashboardMetrics } from './trading/analytics.mjs';
-import { getTreasury, getCapitalHistory } from './trading/treasury.mjs';
+import { getTreasury, getTreasuryAsync, getCapitalHistory } from './trading/treasury.mjs';
 import { getRiskMetrics } from './trading/riskManager.mjs';
 import { getRecentDebates } from './trading/debateRoom.mjs';
 import { getLeaderboard } from './memory/agentScoring.mjs';
@@ -155,9 +155,14 @@ const server = createServer(async (req, res) => {
 
   if (url.pathname === '/api/trading/treasury') {
     try {
-      const treasury = getTreasury();
+      const treasury = await getTreasuryAsync();
       sendJson(res, 200, { ok: true, treasury });
-    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    } catch (e) {
+      try {
+        const treasury = getTreasury();   // fallback to sync on error
+        sendJson(res, 200, { ok: true, treasury });
+      } catch (e2) { sendJson(res, 500, { ok: false, error: e2.message }); }
+    }
     return;
   }
 

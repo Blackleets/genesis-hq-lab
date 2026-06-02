@@ -4,6 +4,7 @@
 
 import db, { tx } from '../db/database.mjs';
 import { nanoid } from '../utils.mjs';
+import { fetchCurrentPrice } from '../marketScanner.mjs';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -45,6 +46,39 @@ export function getTreasury() {
   if (!row) return ensureTreasury();
 
   const openPnl = getUnrealizedPnl();
+  const peakCapital = getPeakCapital();
+  const drawdownPct = peakCapital > 0
+    ? (peakCapital - (row.total + openPnl)) / peakCapital
+    : 0;
+
+  return {
+    total:         row.total,
+    available:     row.available,
+    inTrades:      row.in_trades,
+    unrealizedPnl: openPnl,
+    netWorth:      row.total + openPnl,
+    peakCapital,
+    drawdownPct:   Math.max(0, drawdownPct),
+    isPaused:      drawdownPct >= DRAWDOWN_PAUSE_PCT,
+    buckets: {
+      reserve:      row.bucket_reserve,
+      agentUpgrade: row.bucket_upgrade,
+      experiments:  row.bucket_exp,
+      expansion:    row.bucket_expand,
+      liquidity:    row.bucket_liquid,
+    },
+    startingCapital: STARTING_CAPITAL,
+    totalReturn: (row.total - STARTING_CAPITAL) / STARTING_CAPITAL,
+  };
+}
+
+// ─── Async treasury — same shape as getTreasury() but with live P&L ──────────
+
+export async function getTreasuryAsync() {
+  const row = db.prepare('SELECT * FROM capital_history ORDER BY recorded_at DESC LIMIT 1').get();
+  if (!row) return ensureTreasury();
+
+  const openPnl = await getUnrealizedPnlAsync();
   const peakCapital = getPeakCapital();
   const drawdownPct = peakCapital > 0
     ? (peakCapital - (row.total + openPnl)) / peakCapital
@@ -190,6 +224,32 @@ function getUnrealizedPnl() {
   // Conservative: assume current price = entry price (no change)
   // This underestimates wins and overestimates stability — correct for risk management
   return 0;
+}
+
+// ─── Async unrealized P&L — fetches live prices from market APIs ──────────────
+
+async function getUnrealizedPnlAsync() {
+  const openTrades = db.prepare(`
+    SELECT market_id, market_source, outcome, entry_price, shares
+    FROM trades WHERE status = 'open'
+  `).all();
+  if (openTrades.length === 0) return 0;
+
+  const prices = await Promise.allSettled(
+    openTrades.map(t => fetchCurrentPrice(t.market_source, t.market_id))
+  );
+
+  let total = 0;
+  for (let i = 0; i < openTrades.length; i++) {
+    const trade = openTrades[i];
+    const result = prices[i];
+    if (result.status !== 'fulfilled' || !result.value) continue;
+    const { yesPrice, noPrice } = result.value;
+    const currentPrice = trade.outcome === 'YES' ? yesPrice : noPrice;
+    if (currentPrice == null || isNaN(currentPrice)) continue;
+    total += (currentPrice - trade.entry_price) * trade.shares;
+  }
+  return Math.round(total * 100) / 100;  // round to cents
 }
 
 // ─── Peak capital (for drawdown calculation) ──────────────────────────────────

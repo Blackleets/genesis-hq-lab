@@ -180,3 +180,44 @@ export async function getMarketStatus(source, marketId) {
 
   return null;
 }
+
+// Fetch current YES/NO price for an open position
+export async function fetchCurrentPrice(source, marketId) {
+  if (source === 'polymarket') {
+    try {
+      const res = await fetch(`${POLYMARKET_BASE}/markets/${marketId}`, {
+        signal: AbortSignal.timeout(4000),
+      });
+      if (!res.ok) return null;
+      const market = await res.json();
+      let outcomes, prices;
+      try {
+        outcomes = typeof market.outcomes === 'string' ? JSON.parse(market.outcomes) : (market.outcomes ?? []);
+        prices   = typeof market.outcomePrices === 'string' ? JSON.parse(market.outcomePrices) : (market.outcomePrices ?? []);
+      } catch { return null; }
+      const yesIdx = outcomes.findIndex(o => o.toLowerCase() === 'yes');
+      const noIdx  = outcomes.findIndex(o => o.toLowerCase() === 'no');
+      return {
+        yesPrice: yesIdx >= 0 ? parseFloat(prices[yesIdx]) : null,
+        noPrice:  noIdx  >= 0 ? parseFloat(prices[noIdx])  : null,
+      };
+    } catch { return null; }
+  }
+  if (source === 'kalshi') {
+    const apiKey = process.env.KALSHI_API_KEY;
+    if (!apiKey) return null;
+    try {
+      const res = await fetch(`${KALSHI_BASE}/markets/${marketId}`, {
+        headers: { 'Authorization': `Bearer ${apiKey}` },
+        signal: AbortSignal.timeout(4000),
+      });
+      if (!res.ok) return null;
+      const { market } = await res.json();
+      return {
+        yesPrice: market.yes_ask != null ? market.yes_ask / 100 : null,
+        noPrice:  market.no_ask  != null ? market.no_ask  / 100 : null,
+      };
+    } catch { return null; }
+  }
+  return null;
+}

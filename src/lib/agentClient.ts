@@ -75,6 +75,8 @@ export interface TradingDashboard {
     total: number;
     available: number;
     inTrades: number;
+    unrealizedPnl: number;
+    netWorth: number;
     totalReturn: number;
     drawdownPct: number;
     isPaused: boolean;
