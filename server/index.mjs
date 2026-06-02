@@ -482,16 +482,6 @@ const server = createServer(async (req, res) => {
   notFound(res);
 });
 
-// WebSocket upgrade at /ws
-server.on('upgrade', (req, socket, head) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  if (url.pathname === '/ws') {
-    wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
-  } else {
-    socket.destroy();
-  }
-});
-
 // Heartbeat: push current state every 15s so clients don't need to poll
 setInterval(() => {
   if (wsClients.size === 0) return;
@@ -509,6 +499,16 @@ server.on('error', (err) => {
     process.exit(1);
   }
   throw err;
+});
+
+// WebSocket upgrade at /ws
+server.on('upgrade', (req, socket, head) => {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  if (url.pathname === '/ws') {
+    wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
+  } else {
+    socket.destroy();
+  }
 });
 
 server.listen(PORT, HOST, () => {
