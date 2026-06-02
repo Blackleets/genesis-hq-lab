@@ -158,6 +158,7 @@ const server = createServer(async (req, res) => {
       const treasury = await getTreasuryAsync();
       sendJson(res, 200, { ok: true, treasury });
     } catch (e) {
+      console.warn('[treasury] live P&L fetch failed, falling back to sync:', e?.message);
       try {
         const treasury = getTreasury();   // fallback to sync on error
         sendJson(res, 200, { ok: true, treasury });
