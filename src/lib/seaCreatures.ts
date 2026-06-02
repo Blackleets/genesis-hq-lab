@@ -89,7 +89,7 @@ export function drawCreature(
     for (let i = 0; i < 3; i++) {
       const phase = t + i * (1 / 3);
       const wrapped = phase % 1;
-      const dotAlpha = (opts.alpha ?? 1) * (0.4 + Math.sin(wrapped * Math.PI * 2) * 0.4);
+      const dotAlpha = (opts.alpha ?? 1) * Math.max(0, 0.4 + Math.sin(wrapped * Math.PI * 2) * 0.4);
       const dotY = cy - 38 - Math.sin(wrapped * Math.PI) * 3;   // slight float
       ctx.globalAlpha = dotAlpha;
       ctx.fillStyle = '#a855f7';

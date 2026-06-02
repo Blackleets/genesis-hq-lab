@@ -211,7 +211,7 @@ function resolveDesiredTarget(
       roomStations[preferredIdx] ??
       roomStations[0];
     const isArrived = Math.hypot((prior?.x ?? station.x) - station.x, (prior?.y ?? station.y) - station.y) <= SNAP_DISTANCE;
-    const isThinkTask = activeTask.taskType === 'decision_review' || activeTask.taskType === 'paper_trade';
+    const isThinkTask = activeTask.type === 'decision_review' || activeTask.type === 'paper_trade';
     const animation =
       activeTask.status === 'blocked'
         ? 'warning'
