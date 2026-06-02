@@ -140,6 +140,7 @@ export function drawPixelOfficeScene(
   drawTaskAlertGlow(ctx, blockedRoomIds, Date.now());
   drawWalls(ctx);
   drawFurniture(ctx, sprites);
+  drawRoomDecor(ctx);
   // Room labels are static chrome → draw before agents so bubbles sit on top.
   drawLabels(ctx, lang);
   drawRoomOccupancyBadges(ctx, renderAgents);
@@ -290,6 +291,70 @@ function drawWalls(ctx: CanvasRenderingContext2D) {
     ctx.fillRect(door.x, door.y, door.width, door.height);
     ctx.globalAlpha = 1;
   }
+}
+
+function drawRoomDecor(ctx: CanvasRenderingContext2D) {
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+
+  // ── Market Desk: Bloomberg-style extra monitors (dark screen, green line) ──
+  for (const [mx, my] of [[32, 52], [32, 72], [196, 52]] as const) {
+    ctx.fillStyle = '#0d1117';
+    ctx.fillRect(mx, my, 22, 14);           // dark screen casing
+    ctx.fillStyle = '#1a2a1a';
+    ctx.fillRect(mx + 1, my + 1, 20, 12);  // screen face
+    ctx.fillStyle = '#00ff9c';
+    ctx.fillRect(mx + 2, my + 4, 16, 1);   // green price line
+    ctx.fillStyle = '#003322';
+    ctx.fillRect(mx + 2, my + 7, 10, 1);   // dim secondary line
+  }
+
+  // ── Strategy Lab: Whiteboard on wall (grey board, white marks) ──
+  const wb = { x: 242, y: 47, w: 56, h: 30 };
+  ctx.fillStyle = '#c8c8c8';
+  ctx.fillRect(wb.x, wb.y, wb.w, wb.h);               // board surface
+  ctx.fillStyle = '#b0b0b0';
+  ctx.fillRect(wb.x, wb.y, wb.w, 2);                   // top rail
+  ctx.fillRect(wb.x, wb.y + wb.h - 2, wb.w, 2);       // bottom rail
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(wb.x + 6,  wb.y + 8,  18, 1);          // chalk line 1
+  ctx.fillRect(wb.x + 6,  wb.y + 14, 22, 1);          // chalk line 2
+  ctx.fillRect(wb.x + 6,  wb.y + 20, 14, 1);          // chalk line 3
+  ctx.fillRect(wb.x + 32, wb.y + 8,  14, 1);          // chalk note right
+  // Arrow-like marks
+  ctx.fillRect(wb.x + 26, wb.y + 12, 4, 1);
+  ctx.fillRect(wb.x + 28, wb.y + 11, 2, 3);
+
+  // ── Risk Bunker: Red lock icons on side walls ──
+  for (const [lx, ly] of [[436, 60], [436, 80], [768, 60], [768, 80]] as const) {
+    // Lock body (red rect)
+    ctx.fillStyle = '#cc2200';
+    ctx.fillRect(lx, ly + 4, 10, 8);                  // body
+    // Lock shackle (U-shape outline)
+    ctx.fillStyle = '#ff6644';
+    ctx.fillRect(lx + 2, ly, 2, 5);                   // left leg
+    ctx.fillRect(lx + 6, ly, 2, 5);                   // right leg
+    ctx.fillRect(lx + 2, ly, 6, 2);                   // top bar
+    // Keyhole
+    ctx.fillStyle = '#200000';
+    ctx.fillRect(lx + 4, ly + 6, 2, 4);               // keyhole slot
+  }
+
+  // ── Memory Archive: Glowing data node (blue pulsing indicator on wall) ──
+  for (const [dx, dy] of [[436, 185], [436, 225], [436, 265]] as const) {
+    ctx.fillStyle = '#0a1628';
+    ctx.fillRect(dx, dy, 8, 20);                       // panel backing
+    ctx.fillStyle = '#22d3ee';
+    ctx.fillRect(dx + 2, dy + 2, 4, 2);               // data block 1
+    ctx.fillStyle = '#0e7490';
+    ctx.fillRect(dx + 2, dy + 6, 4, 2);               // data block 2
+    ctx.fillStyle = '#22d3ee';
+    ctx.fillRect(dx + 2, dy + 10, 4, 2);              // data block 3
+    ctx.fillStyle = '#0e7490';
+    ctx.fillRect(dx + 2, dy + 14, 4, 2);              // data block 4
+  }
+
+  ctx.restore();
 }
 
 function drawFurniture(ctx: CanvasRenderingContext2D, sprites: LoadedSpriteMap) {
