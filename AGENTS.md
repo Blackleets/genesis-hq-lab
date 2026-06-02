@@ -99,4 +99,37 @@ high.
 
 ---
 
-_Last updated: 2026-05-25._
+## Cursor Cloud specific instructions
+
+Monorepo Node app (React/Vite frontend + Node HTTP API + optional agent runner). See `README.md` for canonical commands.
+
+### Services
+
+| Service | Command | Port / notes |
+|---------|---------|----------------|
+| Backend API | `npm run server` | `http://127.0.0.1:8787` (`HOST`/`PORT` in `.env`) |
+| Frontend (dev) | `npm run dev` | `http://localhost:5173` — use **localhost**, not `127.0.0.1`, if probing from the same VM |
+| API + UI (no agent ticks) | `npm run start:ui` | `concurrently` server + Vite |
+| Full stack | `npm run start` | server + agent + Vite |
+
+Copy `.env.example` → `.env` before first run. `ANTHROPIC_API_KEY` is optional for read-only UI; required for AI debates and `npm run agent:once`.
+
+SQLite DB is created automatically at `data/genesis.db` when the server starts.
+
+### Verify
+
+- `npm run typecheck` / `npm run build` — should pass after `npm install`
+- `npm run lint` — may report pre-existing React purity warnings (does not block build)
+- Health: `curl http://127.0.0.1:8787/api/health`
+- Vite proxy: `curl http://localhost:5173/api/health`
+
+### Gotchas
+
+- **better-sqlite3** is a native addon; always run `npm install` on the VM (do not copy `node_modules` from another OS).
+- Outbound HTTPS is required for Polymarket Gamma market data.
+- For long-running dev servers in Cloud Agent VMs, prefer **tmux** (e.g. session `genesis-hq-lab` running `npm run start:ui`).
+- No automated test script in `package.json`; use Playwright from devDependencies or manual browser checks for UI E2E.
+
+---
+
+_Last updated: 2026-06-02._
