@@ -59,6 +59,8 @@ export default function PixelOfficeCanvas({ scale, onAgentHover, onRoomClick }: 
   const [overlayProgress, setOverlayProgress] = useState<Record<string, number>>({});
   const hoveredAgentIdRef = useRef<string | null>(null);
   const overlayUpdateRef = useRef<number>(0);
+  const frameTimestampsRef = useRef<number[]>([]);  // rolling window for FPS
+  const lastRenderMsRef = useRef<number>(0);          // last frame draw time
   const config = useMemo(() => getPixelRendererConfig(), []);
 
   latestRef.current = {
@@ -126,6 +128,7 @@ export default function PixelOfficeCanvas({ scale, onAgentHover, onRoomClick }: 
         }
       }
       ctx.imageSmoothingEnabled = false;
+      const renderStart = performance.now();
       hitboxesRef.current = drawPixelOfficeScene(
         ctx,
         sprites,
@@ -137,6 +140,42 @@ export default function PixelOfficeCanvas({ scale, onAgentHover, onRoomClick }: 
         snapshot.devMode,
         blockedRoomIds,
       );
+      lastRenderMsRef.current = performance.now() - renderStart;
+
+      // Rolling FPS: keep last 60 frame timestamps
+      frameTimestampsRef.current.push(timestamp);
+      if (frameTimestampsRef.current.length > 60) {
+        frameTimestampsRef.current.shift();
+      }
+
+      // Dev performance overlay — canvas text, no React state
+      if (snapshot.devMode) {
+        const timestamps = frameTimestampsRef.current;
+        const fps = timestamps.length >= 2
+          ? Math.round(1000 * (timestamps.length - 1) / (timestamps[timestamps.length - 1] - timestamps[0]))
+          : 0;
+        const renderMs = lastRenderMsRef.current.toFixed(1);
+        const agentCount = renderAgents.length;
+        const bubbleCount = life.bubbles.length;
+
+        const lines = [
+          `FPS: ${fps}`,
+          `render: ${renderMs}ms`,
+          `agents: ${agentCount}  bubbles: ${bubbleCount}`,
+        ];
+
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+        ctx.fillStyle = 'rgba(10, 10, 20, 0.75)';
+        ctx.fillRect(4, 4, 110, lines.length * 10 + 6);
+        ctx.fillStyle = '#00ff9c';
+        ctx.font = '7px monospace';
+        ctx.textBaseline = 'top';
+        lines.forEach((line, i) => {
+          ctx.fillText(line, 8, 8 + i * 10);
+        });
+        ctx.restore();
+      }
 
       // Update HTML overlays at ~5fps to avoid excessive re-renders
       if (timestamp - overlayUpdateRef.current > 200) {
