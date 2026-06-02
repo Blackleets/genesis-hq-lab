@@ -69,15 +69,17 @@ export function drawCreature(
     const g = ctx.createRadialGradient(cx, cy - 13, 2, cx, cy - 13, 20);
     g.addColorStop(0, opts.glow); g.addColorStop(1, 'transparent');
     ctx.fillStyle = g; ctx.fillRect(cx - 22, cy - 34, 44, 42);
+    ctx.restore();
     if (opts.pulse) {
+      ctx.save();
       const t = ((opts.nowMs ?? 0) % 800) / 800;
       const outerR = 20 + Math.sin(t * Math.PI * 2) * 4;
       ctx.globalAlpha = (opts.alpha ?? 1) * (0.3 + Math.sin(t * Math.PI * 2) * 0.2);
       const og = ctx.createRadialGradient(cx, cy - 13, 2, cx, cy - 13, outerR);
-      og.addColorStop(0, opts.glow); og.addColorStop(1, 'transparent');
+      og.addColorStop(0, opts.glow!); og.addColorStop(1, 'transparent');
       ctx.fillStyle = og; ctx.fillRect(cx - 26, cy - 38, 52, 50);
+      ctx.restore();
     }
-    ctx.restore();
   }
   if (opts.active && opts.nowMs != null) drawBubbles(ctx, cx, cy, opts.nowMs, opts.alpha ?? 1);
 
