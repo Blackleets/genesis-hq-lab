@@ -138,6 +138,7 @@ export function drawPixelOfficeScene(
 
   drawFloor(ctx);
   drawRugs(ctx);
+  drawAmbientBubbles(ctx, Date.now());   // aquatic life behind everything
   drawTaskAlertGlow(ctx, blockedRoomIds);
   drawWalls(ctx);
   drawFurniture(ctx, sprites);
@@ -153,6 +154,7 @@ export function drawPixelOfficeScene(
   // Speech bubbles are dynamic → always render on top of everything.
   drawSpeechBubbles(ctx, renderAgents, bubbles);
   if (devMode) drawDevModeOverlays(ctx, renderAgents);
+  drawVignette(ctx);                      // depth + focus (drawn over scene, under chrome)
   drawClock(ctx);
   drawMinimap(ctx, renderAgents);
 
@@ -220,6 +222,47 @@ function drawFloor(ctx: CanvasRenderingContext2D) {
     ctx.fillStyle = '#5a4029';
     ctx.fillRect(x, 0, 1, PIXEL_CANVAS_HEIGHT);
   }
+}
+
+// Ambient bubbles drifting up across the whole office — makes it feel alive
+// and aquatic. Deterministic per-column loops so motion is smooth and cheap.
+const AMBIENT_BUBBLES = 22;
+function drawAmbientBubbles(ctx: CanvasRenderingContext2D, now: number) {
+  ctx.save();
+  ctx.fillStyle = '#9fd4ff';
+  for (let i = 0; i < AMBIENT_BUBBLES; i++) {
+    // Stable per-bubble seeds
+    const seedX = (i * 137) % PIXEL_CANVAS_WIDTH;
+    const period = 5200 + (i * 311) % 4200;          // 5.2–9.4s rise
+    const t = ((now + i * 600) % period) / period;   // 0..1
+    const y = PIXEL_CANVAS_HEIGHT - t * (PIXEL_CANVAS_HEIGHT + 12);
+    const sway = Math.sin((now / 900) + i) * 3;
+    const x = seedX + sway;
+    const r = 0.6 + ((i * 7) % 3) * 0.5;             // 0.6–1.6 px
+    ctx.globalAlpha = 0.10 * (1 - t) + 0.03;          // fade as they rise
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// Soft deep-water vignette: darkens edges for depth and focus.
+let _vignette: CanvasGradient | null = null;
+function drawVignette(ctx: CanvasRenderingContext2D) {
+  if (!_vignette) {
+    const g = ctx.createRadialGradient(
+      PIXEL_CANVAS_WIDTH / 2, PIXEL_CANVAS_HEIGHT / 2, PIXEL_CANVAS_HEIGHT * 0.35,
+      PIXEL_CANVAS_WIDTH / 2, PIXEL_CANVAS_HEIGHT / 2, PIXEL_CANVAS_HEIGHT * 0.78,
+    );
+    g.addColorStop(0, 'rgba(8,16,28,0)');
+    g.addColorStop(1, 'rgba(5,12,22,0.38)');
+    _vignette = g;
+  }
+  ctx.save();
+  ctx.fillStyle = _vignette;
+  ctx.fillRect(0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT);
+  ctx.restore();
 }
 
 function drawRugs(ctx: CanvasRenderingContext2D) {
