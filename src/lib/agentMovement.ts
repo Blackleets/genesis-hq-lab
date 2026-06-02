@@ -10,7 +10,8 @@ export type VisualAnimationState =
   | 'think'
   | 'warning'
   | 'onboarding'
-  | 'fired';
+  | 'fired'
+  | 'retraining';
 
 export interface VisualAgentState {
   agentId: string;
@@ -186,6 +187,21 @@ function resolveDesiredTarget(
     };
   }
 
+  if (agent.status === 'retraining') {
+    const stations = workstationsForRoom(agent.currentRoom);
+    const station = stations[index % Math.max(1, stations.length)];
+    const roam = idleRoomOffset(station.x, station.y, now, index);
+    return {
+      x: roam.x,
+      y: roam.y,
+      baseTargetX: station.x,
+      baseTargetY: station.y,
+      workstationId: station.id,
+      animation: 'retraining' as VisualAnimationState,
+      idleUntil: now + 2800,
+    };
+  }
+
   if (activeTask) {
     const roomStations = workstationsForRoom(activeTask.room);
     const preferredIdx = activeTask.assignedAgentIds.indexOf(agent.id) % Math.max(1, roomStations.length);
@@ -245,7 +261,7 @@ function resolveDesiredTarget(
     baseTargetX: baseStation.x,
     baseTargetY: baseStation.y,
     workstationId: baseStation.id,
-    animation: agent.status === 'warning' ? 'warning' : agent.status === 'thinking' ? 'think' : 'idle',
+    animation: agent.status === 'warning' ? 'warning' : agent.status === 'thinking' ? 'think' : agent.status === 'retraining' ? 'retraining' : 'idle',
     idleUntil: shouldPickNewIdle ? now + 2800 + (index % 3) * 500 : idleUntil,
   };
 }

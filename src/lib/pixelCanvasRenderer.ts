@@ -335,11 +335,12 @@ function creatureForAgent(agent: Agent): CreatureKind {
 
 function glowForState(animation: VisualAgentState['animation']): string | null {
   switch (animation) {
-    case 'work':    return '#00ff9c';
-    case 'talk':    return '#22d3ee';
-    case 'warning': return '#ff4757';
-    case 'think':   return '#a855f7';
-    default:        return null;
+    case 'work':       return '#00ff9c';
+    case 'talk':       return '#22d3ee';
+    case 'warning':    return '#ff4757';
+    case 'think':      return '#a855f7';
+    case 'retraining': return '#22d3ee'; // cyan
+    default:           return null;
   }
 }
 
@@ -371,7 +372,7 @@ function drawAgents(
     const now = Date.now();
     const seed = agent.id.charCodeAt(agent.id.length - 1) * 137;
     const blink = ((now + seed) % 3200) < 140;
-    const active = visual.animation === 'work' || visual.animation === 'talk';
+    const active = visual.animation === 'work' || visual.animation === 'talk' || visual.animation === 'retraining';
 
     // The creature
     drawCreature(ctx, creatureForAgent(agent), cx, cy, {
@@ -384,6 +385,21 @@ function drawAgents(
       nowMs: now,
       pulse: visual.animation === 'warning',
     });
+
+    // Retraining: small open book prop
+    if (visual.animation === 'retraining') {
+      ctx.save();
+      ctx.fillStyle = '#f8f5e8';   // book pages (off-white)
+      ctx.fillRect(cx - 6, cy - 8, 5, 6);   // left page
+      ctx.fillRect(cx + 1, cy - 8, 5, 6);   // right page
+      ctx.fillStyle = '#8b7355';   // spine/binding (brown)
+      ctx.fillRect(cx, cy - 8, 1, 6);       // center spine
+      ctx.fillStyle = '#5c4a30';   // book cover border
+      ctx.strokeStyle = '#5c4a30';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(cx - 6, cy - 8, 11, 6); // outline
+      ctx.restore();
+    }
 
     // Onboarding badge
     if (agent.status === 'onboarding') {
@@ -713,6 +729,7 @@ function agentStatusDotColor(animation: VisualAgentState['animation']): string {
     case 'onboarding': return '#ffd24a';
     case 'warning':    return '#ff4757';
     case 'fired':      return '#ff4757';
+    case 'retraining': return '#22d3ee';
     default:           return '#4a5568';
   }
 }
