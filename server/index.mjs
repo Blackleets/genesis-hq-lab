@@ -204,7 +204,33 @@ const server = createServer(async (req, res) => {
       const deployed = getAllDeployed();
       const agent = url.searchParams.get('agent');
       const history = agent ? getSkillHistory(agent) : null;
-      sendJson(res, 200, { ok: true, deployed, history });
+
+      // trajectory count: resolved closed trades
+      const trajRow = db.prepare(
+        `SELECT COUNT(*) as cnt FROM trades WHERE status = 'closed' AND resolved_outcome IS NOT NULL`
+      ).get();
+      const trajectoryCount = trajRow ? (trajRow.cnt || 0) : 0;
+
+      // last optimized per agent from skill_versions
+      let lastOptimizedMap = {};
+      try {
+        const optRows = db.prepare(
+          `SELECT agent, MAX(deployed_at) as last_optimized_at FROM skill_versions WHERE status = 'deployed' GROUP BY agent`
+        ).all();
+        for (const row of optRows) {
+          lastOptimizedMap[row.agent] = row.last_optimized_at || null;
+        }
+      } catch { /* skill_versions table may not exist yet */ }
+
+      // enrich each deployed skill entry
+      const enriched = (deployed || []).map(skill => ({
+        ...skill,
+        trajectory_count: trajectoryCount,
+        last_optimized_at: lastOptimizedMap[skill.agent] || null,
+        skillopt_ready: trajectoryCount >= 50,
+      }));
+
+      sendJson(res, 200, { ok: true, deployed: enriched, history });
     } catch (e) { sendJson(res, 200, { ok: true, deployed: [], history: null }); }
     return;
   }
