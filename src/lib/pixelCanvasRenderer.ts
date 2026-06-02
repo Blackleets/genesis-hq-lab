@@ -350,15 +350,15 @@ function drawAgents(
   agents: PixelRenderAgent[],
 ) {
   const hitboxes: PixelOfficeHitbox[] = [];
+  const now = Date.now();
 
   for (const renderAgent of agents) {
     const { visual, agent } = renderAgent;
     // Per-agent blink: a short blink every ~3.2s, phase-offset by agent id.
-    const now = Date.now();
     const isFired = visual.animation === 'fired';
     const exitProgress = isFired && visual.exitStartedAt
       ? Math.min(1, (now - visual.exitStartedAt) / 2000)
-      : isFired ? 1 : 0;
+      : 0;
     const agentAlpha = isFired ? Math.max(0, 1 - exitProgress) : 1;
     const agentScale = isFired ? (1 - 0.5 * exitProgress) : 1;
 
