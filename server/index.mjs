@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { WebSocketServer } from 'ws';
 import { fetchPolymarketEventsSnapshot, fetchPolymarketHealth } from './polymarket.mjs';
 import { generateClaudePlan } from './claudePlanner.mjs';
 import { getSnapshot, getCapital, getTrades, getLessons, getAgentStats, addHumanOrder } from './memoryStore.mjs';
@@ -18,6 +19,30 @@ import { getOrgState, getStatusSummary } from './command/orgState.mjs';
 
 // In-memory SkillOpt job state (single concurrent job)
 const skilloptJob = { running: false, lastResult: null, startedAt: null, agent: null };
+
+// ─── WebSocket broadcast ─────────────────────────────────────────────────────
+const wss = new WebSocketServer({ noServer: true });
+const wsClients = new Set();
+
+wss.on('connection', (ws) => {
+  wsClients.add(ws);
+  ws.on('close', () => wsClients.delete(ws));
+  ws.on('error', () => wsClients.delete(ws));
+  // Send current state on connect
+  try {
+    const treasury = getTreasury();
+    ws.send(JSON.stringify({ type: 'agent:tick', treasury, ts: Date.now() }));
+  } catch { /* ignore */ }
+});
+
+function broadcast(event) {
+  const msg = JSON.stringify(event);
+  for (const client of wsClients) {
+    if (client.readyState === 1) { // OPEN
+      try { client.send(msg); } catch { wsClients.delete(client); }
+    }
+  }
+}
 
 const HOST = process.env.HOST || '127.0.0.1';
 const PORT = Number(process.env.PORT || 8787);
@@ -57,6 +82,28 @@ const server = createServer(async (req, res) => {
   }
 
   const url = new URL(req.url, `http://${req.headers.host ?? `${HOST}:${PORT}`}`);
+
+  // POST /internal/broadcast — localhost-only push channel for agentRunner events
+  // Must be before the GET-only guard below.
+  if (url.pathname === '/internal/broadcast' && req.method === 'POST') {
+    const ip = req.headers['x-forwarded-for'] ?? req.socket?.remoteAddress ?? '';
+    if (!ip.includes('127.0.0.1') && !ip.includes('::1') && !ip.includes('localhost')) {
+      sendJson(res, 403, { ok: false, error: 'Forbidden' });
+      return;
+    }
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const event = JSON.parse(body || '{}');
+        broadcast(event);
+        sendJson(res, 200, { ok: true, clients: wsClients.size });
+      } catch {
+        sendJson(res, 400, { ok: false, error: 'Invalid JSON' });
+      }
+    });
+    return;
+  }
 
   // POST /api/plan — handled before the GET-only guard below.
   if (url.pathname === '/api/plan' && req.method === 'POST') {
@@ -434,6 +481,25 @@ const server = createServer(async (req, res) => {
 
   notFound(res);
 });
+
+// WebSocket upgrade at /ws
+server.on('upgrade', (req, socket, head) => {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  if (url.pathname === '/ws') {
+    wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
+  } else {
+    socket.destroy();
+  }
+});
+
+// Heartbeat: push current state every 15s so clients don't need to poll
+setInterval(() => {
+  if (wsClients.size === 0) return;
+  try {
+    const treasury = getTreasury();
+    broadcast({ type: 'agent:tick', treasury, ts: Date.now() });
+  } catch { /* ignore */ }
+}, 15_000);
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {

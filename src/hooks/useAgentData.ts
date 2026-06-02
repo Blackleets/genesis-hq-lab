@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { agentClient, type TradingDashboard, type AgentTrade, type AgentLesson, type OrgStatus, type AgentSignal, type SkillVersion, type MarketingContent } from '../lib/agentClient';
+import { useWebSocket } from './useWebSocket';
 
 const POLL_MS = 10_000;
 
@@ -20,6 +21,8 @@ export interface AgentData {
 }
 
 export function useAgentData(): AgentData {
+  const { lastMessage } = useWebSocket();
+
   const [data, setData] = useState<AgentData>({
     dashboard: null,
     trades:    [],
@@ -69,6 +72,14 @@ export function useAgentData(): AgentData {
     const id = setInterval(() => void refresh(), POLL_MS);
     return () => clearInterval(id);
   }, [refresh]);
+
+  useEffect(() => {
+    if (!lastMessage) return;
+    const relevant = ['trade:executed', 'trade:resolved', 'lesson:learned', 'agent:tick'];
+    if (relevant.includes(lastMessage.type)) {
+      void refresh();
+    }
+  }, [lastMessage, refresh]);
 
   return data;
 }
