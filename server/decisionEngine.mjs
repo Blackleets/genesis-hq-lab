@@ -5,6 +5,7 @@
 import { getRecentLessons, getCapital, logDecision } from './memoryStore.mjs';
 import { getDecisionContext } from './memory/learningEngine.mjs';
 import { checkVeto, logVeto } from './memory/mistakePrevention.mjs';
+import { getSkillPrompt } from './skills/skillLoader.mjs';
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 
@@ -74,6 +75,12 @@ export async function analyzeMarkets(markets, openTradesCount = 0) {
     return { action: 'SKIP', reason: 'Max 5 trades abiertos simultáneamente (Regla #1)' };
   }
 
+  // Load deployed skill prompt (if skills/market-scanner/best_skill.md exists)
+  const skillPrompt = getSkillPrompt('market-scanner');
+  const activePolicy = skillPrompt ?? CONSTITUTION;
+  const policySource = skillPrompt ? 'skill.md' : 'constitution-inline';
+  console.log(`[decisionEngine] policy source: ${policySource}`);
+
   // Get SQLite memory context (lessons, rules, mistake patterns)
   const topMarket = markets[0];
   const dbContext = topMarket
@@ -116,7 +123,7 @@ export async function analyzeMarkets(markets, openTradesCount = 0) {
   const systemPrompt = `Eres un agente de trading de prediction markets en Génesis HQ.
 Operas SOLO con paper trading (dinero simulado con precios reales).
 
-${CONSTITUTION}
+${activePolicy}
 ${lessonsText}
 ${patternText}
 ${rulesText}
