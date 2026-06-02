@@ -1,118 +1,262 @@
-# Genesis HQ — Improvement Plan
+# Genesis HQ — Plan de mejora
 
-Honest review of the current build + a prioritized roadmap. Grounded in what the code
-actually does today, not what we hope it does.
-
----
-
-## A. Where we actually are (review)
-
-### ✅ Real and working
-- **Paper trading pipeline** (`trading/workflow.mjs`): SCAN→QUALIFY→VETO→DEBATE→SIZE→EXECUTE,
-  end-to-end, with real Polymarket data.
-- **Learning engine** (`memory/learningEngine.mjs`): lessons from losses, mistake patterns, vetoes.
-- **Treasury + risk** (`trading/treasury.mjs`, `riskManager.mjs`): Kelly sizing, 12 risk checks,
-  drawdown pause, reinvestment buckets.
-- **Analytics**: Brier, Sharpe, calibration.
-- **Founder command system** (`command/`): NL → org-state, agents obey.
-- **Research** (`research/`): free news + Hacker News signals, scored, stored.
-- **SkillOpt Phase 1** (`skills/`): 5 skill.md, loader, validator (rejects risk tampering),
-  trajectory export, version ledger.
-- **Single `npm start`**: server + agent + web together.
-- **Live Panel**: the Dashboard's AgentLivePanel shows real treasury + open trades.
-
-### 🟡 Built but not surfaced / half-wired
-- **Marketing agent** runs every 6h and writes `data/memory/marketing.json`, but there is
-  **no `/api/agent/marketing` endpoint** and no UI reads it. Content is generated into a void.
-- **Research** runs inline in the debate, not as a visible department. Signals are stored
-  but no UI shows them (endpoint exists: `/api/agent/signals`).
-- **Skill versions** have an endpoint (`/api/agent/skills`) but no UI.
-
-### 🔴 The honest gaps
-1. **The UI mostly lies.** Only the Panel reads live data. `MarketsView`, `Decisions`,
-   `Progress`, `MarketingView`, `TechView`, `Wallet` all read the **Zustand mock store** —
-   they show simulated positions, not the real agent's trades. This is why "no veo a los
-   agentes generar dinero" — the place you'd look (Mercados) shows fake data.
-2. **Kalshi is a stub.** Returns `[]` without `KALSHI_API_KEY`. Only Polymarket is real,
-   yet the UI says "Polymarket + Kalshi". Dishonest by omission.
-3. **No 24/7 runtime.** The agent only runs while your machine is on and `npm start` is up.
-   Markets resolve over days/weeks — if the process isn't always on, resolutions are missed,
-   trades never close, and **SkillOpt Phase 2 never gets data**. This is the silent killer.
-4. **No CEO orchestrator, no sentinel.** `org-state` is set only by founder commands; nothing
-   autonomously rebalances departments or enforces health between ticks.
-5. **Zero tests.** Money-touching logic (treasury, riskManager, validateSkill) is verified
-   only by hand. One refactor can silently break the 5% cap or the drawdown pause.
-6. **Intelligence is in fallback.** Without Claude credits the debate is pure rules — the
-   whole point (reasoned Bull/Bear/Arbiter) is dormant.
-7. **No `.env.example`** documenting `ANTHROPIC_API_KEY`, `KALSHI_API_KEY`, `PORT`.
+Revision honesta del estado actual y hoja de ruta priorizada. Este plan parte
+del codigo y la documentacion existentes, no de aspiraciones.
 
 ---
 
-## B. Prioritized roadmap
+## A. Marco de exito
 
-Ordered by **impact on the north star** (agents visibly learn + earn paper PnL),
-cheapest-first, no fantasy.
+La estrella norte sigue siendo `docs/VISION.md`: al abrir Genesis HQ, en menos
+de 3 segundos el operador debe entender que agentes trabajan, en que trabajan y
+si algo necesita atencion humana, sin depender de tablas numericas.
 
-### P0 — Make the UI tell the truth (1–2 days, $0)
-The founder must SEE reality everywhere, not just the Panel.
-1. **Wire `MarketsView` to live data** — replace `usePositions()` (mock) with `useAgentData()`
-   open/closed trades from the backend. Show real entry price, confidence, PnL, evidence.
-2. **Add a Research panel** — surface `/api/agent/signals` (already exists) so the founder
-   sees the news/HN sentiment feeding decisions.
-3. **Add a Skills panel** — surface `/api/agent/skills` (exists): version, status, metrics.
-4. **Honesty fix**: label Kalshi "coming soon" until it's real, or implement it (P1).
+Por eso las mejoras se ordenan por este criterio:
 
-### P1 — Keep it alive 24/7 + finish the data sources (2–4 days, ~$0–5/mo)
-Without continuous runtime, nothing resolves and learning stalls.
-5. **Deploy the backend to an always-on cheap host** (Fly.io / Railway free tier, or a $5
-   VPS). Persist `data/genesis.db` on a volume. The agent ticks every 5 min, 24/7.
-6. **Structured logger + `/api/agent/health` heartbeat** so you can confirm it's alive
-   (last tick time, trades open, errors) from the dashboard or phone.
-7. **Kalshi for real or removed.** Kalshi now needs auth; either wire `KALSHI_API_KEY`
-   properly (their demo/elections API) or drop the claim. No half-truths.
-8. **`/api/agent/marketing` endpoint + MarketingView wire-up** so generated content is visible
-   and approvable (it already generates — just surface it).
-
-### P2 — Close the intelligence + coordination loop (3–5 days, ~$3/mo)
-9. **Claude credits** ($5–10) — flips debate from rules to reasoning. Highest single-dollar
-   ROI in the project.
-10. **CEO orchestrator** (`server/agents/ceoAgent.mjs`) — cheap rules first: reads capital,
-    drawdown, signals, win-rate → sets dept focus + risk in org-state autonomously between
-    founder commands. AI optional later.
-11. **Sentinel** (`server/agents/sentinel.mjs`, no AI) — 1-min health loop: enforce drawdown
-    pause, flag stale open trades, surface anomalies. Pure logic, $0.
-
-### P3 — Durability + evolution (ongoing)
-12. **Tests for money logic** — unit tests on `treasury.kellySize`, `riskManager.preTradeCheck`,
-    `validateSkill` (the 5% cap, drawdown pause, locked-constraints rejection). These guard
-    the rules that protect capital. ~1 day, prevents silent regressions forever.
-13. **SkillOpt Phase 2** — once ~50 trades resolve (gated by P1 #5), run the weekly optimizer
-    with Haiku or local Ollama; deploy validated skill upgrades.
-14. **Bundle split + a11y pass** — 1.15MB JS chunk → code-split; accessibility audit. Cosmetic,
-    do last.
+1. La oficina debe representar el estado real del sistema, no un teatro local.
+2. El agente debe correr de forma continua para que existan trades resueltos y
+   aprendizaje acumulado.
+3. La logica de capital, riesgo y SkillOpt debe tener pruebas antes de crecer.
+4. Las promesas externas deben ser explicitas: paper trading en SQLite, no CLOB
+   on-chain; Kalshi solo si esta configurado.
 
 ---
 
-## C. The single most important thing
+## B. Estado actual
 
-**P0 #1 + P1 #5 together.** Right now the founder can't trust the UI (it shows mock data)
-and the agent isn't always on (so nothing resolves). Fix those two and Genesis HQ becomes a
-real, observable, continuously-learning system. Everything else is enhancement.
+### Real y funcionando
 
-> One-line: *make the screen show the truth, and keep the engine running — then add brains.*
+- **Frontend operativo**: React + Vite + TypeScript, oficina pixel en canvas,
+  modulos de dashboard, mercados, marketing, wallet, integraciones y consola.
+- **Backend local**: servidor HTTP en `server/index.mjs`, SQLite con
+  `better-sqlite3`, endpoints para trading, senales, skills, marketing,
+  comandos y salud.
+- **Trading paper**: pipeline SCAN -> VETO -> DEBATE -> EXECUTE en
+  `server/trading/workflow.mjs`, con datos reales de Polymarket y ejecucion
+  persistida en SQLite.
+- **Riesgo y tesoreria**: sizing, drawdown pause, metricas y vetoes en
+  `server/trading/treasury.mjs`, `server/trading/riskManager.mjs` y
+  `server/memory/mistakePrevention.mjs`.
+- **Investigacion y memoria**: senales de noticias/HN/Reddit, lessons,
+  scoring y trajectorias para SkillOpt.
+- **Superficies live ya avanzadas**: dashboard, mercados, historial, marketing,
+  skills y senales tienen rutas o hooks conectados al backend tras los cambios
+  recientes del 2026-06-01.
+
+### Brechas principales
+
+1. **Dos fuentes de verdad**: la oficina HQ y el life loop visual usan
+   `src/state/genesisStore.ts` + `localStorage`, mientras el agente real vive
+   en SQLite y en endpoints `/api/*`. La pantalla central puede no reflejar lo
+   que el backend esta haciendo.
+2. **Logica critica sin tests**: no hay suite detectada para tesoreria, riesgo,
+   workflow, validacion de skills ni contratos API.
+3. **Operacion 24/7 fragil**: `render.yaml` existe, pero usa plan free con
+   sleep. Si el proceso duerme, los markets no se resuelven a tiempo y SkillOpt
+   Phase 2 no acumula ground truth.
+4. **Kalshi incompleto**: sigue siendo dependiente de `KALSHI_API_KEY` y puede
+   devolver vacio. La UI y la documentacion deben tratarlo como proveedor no
+   configurado cuando aplique.
+5. **Sin CEO/Sentinel autonomos**: `org-state` existe, pero no hay un
+   `server/agents/` que supervise salud, stale trades, drawdown y prioridades.
+6. **Documentacion desalineada**: `docs/MIGRATION_PLAN.md` y
+   `docs/AI_HANDOFF.md` describen estados de bootstrap ya superados; `README.md`
+   aun menciona versiones antiguas.
 
 ---
 
-## D. Suggested next sprint (this week)
+## C. Roadmap priorizado
 
-```
-Day 1   P0 #1  MarketsView → live agent trades         (highest visible impact)
-Day 1   P0 #2  Research signals panel
-Day 2   P0 #3  Skills panel  +  P0 #4 Kalshi honesty label
-Day 3   P1 #5  Deploy backend to Fly.io free tier, DB on volume, 24/7
-Day 4   P1 #6  Health heartbeat + structured logs
-Day 5   P2 #9  Load Claude credits, verify real debates  +  P2 #11 Sentinel
-```
+### P0 — Verdad operativa en la oficina
 
-Outcome by end of week: a 24/7 agent whose real trades, signals, and skills are all visible
-in the UI, debating with real reasoning, protected by a sentinel — the actual product.
+**Objetivo:** que la pantalla principal muestre el sistema real, no solo una
+simulacion local paralela.
+
+1. **Crear un adaptador de estado live para HQ**
+   - Unificar `useAgentData`, `useLiveTrading` y `genesisStore` en una capa de
+     lectura que traduzca backend -> agentes visuales -> tareas visibles.
+   - Mantener `genesisStore` solo para estado UI/local que no pretenda ser dato
+     operativo real.
+   - Mostrar estado offline explicito: "Backend offline — npm run start".
+
+2. **Hacer que `PixelOfficeCanvas` refleje el backend**
+   - Mapear trades abiertos, debates recientes, senales y org-state a
+     `agent.status`, `currentTask`, burbujas y alertas visuales.
+   - Si el backend esta online, los agentes clave deben derivar su estado de
+     SQLite/API; si esta offline, la UI debe degradar a empty/offline state.
+
+3. **Eliminar restos de trading simulado en el store**
+   - Auditar `capital`, `positions`, `closedPositions`, `capitalHistory` y
+     `tradingEngine.ts`.
+   - Retirar o aislar cualquier dato local que pueda confundirse con capital,
+     PnL o posiciones reales.
+
+4. **Corregir claims de proveedores**
+   - Donde Kalshi no este configurado, mostrar "Provider not configured".
+   - Mantener claro que Polymarket CLOB real-money no existe todavia; la
+     ejecucion actual es agent-managed en SQLite.
+
+**Verificacion esperada:** con backend online, una accion del agente cambia el
+estado visible en dashboard, mercados y oficina; con backend offline, no se
+inventan agentes trabajando ni metricas.
+
+---
+
+### P1 — Confiabilidad de capital y API
+
+**Objetivo:** proteger la logica que decide cuanto arriesgar, cuando vetar y que
+se expone a la UI.
+
+1. **Introducir suite de tests minima**
+   - Cubrir `server/trading/treasury.mjs`: sizing, drawdown, capital available.
+   - Cubrir `server/trading/riskManager.mjs`: caps, max open trades, vetoes.
+   - Cubrir `server/skills/validateSkill.mjs`: bloqueo de hard constraints.
+   - Cubrir `server/index.mjs`: contratos basicos de `/api/health`,
+     `/api/trading/dashboard`, `/api/agent/trades`, `/api/agent/skills`.
+
+2. **Separar test fixtures de datos vivos**
+   - Crear fixtures pequenas y deterministas para trades, markets, lessons y
+     skill versions.
+   - Evitar depender de red externa para los tests de riesgo/capital.
+
+3. **Definir contratos de respuesta**
+   - Documentar shape de endpoints criticos en `docs/` o tipos compartidos.
+   - Garantizar que los estados de error dicen la verdad: provider missing,
+     backend offline, no data yet.
+
+**Verificacion esperada:** build, lint y tests cubren los limites de riesgo que
+no pueden romperse por refactor.
+
+---
+
+### P2 — Runtime continuo y observabilidad
+
+**Objetivo:** que el agente pueda acumular resultados reales de forma continua y
+que el operador vea si el sistema esta sano.
+
+1. **Endurecer deploy Render/Vercel**
+   - Revisar `render.yaml`: plan, branch, disco persistente, health check y
+     variables sync false.
+   - Confirmar que `VITE_API_BASE` apunta al backend correcto y que el frontend
+     muestra estado de conexion.
+
+2. **Agregar health operacional**
+   - Extender `/api/health` con ultimo tick, uptime, ultima ejecucion de agent,
+     cantidad de open trades, errores recientes y provider configuration.
+   - Mostrar esos campos en una superficie pequena de operador.
+
+3. **Registrar eventos estructurados**
+   - Normalizar logs del agent runner, workflow, research, skill validation y
+     command executor.
+   - Registrar errores persistentes sin filtrar secretos.
+
+4. **Definir rutina de resolucion de markets**
+   - Verificar que trades abiertos se cierran cuando el mercado resuelve.
+   - Hacer visible cuando un trade queda stale o no pudo resolverse.
+
+**Verificacion esperada:** el operador puede abrir la app y saber si backend,
+agent loop, DB, proveedores y aprendizaje estan vivos.
+
+---
+
+### P3 — CEO y Sentinel autonomos
+
+**Objetivo:** cerrar el ciclo de coordinacion sin depender solo de comandos del
+founder.
+
+1. **Sentinel sin IA**
+   - Nuevo agente determinista que lea risk metrics, open trades, last tick,
+     stale trades y drawdown.
+   - Debe emitir eventos y flags visibles, no ejecutar trades ni relajar riesgo.
+
+2. **CEO orchestrator por reglas**
+   - Leer capital, drawdown, win rate, senales y workload.
+   - Ajustar foco de departamentos en `org-state` con reglas auditables.
+   - Dejar IA como mejora posterior, no requisito inicial.
+
+3. **Superficie de intervencion humana**
+   - Mostrar alertas accionables: pausar, revisar stale trades, proveedor no
+     configurado, falta de ground truth SkillOpt.
+   - Evitar botones sin accion real.
+
+**Verificacion esperada:** el sistema detecta estados anormales y los hace
+legibles en la oficina sin simular autonomia que no existe.
+
+---
+
+### P4 — SkillOpt Phase 2 y aprendizaje
+
+**Objetivo:** activar aprendizaje semanal cuando existan suficientes trayectorias
+resueltas.
+
+1. **Gate por datos**
+   - No ejecutar optimizacion hasta tener el minimo de trades resueltos por
+     agente definido en `docs/SKILLOPT_INTEGRATION.md`.
+   - Mostrar progreso hacia ese umbral.
+
+2. **Export y validation loop**
+   - Consolidar `skills:export`, `skills:validate` y version ledger.
+   - Rechazar cualquier skill que toque hard constraints de riesgo.
+
+3. **Revision y rollback**
+   - Registrar version, metricas, razon de aceptacion/rechazo y ruta de rollback.
+   - Exponer historial de skills de forma legible en UI.
+
+**Verificacion esperada:** ninguna skill cambia en runtime sin gate, metrica y
+rollback trazable.
+
+---
+
+### P5 — Limpieza documental y deuda de UX
+
+**Objetivo:** reducir friccion para humanos y futuros agentes.
+
+1. **Actualizar documentos obsoletos**
+   - Reescribir o archivar `docs/MIGRATION_PLAN.md`.
+   - Mantener `docs/AI_HANDOFF.md` con estado real de rama, gaps y siguiente
+     tarea.
+   - Alinear `README.md` con versiones y deploy actuales.
+
+2. **Accesibilidad y rendimiento**
+   - Auditar el canvas y paneles para navegacion basica, contraste y labels.
+   - Code-split si el bundle vuelve a afectar carga inicial.
+
+3. **Inventario de modulos**
+   - Revisar `src/data/moduleRegistry.ts` y marcar cada modulo como ready,
+     visual-only o locked con copy honesta.
+
+**Verificacion esperada:** un agente nuevo puede arrancar, entender estado,
+ejecutar checks y no repetir trabajo viejo.
+
+---
+
+## D. Secuencia recomendada
+
+1. **Primero P0.1-P0.4**: sin una oficina que diga la verdad, el resto no es
+   visible.
+2. **Luego P1.1-P1.3**: antes de tocar mas dinero/riesgo, crear red de tests.
+3. **Despues P2.1-P2.4**: asegurar que el agente corre y acumula ground truth.
+4. **Luego P3**: agregar Sentinel/CEO sobre datos ya confiables.
+5. **Finalmente P4-P5**: aprendizaje avanzado y limpieza sostenida.
+
+---
+
+## E. Criterios de aceptacion del plan
+
+- No hay capital, PnL, posiciones ni trades inventados en UI.
+- La oficina central refleja el backend cuando esta online y muestra offline
+  state cuando no lo esta.
+- Los limites de riesgo criticos tienen pruebas automatizadas.
+- El deploy tiene health observable y persistencia clara para SQLite.
+- Kalshi y Anthropic se presentan como configurados/no configurados sin
+  fallback silencioso.
+- SkillOpt solo evoluciona skills con trades resueltos, validacion y rollback.
+
+---
+
+## F. Lo mas importante
+
+La mejora de mayor impacto es **unificar la oficina HQ con el estado real del
+backend** y despues **proteger capital/riesgo con tests**. Genesis HQ ya tiene
+pantallas; ahora necesita que su pantalla principal sea una ventana fiel al
+sistema operativo real.

@@ -5,6 +5,13 @@ at the top. Use one block per session. Be honest about failures.
 
 ---
 
+## 2026-06-02 — GPT-5.5
+
+- **Branch:** `cursor/update-improvement-plan-4eb6`
+- **Summary:** Updated the improvement plan to reflect the current Genesis HQ state after the live-data wiring work. Reprioritized the roadmap around HQ-to-backend truth, tests for capital/risk logic, runtime observability, Sentinel/CEO autonomy, SkillOpt Phase 2, and documentation cleanup.
+- **Files touched:** `docs/IMPROVEMENT_PLAN.md`, `docs/CHANGELOG_AI.md`, `docs/AI_HANDOFF.md`
+- **Verification:** `npm run build` ok.
+
 ## 2026-06-01 — Auto
 
 - **Branch:** (working tree)
