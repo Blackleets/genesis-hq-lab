@@ -11,9 +11,13 @@ import { getVetoStats } from './memory/mistakePrevention.mjs';
 import { getRecentTrades } from './memory/tradingMemory.mjs';
 import { getSignalAccuracy } from './research/signalExtractor.mjs';
 import { getAllDeployed, getSkillHistory } from './skills/skillRegistry.mjs';
+import { runSkillOpt } from './skills/runSkillOpt.mjs';
 import db from './db/database.mjs';
 import { executeCommand, getCommandHistory } from './command/commandExecutor.mjs';
 import { getOrgState, getStatusSummary } from './command/orgState.mjs';
+
+// In-memory SkillOpt job state (single concurrent job)
+const skilloptJob = { running: false, lastResult: null, startedAt: null, agent: null };
 
 const HOST = process.env.HOST || '127.0.0.1';
 const PORT = Number(process.env.PORT || 8787);
@@ -314,6 +318,49 @@ const server = createServer(async (req, res) => {
       const summary = getStatusSummary();
       sendJson(res, 200, { ok: true, state, summary });
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  // POST /api/skillopt/run — trigger SkillOpt for an agent (non-blocking)
+  if (url.pathname === '/api/skillopt/run' && req.method === 'POST') {
+    if (skilloptJob.running) {
+      sendJson(res, 409, { ok: false, error: 'SkillOpt already running', agent: skilloptJob.agent });
+      return;
+    }
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      let parsed = {};
+      try { parsed = JSON.parse(body || '{}'); } catch { /* ignore */ }
+      const agent = parsed?.agent ?? 'market-scanner';
+      skilloptJob.running = true;
+      skilloptJob.startedAt = new Date().toISOString();
+      skilloptJob.agent = agent;
+      skilloptJob.lastResult = null;
+      // Run in background — don't await
+      runSkillOpt(agent)
+        .then(result => {
+          skilloptJob.lastResult = { ...result, completedAt: new Date().toISOString() };
+          skilloptJob.running = false;
+        })
+        .catch(err => {
+          skilloptJob.lastResult = { deployed: false, reason: err.message, completedAt: new Date().toISOString() };
+          skilloptJob.running = false;
+        });
+      sendJson(res, 200, { ok: true, status: 'running', agent, startedAt: skilloptJob.startedAt });
+    });
+    return;
+  }
+
+  // GET /api/skillopt/status — current job state
+  if (url.pathname === '/api/skillopt/status') {
+    sendJson(res, 200, {
+      ok: true,
+      running: skilloptJob.running,
+      agent: skilloptJob.agent,
+      startedAt: skilloptJob.startedAt,
+      lastResult: skilloptJob.lastResult,
+    });
     return;
   }
 
