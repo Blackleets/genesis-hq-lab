@@ -83,7 +83,8 @@ export async function runSkillOpt(agent = 'market-scanner') {
 
   // -- Step 3: Analyze failures --
   console.log('[skillopt] Step 2: analyzing failure patterns...');
-  const trainPath = join(DATA_ROOT, 'polymarket_agent', 'train', 'items.json');
+  const normalizedAgent = agent === 'market-scanner' ? 'polymarket_agent' : agent;
+  const trainPath = join(DATA_ROOT, normalizedAgent, 'train', 'items.json');
   if (!existsSync(trainPath)) {
     return { deployed: false, reason: 'Train split not found after export', metrics: null };
   }
@@ -125,7 +126,7 @@ Rules that may NEVER be changed (hard limits): max 5% per trade, confidence >= 0
   // -- Step 4: Assemble candidate skill file --
   const candidateRaw = currentSkillBody
     ? currentSkillBody.replace(
-        /^# DECISION CRITERIA[\s\S]*?(?=^# [A-Z]|\Z)/m,
+        /^# DECISION CRITERIA[\s\S]*?(?=^# [A-Z]|\s*$)/m,
         newCriteria.trim() + '\n\n'
       )
     : `---\nversion: ${nextVersion}\nstatus: candidate\nparent: ${currentVersion}\n---\n\n${newCriteria}`;
@@ -151,10 +152,10 @@ Rules that may NEVER be changed (hard limits): max 5% per trade, confidence >= 0
   if (!benchResult.passed) {
     const reason = `Gate 2 failed: ${benchResult.notes}`;
     // Record in DB as rejected candidate
-    db.prepare(`INSERT INTO skill_versions (id, agent, version, parent_version, file_path, status, brier, win_rate, val_n, gate_passed, gate_notes, created_at)
-      VALUES (?, ?, ?, ?, ?, 'rejected', ?, ?, ?, 0, ?, datetime('now'))`)
+    db.prepare(`INSERT INTO skill_versions (id, agent, version, parent_version, file_path, status, brier, win_rate, val_n, gate_passed, gate_notes, created_at, reason)
+      VALUES (?, ?, ?, ?, ?, 'rejected', ?, ?, ?, 0, ?, datetime('now'), ?)`)
       .run(`skill-${nanoid()}`, agent, nextVersion, currentVersion, `skills/${agent}/skill_v${nextVersion}.md`,
-           benchResult.brier, benchResult.winRate, benchResult.n, benchResult.notes);
+           benchResult.brier, benchResult.winRate, benchResult.n, benchResult.notes, `Gate 2 failed: ${benchResult.notes}`);
     appendChangelog(`- Agent: ${agent} v${nextVersion} — REJECTED (Gate 2): ${benchResult.notes}`);
     return { deployed: false, reason, metrics: benchResult };
   }

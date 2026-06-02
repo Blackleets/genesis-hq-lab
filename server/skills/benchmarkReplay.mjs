@@ -115,3 +115,18 @@ export async function benchmarkReplay(agent, candidateDecisionCriteria, currentM
 
   return { passed, brier, winRate, n: evaluated, currentBrier, currentWinRate, notes };
 }
+
+// CLI: standalone benchmark for testing
+if (process.argv[1]?.endsWith('benchmarkReplay.mjs')) {
+  const agent = process.argv[2] || 'market-scanner';
+  const { getSkillPrompt, SKILLS_DIR } = await import('./skillLoader.mjs');
+  const criteria = getSkillPrompt(agent) ?? 'No skill found — pass a skill file as second argument.';
+  console.log(`[benchmark] Running replay for "${agent}" against val split...`);
+  const result = await benchmarkReplay(
+    agent === 'market-scanner' ? 'polymarket_agent' : agent,
+    criteria,
+    {}
+  );
+  console.log(`[benchmark] Result: ${result.passed ? 'PASS' : 'FAIL'} — ${result.notes}`);
+  console.log(`[benchmark] n=${result.n}, brier=${result.brier}, winRate=${result.winRate}`);
+}
