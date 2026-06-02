@@ -353,7 +353,14 @@ function drawAgents(
 
   for (const renderAgent of agents) {
     const { visual, agent } = renderAgent;
+    // Per-agent blink: a short blink every ~3.2s, phase-offset by agent id.
+    const now = Date.now();
     const isFired = visual.animation === 'fired';
+    const exitProgress = isFired && visual.exitStartedAt
+      ? Math.min(1, (now - visual.exitStartedAt) / 2000)
+      : isFired ? 1 : 0;
+    const agentAlpha = isFired ? Math.max(0, 1 - exitProgress) : 1;
+    const agentScale = isFired ? (1 - 0.5 * exitProgress) : 1;
 
     // Floor point (bottom-center) with bob applied
     const cx = visual.x;
@@ -361,25 +368,30 @@ function drawAgents(
 
     // Shadow on the floor
     ctx.save();
-    ctx.globalAlpha = isFired ? 0.2 : 0.4;
+    ctx.globalAlpha = agentAlpha * (isFired ? 0.2 : 0.4);
     ctx.fillStyle = '#000000';
     ctx.beginPath();
     ctx.ellipse(visual.x, visual.y + 1, 11, 3, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
-
-    // Per-agent blink: a short blink every ~3.2s, phase-offset by agent id.
-    const now = Date.now();
     const seed = agent.id.charCodeAt(agent.id.length - 1) * 137;
     const blink = ((now + seed) % 3200) < 140;
     const active = visual.animation === 'work' || visual.animation === 'talk' || visual.animation === 'retraining' || visual.animation === 'think';
+
+    // Apply exit scale for firing transition
+    if (agentScale !== 1) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.scale(agentScale, agentScale);
+      ctx.translate(-cx, -cy);
+    }
 
     // The creature
     drawCreature(ctx, creatureForAgent(agent), cx, cy, {
       frame: visual.frameIndex,
       facingLeft: visual.facing === 'west',
       glow: glowForState(visual.animation),
-      alpha: isFired ? 0.4 : 1,
+      alpha: agentAlpha,
       blink,
       active,
       nowMs: now,
@@ -406,6 +418,31 @@ function drawAgents(
     if (agent.status === 'onboarding') {
       ctx.fillStyle = '#ffb547';
       ctx.fillRect(cx + 8, cy - 24, 6, 6);
+    }
+
+    if (agentScale !== 1) {
+      ctx.restore();
+    }
+
+    // Farewell text during fade-out
+    if (isFired && exitProgress < 0.75 && agentAlpha > 0.05) {
+      const bubbleAlpha = Math.max(0, 1 - exitProgress / 0.75);
+      ctx.save();
+      ctx.globalAlpha = bubbleAlpha;
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#1a1a2e';
+      ctx.lineWidth = 1;
+      const bx = cx - 28, by = cy - 50, bw = 56, bh = 16;
+      ctx.beginPath();
+      ctx.roundRect(bx, by, bw, bh, 3);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#1a1a2e';
+      ctx.font = '5px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Hasta luego...', cx, by + bh / 2);
+      ctx.restore();
     }
 
     // Hitbox: a box around the creature footprint

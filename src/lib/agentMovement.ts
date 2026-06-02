@@ -30,6 +30,7 @@ export interface VisualAgentState {
   idleTargetX: number;
   idleTargetY: number;
   talkUntil: number;
+  exitStartedAt?: number;
 }
 
 interface DesiredTarget {
@@ -136,6 +137,10 @@ export function updateVisualAgents(
       idleTargetX: desired.x,
       idleTargetY: desired.y,
       talkUntil: prior?.talkUntil ?? 0,
+      exitStartedAt:
+        animation === 'fired'
+          ? (prior?.exitStartedAt ?? input.now)
+          : undefined,
     };
   });
 
@@ -158,6 +163,20 @@ function resolveDesiredTarget(
   );
 
   if (agent.status === 'fired' || firedAgents.some((entry) => entry.id === agent.id)) {
+    const exitStart = prior?.exitStartedAt ?? now;
+    const fading = (now - exitStart) < 2000;
+    if (fading) {
+      // Stay in current position during fade
+      const stayX = prior?.x ?? 240;
+      const stayY = prior?.y ?? 220;
+      return {
+        x: stayX, y: stayY,
+        baseTargetX: stayX, baseTargetY: stayY,
+        workstationId: prior?.workstationId,
+        animation: 'fired' as VisualAnimationState,
+        idleUntil: now + 2000,
+      };
+    }
     const stations = workstationsForRoom('fired-archive');
     const station = stations[index % stations.length];
     return {
