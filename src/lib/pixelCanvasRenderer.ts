@@ -372,7 +372,7 @@ function drawAgents(
     const now = Date.now();
     const seed = agent.id.charCodeAt(agent.id.length - 1) * 137;
     const blink = ((now + seed) % 3200) < 140;
-    const active = visual.animation === 'work' || visual.animation === 'talk' || visual.animation === 'retraining';
+    const active = visual.animation === 'work' || visual.animation === 'talk' || visual.animation === 'retraining' || visual.animation === 'think';
 
     // The creature
     drawCreature(ctx, creatureForAgent(agent), cx, cy, {
@@ -384,6 +384,7 @@ function drawAgents(
       active,
       nowMs: now,
       pulse: visual.animation === 'warning',
+      thinking: visual.animation === 'think',
     });
 
     // Retraining: small open book prop

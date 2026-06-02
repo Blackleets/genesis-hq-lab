@@ -211,11 +211,12 @@ function resolveDesiredTarget(
       roomStations[preferredIdx] ??
       roomStations[0];
     const isArrived = Math.hypot((prior?.x ?? station.x) - station.x, (prior?.y ?? station.y) - station.y) <= SNAP_DISTANCE;
+    const isThinkTask = activeTask.taskType === 'decision_review' || activeTask.taskType === 'paper_trade';
     const animation =
       activeTask.status === 'blocked'
         ? 'warning'
         : activeTask.status === 'working' || (activeTask.status === 'assigned' && isArrived)
-          ? 'work'
+          ? isThinkTask ? 'think' : 'work'
           : 'walk';
     return {
       x: station.x,

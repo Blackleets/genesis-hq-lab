@@ -18,6 +18,7 @@ export interface CreatureOpts {
   active?: boolean;
   nowMs?: number;
   pulse?: boolean;
+  thinking?: boolean;
 }
 
 // [body, shade, light] — exact reference palette.
@@ -80,6 +81,23 @@ export function drawCreature(
       ctx.fillStyle = og; ctx.fillRect(cx - 26, cy - 38, 52, 50);
       ctx.restore();
     }
+  }
+  // Thought dots "..."
+  if (opts.thinking && opts.nowMs != null) {
+    ctx.save();
+    const t = (opts.nowMs % 1250) / 1250;   // 0.8Hz cycle
+    for (let i = 0; i < 3; i++) {
+      const phase = t + i * (1 / 3);
+      const wrapped = phase % 1;
+      const dotAlpha = (opts.alpha ?? 1) * (0.4 + Math.sin(wrapped * Math.PI * 2) * 0.4);
+      const dotY = cy - 38 - Math.sin(wrapped * Math.PI) * 3;   // slight float
+      ctx.globalAlpha = dotAlpha;
+      ctx.fillStyle = '#a855f7';
+      ctx.beginPath();
+      ctx.arc(cx - 5 + i * 5, dotY, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
   }
   if (opts.active && opts.nowMs != null) drawBubbles(ctx, cx, cy, opts.nowMs, opts.alpha ?? 1);
 
