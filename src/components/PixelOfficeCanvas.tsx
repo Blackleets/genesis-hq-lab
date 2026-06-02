@@ -23,6 +23,7 @@ import {
   type PixelOfficeHitbox,
 } from '../lib/pixelCanvasRenderer';
 import { createPixelLifeRuntime, stepPixelLifeLoop } from '../lib/pixelLifeLoop';
+import { useAgentData } from '../hooks/useAgentData';
 
 interface Props {
   scale: number;
@@ -41,6 +42,7 @@ export default function PixelOfficeCanvas({ scale, onAgentHover, onRoomClick }: 
   const lang = useSelectedLanguage();
   const selectedAgent = useSelectedAgent();
   const devMode = useDevMode();
+  const { trades: liveTrades } = useAgentData();   // real backend paper trades
   const latestRef = useRef({
     agents,
     firedAgents,
@@ -49,6 +51,7 @@ export default function PixelOfficeCanvas({ scale, onAgentHover, onRoomClick }: 
     lang,
     selectedAgentId: selectedAgent?.id ?? null,
     devMode,
+    liveTrades,
   });
   const [sprites, setSprites] = useState<LoadedSpriteMap | null>(null);
   const [hoveredAgentId, setHoveredAgentId] = useState<string | null>(null);
@@ -66,6 +69,7 @@ export default function PixelOfficeCanvas({ scale, onAgentHover, onRoomClick }: 
     lang,
     selectedAgentId: selectedAgent?.id ?? null,
     devMode,
+    liveTrades,
   };
   hoveredAgentIdRef.current = hoveredAgentId;
 
@@ -99,6 +103,7 @@ export default function PixelOfficeCanvas({ scale, onAgentHover, onRoomClick }: 
         tasks: snapshot.tasks,
         events: snapshot.events,
         lang: snapshot.lang,
+        liveTrades: snapshot.liveTrades,
       }, timestamp);
       const renderAgents = buildRenderAgents(
         [...snapshot.agents, ...snapshot.firedAgents],

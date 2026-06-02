@@ -53,6 +53,25 @@ const WALK_SPEED = 34;
 const IDLE_WALK_SPEED = 12;
 const SNAP_DISTANCE = 2;
 
+// Coffee corner in the open workspace. Idle agents occasionally stroll here
+// and back — they never skip a real task (only the idle branch reaches this).
+const COFFEE_SPOTS = [
+  { x: 110, y: 250 },
+  { x: 130, y: 258 },
+  { x: 96, y: 256 },
+];
+// Is this agent on a coffee break right now? Deterministic, staggered windows
+// (~1 of every ~6 nine-second windows per agent) so only one or two wander at a time.
+function coffeeBreak(now: number, seed: number): { x: number; y: number } | null {
+  const windowMs = 9000;
+  const bucket = Math.floor(now / windowMs);
+  if ((bucket + seed * 3) % 6 !== 0) return null;
+  // Linger for the first ~6.5s of the window, then head back to the desk.
+  const phase = now % windowMs;
+  if (phase > 6500) return null;
+  return COFFEE_SPOTS[seed % COFFEE_SPOTS.length];
+}
+
 export function updateVisualAgents(
   previous: Record<string, VisualAgentState>,
   input: MovementInput,
@@ -196,6 +215,24 @@ function resolveDesiredTarget(
   const room = agent.currentRoom;
   const roomStations = workstationsForRoom(room);
   const baseStation = roomStations[index % Math.max(1, roomStations.length)] ?? { id: `${room}-fallback`, x: 240, y: 220 };
+
+  // Coffee break: an idle agent occasionally strolls to the café and back.
+  // Healthy agents only — warnings/thinking stay put.
+  const onCoffee = agent.status !== 'warning' && agent.status !== 'thinking'
+    ? coffeeBreak(now, index)
+    : null;
+  if (onCoffee) {
+    return {
+      x: onCoffee.x,
+      y: onCoffee.y,
+      baseTargetX: baseStation.x,
+      baseTargetY: baseStation.y,
+      workstationId: undefined,            // not at a desk while on break
+      animation: 'idle',                   // movement layer promotes to 'walk' en route
+      idleUntil: now + 1500,
+    };
+  }
+
   const idleUntil = prior?.idleUntil ?? 0;
   const shouldPickNewIdle = !prior || now >= idleUntil || Math.hypot(prior.x - prior.idleTargetX, prior.y - prior.idleTargetY) <= SNAP_DISTANCE;
   const idleTarget = shouldPickNewIdle

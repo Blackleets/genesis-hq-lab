@@ -1,4 +1,4 @@
-import { createConversationRuntime, updateConversationRuntime, type ActiveBubble, type ConversationRuntime } from './conversationEngine';
+import { createConversationRuntime, updateConversationRuntime, type ActiveBubble, type ConversationRuntime, type LiveTradeLite } from './conversationEngine';
 import { updateVisualAgents, type VisualAgentState } from './agentMovement';
 import type { Lang } from '../i18n/translations';
 import type { Agent } from '../types/genesis';
@@ -11,6 +11,7 @@ export interface PixelLifeInput {
   tasks: Task[];
   events: SystemEvent[];
   lang: Lang;
+  liveTrades?: LiveTradeLite[];
 }
 
 export interface PixelLifeRuntime {
@@ -45,7 +46,13 @@ export function stepPixelLifeLoop(
     dtMs,
   });
 
-  const bubbles = updateConversationRuntime(runtime.conversation, input.events, input.lang, timestamp);
+  const presentAgentIds = input.agents
+    .filter((a) => a.status !== 'fired')
+    .map((a) => a.id);
+  const bubbles = updateConversationRuntime(runtime.conversation, input.events, input.lang, timestamp, {
+    presentAgentIds,
+    liveTrades: input.liveTrades,
+  });
   const talkingAgentIds = new Set(bubbles.map((bubble) => bubble.agentId));
   for (const visual of Object.values(runtime.visualAgents)) {
     if (!talkingAgentIds.has(visual.agentId)) continue;
