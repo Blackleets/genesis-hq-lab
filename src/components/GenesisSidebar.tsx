@@ -79,8 +79,10 @@ export default function GenesisSidebar({ currentModule, onSelect }: Props) {
   return (
     <aside className="w-[196px] shrink-0 bg-carbon-200 border-r border-trim flex flex-col">
       {/* Company identity */}
-      <div className="px-3.5 py-3 border-b border-trim">
+      <div className="px-3.5 py-3 border-b border-trim relative overflow-hidden">
         <GenesisLockup size="sm" markSize={26} showTagline />
+        {/* Ambient scan on identity block */}
+        <div className="absolute inset-x-0 bottom-0 h-px genesis-scan-line-green pointer-events-none" />
       </div>
 
       {/* Grouped nav */}
@@ -94,7 +96,7 @@ export default function GenesisSidebar({ currentModule, onSelect }: Props) {
               {/* Section label */}
               <div
                 className="px-4 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] select-none"
-                style={{ color: group.color, opacity: 0.7 }}
+                style={{ color: group.color, opacity: 0.6 }}
               >
                 {lang === 'es' ? group.labelEs : group.labelEn}
               </div>
@@ -109,27 +111,49 @@ export default function GenesisSidebar({ currentModule, onSelect }: Props) {
                       key={m.id}
                       type="button"
                       onClick={() => onSelect(m.id)}
-                      className="relative w-full flex items-center gap-3 px-4 py-2 text-[13px] text-left transition-all duration-100"
+                      className={`relative w-full flex items-center gap-3 px-4 py-2 text-[13px] text-left transition-all duration-200 ${active ? 'genesis-sidebar-active' : ''}`}
                       style={{
                         color: active ? '#f4f4f5' : '#71717a',
-                        background: active ? 'rgba(255,255,255,0.04)' : 'transparent',
+                        background: active ? `${group.color}08` : 'transparent',
                         borderLeft: active ? `2px solid ${group.color}` : '2px solid transparent',
+                        boxShadow: active ? `inset 0 0 20px 0 ${group.color}06` : 'none',
                       }}
-                      onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLElement).style.color = '#d4d4d8'; }}
-                      onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLElement).style.color = '#71717a'; }}
+                      onMouseEnter={(e) => {
+                        if (!active) {
+                          const el = e.currentTarget as HTMLElement;
+                          el.style.color = '#d4d4d8';
+                          el.style.background = 'rgba(255,255,255,0.03)';
+                          el.style.transform = 'translateX(1px)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!active) {
+                          const el = e.currentTarget as HTMLElement;
+                          el.style.color = '#71717a';
+                          el.style.background = 'transparent';
+                          el.style.transform = 'translateX(0)';
+                        }
+                      }}
                     >
                       <Icon
-                        className="shrink-0 transition-colors"
+                        className="shrink-0 transition-all duration-200"
                         style={{
                           width: 15,
                           height: 15,
                           color: active ? group.color : 'currentColor',
-                          opacity: active ? 1 : 0.7,
+                          opacity: active ? 1 : 0.65,
                         }}
                       />
                       <span className="flex-1 truncate font-medium leading-none">
                         {t(m.navKey as TKey)}
                       </span>
+                      {/* Active right accent */}
+                      {active && (
+                        <span
+                          className="w-1 h-1 rounded-full shrink-0 genesis-status-dot-slow"
+                          style={{ background: group.color }}
+                        />
+                      )}
                     </button>
                   );
                 })}
@@ -139,7 +163,8 @@ export default function GenesisSidebar({ currentModule, onSelect }: Props) {
         })}
       </nav>
 
-      <footer className="px-4 py-2.5 border-t border-trim text-[10px] text-zinc-700 leading-snug">
+      {/* Footer with ambient particle cluster */}
+      <footer className="px-4 py-2.5 border-t border-trim text-[10px] text-zinc-700 leading-snug relative genesis-particles overflow-hidden">
         {t('sidebar.footer')}
       </footer>
     </aside>

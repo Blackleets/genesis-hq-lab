@@ -99,8 +99,12 @@ export default function LiveActivityFeed() {
 
   return (
     <aside className="h-full w-[248px] xl:w-[260px] shrink-0 bg-carbon-200 border-l border-trim flex flex-col">
-      <header className="px-3 py-2.5 border-b border-trim flex items-center justify-between">
-        <div className="font-mono text-[11px] uppercase tracking-wider text-zinc-300">
+      <header className="px-3 py-2.5 border-b border-trim flex items-center justify-between relative overflow-hidden">
+        {/* Scan line on feed header */}
+        <div className="absolute inset-x-0 bottom-0 h-px genesis-scan-line pointer-events-none" />
+        <div className="font-mono text-[11px] uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+          {/* Live blinking dot */}
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 genesis-blink" />
           {t('feed.title')}
         </div>
         <span className="font-mono text-[9px] uppercase tracking-wider text-amber-300">
@@ -114,10 +118,11 @@ export default function LiveActivityFeed() {
             key={tab}
             type="button"
             onClick={() => setActiveTab(tab)}
-            className="font-mono text-[9px] uppercase tracking-wider px-2 py-0.5 hover:bg-white/5"
+            className="font-mono text-[9px] uppercase tracking-wider px-2 py-0.5 hover:bg-white/5 transition-colors duration-150"
             style={{
               color: activeTab === tab ? TAB_COLORS[tab] : '#6b7280',
               borderBottom: activeTab === tab ? `2px solid ${TAB_COLORS[tab]}` : '2px solid transparent',
+              transition: 'color 0.15s, border-color 0.15s',
             }}
           >
             {TAB_LABELS[tab][lang]}
@@ -130,8 +135,14 @@ export default function LiveActivityFeed() {
           <div className="px-2 py-3 font-mono text-[11px] text-zinc-500">—</div>
         ) : (
           <ul className="space-y-1.5">
-            {ordered.map((e) => (
-              <li key={e.id} className="border border-trim bg-carbon-300 px-2.5 py-2 font-mono text-[11px]">
+            {ordered.map((e, i) => (
+              <li
+                key={e.id}
+                className={`border border-trim bg-carbon-300 px-2.5 py-2 font-mono text-[11px] transition-colors duration-200 hover:bg-carbon-200/60 ${i === 0 ? 'genesis-slide-in' : ''}`}
+                style={{
+                  borderColor: i === 0 ? `${kindColor(e.kind)}30` : undefined,
+                }}
+              >
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="uppercase tracking-wider text-[9px] shrink-0" style={{ color: kindColor(e.kind) }}>
                     {kindLabel(e.kind, lang)}
