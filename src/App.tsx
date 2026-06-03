@@ -95,7 +95,7 @@ function HQView() {
             </button>
           ))}
         </div>
-        <div className="flex-1 min-h-0 relative bg-carbon-300">
+        <div className="flex-1 min-h-0 relative bg-carbon-300 genesis-grid-bg">
           {HQ_RENDERER === 'canvas' ? (
             <PixelOfficeViewport internalWidth={PIXEL_CANVAS_WIDTH} internalHeight={PIXEL_CANVAS_HEIGHT}>
               {(scale) => (
@@ -878,7 +878,9 @@ export default function App() {
       {currentModule !== 'hq' && <TopBar />}
       <div className="flex-1 flex min-h-0">
         <GenesisSidebar currentModule={currentModule} onSelect={actions.setSelectedModule} />
-        <ModuleRenderer module={currentModule} setModule={actions.setSelectedModule} />
+        <div key={currentModule} className="genesis-module-fade flex-1 flex min-h-0">
+          <ModuleRenderer module={currentModule} setModule={actions.setSelectedModule} />
+        </div>
       </div>
       <ToastContainer />
     </div>
