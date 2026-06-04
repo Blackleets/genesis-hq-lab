@@ -30,6 +30,8 @@ export const TRANSLATIONS = {
   'nav.tech':                { es: 'Tech Studio',                  en: 'Tech Studio' },
   'nav.console':             { es: 'Consola',                      en: 'Console' },
   'nav.integrations':        { es: 'Integraciones',                en: 'Integrations' },
+  'nav.agents-live':         { es: 'Agentes IA',                   en: 'AI Agents' },
+  'nav.edge':            { es: 'Edge Scorecard',               en: 'Edge Scorecard' },
 
   // ---------------- MODULE STATES ----------------
   'state.ready':             { es: 'listo',                        en: 'ready' },

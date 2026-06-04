@@ -7,7 +7,7 @@
 // State enum is referenced by both the sidebar badge and the
 // ModulePlaceholder copy.
 
-import type { TKey } from '../i18n/translations';
+import type { TKey } from '@core/i18n/translations';
 
 export type ModuleId =
   | 'dashboard'
@@ -23,7 +23,9 @@ export type ModuleId =
   | 'marketing'
   | 'tech'
   | 'console'
-  | 'integrations';
+  | 'integrations'
+  | 'agents-live'
+  | 'edge';
 
 export type ModuleState =
   | 'ready'
@@ -182,6 +184,24 @@ export const MODULES: ModuleEntry[] = [
     },
   },
   {
+    id: 'edge',
+    navKey: 'nav.edge',
+    state: 'ready',
+    description: {
+      es: 'Scorecard GO/NO-GO: métricas de edge real para decidir cuándo pasar a capital real.',
+      en: 'GO/NO-GO scorecard: real edge metrics to decide when to move to real capital.',
+    },
+    futureActions: [
+      { es: 'Ver veredicto en tiempo real.', en: 'View real-time verdict.' },
+      { es: 'Checklist de condiciones GO.', en: 'GO conditions checklist.' },
+      { es: 'Historial de progreso hacia GO.', en: 'Progress history toward GO.' },
+    ],
+    relation: {
+      es: 'Cuando el veredicto sea GO, activar REAL_TRADING=1.',
+      en: "When verdict is GO, flip REAL_TRADING=1.",
+    },
+  },
+  {
     id: 'progress',
     navKey: 'nav.progress',
     state: 'ready',
@@ -305,6 +325,24 @@ export const MODULES: ModuleEntry[] = [
     relation: {
       es: 'Los agentes de Marketing y Tech usan estas integraciones para ejecutar trabajo en plataformas externas.',
       en: 'Marketing and Tech agents use these integrations to execute work on external platforms.',
+    },
+  },
+  {
+    id: 'agents-live',
+    navKey: 'nav.agents-live',
+    state: 'ready',
+    description: {
+      es: 'Agentes IA reales con ejecución de tareas, memoria por agente, logs en vivo y soporte multi-proveedor (Claude, OpenAI, Gemini).',
+      en: 'Real AI agents with task execution, per-agent memory, live logs, and multi-provider support (Claude, OpenAI, Gemini).',
+    },
+    futureActions: [
+      { es: 'Asignar tareas a agentes específicos.', en: 'Assign tasks to specific agents.' },
+      { es: 'Ver logs de ejecución en tiempo real.', en: 'View real-time execution logs.' },
+      { es: 'Cambiar proveedor LLM por agente.', en: 'Switch LLM provider per agent.' },
+    ],
+    relation: {
+      es: 'Cada agente aquí tiene un gemelo visual en Génesis HQ.',
+      en: 'Each agent here has a visual twin in Genesis HQ.',
     },
   },
 ];
