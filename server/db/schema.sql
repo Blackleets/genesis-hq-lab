@@ -51,6 +51,10 @@ CREATE TABLE IF NOT EXISTS trades (
   exit_price      REAL,
   shares          REAL NOT NULL,
   capital_used    REAL NOT NULL,
+  -- Scalping controls
+  trade_type      TEXT DEFAULT 'swing',      -- 'scalp' | 'swing'
+  stop_loss_price REAL,                      -- absolute price (entry * (1 - stopPct))
+  take_profit_price REAL,                    -- absolute price (entry * (1 + tpPct))
   -- Decision context (what the agent knew when it decided)
   confidence      REAL NOT NULL,
   reason          TEXT NOT NULL,
@@ -60,7 +64,7 @@ CREATE TABLE IF NOT EXISTS trades (
   rules_applied   TEXT DEFAULT '[]',         -- JSON array of rule IDs consulted
   -- Resolution
   status          TEXT NOT NULL DEFAULT 'open', -- 'open', 'closed', 'expired', 'vetoed'
-  resolved_outcome TEXT,                     -- 'YES', 'NO' (actual result)
+  resolved_outcome TEXT,                     -- 'YES', 'NO', 'TAKE_PROFIT', 'STOP_LOSS'
   pnl             REAL,
   -- Timestamps
   opened_at       TEXT NOT NULL,

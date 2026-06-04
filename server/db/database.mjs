@@ -53,6 +53,24 @@ function migrate() {
 
 migrate();
 
+// ─── Column migrations — add new columns to existing tables safely ────────────
+function migrateColumns() {
+  const alterations = [
+    { table: 'trades', column: 'trade_type',        def: `TEXT DEFAULT 'swing'` },
+    { table: 'trades', column: 'stop_loss_price',   def: `REAL` },
+    { table: 'trades', column: 'take_profit_price', def: `REAL` },
+  ];
+  for (const { table, column, def } of alterations) {
+    try {
+      db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`).run();
+      console.log(`[db] Migration: added ${table}.${column}`);
+    } catch {
+      // Column already exists — ignore
+    }
+  }
+}
+migrateColumns();
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /** Execute a write operation in a transaction */

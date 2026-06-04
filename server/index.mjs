@@ -16,6 +16,8 @@ import { runSkillOpt } from './skills/runSkillOpt.mjs';
 import db from './db/database.mjs';
 import { executeCommand, getCommandHistory } from './command/commandExecutor.mjs';
 import { getOrgState, getStatusSummary } from './command/orgState.mjs';
+import { getTrainingStatus, getDailyPerformance } from './trading/trainingPlan.mjs';
+import { getScalpingCircuitBreaker } from './trading/positionMonitor.mjs';
 
 // In-memory SkillOpt job state (single concurrent job)
 const skilloptJob = { running: false, lastResult: null, startedAt: null, agent: null };
@@ -228,6 +230,19 @@ const server = createServer(async (req, res) => {
     try {
       const risk = getRiskMetrics();
       sendJson(res, 200, { ok: true, risk });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  // ── Training plan — 30-day progress to real money ──
+  if (url.pathname === '/api/trading/training') {
+    try {
+      const training  = getTrainingStatus();
+      const daily     = getDailyPerformance();
+      const circuit   = getScalpingCircuitBreaker();
+      const openScalps = db.prepare(`SELECT COUNT(*) AS cnt FROM trades WHERE status='open' AND trade_type='scalp'`).get()?.cnt ?? 0;
+      const openSwings = db.prepare(`SELECT COUNT(*) AS cnt FROM trades WHERE status='open' AND trade_type='swing'`).get()?.cnt ?? 0;
+      sendJson(res, 200, { ok: true, training, daily, circuit, openScalps, openSwings });
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;
   }

@@ -12,11 +12,11 @@ export function saveTrade(trade) {
     db.prepare(`
       INSERT OR REPLACE INTO trades
         (id, agent_id, market_id, market_source, market_question, market_category,
-         outcome, entry_price, shares, capital_used, confidence, reason, evidence,
+         outcome, entry_price, shares, capital_used, trade_type, confidence, reason, evidence,
          signals_used, lessons_applied, rules_applied, status, opened_at, days_to_close)
       VALUES
         (@id, @agent_id, @market_id, @market_source, @market_question, @market_category,
-         @outcome, @entry_price, @shares, @capital_used, @confidence, @reason, @evidence,
+         @outcome, @entry_price, @shares, @capital_used, @trade_type, @confidence, @reason, @evidence,
          @signals_used, @lessons_applied, @rules_applied, 'open', @opened_at, @days_to_close)
     `).run({
       id,
@@ -29,6 +29,7 @@ export function saveTrade(trade) {
       entry_price:     trade.entryPrice,
       shares:          trade.shares,
       capital_used:    trade.capitalUsed,
+      trade_type:      trade.tradeType ?? 'swing',
       confidence:      trade.confidence,
       reason:          trade.reason,
       evidence:        JSON.stringify(trade.evidence ?? []),
