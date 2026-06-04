@@ -1,4 +1,6 @@
-# Backend + agente 24/7 en Render (gratis con limitaciones).
+# Backend + agente 24/7 en Render (free tier — sin disco persistente).
+# Los datos SQLite sobreviven mientras el proceso vive pero se resetean al redeploy.
+# Para persistencia real: upgrade a paid tier ($7/mes) y añadir el bloque disk:.
 # Conecta el repo en https://dashboard.render.com → New → Blueprint
 
 services:
@@ -19,7 +21,3 @@ services:
         value: 10000
       - key: ANTHROPIC_API_KEY
         sync: false
-    disk:
-      name: genesis-data
-      mountPath: /opt/render/project/src/data
-      sizeGB: 1
