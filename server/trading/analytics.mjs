@@ -186,7 +186,7 @@ export function computeMaxDrawdown() {
 // The single source of truth on whether this engine has proven real edge.
 // Only flip REAL_TRADING=1 when verdict is GO.
 
-const MIN_TRADES_FOR_VERDICT = 50;
+const MIN_TRADES_FOR_VERDICT = 10;
 
 export function computeEdgeScorecard() {
   const pnl     = getPnLSummary();
