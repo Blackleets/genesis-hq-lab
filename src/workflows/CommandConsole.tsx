@@ -12,6 +12,15 @@ import {
 } from '@core/store/genesisStore';
 import type { TaskType } from '@core/types/task';
 import type { RoomId } from '@core/types/office';
+import { agentClient } from '@services/agentClient';
+
+const EXAMPLE_COMMANDS = [
+  'Escanear mercados ahora',
+  'Pausar trading',
+  'Activar modo de riesgo bajo',
+  'Informe de capital',
+  'Aumentar velocidad de análisis',
+];
 
 type ConsoleTask = { title: { es: string; en: string }; type: TaskType; room: RoomId };
 
@@ -109,6 +118,8 @@ export default function CommandConsole() {
   const [executing, setExecuting] = useState(false);
   const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [backendResponse, setBackendResponse] = useState<string | null>(null);
+  const [backendStatus, setBackendStatus] = useState<'success' | 'no-changes' | 'error' | 'offline' | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -141,6 +152,8 @@ export default function CommandConsole() {
     const trimmed = command.trim();
     if (!trimmed || executing) return;
     setExecuting(true);
+    setBackendResponse(null);
+    setBackendStatus(null);
 
     let plan: ConsoleTask[];
     try {
@@ -157,9 +170,28 @@ export default function CommandConsole() {
       }
     } catch {
       plan = localPlan(trimmed);
-    } finally {
-      setExecuting(false);
     }
+
+    // Also send to real backend org-state command system
+    try {
+      const cmdRes = await agentClient.sendCommand(trimmed) as { ok: boolean; result?: string; changes?: Record<string, unknown> } | null;
+      if (cmdRes?.ok) {
+        const hasChanges = cmdRes.changes && Object.keys(cmdRes.changes).length > 0;
+        setBackendResponse(cmdRes.result ?? 'Comando recibido.');
+        setBackendStatus(hasChanges ? 'success' : 'no-changes');
+      } else if (cmdRes === null) {
+        setBackendResponse('Backend offline — el comando se ejecutó solo en la oficina visual');
+        setBackendStatus('offline');
+      } else {
+        setBackendResponse(null);
+        setBackendStatus('error');
+      }
+    } catch {
+      setBackendResponse('Backend offline — el comando se ejecutó solo en la oficina visual');
+      setBackendStatus('offline');
+    }
+
+    setExecuting(false);
 
     // Find agents to assign automatically by capabilities
     const capableAgentIds = agents
@@ -240,6 +272,19 @@ export default function CommandConsole() {
 
           {/* Command input */}
           <div className="shrink-0 border-t border-trim p-3 bg-carbon-200">
+            {/* Example command chips */}
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {EXAMPLE_COMMANDS.map((cmd) => (
+                <button
+                  key={cmd}
+                  type="button"
+                  onClick={() => setCommand(cmd)}
+                  className="font-mono text-[9px] px-2 py-0.5 border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200 rounded-sm transition-colors"
+                >
+                  {cmd}
+                </button>
+              ))}
+            </div>
             <textarea
               ref={textareaRef}
               value={command}
@@ -275,6 +320,24 @@ export default function CommandConsole() {
                   : (lang === 'es' ? 'Ejecutar →' : 'Execute →')}
               </button>
             </div>
+
+            {/* Backend response */}
+            {backendResponse && (
+              <div className="mt-3 border border-zinc-700 rounded-sm">
+                <div className="px-2 py-1 border-b border-zinc-700 font-mono text-[9px] text-zinc-500 uppercase tracking-wider">
+                  Respuesta del sistema
+                </div>
+                <div
+                  className={`px-3 py-2 font-mono text-[11px] leading-relaxed ${
+                    backendStatus === 'success' ? 'text-emerald-400'
+                      : backendStatus === 'no-changes' || backendStatus === 'offline' ? 'text-amber-300'
+                        : 'text-red-400'
+                  }`}
+                >
+                  {backendResponse}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
