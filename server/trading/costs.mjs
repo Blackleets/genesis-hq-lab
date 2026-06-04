@@ -15,6 +15,7 @@ const POLYMARKET_FEE_RATE = 0.02; // 2% of gross winnings
  * @returns {number} slippage fraction, e.g. 0.01 = 1%
  */
 export function computeSlippage(orderSizeUsd, volume24hUsd) {
+  if (orderSizeUsd <= 0) return 0;      // zero-capital order has zero market impact
   if (volume24hUsd <= 0) return 0.02;  // no volume data → assume worst case
   const sizeRatio = orderSizeUsd / volume24hUsd;
   if (sizeRatio < 0.005) return 0.005;  // tiny order: ~0.5%
@@ -53,7 +54,7 @@ export function computePolymarketFee(entryPrice, shares, won) {
 export function netPnl({ capitalUsed, shares, entryPrice, won }) {
   if (!won) return -capitalUsed;
   const grossWinnings = (1 - entryPrice) * shares;
-  const fee = computePolymarketFee(entryPrice, shares, true);
+  const fee = grossWinnings * POLYMARKET_FEE_RATE; // avoid double-compute via computePolymarketFee
   return grossWinnings - fee;
 }
 
