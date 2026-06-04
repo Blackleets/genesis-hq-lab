@@ -20,6 +20,7 @@ import { runTradingCycle, runLearningCycle } from './trading/workflow.mjs';
 import { getTreasury } from './trading/treasury.mjs';
 import { getDashboardMetrics } from './trading/analytics.mjs';
 import { getOrgState, processExpiredSchedules, getRiskSettings, isDeptActive } from './command/orgState.mjs';
+import { runCryptoTradingCycle, manageCryptoPositions } from './crypto/cryptoWorkflow.mjs';
 
 const INTERVAL_MS = 5 * 60 * 1000;  // 5 minutes
 const AGENT_ID = 'market-agent-1';
@@ -182,6 +183,24 @@ if (!ONCE) {
     setInterval(() => { fetch(`${_renderUrl}/api/health`).catch(() => {}); }, 10 * 60 * 1000);
     console.log('[agentRunner] Self-ping active → will keep Render awake every 10 min');
   }
+
+  // Crypto scalping loop — every 1 minute
+  setInterval(async () => {
+    try {
+      await manageCryptoPositions();
+      if (isDeptActive('crypto_scalping')) {
+        const result = await runCryptoTradingCycle();
+        if (result.executed) {
+          console.log(`[cryptoScalper] ✓ Trade | scanned=${result.scanned} qualified=${result.qualified}`);
+        } else if (result.qualified > 0) {
+          console.log(`[cryptoScalper] No trade | scanned=${result.scanned} qualified=${result.qualified} debated=${result.debated}`);
+        }
+      }
+    } catch (err) {
+      console.error('[cryptoScalper] Loop error:', err.message);
+    }
+  }, 60 * 1000);
+  console.log('[agentRunner] Crypto scalping loop active — 1 min interval');
 
   console.log(`\n[agentRunner] Running. Next tick in ${INTERVAL_MS / 60000} min. Ctrl+C to stop.\n`);
 }

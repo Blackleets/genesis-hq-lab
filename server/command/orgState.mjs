@@ -22,6 +22,7 @@ const DEFAULT_STATE = {
     marketing:          true,
     sales:              false,   // not activated yet
     operations:         true,
+    crypto_scalping:    true,
   },
   riskTolerance: 'normal', // conservative | normal | aggressive
   focus: null,             // { topic, dept, reason, since, expiresAt }
