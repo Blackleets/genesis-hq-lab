@@ -1,11 +1,157 @@
 // DecisionsView — decision log + create form + MiroFish AI debate per card.
 
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useT, useLanguage } from '@core/i18n/languageStore';
 import { actions, useDecisions } from '@core/store/genesisStore';
 import type { DecisionRecord } from '@core/store/genesisStore';
 import { runQuickDebate, checkMiroFishHealth } from '@services/miroFishClient';
 import type { DebateResult } from '@services/miroFishClient';
+import { apiUrl } from '@services/apiBase';
+
+// ── Agent Debates ──────────────────────────────────────────────────────────
+
+interface AgentDebate {
+  id: string;
+  event_type: string;
+  topic: string;
+  summary: string;
+  outcome: string;
+  decision_made: string;
+  created_at: string;
+}
+
+interface ParsedDecision {
+  action?: string;
+  confidence?: number;
+  bull_confidence?: number;
+  bear_confidence?: number;
+  winner?: string;
+}
+
+function timeAgo(isoString: string): string {
+  const diffMs = Date.now() - new Date(isoString).getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return `${diffSec}s`;
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h`;
+  return `${Math.floor(diffHr / 24)}d`;
+}
+
+function AgentDebatesPanel() {
+  const [debates, setDebates] = useState<AgentDebate[] | null>(null);
+  const [offline, setOffline] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchDebates() {
+      try {
+        const res = await fetch(apiUrl('/api/trading/debates?limit=10'));
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = (await res.json()) as { ok: boolean; debates: AgentDebate[] };
+        if (!cancelled) {
+          setDebates(data.debates ?? []);
+          setOffline(false);
+        }
+      } catch {
+        if (!cancelled) setOffline(true);
+      }
+    }
+
+    void fetchDebates();
+    const id = setInterval(() => { void fetchDebates(); }, 30_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  return (
+    <section className="gx-card p-4 space-y-3">
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+        </span>
+        <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-emerald-300">
+          Debates del Agente · En vivo
+        </span>
+      </div>
+
+      {/* Offline */}
+      {offline && (
+        <p className="font-mono text-[12px] text-zinc-500">Conectando con el agente...</p>
+      )}
+
+      {/* Loading */}
+      {!offline && debates === null && (
+        <p className="font-mono text-[12px] text-zinc-500">Cargando debates...</p>
+      )}
+
+      {/* Empty */}
+      {!offline && debates !== null && debates.length === 0 && (
+        <p className="font-mono text-[12px] text-zinc-500">
+          Esperando primeros debates — el agente tarda 5 min en el primer ciclo
+        </p>
+      )}
+
+      {/* Debate list */}
+      {!offline && debates !== null && debates.length > 0 && (
+        <ul className="space-y-2">
+          {debates.map((debate) => {
+            let parsed: ParsedDecision = {};
+            try { parsed = JSON.parse(debate.decision_made) as ParsedDecision; } catch { /* ignore */ }
+            const confidence = parsed.confidence !== undefined
+              ? Math.round(parsed.confidence * 100)
+              : null;
+            const winner = parsed.winner ?? null;
+            const isTrade = debate.outcome === 'TRADE';
+
+            return (
+              <li key={debate.id} className="gx-tile px-3 py-2 flex flex-col gap-1">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="font-mono text-[11px] text-zinc-200 leading-snug">
+                    {debate.topic.length > 60
+                      ? `${debate.topic.slice(0, 60)}…`
+                      : debate.topic}
+                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {/* Outcome badge */}
+                    <span className={`font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 border ${
+                      isTrade
+                        ? 'border-emerald-400/60 text-emerald-300'
+                        : 'border-zinc-500/60 text-zinc-400'
+                    }`}>
+                      {debate.outcome}
+                    </span>
+                    {/* Time ago */}
+                    <span className="font-mono text-[10px] text-zinc-500">
+                      {timeAgo(debate.created_at)}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 font-mono text-[10px]">
+                  {confidence !== null && (
+                    <span className="text-zinc-400">
+                      Conf. <span className="text-zinc-200">{confidence}%</span>
+                    </span>
+                  )}
+                  {winner && (
+                    <span className={winner === 'bull' ? 'text-emerald-400' : 'text-red-400'}>
+                      {winner === 'bull' ? '▲ Bull' : '▼ Bear'}
+                    </span>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+// ── Founder Decision Card ──────────────────────────────────────────────────
 
 function DecisionCard({ d }: { d: DecisionRecord }) {
   const lang = useLanguage();
@@ -188,6 +334,8 @@ export default function DecisionsView() {
   return (
     <main className="flex-1 min-w-0 min-h-0 overflow-y-auto px-8 py-8 bg-carbon-300">
       <div className="max-w-3xl mx-auto space-y-6">
+        <AgentDebatesPanel />
+
         <header className="flex items-end justify-between flex-wrap gap-3">
           <div>
             <div className="font-mono text-[11px] uppercase tracking-[0.22em] text-zinc-500 mb-1">{t('header.title')}</div>
