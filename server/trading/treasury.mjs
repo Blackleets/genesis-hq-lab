@@ -247,9 +247,24 @@ async function getUnrealizedPnlAsync() {
     const result = prices[i];
     if (result.status !== 'fulfilled' || !result.value) continue;
     const { yesPrice, noPrice } = result.value;
-    const currentPrice = trade.outcome === 'YES' ? yesPrice : noPrice;
-    if (currentPrice == null || isNaN(currentPrice)) continue;
-    total += (currentPrice - trade.entry_price) * trade.shares;
+    let unrealized;
+    if (trade.outcome === 'LONG') {
+      // Crypto LONG: profit when price rises
+      const currentPrice = yesPrice ?? noPrice;
+      if (currentPrice == null || isNaN(currentPrice)) continue;
+      unrealized = (currentPrice - trade.entry_price) * trade.shares;
+    } else if (trade.outcome === 'SHORT') {
+      // Crypto SHORT: profit when price falls
+      const currentPrice = yesPrice ?? noPrice;
+      if (currentPrice == null || isNaN(currentPrice)) continue;
+      unrealized = (trade.entry_price - currentPrice) * trade.shares;
+    } else {
+      // Prediction market YES/NO
+      const currentPrice = trade.outcome === 'YES' ? yesPrice : noPrice;
+      if (currentPrice == null || isNaN(currentPrice)) continue;
+      unrealized = (currentPrice - trade.entry_price) * trade.shares;
+    }
+    total += unrealized;
   }
   return Math.round(total * 100) / 100;  // round to cents
 }

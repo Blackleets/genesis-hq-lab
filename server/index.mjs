@@ -269,8 +269,15 @@ const server = createServer(async (req, res) => {
 
   if (url.pathname === '/api/trading/dashboard') {
     try {
-      const metrics = getDashboardMetrics();
-      sendJson(res, 200, { ok: true, ...metrics });
+      const [metrics, liveTreasury] = await Promise.all([
+        Promise.resolve(getDashboardMetrics()),
+        getTreasuryAsync(),
+      ]);
+      sendJson(res, 200, { ok: true, ...metrics, treasury: {
+        ...metrics.treasury,
+        unrealizedPnl: liveTreasury.unrealizedPnl,
+        netWorth: liveTreasury.netWorth,
+      }});
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;
   }

@@ -54,17 +54,25 @@ function CapitalBar({ dashboard }: { dashboard: NonNullable<ReturnType<typeof us
         <span className="gx-overline">
           Tesorería virtual
         </span>
-        <span className={`font-mono text-[10px] font-semibold ${p.totalPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-          {usd(p.totalPnl)} PnL
-        </span>
+        <div className="flex items-center gap-2">
+          {t.unrealizedPnl !== 0 && (
+            <span className={`font-mono text-[10px] ${t.unrealizedPnl >= 0 ? 'text-emerald-400/70' : 'text-red-400/70'}`}>
+              {usd(t.unrealizedPnl)} abierto
+            </span>
+          )}
+          <span className={`font-mono text-[10px] font-semibold ${p.totalPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            {usd(p.totalPnl)} cerrado
+          </span>
+        </div>
       </div>
 
       {/* Capital numbers */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
-          { label: 'Total', val: `$${t.total.toLocaleString()}`, col: 'text-zinc-100' },
+          { label: 'Capital', val: `$${t.total.toLocaleString()}`, col: 'text-zinc-100' },
           { label: 'Disponible', val: `$${t.available.toLocaleString()}`, col: 'text-emerald-400' },
           { label: 'En trades', val: `$${t.inTrades.toLocaleString()}`, col: 'text-amber-400' },
+          { label: 'PnL abierto', val: usd(t.unrealizedPnl ?? 0), col: (t.unrealizedPnl ?? 0) >= 0 ? 'text-emerald-300' : 'text-red-400' },
         ].map(({ label, val, col }) => (
           <div key={label}>
             <div className="font-mono text-[8px] text-zinc-600 uppercase tracking-wider">{label}</div>

@@ -219,5 +219,16 @@ export async function fetchCurrentPrice(source, marketId) {
       };
     } catch { return null; }
   }
+  if (source === 'binance') {
+    try {
+      const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${marketId}`, {
+        signal: AbortSignal.timeout(3000),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      const price = parseFloat(data.price);
+      return { yesPrice: price, noPrice: price };
+    } catch { return null; }
+  }
   return null;
 }
