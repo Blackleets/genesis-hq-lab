@@ -1,4 +1,4 @@
-// workflow.mjs — the complete 5-step paper trading pipeline.
+// workflow.mjs — the complete 5-step trading pipeline.
 // SCAN → QUALIFY → DEBATE → SIZE → EXECUTE
 // Every step can abort the trade. Every abort is logged with reason.
 // This replaces the old analyzeMarkets() in decisionEngine.
@@ -9,7 +9,7 @@ import { kellySize, reserveCapital } from './treasury.mjs';
 import { preTradeCheck, recordTradeDecision } from './riskManager.mjs';
 import { checkVeto, logVeto } from '../memory/mistakePrevention.mjs';
 import { getDecisionContext } from '../memory/learningEngine.mjs';
-import { saveTrade } from '../memory/tradingMemory.mjs';
+import { executeTrade } from './execution.mjs';
 import { updateAfterTrade } from '../memory/agentScoring.mjs';
 import { analyzeClosedTrade } from '../memory/learningEngine.mjs';
 import { closeTrade } from '../memory/tradingMemory.mjs';
@@ -31,10 +31,10 @@ async function stepScan() {
 function stepQualify(markets) {
   const qualified = markets.filter(m =>
     m.volumeTotal >= 5000 &&
-    m.volume24h   >= 200  &&
-    m.yesPrice    >= 0.08 &&
-    m.yesPrice    <= 0.92 &&
-    m.daysToClose >= 1    &&
+    m.volume24h >= 200 &&
+    m.yesPrice >= 0.08 &&
+    m.yesPrice <= 0.92 &&
+    m.daysToClose >= 1 &&
     m.daysToClose <= 45
   );
   console.log(`[workflow] QUALIFY: ${qualified.length}/${markets.length} pass filters`);
@@ -45,23 +45,23 @@ function stepQualify(markets) {
 
 function stepVetoCheck(market) {
   const proposal = {
-    marketId:       market.id,
-    marketSource:   market.source,
+    marketId: market.id,
+    marketSource: market.source,
     marketQuestion: market.question,
     marketCategory: market.category ?? 'general',
-    outcome:        market.yesPrice >= 0.5 ? 'YES' : 'NO',
-    yesPrice:       market.yesPrice,
-    noPrice:        market.noPrice,
-    volumeTotal:    market.volumeTotal,
-    daysToClose:    market.daysToClose,
-    confidence:     0.65,  // placeholder for veto check
-    entryPrice:     market.yesPrice >= 0.5 ? market.yesPrice : market.noPrice,
-    agentId:        'market-agent-1',
+    outcome: market.yesPrice >= 0.5 ? 'YES' : 'NO',
+    yesPrice: market.yesPrice,
+    noPrice: market.noPrice,
+    volumeTotal: market.volumeTotal,
+    daysToClose: market.daysToClose,
+    confidence: 0.65,  // placeholder for veto check
+    entryPrice: market.yesPrice >= 0.5 ? market.yesPrice : market.noPrice,
+    agentId: 'market-agent-1',
   };
 
   const veto = checkVeto(proposal);
   if (veto.vetoed) {
-    console.log(`[workflow] VETO: ${market.question?.slice(0,40)} — ${veto.summary}`);
+    console.log(`[workflow] VETO: ${market.question?.slice(0, 40)} — ${veto.summary}`);
     logVeto(proposal, veto);
   }
   return { market, proposal, veto };
@@ -83,11 +83,11 @@ async function stepDebate(market) {
 
   const result = await runDebate(market, ctx.lessons, ctx.rules, signals);
 
-  console.log(`[workflow] DEBATE: ${result.action} (${market.question?.slice(0,40)})`);
+  console.log(`[workflow] DEBATE: ${result.action} (${market.question?.slice(0, 40)})`);
   if (result.action === 'SKIP') {
     console.log(`[workflow]   Skip: ${result.skipReason}`);
   } else {
-    console.log(`[workflow]   Bet: ${result.outcome} @ ${(result.confidence*100).toFixed(0)}% conf`);
+    console.log(`[workflow]   Bet: ${result.outcome} @ ${(result.confidence * 100).toFixed(0)}% conf`);
     if (result.bull?.evidence) console.log(`[workflow]   Bull: ${result.bull.evidence.join(', ')}`);
   }
 
@@ -96,9 +96,9 @@ async function stepDebate(market) {
 
 // ─── STEP 5 — SIZE + EXECUTE ──────────────────────────────────────────────────
 
-function stepExecute(market, debateResult) {
-  const intendedPrice  = debateResult.outcome === 'YES' ? market.yesPrice : market.noPrice;
-  const kellySizing    = kellySize(debateResult.confidence, intendedPrice);
+async function stepExecute(market, debateResult) {
+  const intendedPrice = debateResult.outcome === 'YES' ? market.yesPrice : market.noPrice;
+  const kellySizing = kellySize(debateResult.confidence, intendedPrice);
 
   if (kellySizing.skip) {
     console.log(`[workflow] SIZE: skip — ${kellySizing.reason}`);
@@ -106,19 +106,19 @@ function stepExecute(market, debateResult) {
   }
 
   const proposal = {
-    marketId:       market.id,
-    marketSource:   market.source,
+    marketId: market.id,
+    marketSource: market.source,
     marketQuestion: market.question,
     marketCategory: market.category ?? 'general',
-    outcome:        debateResult.outcome,
-    yesPrice:       market.yesPrice,
-    noPrice:        market.noPrice,
-    volumeTotal:    market.volumeTotal,
-    daysToClose:    market.daysToClose,
-    confidence:     debateResult.confidence,
-    entryPrice:     intendedPrice,
-    capitalUsed:    kellySizing.dollarSize,
-    agentId:        'market-agent-1',
+    outcome: debateResult.outcome,
+    yesPrice: market.yesPrice,
+    noPrice: market.noPrice,
+    volumeTotal: market.volumeTotal,
+    daysToClose: market.daysToClose,
+    confidence: debateResult.confidence,
+    entryPrice: intendedPrice,
+    capitalUsed: kellySizing.dollarSize,
+    agentId: 'market-agent-1',
   };
 
   // Full risk check
@@ -135,42 +135,51 @@ function stepExecute(market, debateResult) {
     return { executed: false, reason: reservation.reason };
   }
 
-  // Save the paper trade
-  const tradeId = saveTrade({
-    agentId:        'market-agent-1',
-    marketId:       market.id,
-    marketSource:   market.source,
+  const execution = await executeTrade({
+    agentId: 'market-agent-1',
+    marketId: market.id,
+    marketSource: market.source,
     marketQuestion: market.question,
     marketCategory: market.category ?? 'general',
-    outcome:        debateResult.outcome,
-    entryPrice:     intendedPrice,
-    shares:         kellySizing.shares,
-    capitalUsed:    kellySizing.dollarSize,
-    confidence:     debateResult.confidence,
-    reason:         debateResult.arbiterSummary,
-    evidence:       [
+    outcome: debateResult.outcome,
+    entryPrice: intendedPrice,
+    shares: kellySizing.shares,
+    capitalUsed: kellySizing.dollarSize,
+    confidence: debateResult.confidence,
+    volume24hUsd: market.volume24h ?? 0,
+    reason: debateResult.arbiterSummary,
+    evidence: [
       ...(debateResult.bull?.evidence ?? []),
-      `Kelly fraction: ${(kellySizing.fraction*100).toFixed(1)}%`,
+      `Kelly fraction: ${(kellySizing.fraction * 100).toFixed(1)}%`,
       `Risk score: ${riskCheck.riskScore}/100`,
     ],
-    openedAt:       new Date().toISOString(),
-    daysToClose:    market.daysToClose,
+    openedAt: new Date().toISOString(),
+    daysToClose: market.daysToClose,
   });
+
+  if (!execution.executed) {
+    console.log(`[workflow] EXECUTION FAILED: ${execution.reason}`);
+    return { executed: false, reason: execution.reason, riskCheck };
+  }
 
   if (riskCheck.warnings.length > 0) {
     console.log(`[workflow] WARNINGS: ${riskCheck.warnings.join(' | ')}`);
   }
 
-  console.log(`[workflow] EXECUTED: ${debateResult.outcome} on ${market.source}:${market.id}`);
-  console.log(`[workflow]   $${kellySizing.dollarSize.toFixed(2)} | Kelly: ${(kellySizing.fraction*100).toFixed(1)}% | Risk: ${riskCheck.riskScore}/100`);
+  console.log(`[workflow] EXECUTED (${execution.mode}): ${debateResult.outcome} on ${market.source}:${market.id}`);
+  if (execution.fallback) {
+    console.log('[workflow]   Real execution failed; recorded fallback paper trade.');
+  }
+  console.log(`[workflow]   $${kellySizing.dollarSize.toFixed(2)} | Kelly: ${(kellySizing.fraction * 100).toFixed(1)}% | Risk: ${riskCheck.riskScore}/100`);
 
   return {
-    executed:   true,
-    tradeId,
+    executed: true,
+    tradeId: execution.tradeId,
     market,
     debateResult,
     kellySizing,
     riskCheck,
+    executionMode: execution.mode,
   };
 }
 
@@ -201,7 +210,7 @@ export async function runTradingCycle() {
     if (debateResult.action !== 'TRADE') continue;
 
     // 5. Size + Execute
-    const execution = stepExecute(market, debateResult);
+    const execution = await stepExecute(market, debateResult);
     if (execution.executed) {
       results.executed++;
       results.tradeId = execution.tradeId;
@@ -243,7 +252,7 @@ export async function runLearningCycle() {
     const lesson = await analyzeClosedTrade(closedTrade);
     if (lesson) learned++;
 
-    console.log(`[workflow] CLOSED: ${trade.market_question?.slice(0,40)} | PnL: $${(closedTrade.pnl ?? 0).toFixed(2)}`);
+    console.log(`[workflow] CLOSED: ${trade.market_question?.slice(0, 40)} | PnL: $${(closedTrade.pnl ?? 0).toFixed(2)}`);
 
     await new Promise(r => setTimeout(r, 300)); // rate limit Claude calls
   }
