@@ -1,6 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useLanguage } from '@core/i18n/languageStore';
 import { useActiveAgents, useEvents, useTasks } from '@core/store/genesisStore';
+import { apiUrl } from '@services/apiBase';
+import type { HealthStatus } from '@services/agentClient';
 
 const DIVISION_COLOR = '#3da9fc';
 
@@ -22,6 +24,91 @@ function StatusBadge({ status, lang }: { status: string; lang: string }) {
       style={{ color: c.color, borderColor: `${c.color}44` }}>
       {c.label[lang as 'es' | 'en']}
     </span>
+  );
+}
+
+function TradingEngineStatus({ lang }: { lang: string }) {
+  const [health, setHealth] = useState<HealthStatus | null>(null);
+
+  useEffect(() => {
+    const fetchHealth = async () => {
+      try {
+        const res = await fetch(apiUrl('/api/health'));
+        if (res.ok) {
+          const data = await res.json();
+          setHealth(data);
+        }
+      } catch {
+        // fail silently
+      }
+    };
+
+    fetchHealth();
+    const interval = setInterval(fetchHealth, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (!health) {
+    return null;
+  }
+
+  const capital = health.agent?.capital ?? 0;
+  const openTrades = health.agent?.openTrades ?? 0;
+  const totalCycles = health.agent?.totalCycles ?? 0;
+  const claudeEnabled = health.agent?.claudeEnabled ?? false;
+  const lastTickAt = health.agent?.lastTickAt ? new Date(health.agent.lastTickAt) : null;
+  const now = health.now ? new Date(health.now) : new Date();
+
+  let timeSinceLastTick = '—';
+  if (lastTickAt) {
+    const diffMs = now.getTime() - lastTickAt.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    timeSinceLastTick = diffMins > 0 ? `${diffMins}m ago` : 'just now';
+  }
+
+  const capitalFormatted = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+  }).format(capital);
+
+  return (
+    <div className="gx-card">
+      <header className="px-4 py-3 border-b border-trim flex items-center gap-2">
+        <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+        <span className="font-mono text-[11px] uppercase tracking-wider text-emerald-400 font-bold">
+          {lang === 'es' ? 'Motor de Trading · En Vivo' : 'Trading Engine · Live'}
+        </span>
+      </header>
+      <div className="px-4 py-4 space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <div className="gx-overline">{lang === 'es' ? 'Capital disponible' : 'Available capital'}</div>
+            <div className="font-mono text-[16px] font-bold text-emerald-400 mt-1">{capitalFormatted}</div>
+          </div>
+          <div>
+            <div className="gx-overline">{lang === 'es' ? 'Trades abiertos' : 'Open trades'}</div>
+            <div className="font-mono text-[16px] font-bold text-amber-400 mt-1">{openTrades}</div>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <div className="gx-overline">{lang === 'es' ? 'Ciclos completados' : 'Completed cycles'}</div>
+            <div className="font-mono text-[16px] font-bold text-cyan-400 mt-1">{totalCycles}</div>
+          </div>
+          <div>
+            <div className="gx-overline">{lang === 'es' ? 'Claude activo' : 'Claude active'}</div>
+            <div className="font-mono text-[16px] font-bold mt-1" style={{ color: claudeEnabled ? '#00ff9c' : '#ff4757' }}>
+              {claudeEnabled ? '✓' : '✗'}
+            </div>
+          </div>
+        </div>
+        <div>
+          <div className="gx-overline">{lang === 'es' ? 'Último tick' : 'Last tick'}</div>
+          <div className="font-mono text-[13px] text-zinc-300 mt-1">{timeSinceLastTick}</div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -85,6 +172,9 @@ export default function TechView() {
               : 'Sprint board, code review, QA, and deployments. Engineering agents keep the system running.'}
           </p>
         </header>
+
+        {/* Trading Engine Status */}
+        <TradingEngineStatus lang={lang} />
 
         {!hasDivision && (
           <div className="border border-blue-400/40 bg-blue-500/5 px-5 py-4 font-mono">

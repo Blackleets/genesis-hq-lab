@@ -129,7 +129,14 @@ export interface HealthStatus {
   ok: boolean;
   service?: string;
   now?: string;
-  agent?: { capital: number; isPaused: boolean; openTrades: number };
+  agent?: {
+    capital: number;
+    isPaused: boolean;
+    openTrades: number;
+    lastTickAt?: string;
+    totalCycles?: number;
+    claudeEnabled?: boolean;
+  };
 }
 
 export interface EdgeScorecardCheck {
