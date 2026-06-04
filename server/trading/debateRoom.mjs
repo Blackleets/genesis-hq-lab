@@ -1,6 +1,6 @@
 // debateRoom.mjs — structured multi-agent debate before any trade.
 // Bull agent vs Bear agent, arbitrated by a third voice.
-// All 3 voices generated in ONE Claude Sonnet call (~$0.003).
+// All 3 voices generated in ONE Claude call (Haiku primary, reliable + cheap).
 // Prevents impulsive decisions. Forces thesis articulation.
 
 import db, { tx } from '../db/database.mjs';
@@ -104,8 +104,8 @@ Generate the full debate and decision. Respond with:
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1000,
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 800,
         system: resolveSystemPrompt('polymarket_agent'),
         messages: [{ role: 'user', content: userPrompt }],
       }),
@@ -130,8 +130,11 @@ Generate the full debate and decision. Respond with:
     return result;
 
   } catch (err) {
-    console.warn(`[debateRoom] Error for "${market.question?.slice(0,40)}":`, err.message);
-    return fallbackDebate(market);
+    console.warn(`[debateRoom] Claude failed for "${market.question?.slice(0,40)}": ${err.message} — using rule-based fallback`);
+    const fallback = fallbackDebate(market, contextSignals);
+    // Persist fallback debates too so team_memory has a full record
+    try { await saveDebate(market, { bull: fallback.bull, bear: fallback.bear, arbiter: { summary: fallback.arbiterSummary, action: fallback.action, final_outcome_bet: fallback.outcome, final_confidence: fallback.confidence } }, fallback); } catch { /* best-effort */ }
+    return fallback;
   }
 }
 

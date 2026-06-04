@@ -13,8 +13,9 @@ import { getDecisionContext } from '../memory/learningEngine.mjs';
 export { manageCryptoPositions };
 
 function qualifyAssets(assets) {
+  // Lowered from 0.3% → 0.1% — captures real moves without being too restrictive
   return assets.filter(a =>
-    Math.abs(a.change1h) >= 0.3 &&
+    Math.abs(a.change1h) >= 0.1 &&
     a.volume24h >= 1_000_000
   );
 }
@@ -24,10 +25,18 @@ export async function runCryptoTradingCycle() {
 
   const assets = await getAssetContexts();
   results.scanned = assets.length;
-  if (assets.length === 0) return results;
+  if (assets.length === 0) {
+    console.log('[cryptoWorkflow] No assets from Binance');
+    return results;
+  }
 
   const qualified = qualifyAssets(assets);
   results.qualified = qualified.length;
+  if (qualified.length === 0) {
+    // Log what we saw so we can diagnose further
+    const summary = assets.map(a => `${a.symbol}:${a.change1h > 0 ? '+' : ''}${a.change1h}%`).join(' ');
+    console.log(`[cryptoWorkflow] No qualified assets — moves: ${summary}`);
+  }
   if (qualified.length === 0) return results;
 
   const ctx = getDecisionContext('crypto', 0, 1);
