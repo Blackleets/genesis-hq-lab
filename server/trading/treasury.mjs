@@ -1,6 +1,5 @@
-// treasury.mjs — virtual capital management for Genesis HQ paper trading.
+// treasury.mjs — virtual capital management for Genesis HQ trading.
 // Tracks every dollar, enforces drawdown limits, allocates gains per Constitution Rule #6.
-// NO real money ever touches this system.
 
 import db, { tx } from '../db/database.mjs';
 import { nanoid } from '../utils.mjs';
@@ -8,18 +7,18 @@ import { fetchCurrentPrice } from '../marketScanner.mjs';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STARTING_CAPITAL   = 10_000;
+const STARTING_CAPITAL = 10_000;
 const DRAWDOWN_PAUSE_PCT = 0.15;    // pause if portfolio drops 15% from peak
-const MAX_POSITION_PCT   = 0.05;    // never more than 5% per trade (constitution)
-const MIN_TRADE_USD      = 0.50;    // don't bother with tiny trades
+const MAX_POSITION_PCT = 0.05;    // never more than 5% per trade (constitution)
+const MIN_TRADE_USD = 0.50;    // don't bother with tiny trades
 
 // Reinvestment split (Constitution Rule #6)
 const REINVESTMENT = {
-  reserve:      0.40,
+  reserve: 0.40,
   agentUpgrade: 0.25,
-  experiments:  0.15,
-  expansion:    0.10,
-  liquidity:    0.10,
+  experiments: 0.15,
+  expansion: 0.10,
+  liquidity: 0.10,
 };
 
 // ─── Ensure treasury table has initial record ─────────────────────────────────
@@ -52,20 +51,20 @@ export function getTreasury() {
     : 0;
 
   return {
-    total:         row.total,
-    available:     row.available,
-    inTrades:      row.in_trades,
+    total: row.total,
+    available: row.available,
+    inTrades: row.in_trades,
     unrealizedPnl: openPnl,
-    netWorth:      row.total + openPnl,
+    netWorth: row.total + openPnl,
     peakCapital,
-    drawdownPct:   Math.max(0, drawdownPct),
-    isPaused:      drawdownPct >= DRAWDOWN_PAUSE_PCT,
+    drawdownPct: Math.max(0, drawdownPct),
+    isPaused: drawdownPct >= DRAWDOWN_PAUSE_PCT,
     buckets: {
-      reserve:      row.bucket_reserve,
+      reserve: row.bucket_reserve,
       agentUpgrade: row.bucket_upgrade,
-      experiments:  row.bucket_exp,
-      expansion:    row.bucket_expand,
-      liquidity:    row.bucket_liquid,
+      experiments: row.bucket_exp,
+      expansion: row.bucket_expand,
+      liquidity: row.bucket_liquid,
     },
     startingCapital: STARTING_CAPITAL,
     totalReturn: (row.total - STARTING_CAPITAL) / STARTING_CAPITAL,
@@ -85,20 +84,20 @@ export async function getTreasuryAsync() {
     : 0;
 
   return {
-    total:         row.total,
-    available:     row.available,
-    inTrades:      row.in_trades,
+    total: row.total,
+    available: row.available,
+    inTrades: row.in_trades,
     unrealizedPnl: openPnl,
-    netWorth:      row.total + openPnl,
+    netWorth: row.total + openPnl,
     peakCapital,
-    drawdownPct:   Math.max(0, drawdownPct),
-    isPaused:      drawdownPct >= DRAWDOWN_PAUSE_PCT,
+    drawdownPct: Math.max(0, drawdownPct),
+    isPaused: drawdownPct >= DRAWDOWN_PAUSE_PCT,
     buckets: {
-      reserve:      row.bucket_reserve,
+      reserve: row.bucket_reserve,
       agentUpgrade: row.bucket_upgrade,
-      experiments:  row.bucket_exp,
-      expansion:    row.bucket_expand,
-      liquidity:    row.bucket_liquid,
+      experiments: row.bucket_exp,
+      expansion: row.bucket_expand,
+      liquidity: row.bucket_liquid,
     },
     startingCapital: STARTING_CAPITAL,
     totalReturn: (row.total - STARTING_CAPITAL) / STARTING_CAPITAL,
@@ -111,7 +110,7 @@ export function reserveCapital(amount) {
   const treasury = getTreasury();
 
   if (treasury.isPaused) {
-    return { ok: false, reason: `Trading paused — drawdown at ${(treasury.drawdownPct*100).toFixed(1)}% (limit: ${DRAWDOWN_PAUSE_PCT*100}%)` };
+    return { ok: false, reason: `Trading paused — drawdown at ${(treasury.drawdownPct * 100).toFixed(1)}% (limit: ${DRAWDOWN_PAUSE_PCT * 100}%)` };
   }
   if (amount < MIN_TRADE_USD) {
     return { ok: false, reason: `Trade too small ($${amount.toFixed(2)} < $${MIN_TRADE_USD} minimum)` };
@@ -120,7 +119,7 @@ export function reserveCapital(amount) {
     return { ok: false, reason: `Insufficient capital: need $${amount.toFixed(2)}, have $${treasury.available.toFixed(2)}` };
   }
   if (amount > treasury.total * MAX_POSITION_PCT) {
-    return { ok: false, reason: `Position too large: $${amount.toFixed(2)} exceeds ${MAX_POSITION_PCT*100}% max ($${(treasury.total * MAX_POSITION_PCT).toFixed(2)})` };
+    return { ok: false, reason: `Position too large: $${amount.toFixed(2)} exceeds ${MAX_POSITION_PCT * 100}% max ($${(treasury.total * MAX_POSITION_PCT).toFixed(2)})` };
   }
 
   tx(() => {
@@ -165,11 +164,11 @@ export function settleTradeCapital(capitalUsed, pnl) {
       returned,                          // available gets back capitalUsed + pnl
       capitalUsed,                       // inTrades reduces by what was allocated
       // Reinvestment buckets (only for gains)
-      pnl > 0 ? pnl * REINVESTMENT.reserve      : 0,
+      pnl > 0 ? pnl * REINVESTMENT.reserve : 0,
       pnl > 0 ? pnl * REINVESTMENT.agentUpgrade : 0,
-      pnl > 0 ? pnl * REINVESTMENT.experiments  : 0,
-      pnl > 0 ? pnl * REINVESTMENT.expansion    : 0,
-      pnl > 0 ? pnl * REINVESTMENT.liquidity    : 0,
+      pnl > 0 ? pnl * REINVESTMENT.experiments : 0,
+      pnl > 0 ? pnl * REINVESTMENT.expansion : 0,
+      pnl > 0 ? pnl * REINVESTMENT.liquidity : 0,
       pnl,
     );
   });
@@ -178,38 +177,41 @@ export function settleTradeCapital(capitalUsed, pnl) {
 // ─── Kelly fraction calculator ────────────────────────────────────────────────
 // Returns recommended position size in dollars (half-Kelly, capped at 5%)
 
-export function kellySize(confidence, marketPrice) {
-  const treasury = getTreasury();
-
-  // Kelly formula: f = (bp - q) / b
-  // b = odds (what you win per dollar risked)
-  // p = our estimated probability of winning
-  // q = 1 - p
-  const b = (1 / marketPrice) - 1;   // implied payout odds
+/**
+ * Pure Kelly sizing calculation — no DB dependency, fully testable.
+ * @param {number} confidence  — our estimated win probability (0..1)
+ * @param {number} marketPrice — price of the outcome we're buying (0..1)
+ * @param {number} available   — available capital in dollars
+ * @param {number} total       — total portfolio value in dollars
+ */
+export function kellySizeCalc(confidence, marketPrice, available, total) {
+  const b = (1 / marketPrice) - 1;  // payout odds
   const p = confidence;
   const q = 1 - p;
 
   const fullKelly = b > 0 ? (b * p - q) / b : 0;
-
-  // Half-Kelly for safety (hedge fund standard)
   const halfKelly = fullKelly / 2;
 
-  // Cap at constitution max (5%) and floor at 0
   const fraction = Math.max(0, Math.min(MAX_POSITION_PCT, halfKelly));
+  const dollarSize = available * fraction;
 
-  const dollarSize = treasury.available * fraction;
-
-  // Minimum viable size
-  if (dollarSize < MIN_TRADE_USD) return { fraction: 0, dollarSize: 0, skip: true, reason: 'Kelly recommends position too small' };
+  if (dollarSize < MIN_TRADE_USD) {
+    return { fraction: 0, dollarSize: 0, shares: 0, fullKelly, halfKelly, skip: true, reason: 'Kelly recommends position too small' };
+  }
 
   return {
     fraction,
-    dollarSize: Math.floor(dollarSize * 100) / 100,  // floor to cents
+    dollarSize: Math.floor(dollarSize * 100) / 100,
     shares: Math.floor(dollarSize / marketPrice),
     fullKelly,
     halfKelly,
     skip: false,
   };
+}
+
+export function kellySize(confidence, marketPrice) {
+  const treasury = getTreasury();
+  return kellySizeCalc(confidence, marketPrice, treasury.available, treasury.total);
 }
 
 // ─── Unrealized P&L from open trades ─────────────────────────────────────────
@@ -282,20 +284,20 @@ export function getPnLSummary() {
 
   return {
     closed: {
-      total:     closed?.total ?? 0,
-      wins:      closed?.wins  ?? 0,
-      losses:    closed?.losses ?? 0,
-      winRate:   closed?.total > 0 ? closed.wins / closed.total : 0,
-      totalPnl:  closed?.total_pnl ?? 0,
+      total: closed?.total ?? 0,
+      wins: closed?.wins ?? 0,
+      losses: closed?.losses ?? 0,
+      winRate: closed?.total > 0 ? closed.wins / closed.total : 0,
+      totalPnl: closed?.total_pnl ?? 0,
       bestTrade: closed?.best_trade ?? 0,
-      worstTrade:closed?.worst_trade ?? 0,
-      avgPnl:    closed?.avg_pnl ?? 0,
+      worstTrade: closed?.worst_trade ?? 0,
+      avgPnl: closed?.avg_pnl ?? 0,
       totalRisked: closed?.total_risked ?? 0,
-      roi:       closed?.total_risked > 0 ? (closed.total_pnl / closed.total_risked) : 0,
+      roi: closed?.total_risked > 0 ? (closed.total_pnl / closed.total_risked) : 0,
     },
     open: {
-      count:   open?.cnt ?? 0,
-      atRisk:  open?.at_risk ?? 0,
+      count: open?.cnt ?? 0,
+      atRisk: open?.at_risk ?? 0,
     },
   };
 }
