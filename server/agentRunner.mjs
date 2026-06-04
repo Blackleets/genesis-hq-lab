@@ -128,7 +128,27 @@ async function summarize(startMs) {
   } catch {
     console.log(`[agentRunner] Tick done in ${elapsed}s`);
   }
+
+  // Write heartbeat so /api/health can confirm agent is ticking
+  try {
+    const { writeFile } = await import('node:fs/promises');
+    const { join, dirname } = await import('node:path');
+    const { fileURLToPath } = await import('node:url');
+    const __dir = dirname(fileURLToPath(import.meta.url));
+    await writeFile(
+      join(__dir, '..', 'data', 'memory', 'agent_heartbeat.json'),
+      JSON.stringify({
+        lastTickAt: new Date().toISOString(),
+        totalCycles: ++_tickCount,
+        claudeEnabled: !!process.env.ANTHROPIC_API_KEY,
+      }),
+      'utf8'
+    );
+  } catch { /* never block the agent loop */ }
 }
+
+// ─── Heartbeat counter ───────────────────────────────────────────────────────
+let _tickCount = 0;
 
 // ─── Main loop ────────────────────────────────────────────────────────────────
 
@@ -155,6 +175,13 @@ if (!ONCE) {
   // Marketing agent every 6 hours
   setInterval(marketingTick, 6 * 60 * 60 * 1000);
   setTimeout(marketingTick, 10000); // initial run after 10s
+
+  // Keep Render dyno awake — ping the public URL every 10 min to prevent sleep
+  const _renderUrl = process.env.RENDER_EXTERNAL_URL;
+  if (_renderUrl) {
+    setInterval(() => { fetch(`${_renderUrl}/api/health`).catch(() => {}); }, 10 * 60 * 1000);
+    console.log('[agentRunner] Self-ping active → will keep Render awake every 10 min');
+  }
 
   console.log(`\n[agentRunner] Running. Next tick in ${INTERVAL_MS / 60000} min. Ctrl+C to stop.\n`);
 }

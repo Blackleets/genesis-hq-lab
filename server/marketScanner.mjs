@@ -115,7 +115,7 @@ function filterMarkets(markets) {
     .filter(m => m.yesPrice   >= 0.05)       // avoid near-certain markets (low edge)
     .filter(m => m.yesPrice   <= 0.95)
     .sort((a, b) => b.volume24h - a.volume24h)
-    .slice(0, 20);                           // top 20 by daily volume
+    .slice(0, 30);                           // top 30 by daily volume
 }
 
 // ─── Scoring (helps decisionEngine focus) ────────────────────────────────────
@@ -132,7 +132,7 @@ function scoreMarket(m) {
 
 export async function scanMarkets() {
   const [polymarkets, kalshiMarkets] = await Promise.all([
-    fetchPolymarket(20),
+    fetchPolymarket(50),
     fetchKalshi(15),
   ]);
 

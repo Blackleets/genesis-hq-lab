@@ -499,6 +499,16 @@ const server = createServer(async (req, res) => {
     try {
       const treasury = getTreasury();
       const openTrades = getRecentTrades(500).filter((t) => t.status === 'open').length;
+      let heartbeat = null;
+      try {
+        const { readFile } = await import('node:fs/promises');
+        const { join, dirname } = await import('node:path');
+        const { fileURLToPath } = await import('node:url');
+        const __hdir = dirname(fileURLToPath(import.meta.url));
+        heartbeat = JSON.parse(
+          await readFile(join(__hdir, '..', 'data', 'memory', 'agent_heartbeat.json'), 'utf8')
+        );
+      } catch { /* heartbeat not written yet — first boot */ }
       sendJson(res, 200, {
         ok: true,
         service: 'genesis-hq-lab-backend',
@@ -507,6 +517,9 @@ const server = createServer(async (req, res) => {
           capital: treasury.total,
           isPaused: treasury.isPaused ?? false,
           openTrades,
+          lastTickAt: heartbeat?.lastTickAt ?? null,
+          totalCycles: heartbeat?.totalCycles ?? 0,
+          claudeEnabled: heartbeat?.claudeEnabled ?? false,
         },
       });
     } catch {

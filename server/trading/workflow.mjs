@@ -199,7 +199,7 @@ export async function runTradingCycle() {
   if (qualified.length === 0) return results;
 
   // Try markets in order until one executes or we run out
-  for (const market of qualified.slice(0, 5)) {
+  for (const market of qualified.slice(0, 10)) {
     // 3. Veto check (SQLite patterns, no Claude)
     const { veto } = stepVetoCheck(market);
     if (veto.vetoed) { results.vetoed++; continue; }

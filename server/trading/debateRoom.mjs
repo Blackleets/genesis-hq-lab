@@ -1,6 +1,6 @@
 // debateRoom.mjs — structured multi-agent debate before any trade.
 // Bull agent vs Bear agent, arbitrated by a third voice.
-// All 3 voices generated in ONE Claude Haiku call (~$0.0003).
+// All 3 voices generated in ONE Claude Sonnet call (~$0.003).
 // Prevents impulsive decisions. Forces thesis articulation.
 
 import db, { tx } from '../db/database.mjs';
@@ -24,7 +24,9 @@ Rules for the debate:
 - Bear must identify at least 1 specific risk or weakness.
 - Arbiter must reference arguments from both sides before deciding.
 - If Bull confidence < 0.65 OR Bear confidence > 0.55, ARBITER votes SKIP.
-- Confidence = probability the YES outcome wins (not "confidence in the debate").`;
+- Confidence = probability the YES outcome wins (not "confidence in the debate").
+- When genuine edge exists (market price differs from fair probability by >5%), you MUST TRADE. Excessive caution is a losing strategy.
+- SKIP only when: (a) you have no informational edge, (b) both Bull and Bear are genuinely uncertain, or (c) a hard rule is violated.`;
 
 const JSON_DIRECTIVE = `\n\nRespond ONLY with valid JSON. No markdown. No explanation outside the JSON.`;
 
@@ -102,8 +104,8 @@ Generate the full debate and decision. Respond with:
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 700,
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
         system: resolveSystemPrompt('polymarket_agent'),
         messages: [{ role: 'user', content: userPrompt }],
       }),
