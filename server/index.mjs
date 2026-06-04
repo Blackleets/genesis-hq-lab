@@ -3,7 +3,7 @@ import { WebSocketServer } from 'ws';
 import { fetchPolymarketEventsSnapshot, fetchPolymarketHealth } from './polymarket.mjs';
 import { generateClaudePlan } from './claudePlanner.mjs';
 import { getSnapshot, getCapital, getTrades, getLessons, getAgentStats, addHumanOrder } from './memoryStore.mjs';
-import { getDashboardMetrics } from './trading/analytics.mjs';
+import { getDashboardMetrics, computeEdgeScorecard } from './trading/analytics.mjs';
 import { getTreasury, getTreasuryAsync, getCapitalHistory } from './trading/treasury.mjs';
 import { getRiskMetrics } from './trading/riskManager.mjs';
 import { getRecentDebates } from './trading/debateRoom.mjs';
@@ -16,6 +16,15 @@ import { runSkillOpt } from './skills/runSkillOpt.mjs';
 import db from './db/database.mjs';
 import { executeCommand, getCommandHistory } from './command/commandExecutor.mjs';
 import { getOrgState, getStatusSummary } from './command/orgState.mjs';
+import {
+  executeTask as agentExecuteTask,
+  getAllAgentStatuses,
+  getAgentStatus,
+  getAgentWithHistory,
+  setBroadcast as agentSetBroadcast,
+} from './agents/agentEngine.mjs';
+import { getLogs as getAgentLogs } from './agents/agentMemory.mjs';
+import { getProviderStatus } from './agents/providerRouter.mjs';
 
 // In-memory SkillOpt job state (single concurrent job)
 const skilloptJob = { running: false, lastResult: null, startedAt: null, agent: null };
@@ -43,6 +52,9 @@ function broadcast(event) {
     }
   }
 }
+
+// Give agent engine access to the broadcast channel
+agentSetBroadcast(broadcast);
 
 const HOST = process.env.HOST || '127.0.0.1';
 const PORT = Number(process.env.PORT || 8787);
@@ -137,6 +149,31 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // POST /api/agents/:id/task — submit a real task to a specific agent
+  const agentTaskMatch = url.pathname.match(/^\/api\/agents\/([^/]+)\/task$/);
+  if (agentTaskMatch && req.method === 'POST') {
+    const agentId = agentTaskMatch[1];
+    let body = '';
+    req.on('data', (d) => { body += d; });
+    req.on('end', async () => {
+      try {
+        const { task } = JSON.parse(body || '{}');
+        if (!task || typeof task !== 'string' || !task.trim()) {
+          sendJson(res, 400, { ok: false, error: 'missing_task', message: 'task field is required' });
+          return;
+        }
+        // Run async — returns immediately with execId
+        const result = await agentExecuteTask(agentId, task.trim().slice(0, 2000));
+        sendJson(res, 200, { ok: result.ok, ...result });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const isBusy = message.includes('busy');
+        sendJson(res, isBusy ? 409 : 500, { ok: false, error: isBusy ? 'agent_busy' : 'execution_failed', message });
+      }
+    });
+    return;
+  }
+
   // All other routes are GET-only.
   if (req.method !== 'GET') {
     sendJson(res, 405, {
@@ -144,6 +181,34 @@ const server = createServer(async (req, res) => {
       error: 'method_not_allowed',
       message: 'Only GET is allowed',
     });
+    return;
+  }
+
+  // ── Real AI Agents ──────────────────────────────────────────────────────────
+
+  if (url.pathname === '/api/agents/real') {
+    sendJson(res, 200, { ok: true, agents: getAllAgentStatuses(), providers: getProviderStatus() });
+    return;
+  }
+
+  if (url.pathname === '/api/agents/providers') {
+    sendJson(res, 200, { ok: true, providers: getProviderStatus() });
+    return;
+  }
+
+  const agentStatusMatch = url.pathname.match(/^\/api\/agents\/([^/]+)\/status$/);
+  if (agentStatusMatch) {
+    const status = getAgentWithHistory(agentStatusMatch[1]);
+    if (!status) { sendJson(res, 404, { ok: false, error: 'agent_not_found' }); return; }
+    sendJson(res, 200, { ok: true, agent: status });
+    return;
+  }
+
+  const agentLogsMatch = url.pathname.match(/^\/api\/agents\/([^/]+)\/logs$/);
+  if (agentLogsMatch) {
+    const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '50', 10), 200);
+    const logs = getAgentLogs(agentLogsMatch[1], limit);
+    sendJson(res, 200, { ok: true, logs });
     return;
   }
 
@@ -206,6 +271,14 @@ const server = createServer(async (req, res) => {
     try {
       const metrics = getDashboardMetrics();
       sendJson(res, 200, { ok: true, ...metrics });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  if (url.pathname === '/api/trading/edge-scorecard') {
+    try {
+      const scorecard = computeEdgeScorecard();
+      sendJson(res, 200, { ok: true, ...scorecard });
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;
   }

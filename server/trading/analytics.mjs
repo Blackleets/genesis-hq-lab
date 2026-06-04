@@ -1,4 +1,4 @@
-// analytics.mjs — performance metrics for Genesis HQ paper trading.
+// analytics.mjs — performance metrics for Genesis HQ trading.
 // Sharpe ratio, Brier score, win rate, drawdown, category breakdown.
 // These are the metrics a real hedge fund watches. No vanity numbers.
 
@@ -34,10 +34,10 @@ export function computeBrierScore() {
 
   const score = sumSquaredError / trades.length;
   const label = score < 0.10 ? 'Excellent' :
-                score < 0.15 ? 'Professional' :
-                score < 0.20 ? 'Good' :
-                score < 0.25 ? 'Average' :
-                               'Below average';
+    score < 0.15 ? 'Professional' :
+      score < 0.20 ? 'Good' :
+        score < 0.25 ? 'Average' :
+          'Below average';
 
   return { score: Math.round(score * 1000) / 1000, label, n: trades.length };
 }
@@ -61,17 +61,17 @@ export function computeSharpe() {
   const mean = returns.reduce((s, r) => s + r, 0) / returns.length;
 
   const variance = returns.reduce((s, r) => s + Math.pow(r - mean, 2), 0) / returns.length;
-  const stdDev   = Math.sqrt(variance);
+  const stdDev = Math.sqrt(variance);
 
   if (stdDev === 0) return { ratio: 0, label: 'No variance', n: trades.length };
 
-  // Risk-free rate = 0 (paper trading)
+  // Risk-free rate = 0 for the current strategy.
   const sharpe = mean / stdDev;
-  const label  = sharpe > 2.0 ? 'Excellent' :
-                 sharpe > 1.5 ? 'Very good' :
-                 sharpe > 1.0 ? 'Good' :
-                 sharpe > 0.5 ? 'Acceptable' :
-                                'Needs improvement';
+  const label = sharpe > 2.0 ? 'Excellent' :
+    sharpe > 1.5 ? 'Very good' :
+      sharpe > 1.0 ? 'Good' :
+        sharpe > 0.5 ? 'Acceptable' :
+          'Needs improvement';
 
   return { ratio: Math.round(sharpe * 100) / 100, label, mean, stdDev, n: trades.length };
 }
@@ -111,8 +111,8 @@ export function getCalibrationData() {
   `).all();
 
   return trades.map(row => ({
-    confBucket:    Math.round(row.bucket * 100) / 100,
-    count:         row.cnt,
+    confBucket: Math.round(row.bucket * 100) / 100,
+    count: row.cnt,
     actualWinRate: row.cnt > 0 ? Math.round((row.wins / row.cnt) * 1000) / 1000 : 0,
     expectedWinRate: Math.round(row.bucket * 1000) / 1000,
     calibrationGap: Math.round((row.bucket - (row.wins / row.cnt || 0)) * 1000) / 1000,
@@ -150,8 +150,8 @@ export function getSignalAccuracy() {
     .filter(([, s]) => s.uses >= 2)
     .map(([signal, s]) => ({
       signal,
-      uses:    s.uses,
-      wins:    s.wins,
+      uses: s.uses,
+      wins: s.wins,
       winRate: Math.round((s.wins / s.uses) * 1000) / 1000,
     }))
     .sort((a, b) => b.winRate - a.winRate);
@@ -177,23 +177,90 @@ export function computeMaxDrawdown() {
   }
 
   return {
-    pct:    Math.round(maxDrawdown * 1000) / 1000,
+    pct: Math.round(maxDrawdown * 1000) / 1000,
     amount: Math.round(maxDrawdownAmount * 100) / 100,
+  };
+}
+
+// ─── Edge scorecard — GO / NO-GO / INSUFFICIENT_DATA ─────────────────────────
+// The single source of truth on whether this engine has proven real edge.
+// Only flip REAL_TRADING=1 when verdict is GO.
+
+const MIN_TRADES_FOR_VERDICT = 50;
+
+export function computeEdgeScorecard() {
+  const pnl     = getPnLSummary();
+  const brier   = computeBrierScore();
+  const sharpe  = computeSharpe();
+  const cal     = getCalibrationData();
+
+  const totalClosed  = pnl.closed.total;
+  const winRate      = pnl.closed.winRate;
+  const totalPnl     = pnl.closed.totalPnl;
+  const totalRisked  = pnl.closed.totalRisked;
+  const roi          = totalRisked > 0 ? totalPnl / totalRisked : 0;
+
+  // Calibration gap: average absolute gap across confidence buckets
+  const calibrationGap = cal.length > 0
+    ? cal.reduce((s, r) => s + Math.abs(r.calibrationGap), 0) / cal.length
+    : null;
+
+  // Brier skill score: 1 - (brier / 0.25). Positive = better than random.
+  const brierSkill = brier.score != null ? 1 - brier.score / 0.25 : null;
+
+  const checks = {
+    sufficientData:   { pass: totalClosed >= MIN_TRADES_FOR_VERDICT, value: totalClosed, threshold: MIN_TRADES_FOR_VERDICT, label: `${totalClosed} / ${MIN_TRADES_FOR_VERDICT} trades resolved` },
+    brierSkill:       { pass: brierSkill != null && brierSkill > 0,  value: brierSkill != null ? Math.round(brierSkill * 1000) / 1000 : null, threshold: 0, label: 'Brier skill > 0 (better than random)' },
+    sharpe:           { pass: sharpe.ratio != null && sharpe.ratio > 0.8, value: sharpe.ratio, threshold: 0.8, label: 'Sharpe (net of fees) > 0.8' },
+    positiveRoi:      { pass: roi > 0, value: Math.round(roi * 10000) / 100, threshold: 0, label: 'Positive ROI on closed trades' },
+    calibration:      { pass: calibrationGap != null && calibrationGap < 0.10, value: calibrationGap != null ? Math.round(calibrationGap * 1000) / 1000 : null, threshold: 0.10, label: 'Calibration gap < 0.10' },
+  };
+
+  let verdict;
+  if (!checks.sufficientData.pass) {
+    verdict = 'INSUFFICIENT_DATA';
+  } else if (Object.values(checks).every(c => c.pass)) {
+    verdict = 'GO';
+  } else {
+    verdict = 'NO_GO';
+  }
+
+  const failingChecks = Object.entries(checks)
+    .filter(([, c]) => !c.pass)
+    .map(([key, c]) => ({ key, label: c.label, value: c.value, threshold: c.threshold }));
+
+  return {
+    verdict,
+    totalClosed,
+    winRate: Math.round(winRate * 1000) / 1000,
+    roi: Math.round(roi * 10000) / 100,
+    totalPnl: Math.round(totalPnl * 100) / 100,
+    brierScore: brier.score,
+    brierSkill,
+    brierLabel: brier.label,
+    sharpeRatio: sharpe.ratio,
+    sharpeLabel: sharpe.label,
+    calibrationGap,
+    checks,
+    failingChecks,
+    nextMilestone: totalClosed < MIN_TRADES_FOR_VERDICT
+      ? `${MIN_TRADES_FOR_VERDICT - totalClosed} more trades needed for verdict`
+      : null,
   };
 }
 
 // ─── Full dashboard payload ───────────────────────────────────────────────────
 
 export function getDashboardMetrics() {
-  const treasury  = getTreasury();
-  const pnl       = getPnLSummary();
-  const brier     = computeBrierScore();
-  const sharpe    = computeSharpe();
+  const treasury = getTreasury();
+  const pnl = getPnLSummary();
+  const brier = computeBrierScore();
+  const sharpe = computeSharpe();
   const breakdown = getCategoryBreakdown();
   const calibration = getCalibrationData();
   const signalAcc = getSignalAccuracy();
-  const drawdown  = computeMaxDrawdown();
-  const history   = getCapitalHistory(50);
+  const drawdown = computeMaxDrawdown();
+  const history = getCapitalHistory(50);
 
   // Recent skips and vetoes (to track discipline)
   const skipCount = db.prepare(`
@@ -203,29 +270,29 @@ export function getDashboardMetrics() {
 
   return {
     treasury: {
-      total:        treasury.total,
-      available:    treasury.available,
-      inTrades:     treasury.inTrades,
-      totalReturn:  treasury.totalReturn,
-      isPaused:     treasury.isPaused,
-      drawdownPct:  treasury.drawdownPct,
+      total: treasury.total,
+      available: treasury.available,
+      inTrades: treasury.inTrades,
+      totalReturn: treasury.totalReturn,
+      isPaused: treasury.isPaused,
+      drawdownPct: treasury.drawdownPct,
     },
     performance: {
-      totalTrades:  pnl.closed.total,
-      winRate:      pnl.closed.winRate,
-      totalPnl:     pnl.closed.totalPnl,
-      avgPnl:       pnl.closed.avgPnl,
-      bestTrade:    pnl.closed.bestTrade,
-      worstTrade:   pnl.closed.worstTrade,
-      roi:          pnl.closed.roi,
+      totalTrades: pnl.closed.total,
+      winRate: pnl.closed.winRate,
+      totalPnl: pnl.closed.totalPnl,
+      avgPnl: pnl.closed.avgPnl,
+      bestTrade: pnl.closed.bestTrade,
+      worstTrade: pnl.closed.worstTrade,
+      roi: pnl.closed.roi,
     },
     risk: {
-      brierScore:   brier,
-      sharpeRatio:  sharpe,
-      maxDrawdown:  drawdown,
-      openTrades:   pnl.open.count,
-      atRisk:       pnl.open.atRisk,
-      todaySkips:   skipCount,
+      brierScore: brier,
+      sharpeRatio: sharpe,
+      maxDrawdown: drawdown,
+      openTrades: pnl.open.count,
+      atRisk: pnl.open.atRisk,
+      todaySkips: skipCount,
     },
     breakdown,
     calibration,
