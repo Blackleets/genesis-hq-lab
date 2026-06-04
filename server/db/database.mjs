@@ -43,8 +43,8 @@ function migrate() {
       try {
         db.prepare(stmt + ';').run();
       } catch (e) {
-        // Ignore "already exists" errors from IF NOT EXISTS
-        if (!e.message.includes('already exists')) throw e;
+        // Ignore idempotent migration errors
+        if (!e.message.includes('already exists') && !e.message.includes('duplicate column name')) throw e;
       }
     }
   });

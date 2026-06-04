@@ -336,3 +336,11 @@ VALUES
   ('rule-horizon',     'Avoid markets resolving more than 45 days out', 'soft_preference', 'prediction_markets', 3, 'constitution', datetime('now')),
   ('rule-liquidity',   'Avoid markets with total liquidity below $5000', 'soft_preference', 'prediction_markets', 3, 'constitution', datetime('now')),
   ('rule-repeat',      'Before any trade, check mistake_patterns for similar conditions', 'hard_constraint', 'prediction_markets', 1, 'constitution', datetime('now'));
+
+-- ─── Crypto scalping columns (added 2026-06-04) ──────────────────────────────
+-- These are NULL for prediction market trades; populated only for crypto_scalp trades.
+ALTER TABLE trades ADD COLUMN asset_pair   TEXT;
+ALTER TABLE trades ADD COLUMN trade_type   TEXT DEFAULT 'prediction';
+ALTER TABLE trades ADD COLUMN target_price REAL;
+ALTER TABLE trades ADD COLUMN stop_price   REAL;
+ALTER TABLE trades ADD COLUMN exit_reason  TEXT;
