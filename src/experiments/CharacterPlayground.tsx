@@ -8,12 +8,12 @@
 import { useMemo, useState, type JSX, type ReactNode } from 'react';
 import { ShieldAlert, Sparkles } from 'lucide-react';
 
-import { getMockAgents, MOCK_NOTE } from '../lib/fixtures';
-import type { Agent, AgentStatus } from '../types/genesis';
+import { getMockAgents, MOCK_NOTE } from '@core/data/fixtures';
+import type { Agent, AgentStatus } from '@core/types/genesis';
 
-import { KenneyAtlasDefs } from '../components/KenneyAtlas';
+import { KenneyAtlasDefs } from '@animations/KenneyAtlas';
 import CharacterLegacy from '../legacy/CharacterLegacy';
-import KenneyCharacter from '../components/KenneyCharacter';
+import KenneyCharacter from '@animations/KenneyCharacter';
 
 const STATUS_OPTIONS: AgentStatus[] = [
   'idle', 'working', 'thinking', 'debating', 'learning', 'warning', 'promoted', 'fired',

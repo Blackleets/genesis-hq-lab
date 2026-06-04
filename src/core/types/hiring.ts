@@ -1,6 +1,6 @@
 // Hiring candidates for the Hiring Queue.
 
-import type { Archetype, Department } from './genesis';
+import type { Archetype, Department } from '@core/types/genesis';
 
 export type UnlockCondition =
   | 'tasks-pending-many'

@@ -249,7 +249,7 @@ server.resource(
 
 ## What is Genesis HQ?
 Genesis HQ is a real-time AI agent management platform with:
-- Paper trading on Polymarket prediction markets
+- Prediction market trading on Polymarket and Kalshi, with optional real execution support when configured
 - Multi-department AI agent workforce (Trading, Marketing, Tech, HR)
 - Command Console for natural language task delegation
 - Live office visualization

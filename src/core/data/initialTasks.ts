@@ -2,7 +2,7 @@
 // They are real entities in the store (createTask flow). Status will
 // derive agent.status when the store runs its first tick.
 
-import type { Task } from '../types/task';
+import type { Task } from '@core/types/task';
 
 const now = new Date().toISOString();
 

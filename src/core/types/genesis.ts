@@ -53,8 +53,8 @@ export type Pose = 'seated' | 'standing';
 export type Facing = 'north' | 'south' | 'east' | 'west';
 export type MovementState = 'still' | 'moving' | 'arrived';
 
-import type { RoomId } from './office';
-import type { TaskType } from './task';
+import type { RoomId } from '@core/types/office';
+import type { TaskType } from '@core/types/task';
 
 export interface AgentPosition {
   x: number;

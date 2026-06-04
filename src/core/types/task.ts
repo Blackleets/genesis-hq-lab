@@ -1,7 +1,7 @@
 // Task — the unit of work in Genesis. Drives agent.status and movement.
 
-import type { RoomId } from './office';
-import type { ModuleId } from '../data/moduleRegistry';
+import type { RoomId } from '@core/types/office';
+import type { ModuleId } from '@core/data/moduleRegistry';
 
 export type TaskType =
   | 'market_scan'

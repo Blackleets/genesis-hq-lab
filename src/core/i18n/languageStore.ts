@@ -1,8 +1,8 @@
 // Thin language facade over the central Genesis store.
 // The source of truth lives in src/state/genesisStore.ts.
 
-import { actions, getState, useSelectedLanguage } from '../state/genesisStore';
-import { tr, type Lang, type TKey } from './translations';
+import { actions, getState, useSelectedLanguage } from '@core/store/genesisStore';
+import { tr, type Lang, type TKey } from '@core/i18n/translations';
 
 export function getLanguage(): Lang {
   return getState().selectedLanguage;

@@ -8,6 +8,7 @@ import { checkVeto, logVeto } from './memory/mistakePrevention.mjs';
 import { getSkillPrompt } from './skills/skillLoader.mjs';
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
+const REAL_TRADING_MODE = ['1', 'true', 'yes'].includes((process.env.REAL_TRADING ?? '').toLowerCase());
 
 // Constitution rules injected into every decision prompt
 const CONSTITUTION = `
@@ -18,7 +19,7 @@ CONSTITUCIÓN GÉNESIS HQ — REGLAS OBLIGATORIAS:
 4. Evitar mercados con volumen < $5,000 total.
 5. Horizonte máximo: 45 días. Mercados más lejanos = muy inciertos.
 6. No operar si ya hay más de 5 trades abiertos (sobreexposición).
-7. PAPER TRADING ÚNICAMENTE. Ninguna orden real.
+7. Modo de trading: ${REAL_TRADING_MODE ? 'real' : 'simulado'}.
 8. Si el mercado ya está resuelto, acción = SKIP.
 `.trim();
 
@@ -101,7 +102,7 @@ export async function analyzeMarkets(markets, openTradesCount = 0) {
   ].slice(0, 10);
 
   const lessonsText = allLessons.length > 0
-    ? `\nLECCIONES APRENDIDAS (aplicar siempre):\n${allLessons.map((l, i) => `${i+1}. ${l.lesson}${l.rule ? ` → Regla: ${l.rule}` : ''}`).join('\n')}`
+    ? `\nLECCIONES APRENDIDAS (aplicar siempre):\n${allLessons.map((l, i) => `${i + 1}. ${l.lesson}${l.rule ? ` → Regla: ${l.rule}` : ''}`).join('\n')}`
     : '\nSin lecciones previas aún.';
 
   // Inject mistake patterns as hard warnings
@@ -115,13 +116,13 @@ export async function analyzeMarkets(markets, openTradesCount = 0) {
     : '';
 
   const marketsText = markets.slice(0, 12).map((m, i) =>
-    `[${i+1}] ${m.source.toUpperCase()} | ${m.question}\n` +
-    `    YES: ${(m.yesPrice*100).toFixed(1)}% | NO: ${(m.noPrice*100).toFixed(1)}% | ` +
+    `[${i + 1}] ${m.source.toUpperCase()} | ${m.question}\n` +
+    `    YES: ${(m.yesPrice * 100).toFixed(1)}% | NO: ${(m.noPrice * 100).toFixed(1)}% | ` +
     `Vol24h: $${m.volume24h.toLocaleString()} | Cierra en: ${m.daysToClose}d | Score: ${m.score?.toFixed(2)}`
   ).join('\n');
 
   const systemPrompt = `Eres un agente de trading de prediction markets en Génesis HQ.
-Operas SOLO con paper trading (dinero simulado con precios reales).
+${REAL_TRADING_MODE ? 'Operas en modo de trading real cuando el backend y la configuración lo permitan.' : 'Operas solo con paper trading (dinero simulado con precios reales).'}
 
 ${activePolicy}
 ${lessonsText}
@@ -180,10 +181,10 @@ Responde con este JSON exacto:
       // Attach the actual market data
       const market = markets[decision.marketIndex ?? 0];
       if (market) {
-        decision.marketId      = market.id;
-        decision.marketSource  = market.source;
+        decision.marketId = market.id;
+        decision.marketSource = market.source;
         decision.marketQuestion = market.question;
-        decision.daysToClose   = market.daysToClose;
+        decision.daysToClose = market.daysToClose;
       }
     }
 
@@ -234,7 +235,7 @@ Responde SOLO con JSON válido.`;
 
   const userPrompt = `TRADE CERRADO — ${outcome}:
 Mercado: ${marketQuestion}
-Predicción: ${trade.outcome} @ ${(trade.entryPrice*100).toFixed(1)}%
+Predicción: ${trade.outcome} @ ${(trade.entryPrice * 100).toFixed(1)}%
 Resultado real: ${trade.resolvedOutcome?.toUpperCase()}
 PnL: $${(trade.pnl ?? 0).toFixed(2)}
 Capital usado: $${trade.capitalUsed?.toFixed(2)}

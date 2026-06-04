@@ -14,20 +14,20 @@
 // All actions emit events. The bubble layer reads recent voiced events.
 
 import { useSyncExternalStore } from 'react';
-import { load, save } from './persistence';
-import { INITIAL_AGENTS } from '../data/initialAgents';
-import { INITIAL_TASKS } from '../data/initialTasks';
-import { FUTURE_AGENTS } from '../data/futureAgents';
-import { MODULES } from '../data/moduleRegistry';
-import { OFFICE_ROOMS } from '../data/officeRooms';
-import type { Lang } from '../i18n/translations';
-import type { Agent } from '../types/genesis';
-import type { Task, TaskStatus, TaskType } from '../types/task';
-import type { SystemEvent } from '../types/event';
-import type { HiringCandidate } from '../types/hiring';
-import type { OfficeUpgrade, RoomId } from '../types/office';
-import type { ModuleEntity, ModuleId, ModuleState } from '../types/module';
-import type { PaperPosition } from '../types/trading';
+import { load, save } from '@core/store/persistence';
+import { INITIAL_AGENTS } from '@agents/data/initialAgents';
+import { INITIAL_TASKS } from '@core/data/initialTasks';
+import { FUTURE_AGENTS } from '@agents/data/futureAgents';
+import { MODULES } from '@core/data/moduleRegistry';
+import { OFFICE_ROOMS } from '@animations/officeRooms';
+import type { Lang } from '@core/i18n/translations';
+import type { Agent } from '@core/types/genesis';
+import type { Task, TaskStatus, TaskType } from '@core/types/task';
+import type { SystemEvent } from '@core/types/event';
+import type { HiringCandidate } from '@core/types/hiring';
+import type { OfficeUpgrade, RoomId } from '@core/types/office';
+import type { ModuleEntity, ModuleId, ModuleState } from '@core/types/module';
+import type { PaperPosition } from '@core/types/trading';
 
 // ---------- shape ----------
 
@@ -625,6 +625,10 @@ export const actions = {
     department: Agent['department'];
     archetype: Agent['visualProfile']['archetype'];
     primaryColor: string;
+    /** optional rich fields from the cinematic Agent Creator */
+    accentColor?: string;
+    accessory?: Agent['visualProfile']['accessory'];
+    capabilities?: TaskType[];
   }): void {
     const id = `factory-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const now = new Date().toISOString();
@@ -646,8 +650,8 @@ export const actions = {
       visualProfile: {
         archetype: input.archetype,
         primary: input.primaryColor,
-        accent: '#3da9fc',
-        accessory: 'none',
+        accent: input.accentColor ?? '#3da9fc',
+        accessory: input.accessory ?? 'none',
       },
       position: { ...onboardingEntry, x: onboardingEntry.x - 52, y: onboardingEntry.y + 24, pose: 'standing', facing: 'south' },
       currentRoom: onboardingRoom,
@@ -657,7 +661,7 @@ export const actions = {
       onboardingStartedAt: now,
       onboardingEndsAt: endsAt,
       isVisualSeed: false,
-      capabilities: [],
+      capabilities: input.capabilities ?? [],
     };
     let next: GenesisStateShape = { ...state, agents: { ...state.agents, [id]: newAgent } };
     next = appendEvent(next, {
@@ -1213,15 +1217,15 @@ export const actions = {
     const agent = state.agents[pos.agentId];
     const updatedAgent = agent
       ? {
-          ...agent,
-          totalPnL: (agent.totalPnL ?? 0) + pnl,
-          tradeCount: (agent.tradeCount ?? 0) + 1,
-          winRate: (() => {
-            const wins = (agent.winRate ?? 0) * (agent.tradeCount ?? 0) + (pnl > 0 ? 1 : 0);
-            const total = (agent.tradeCount ?? 0) + 1;
-            return wins / total;
-          })(),
-        }
+        ...agent,
+        totalPnL: (agent.totalPnL ?? 0) + pnl,
+        tradeCount: (agent.tradeCount ?? 0) + 1,
+        winRate: (() => {
+          const wins = (agent.winRate ?? 0) * (agent.tradeCount ?? 0) + (pnl > 0 ? 1 : 0);
+          const total = (agent.tradeCount ?? 0) + 1;
+          return wins / total;
+        })(),
+      }
       : agent;
     let next: GenesisStateShape = {
       ...state,
@@ -1332,7 +1336,7 @@ export const actions = {
           },
           isVisualSeed: true,
         });
-        dirty = true;
+        if (!dirty) dirty = true;
       }
     }
 
@@ -1371,7 +1375,7 @@ export const actions = {
           },
           isVisualSeed: false,
         });
-        dirty = true;
+        if (!dirty) dirty = true;
       } else {
         const step = 40; // world units per tick (~5s tick)
         const k = Math.min(1, step / dist);
@@ -1384,7 +1388,7 @@ export const actions = {
             [a.id]: { ...a, position: { ...a.position, x: nx, y: ny } },
           },
         };
-        dirty = true;
+        if (!dirty) dirty = true;
       }
     }
 
@@ -1429,7 +1433,7 @@ export const actions = {
           isVisualSeed: true,
         });
       }
-      dirty = true;
+      if (!dirty) dirty = true;
     }
 
     // 4) Auto-complete working tasks past their estimatedMs
@@ -1468,7 +1472,7 @@ export const actions = {
         },
         isVisualSeed: true,
       });
-      dirty = true;
+      if (!dirty) dirty = true;
     }
 
     // 4.5) Periodic task.progress bubbles for working agents (~every 28s)
@@ -1497,7 +1501,7 @@ export const actions = {
         },
         isVisualSeed: false,
       });
-      dirty = true;
+      if (!dirty) dirty = true;
     }
 
     // 4.6) Recycle completed seed tasks so agents stay busy (20s cooldown)
@@ -1528,23 +1532,23 @@ export const actions = {
         };
       }
       next = { ...next, agents: syncAgentsFromTasks(updatedAgents, next.tasks) };
-      dirty = true;
+      if (!dirty) dirty = true;
     }
 
     // 5) Evaluate hiring queue unlock conditions
     const queueBefore = JSON.stringify(next.hiringQueue);
     next = evaluateHiringQueue(next);
-    if (JSON.stringify(next.hiringQueue) !== queueBefore) dirty = true;
+    if (JSON.stringify(next.hiringQueue) !== queueBefore) if (!dirty) dirty = true;
 
     // 6) Error pipeline — auto-suspend/fire agents by mistakeCount
     const pipelineBefore = JSON.stringify(next.agents);
     next = runErrorPipelineInTick(next);
-    if (JSON.stringify(next.agents) !== pipelineBefore) dirty = true;
+    if (JSON.stringify(next.agents) !== pipelineBefore) if (!dirty) dirty = true;
 
     // 7) Auto-training — idle agents + peer learning
     const trainingBefore = JSON.stringify(next.tasks);
     next = runAutoTrainingInTick(next, now);
-    if (JSON.stringify(next.tasks) !== trainingBefore) dirty = true;
+    if (JSON.stringify(next.tasks) !== trainingBefore) if (!dirty) dirty = true;
 
     // 8) Snapshot capital every tick
     const totalOpenValue = Object.values(next.positions).reduce(
@@ -1556,7 +1560,7 @@ export const actions = {
       { at: new Date().toISOString(), value: totalCapital },
     ].slice(-500);
     next = { ...next, capitalHistory: newHistory };
-    dirty = true;
+    if (!dirty) dirty = true;
 
     if (dirty) commit({ ...next, agents: syncAgentsFromTasks(next.agents, next.tasks) });
   },
@@ -1568,7 +1572,7 @@ function evaluateHiringQueue(s: GenesisStateShape): GenesisStateShape {
   const allTasks = Object.values(s.tasks);
   const allAgents = Object.values(s.agents);
   const completedEvents = s.events.filter((e) => e.kind === 'task.completed').length;
-  const failedEvents   = s.events.filter((e) => e.kind === 'task.failed').length;
+  const failedEvents = s.events.filter((e) => e.kind === 'task.failed').length;
   let changed = false;
   const nextQueue = { ...s.hiringQueue };
 
@@ -1807,15 +1811,15 @@ function runAutoTrainingInTick(s: GenesisStateShape, now: number): GenesisStateS
 
 function roomForDepartment(dept: Agent['department']): RoomId {
   switch (dept) {
-    case 'Market Room':    return 'market-desk';
-    case 'Strategy Lab':   return 'strategy-lab';
-    case 'Risk Office':    return 'risk-bunker';
+    case 'Market Room': return 'market-desk';
+    case 'Strategy Lab': return 'strategy-lab';
+    case 'Risk Office': return 'risk-bunker';
     case 'Memory Archive': return 'memory-archive';
-    case 'Debate Room':    return 'debate-room';
-    case 'Board Room':     return 'board-room';
-    case 'Genesis HR':     return 'hr-pod';
+    case 'Debate Room': return 'debate-room';
+    case 'Board Room': return 'board-room';
+    case 'Genesis HR': return 'hr-pod';
     case 'Execution Desk': return 'execution-desk';
-    default:                return 'open-workspace';
+    default: return 'open-workspace';
   }
 }
 

@@ -5,6 +5,105 @@ at the top. Use one block per session. Be honest about failures.
 
 ---
 
+## 2026-06-03 — Claude Opus 4.8 (sistema de evolución visual de agentes)
+
+- **Branch:** `feat/genesis-life-os`
+- **Summary:** Sistema de evolución visual real, data-driven. `agentLevel(agent)` deriva un nivel (1..~60) de forma determinista de campos reales (`learningScore`*28 + rank_ordinal*4 + min(tradeCount,24)*0.5 − mistakeCount) — sube cuando el agente aprende, asciende y opera. 4 tiers acumulativos (Rookie 1-5, Professional 6-15, Elite 16-30, Legendary 31+). El sprite base NUNCA cambia (identidad sagrada); la evolución solo añade capas de refinamiento con el color de acento del propio agente: capa `ground` (anillo de base → aura premium → nodos orbitales rotando) bajo los pies, y capa `crest` (tick → galón → corona icónica + halo respirante) sobre la cabeza. Integrado en `pixelCanvasRenderer` (2 pasadas: antes/después del sprite) + badge de tier/nivel/progreso en `AgentInspector` y mini-badge en `AgentTooltip`. Verificado: curva produce los 4 tiers correctamente (intern nuevo→Rookie, senior experto→Legendary).
+- **Files touched:** `src/animations/agentEvolution.ts` (nuevo), `src/animations/pixelCanvasRenderer.ts`, `src/agents/AgentInspector.tsx`, `src/agents/AgentTooltip.tsx`
+- **Verification:** `npx tsc -b` limpio (0 errores) + `npm run build` verde (4382 módulos, 4.09s). Niveles validados con casos reales. Sin datos inventados — nivel es función pura de campos del agente.
+
+---
+
+## 2026-06-03 — Claude Opus 4.8 (refactor arquitectónico modular)
+
+- **Branch:** `feat/genesis-life-os`
+- **Summary:** Reorganización completa de `src/` de estructura por-tipo-técnico (`components/` 46, `lib/` 22, `data/` 14) a 10 módulos por dominio: `core/` (store, types, i18n, data), `services/`, `animations/`, `agents/`, `dashboard/`, `activity/`, `creator/`, `workflows/`, `ui/`, `hooks/`. Introducidos **path aliases por módulo** (`@core`, `@agents`, etc.) en tsconfig + vite. 105 archivos movidos con historia preservada; 210 reglas de reescritura de imports generadas automáticamente desde la ubicación final y aplicadas (relativos → aliases). `App.tsx` adelgazado de **762 → 95 líneas** extrayendo 5 vistas inline a archivos propios (`HQView`, `HRView`, `SettingsView` → `ui/views/`; `DecisionsView`, `AutoView` → `workflows/`). Sin cambios de comportamiento. `genesisStore.ts` reubicado pero no partido (fuera de alcance). `server/` intacto.
+- **Files touched:** `tsconfig.app.json`, `vite.config.ts` (aliases); 105 archivos reubicados en `src/`; `src/App.tsx` reescrito; 5 archivos de vista nuevos. Plan: `docs/superpowers/specs` (plan mode).
+- **Verification:** `npx tsc -b` limpio (0 errores) + `npm run build` verde (4382 módulos, 3.14s). `npm run lint`: 8 errores pre-existentes (react-hooks/purity, set-state-in-effect, react-refresh) — ninguno de resolución de imports; no bloquean build (per AGENTS.md). Plan aprobado por el operador antes de ejecutar.
+
+---
+
+## 2026-06-03 — Claude Opus 4.8 (auditoría + unificación de diseño)
+
+- **Branch:** `feat/genesis-life-os`
+- **Summary:** Auditoría completa de la UI (38 archivos, 586 font-sizes ad-hoc, 67 cards planos idénticos, solo 11 sombras en toda la app) y construcción de un sistema de diseño unificado "Profundidad sutil" sin romper la estética terminal. Fundación: tokens en `tailwind.config.js` (escala tipográfica semántica `gx-micro`…`gx-h1` con line-height, tracking canónico `gx-label`/`gx-over`/`gx-hero`, sombras de elevación `gx-card`/`gx-pop`/`gx-well`, color `trim-lit`) + clases de componentes en `index.css` (`.gx-card` con borde-superior-luz + sombra suave, `.gx-tile`, `.gx-card-head`, `.gx-card-title`, `.gx-label`, `.gx-overline`, `.gx-btn`, `.gx-divider`, scrollbars premium globales). Aplicación mecánica segura: 95 superficies → `gx-card`, 34 → `gx-tile`, 27 → `gx-card-head`, 84 patrones tipográficos → clases semánticas, outliers (`10.5px`→11, `7px`→8) normalizados. Acentos por departamento conservados. Glow sutil de división en el item activo del sidebar.
+- **Files touched:** `tailwind.config.js`, `src/index.css`, `src/components/GenesisSidebar.tsx`, y ~30 componentes vía reemplazo mecánico de clases de superficie/tipografía.
+- **Verification:** `npm run build` — OK (tsc -b limpio, vite build 4382 módulos en 4.09s; CSS 30.7→32.4kB por las clases nuevas). Decisiones de dirección (superficie con profundidad sutil + acentos por departamento) confirmadas con el operador antes de ejecutar.
+
+---
+
+## 2026-06-03 — Claude Sonnet 4.6 (Agent Creator cinematográfico + build verde)
+
+- **Branch:** `feat/genesis-life-os`
+- **Summary:** Construyó el Agent Creator cinematográfico de 6 pasos (ADN de Personalidad → Modelo Cerebral → Habilidades → Apariencia → Comportamiento → Misión) con intro y revelación de "nacimiento", transiciones spring de framer-motion, y un núcleo de ADN vivo (`AgentDnaCore`) en SVG que evoluciona con el draft. Reemplaza el `FactoryView` (formulario). Verificó el sistema de agentes IA reales end-to-end con un mock OpenAI-compatible (estados thinking→processing→completed reales, tokens reales, memoria SQLite persistida). Arregló errores de build: míos (re-export Bilingual huérfano, icono `agents-live` faltante en sidebar, tipos WsMessage para agent:status/log/completed) y dos pre-existentes que bloqueaban el build desde antes (`now` fuera de scope en GenesisHeader, import no-type-only `EnvTileId` en KenneyAtlas).
+- **Files touched:** `src/components/agentCreator/creatorData.ts` (nuevo), `src/components/agentCreator/AgentDnaCore.tsx` (nuevo), `src/components/agentCreator/AgentCreator.tsx` (nuevo), `src/App.tsx` (eliminó FactoryView muerto), `src/state/genesisStore.ts` (createAgentFromFactory campos ricos), `src/components/GenesisSidebar.tsx`, `src/hooks/useWebSocket.ts`, `src/hooks/useAgentExecution.ts`, `src/components/GenesisHeader.tsx`, `src/components/KenneyAtlas.tsx`
+- **Verification:** `npm run build` — OK (tsc -b limpio, vite build 4382 módulos en 3.91s). Solo warning pre-existente de tamaño de chunk.
+
+---
+
+## 2026-06-03 — Claude Sonnet 4.6 (command bar premium)
+
+- **Branch:** `feat/genesis-life-os`
+- **Summary:** Construyó `CommandBar.tsx` — paleta de comandos cinematic con overlay blur, panel animado (cmd-enter spring), placeholder rotante multi-idioma, sugerencias por categoría con hover accent, atajos de teclado (⌘K toggle, Tab completar, Esc cerrar), ejecución real a `/api/command/execute`, y trigger ⌘K en `GenesisHeader`. `CommandBarProvider` envuelve el árbol en `App.tsx`.
+- **Files touched:** `src/components/CommandBar.tsx` (nuevo), `src/components/GenesisHeader.tsx`, `src/App.tsx`
+- **Verification:** `npx tsc --noEmit` ok.
+
+---
+
+## 2026-06-03 — Claude Sonnet 4.6 (sistema agentes IA reales)
+
+- **Branch:** `feat/genesis-life-os`
+- **Summary:** Construyó sistema completo de agentes IA reales: `server/agents/` (providerRouter, agentMemory, agentEngine, agentRegistry), nuevas rutas `/api/agents/*`, módulo `agents-live` en el sidebar con `AgentExecutionView`, hook `useAgentExecution`, tipos `RealAgent`. Estados derivados de ejecución real (thinking→processing→completed/error). Sin loaders falsos. Multi-provider (Claude/OpenAI/Gemini/Custom) via fetch nativo sin SDKs extra. Memoria SQLite por agente.
+- **Files touched:** `server/agents/providerRouter.mjs`, `server/agents/agentMemory.mjs`, `server/agents/agentEngine.mjs`, `server/agents/agentRegistry.mjs`, `server/index.mjs`, `src/types/realAgent.ts`, `src/hooks/useAgentExecution.ts`, `src/components/AgentExecutionView.tsx`, `src/data/moduleRegistry.ts`, `src/i18n/translations.ts`, `src/App.tsx`
+- **Verification:** `npx tsc --noEmit` ok (sin errores).
+
+---
+
+## 2026-06-03 — Claude Sonnet 4.6
+
+- **Branch:** `feat/genesis-life-os`
+- **Summary:** Reemplazó `LiveActivityFeed` con `AgentActivityFeed` — feed terminal en tiempo real con frases inteligentes por tipo de tarea, heartbeat de agentes activos cada 5.5s, animación slide-in CSS, colores del perfil visual de cada agente, e integración con WebSocket para eventos de backend (trade ejecutado, lección aprendida, posición cerrada).
+- **Files touched:** `src/components/AgentActivityFeed.tsx` (nuevo), `src/App.tsx`, `docs/CHANGELOG_AI.md`
+- **Verification:** `npx tsc --noEmit` ok (sin errores). Advertencias de linter sobre `style={}` son esperadas — colores dinámicos de agente requieren estilos en línea.
+
+---
+
+## 2026-06-03 — GitHub Copilot
+
+- **Branch:** `feat/kalshi-order-execution`
+- **Summary:** Added Kalshi real execution support by posting limit orders to Kalshi's trading API and falling back to a paper trade when the order fails.
+- **Files touched:** `server/trading/execution.mjs`, `docs/CHANGELOG_AI.md`
+- **Verification:** `node --check server/trading/execution.mjs` ok. Full repo build was not run because unrelated existing type errors remain in `src/components/GenesisHeader.tsx` and `src/components/KenneyAtlas.tsx`.
+
+---
+
+## 2026-06-03 — GitHub Copilot
+
+- **Branch:** `feat/real-trading-mode`
+- **Summary:** Added a configurable real trading execution path and removed fixed paper trading-only rules from the backend decision pipeline.
+- **Files touched:** `server/trading/execution.mjs`, `server/trading/workflow.mjs`, `server/decisionEngine.mjs`, `server/agentRunner.mjs`, `server/trading/treasury.mjs`, `server/trading/analytics.mjs`, `server/skills/runSkillOpt.mjs`, `docs/CHANGELOG_AI.md`
+- **Verification:** `npm run build` failed due to unrelated existing type errors in `src/components/GenesisHeader.tsx` and `src/components/KenneyAtlas.tsx`.
+
+---
+
+## 2026-06-02 — GitHub Copilot
+
+- **Branch:** `fix/agent-runner-fallback`
+- **Summary:** Updated `server/agentRunner.mjs` so missing `ANTHROPIC_API_KEY` does not abort a one-time run; the system now continues with fallback rule-based debate logic and paper trading can execute without Claude.
+- **Files touched:** `server/agentRunner.mjs`, `docs/CHANGELOG_AI.md`
+- **Verification:** `npm run agent:once` ok. Backend agent tick executed with fallback debate logic and no Anthropic key.
+
+---
+
+## 2026-06-02 — GitHub Copilot
+
+- **Branch:** `fix/genesis-store-dirty-flag`
+- **Summary:** Reduced redundant `dirty = true` assignments in `src/state/genesisStore.ts`, fixed React hook effect usage in `src/hooks/useWebSocket.ts`, and removed an unused import from `src/components/KenneyAtlas.tsx`.
+- **Files touched:** `src/state/genesisStore.ts`, `src/hooks/useWebSocket.ts`, `src/components/KenneyAtlas.tsx`, `docs/CHANGELOG_AI.md`
+- **Verification:** `npm run lint` ok.
+
+---
+
 ## 2026-06-01 — Auto
 
 - **Branch:** (working tree)

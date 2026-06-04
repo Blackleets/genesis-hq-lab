@@ -7,25 +7,25 @@ const CLAUDE_API = 'https://api.anthropic.com/v1/messages';
 // ─── Intent types ─────────────────────────────────────────────────────────────
 
 export const INTENT_TYPES = {
-  REST:         'REST',           // pause everything
-  PAUSE_DEPT:   'PAUSE_DEPT',    // pause specific departments
-  RESUME_DEPT:  'RESUME_DEPT',   // resume specific departments
-  SET_FOCUS:    'SET_FOCUS',     // redirect resources
-  SET_GOAL:     'SET_GOAL',      // set a target
-  CHANGE_RISK:  'CHANGE_RISK',   // risk tolerance
-  EMERGENCY:    'EMERGENCY',     // emergency mode
-  BUDGET:       'BUDGET',        // change capital allocation
-  SCHEDULE:     'SCHEDULE',      // time-bounded command
-  RESET:        'RESET',         // clear state and restart
-  STATUS:       'STATUS',        // founder asking for status
-  UNKNOWN:      'UNKNOWN',
+  REST: 'REST',           // pause everything
+  PAUSE_DEPT: 'PAUSE_DEPT',    // pause specific departments
+  RESUME_DEPT: 'RESUME_DEPT',   // resume specific departments
+  SET_FOCUS: 'SET_FOCUS',     // redirect resources
+  SET_GOAL: 'SET_GOAL',      // set a target
+  CHANGE_RISK: 'CHANGE_RISK',   // risk tolerance
+  EMERGENCY: 'EMERGENCY',     // emergency mode
+  BUDGET: 'BUDGET',        // change capital allocation
+  SCHEDULE: 'SCHEDULE',      // time-bounded command
+  RESET: 'RESET',         // clear state and restart
+  STATUS: 'STATUS',        // founder asking for status
+  UNKNOWN: 'UNKNOWN',
 };
 
 const SYSTEM_PROMPT = `You are the command interpreter for Genesis HQ, an autonomous AI company.
 The founder issues commands in natural language. You convert them to structured JSON actions.
 
 Genesis HQ has these departments:
-- prediction_markets: paper trading on Polymarket and Kalshi
+- prediction_markets: prediction market trading on Polymarket and Kalshi (paper trading by default, real execution when enabled)
 - research: market signals, news analysis, opportunity research
 - marketing: content generation, social media
 - sales: outreach, business development (currently inactive)
@@ -41,7 +41,7 @@ const USER_TEMPLATE = (command, currentState) => `FOUNDER COMMAND: "${command}"
 
 CURRENT STATE:
 - Mode: ${currentState.mode}
-- Active depts: ${Object.entries(currentState.activeDepts).filter(([,v]) => v).map(([k]) => k).join(', ')}
+- Active depts: ${Object.entries(currentState.activeDepts).filter(([, v]) => v).map(([k]) => k).join(', ')}
 - Risk: ${currentState.riskTolerance}
 - Current focus: ${currentState.focus?.topic ?? 'none'}
 - Current goal: ${currentState.goal?.description ?? 'none'}
@@ -92,7 +92,7 @@ async function parseWithClaude(command, currentState) {
 
     if (!res.ok) throw new Error(`Claude ${res.status}`);
     const data = await res.json();
-    const raw  = data.content?.[0]?.text ?? '';
+    const raw = data.content?.[0]?.text ?? '';
 
     const match = raw.match(/\[[\s\S]*\]/);
     if (!match) return null;
@@ -108,7 +108,7 @@ async function parseWithClaude(command, currentState) {
 // ─── Regex fallback — works without Claude ────────────────────────────────────
 
 function parseWithRules(command) {
-  const cmd  = command.toLowerCase().trim();
+  const cmd = command.toLowerCase().trim();
   const actions = [];
 
   // REST / PAUSE ALL
@@ -150,7 +150,7 @@ function parseWithRules(command) {
   if (goalMatch) {
     const amount = parseInt((goalMatch[1] || goalMatch[2] || goalMatch[3] || '0').replace(/,/g, ''));
     const isWeek = /week|semana/.test(cmd);
-    const isMo   = /month|mes/.test(cmd);
+    const isMo = /month|mes/.test(cmd);
     actions.push({
       type: INTENT_TYPES.SET_GOAL,
       params: { target: amount, unit: 'usd', period: isWeek ? 'week' : isMo ? 'month' : 'week' },

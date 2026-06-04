@@ -21,10 +21,10 @@ import { getTreasury } from './trading/treasury.mjs';
 import { getDashboardMetrics } from './trading/analytics.mjs';
 import { getOrgState, processExpiredSchedules, getRiskSettings, isDeptActive } from './command/orgState.mjs';
 
-const INTERVAL_MS   = 5 * 60 * 1000;  // 5 minutes
-const AGENT_ID      = 'market-agent-1';
-const ONCE          = process.argv.includes('--once');
-const VERBOSE       = process.argv.includes('--verbose') || process.argv.includes('-v');
+const INTERVAL_MS = 5 * 60 * 1000;  // 5 minutes
+const AGENT_ID = 'market-agent-1';
+const ONCE = process.argv.includes('--once');
+const VERBOSE = process.argv.includes('--verbose') || process.argv.includes('-v');
 
 let tickCount = 0;
 
@@ -88,10 +88,10 @@ async function marketingTick() {
     if (snapshot.performance.totalTrades === 0) return;
 
     const content = await generateMarketingContent({
-      trades:   snapshot.performance.totalTrades,
-      winRate:  (snapshot.performance.winRate * 100).toFixed(1) + '%',
-      pnl:      '$' + snapshot.performance.totalPnL.toFixed(2),
-      lessons:  snapshot.lessons.length,
+      trades: snapshot.performance.totalTrades,
+      winRate: (snapshot.performance.winRate * 100).toFixed(1) + '%',
+      pnl: '$' + snapshot.performance.totalPnL.toFixed(2),
+      lessons: snapshot.lessons.length,
       topLesson: snapshot.lessons[snapshot.lessons.length - 1]?.lesson ?? null,
     });
 
@@ -119,10 +119,10 @@ async function summarize(startMs) {
   const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);
   try {
     const treasury = getTreasury();
-    const metrics  = getDashboardMetrics();
+    const metrics = getDashboardMetrics();
     console.log(
       `[agentRunner] Tick ${elapsed}s | Capital: $${treasury.available.toFixed(2)} | ` +
-      `Open: ${metrics.risk.openTrades} | WinRate: ${(metrics.performance.winRate*100).toFixed(1)}% | ` +
+      `Open: ${metrics.risk.openTrades} | WinRate: ${(metrics.performance.winRate * 100).toFixed(1)}% | ` +
       `PnL: $${metrics.performance.totalPnl.toFixed(2)} | Brier: ${metrics.risk.brierScore?.score ?? 'N/A'}`
     );
   } catch {
@@ -132,16 +132,17 @@ async function summarize(startMs) {
 
 // ─── Main loop ────────────────────────────────────────────────────────────────
 
+const REAL_TRADING_MODE = ['1', 'true', 'yes'].includes((process.env.REAL_TRADING ?? '').toLowerCase());
+
 console.log('╔════════════════════════════════════════════════════════════╗');
 console.log('║          GÉNESIS HQ — AGENT RUNNER                        ║');
-console.log('║  Paper trading · Polymarket + Kalshi · Learning loop      ║');
-console.log(`║  Mode: ${ONCE ? 'SINGLE RUN' : `CONTINUOUS (every ${INTERVAL_MS/60000} min)`}`.padEnd(62) + '║');
+console.log(`║  ${REAL_TRADING_MODE ? 'Real trading' : 'Paper trading'} · Polymarket + Kalshi · Learning loop`.padEnd(62) + '║');
+console.log(`║  Mode: ${ONCE ? 'SINGLE RUN' : `CONTINUOUS (every ${INTERVAL_MS / 60000} min)`}`.padEnd(62) + '║');
 console.log('╚════════════════════════════════════════════════════════════╝');
 
 if (!process.env.ANTHROPIC_API_KEY) {
-  console.error('⚠️  ANTHROPIC_API_KEY not set in .env — decision engine disabled');
-  console.error('   Set it in .env and restart: ANTHROPIC_API_KEY=sk-ant-...');
-  if (ONCE) process.exit(1);
+  console.warn('⚠️  ANTHROPIC_API_KEY not set in .env — decision engine disabled');
+  console.warn('   The agent will continue using rule-based fallback debate logic. Set ANTHROPIC_API_KEY in .env to enable the full Claude decision engine.');
 }
 
 // Run immediately
@@ -155,5 +156,5 @@ if (!ONCE) {
   setInterval(marketingTick, 6 * 60 * 60 * 1000);
   setTimeout(marketingTick, 10000); // initial run after 10s
 
-  console.log(`\n[agentRunner] Running. Next tick in ${INTERVAL_MS/60000} min. Ctrl+C to stop.\n`);
+  console.log(`\n[agentRunner] Running. Next tick in ${INTERVAL_MS / 60000} min. Ctrl+C to stop.\n`);
 }

@@ -5,8 +5,8 @@
 
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import type { Agent } from '../types/genesis';
-import ChatBubble, { type BubbleKind } from '../components/ChatBubble';
+import type { Agent } from '@core/types/genesis';
+import ChatBubble, { type BubbleKind } from '@ui/ChatBubble';
 
 interface Props {
   agent: Agent;

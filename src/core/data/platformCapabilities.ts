@@ -1,7 +1,7 @@
 // platformCapabilities — maps task types to platforms and defines platform metadata.
 // Used by IntegrationsView and connectorClient to route agent work to the right platform.
 
-import type { TaskType } from '../types/task';
+import type { TaskType } from '@core/types/task';
 
 export type PlatformId =
   | 'slack' | 'github' | 'notion' | 'sheets'

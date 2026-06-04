@@ -18,6 +18,89 @@
   .panel {
     @apply bg-carbon-100/80 border border-trim rounded-xl p-6 backdrop-blur-sm shadow-2xl;
   }
+
+  /* ── Genesis design system — "Profundidad sutil" ─────────────────────────
+     One premium surface vocabulary shared by every module. Terminal density
+     with discreet elevation: soft drop shadow + a 1px top-light edge. Square
+     corners are intentional (Bloomberg/terminal heritage). */
+
+  /* Elevated card — the primary container across all modules */
+  .gx-card {
+    @apply bg-carbon-200 border border-trim shadow-gx-card relative;
+  }
+  /* The top-light hairline: a brighter 1px edge that reads as light from above */
+  .gx-card::before {
+    content: '';
+    @apply absolute inset-x-0 top-0 h-px pointer-events-none;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent);
+  }
+  /* Card that lifts on hover (clickable cards) */
+  .gx-card-interactive {
+    @apply gx-card transition-all duration-200;
+  }
+  .gx-card-interactive:hover {
+    @apply shadow-gx-pop border-trim-lit -translate-y-px;
+  }
+
+  /* Recessed tile — for stat cells nested inside a card */
+  .gx-tile {
+    @apply bg-carbon-300 border border-trim shadow-gx-well;
+  }
+
+  /* Standard card header bar — pair with `flex items-center justify-between`
+     when the header has a trailing element (most do). */
+  .gx-card-head {
+    @apply px-4 py-2.5 border-b border-trim;
+  }
+
+  /* ── Typographic roles ── */
+  .gx-card-title {
+    @apply font-mono text-gx-body uppercase tracking-gx-label text-zinc-300;
+  }
+  .gx-label {
+    @apply font-mono text-gx-label uppercase tracking-gx-label text-zinc-500;
+  }
+  .gx-overline {
+    @apply font-mono text-gx-micro uppercase tracking-gx-over text-zinc-500;
+  }
+  .gx-value {
+    @apply font-mono text-zinc-100 tabular-nums;
+  }
+
+  /* ── Buttons ── */
+  .gx-btn {
+    @apply font-mono text-gx-body uppercase tracking-gx-label px-3.5 py-1.5
+           border border-trim text-zinc-300 transition-all duration-150;
+  }
+  .gx-btn:hover {
+    @apply border-trim-lit bg-white/5 text-zinc-100;
+  }
+  .gx-btn-ghost {
+    @apply font-mono text-gx-body uppercase tracking-gx-label px-3 py-1.5
+           text-zinc-500 transition-colors duration-150;
+  }
+  .gx-btn-ghost:hover { @apply text-zinc-200; }
+
+  /* ── Divider with fade ── */
+  .gx-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #262d3d 18%, #262d3d 82%, transparent);
+  }
+
+  /* ── Premium scrollbar ── */
+  .gx-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+  .gx-scroll::-webkit-scrollbar-track { background: transparent; }
+  .gx-scroll::-webkit-scrollbar-thumb {
+    background: #262d3d; border-radius: 0;
+    border: 2px solid transparent; background-clip: padding-box;
+  }
+  .gx-scroll::-webkit-scrollbar-thumb:hover { background: #323a4d; background-clip: padding-box; }
+}
+
+/* App-wide: quieter, consistent scrollbars everywhere */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #262d3d transparent;
 }
 
 /* ── Genesis Worker animation system ──────────────────────────────────────

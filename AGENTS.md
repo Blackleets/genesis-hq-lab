@@ -6,6 +6,14 @@ Cursor, Antigravity, Gemini, GPT, or any other) that opens this repo.
 By making your first edit to this codebase you agree to the rules below.
 Violating them is grounds for the human operator to roll back your changes.
 
+Prioritized checklist (short):
+
+- Step A — Safety-critical (must always obey): secrets & credentials rules; do not run destructive shell commands without explicit in-session approval; do not modify files whose canonical path resolves outside the repository root.
+- Step B — Workflow (next): branching rules (never work on `main`), conventional commit messages, no force-push without consent.
+- Step C — Quality/style (apply if feasible): follow `docs/DESIGN_DIRECTION.md`, add `docs/CHANGELOG_AI.md` entries after changes.
+
+If you encounter errors running `git` (permission denied, protected-branch rejection, or network failures), do not retry destructive work. Stop, capture the full git error output, and report it to the human; await explicit instructions before proceeding.
+
 ---
 
 ## 1. Branching & commits
@@ -20,15 +28,23 @@ Violating them is grounds for the human operator to roll back your changes.
   any branch the human has touched. If you must force update, use
   `--force-with-lease` and ask first.
 
+- **Destructive-command approval protocol:** Never run destructive commands
+  (e.g. `rm -rf`, `git clean -fdx`, `git reset --hard`, `npm cache clean --force`) without explicit, live approval from the current human operator during this interactive agent session (the same session that initiated the request). To approve a destructive command the human must send the exact approval phrase:
+
+  `APPROVE_DESTRUCTIVE: <command>`
+
+  Log the approval with timestamp and session id, and do not accept approvals from other channels. If the human is unreachable, wait up to 30 minutes for a response; if no response, abort the action and create a report for the human. Never assume implicit approval after timeout.
+
 ## 2. File operations
 
 - **Never delete a file without explaining why** in the commit message AND in
   `docs/CHANGELOG_AI.md`. If unsure, comment-out instead of deleting.
 - **Never run** `rm -rf`, `git clean -fdx`, `git reset --hard`,
-  `npm cache clean --force`, or any destructive shell command without the
-  human's explicit approval in the same session.
-- **Never overwrite files** outside of this repo. If you need to read
-  `agency-agents` or any other project, you may **only read** — never write.
+   `npm cache clean --force`, or any destructive shell command without explicit, live approval from the current human operator during this interactive agent session (see approval protocol in Section 1). If approval was given in a previous session, re-request approval now.
+
+- **Do not modify files outside the repo root:** Do not modify any file whose canonical filesystem path resolves outside the repository root directory. Treat symlink targets that resolve outside the repo as read-only. If a file is a Git submodule or bind-mounted to another project, do not write to it; ask the human.
+
+- **Who counts as "the human":** "The human" means the person who initiated this agent session (the authenticated user shown in session metadata). Only approvals from that user count; if a different human responds, re-confirm identity before acting.
 
 ## 3. Secrets & credentials
 
@@ -37,6 +53,8 @@ Violating them is grounds for the human operator to roll back your changes.
 - **Never print secrets** in logs or in chat output.
 - If a secret leaks in a commit, **stop everything** and tell the human
   immediately. Do not try to "fix it" with a rebase.
+
+- **Pre-commit secret scanning & remediation:** Before creating a commit, scan staged files for secrets (for example API keys, `.env`, or private key files). If a secret is detected, do not commit and notify the human. If a secret was already committed, notify the human and open a mitigation issue recommending credential rotation, removing the secret in a new commit that does not rewrite history, and following the human's instructions. Do not attempt history rewriting (force-push or rebase) without explicit, live human approval.
 
 ## 4. Data integrity
 
@@ -47,18 +65,16 @@ Violating them is grounds for the human operator to roll back your changes.
   `/api/agent/trades`). Do not reintroduce local simulated positions in the UI.
 - **Real-money Polymarket CLOB is not implemented yet.** Until it is, be explicit
   that execution is agent-managed in SQLite, not on-chain.
-- If an API/provider is not configured, the UI must say
-  `"Provider not configured"` explicitly. No silent fallbacks that fabricate
-  responses.
+- If the backend returns missing configuration for provider X, the UI element that depends on X (for example the trading widget or market list) must display exactly the text `Provider not configured` in the component where the data would appear, and must not display simulated data. If multiple providers could satisfy the element, display provider-specific messages in place of their respective data sections.
 
 ## 5. Scope discipline
 
 - **This lab is isolated.** Do not modify any sibling project on disk
   (`../genesis`, `../agency-agents`, `../Remix-Os`, `../NFYN`, etc.). You may
   read `../agency-agents` for reference, nothing more.
-- **No background processes** that outlive the session. No daemons, no
-  cronjobs installed globally.
-- **No global installs** without asking. Stick to project-local `node_modules`.
+- **No background processes that persist after disconnect:** Do not create any processes, cronjobs, systemd units, or other persistent services that continue running after the agent disconnects or the shell exits. Temporary processes inside a terminal or a tmux session are allowed only if they are terminated before ending the agent session. Do not install or enable global daemons or cronjobs without explicit human approval.
+
+- **No system-wide installs without approval:** Do not run package manager commands that install software system-wide (for example, `npm install -g`, `yarn global add`, `apt-get install`, `brew install`, or using `sudo`) without explicit human approval during this session. Prefer project-local installs such as `npm install` (no `-g`).
 
 ## 6. Required reading before editing UI
 
@@ -81,7 +97,7 @@ After completing a task, append a short entry to `docs/CHANGELOG_AI.md`:
 - Verification: `npm run build` ok / failed
 ```
 
-If the build is broken, say so clearly. Do not pretend it passes.
+If `npm run build` hangs for more than 10 minutes or exceeds environment time limits, stop the build, capture logs, and ask the human whether to continue or abort. Consider the build broken if `npm run build` exits with a non-zero status or the TypeScript compiler reports errors. In `docs/CHANGELOG_AI.md`, set 'Verification' to 'npm run build — failed' and include the top error messages. Do not mark build as OK if `npm run build` fails.
 
 ## 8. The "no theater" rule
 

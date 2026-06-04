@@ -77,7 +77,7 @@ export async function runSkillOpt(agent = 'market-scanner') {
   const nextVersion = currentVersion + 1;
   const deployedRow = getDeployed(agent);
   const currentMetrics = {
-    brier:    deployedRow?.brier    ?? null,
+    brier: deployedRow?.brier ?? null,
     win_rate: deployedRow?.win_rate ?? null,
   };
 
@@ -100,14 +100,14 @@ export async function runSkillOpt(agent = 'market-scanner') {
 
   const failureSummary = failures.length > 0
     ? failures.map((f, i) =>
-        `${i+1}. Q: "${f.input.question.slice(0, 80)}"\n   Action: ${f.agent_action.outcome} @${f.input.yes_price} conf:${f.agent_action.confidence}\n   Result: ${f.ground_truth.resolved} (pnl: ${f.ground_truth.pnl?.toFixed(2) ?? 'N/A'})\n   Lesson: ${f.reflection?.lesson ?? 'none'}`
-      ).join('\n')
+      `${i + 1}. Q: "${f.input.question.slice(0, 80)}"\n   Action: ${f.agent_action.outcome} @${f.input.yes_price} conf:${f.agent_action.confidence}\n   Result: ${f.ground_truth.resolved} (pnl: ${f.ground_truth.pnl?.toFixed(2) ?? 'N/A'})\n   Lesson: ${f.reflection?.lesson ?? 'none'}`
+    ).join('\n')
     : 'No failures found in training data.';
 
   const optimizerSystem = `You are a trading strategy optimizer for an AI prediction market agent.
 Your job: analyze trading failures and propose improvements to the DECISION CRITERIA section only.
 Return ONLY the updated DECISION CRITERIA section text (no frontmatter, no other sections).
-Rules that may NEVER be changed (hard limits): max 5% per trade, confidence >= 0.65, paper trading only.`;
+Rules that may NEVER be changed (hard limits): max 5% per trade, confidence >= 0.65, trading mode as configured.`;
 
   const currentCriteria = currentSkill?.sections?.['DECISION CRITERIA']
     ?? currentSkillBody
@@ -126,9 +126,9 @@ Rules that may NEVER be changed (hard limits): max 5% per trade, confidence >= 0
   // -- Step 4: Assemble candidate skill file --
   const candidateRaw = currentSkillBody
     ? currentSkillBody.replace(
-        /^# DECISION CRITERIA[\s\S]*?(?=^# [A-Z]|\s*$)/m,
-        newCriteria.trim() + '\n\n'
-      )
+      /^# DECISION CRITERIA[\s\S]*?(?=^# [A-Z]|\s*$)/m,
+      newCriteria.trim() + '\n\n'
+    )
     : `---\nversion: ${nextVersion}\nstatus: candidate\nparent: ${currentVersion}\n---\n\n${newCriteria}`;
 
   // -- Step 5: Gate 1 — Static validation --
@@ -155,7 +155,7 @@ Rules that may NEVER be changed (hard limits): max 5% per trade, confidence >= 0
     db.prepare(`INSERT INTO skill_versions (id, agent, version, parent_version, file_path, status, brier, win_rate, val_n, gate_passed, gate_notes, created_at, reason)
       VALUES (?, ?, ?, ?, ?, 'rejected', ?, ?, ?, 0, ?, datetime('now'), ?)`)
       .run(`skill-${nanoid()}`, agent, nextVersion, currentVersion, `skills/${agent}/skill_v${nextVersion}.md`,
-           benchResult.brier, benchResult.winRate, benchResult.n, benchResult.notes, `Gate 2 failed: ${benchResult.notes}`);
+        benchResult.brier, benchResult.winRate, benchResult.n, benchResult.notes, `Gate 2 failed: ${benchResult.notes}`);
     appendChangelog(`- Agent: ${agent} v${nextVersion} — REJECTED (Gate 2): ${benchResult.notes}`);
     return { deployed: false, reason, metrics: benchResult };
   }
@@ -168,7 +168,7 @@ Rules that may NEVER be changed (hard limits): max 5% per trade, confidence >= 0
   // Write versioned copy
   const versionedPath = join(agentSkillDir, `skill_v${nextVersion}.md`);
   const finalRaw = candidateRaw.replace(/^version: \d+/m, `version: ${nextVersion}`)
-                               .replace(/^status: \w+/m, 'status: deployed');
+    .replace(/^status: \w+/m, 'status: deployed');
   writeFileSync(versionedPath, finalRaw, 'utf8');
 
   // Replace best_skill.md
@@ -178,8 +178,8 @@ Rules that may NEVER be changed (hard limits): max 5% per trade, confidence >= 0
   db.prepare(`INSERT INTO skill_versions (id, agent, version, parent_version, file_path, status, brier, win_rate, val_n, gate_passed, gate_notes, created_at, deployed_at, reason)
     VALUES (?, ?, ?, ?, ?, 'deployed', ?, ?, ?, 1, ?, datetime('now'), datetime('now'), ?)`)
     .run(`skill-${nanoid()}`, agent, nextVersion, currentVersion, `skills/${agent}/best_skill.md`,
-         benchResult.brier, benchResult.winRate, benchResult.n, benchResult.notes,
-         `Auto-deployed via SkillOpt. Brier: ${benchResult.brier}, WinRate: ${benchResult.winRate}`);
+      benchResult.brier, benchResult.winRate, benchResult.n, benchResult.notes,
+      `Auto-deployed via SkillOpt. Brier: ${benchResult.brier}, WinRate: ${benchResult.winRate}`);
 
   const deployMsg = `- Agent: ${agent} v${nextVersion} DEPLOYED. Brier: ${benchResult.brier} (was ${currentMetrics.brier ?? 'N/A'}), WinRate: ${benchResult.winRate}`;
   console.log(`[skillopt] ${deployMsg}`);

@@ -4,7 +4,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type WsMessage = {
-  type: 'agent:tick' | 'trade:executed' | 'trade:resolved' | 'lesson:learned' | 'capital:updated';
+  type:
+    | 'agent:tick' | 'trade:executed' | 'trade:resolved' | 'lesson:learned' | 'capital:updated'
+    | 'agent:status' | 'agent:log' | 'agent:completed';
   [key: string]: unknown;
 };
 
@@ -37,6 +39,7 @@ export function useWebSocket(): UseWebSocketReturn {
   const retryCountRef = useRef(0);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const unmountedRef = useRef(false);
+  const connectRef = useRef<() => void>(() => { });
 
   const connect = useCallback(() => {
     if (unmountedRef.current) return;
@@ -67,7 +70,7 @@ export function useWebSocket(): UseWebSocketReturn {
         if (retryCountRef.current < MAX_RETRIES) {
           const delay = BASE_DELAY_MS * Math.pow(2, retryCountRef.current);
           retryCountRef.current++;
-          timeoutRef.current = setTimeout(connect, delay);
+          timeoutRef.current = setTimeout(() => connectRef.current(), delay);
         }
       };
 
@@ -80,14 +83,20 @@ export function useWebSocket(): UseWebSocketReturn {
   }, []);
 
   useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
+
+  useEffect(() => {
     unmountedRef.current = false;
-    connect();
+    timeoutRef.current = setTimeout(() => {
+      if (!unmountedRef.current) connectRef.current();
+    }, 0);
     return () => {
       unmountedRef.current = true;
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       wsRef.current?.close();
     };
-  }, [connect]);
+  }, []);
 
   return { lastMessage, connectionStatus };
 }
