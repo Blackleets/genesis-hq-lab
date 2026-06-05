@@ -190,15 +190,28 @@ function createMistakePattern(trade, lesson, lessonId) {
 // This is the KEY function — called BEFORE every trade decision
 
 export function getDecisionContext(category, priceMin, priceMax) {
-  // Recent relevant lessons
+  // Recent relevant lessons — ordered by real effectiveness, not just severity string
   const lessons = db.prepare(`
-    SELECT lesson_text, new_rule, category, severity, times_prevented_loss
+    SELECT id, lesson_text, new_rule, category, severity,
+           times_prevented_loss, times_retrieved
     FROM lessons
     WHERE deprecated = 0
       AND (category = ? OR category = 'all' OR ? = 'general')
-    ORDER BY severity DESC, times_prevented_loss DESC, created_at DESC
+    ORDER BY
+      CASE severity WHEN 'critical' THEN 3 WHEN 'warning' THEN 2 WHEN 'info' THEN 1 ELSE 0 END DESC,
+      times_prevented_loss DESC,
+      times_retrieved DESC,
+      created_at DESC
     LIMIT 8
   `).all(category, category);
+
+  // Track retrieval — agents learn which lessons are being applied
+  if (lessons.length > 0) {
+    const placeholders = lessons.map(() => '?').join(', ');
+    db.prepare(
+      `UPDATE lessons SET times_retrieved = times_retrieved + 1 WHERE id IN (${placeholders})`
+    ).run(...lessons.map(l => l.id));
+  }
 
   // Active hard rules
   const rules = db.prepare(`
