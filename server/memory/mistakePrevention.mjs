@@ -14,7 +14,7 @@ export function checkVeto(proposal) {
 
   // 1. Check mistake patterns in database
   const patterns = db.prepare(`
-    SELECT id, pattern_desc, conditions, triggered_count
+    SELECT id, pattern_desc, conditions, triggered_count, lesson_id
     FROM mistake_patterns
     WHERE active = 1 AND category = ?
   `).all(category ?? 'general');
@@ -33,9 +33,14 @@ export function checkVeto(proposal) {
         pattern_id: pattern.id,
         severity: 'warning',
       });
-      // Increment trigger count
+      // Increment pattern trigger count
       db.prepare('UPDATE mistake_patterns SET triggered_count = triggered_count + 1, last_triggered = datetime("now") WHERE id = ?')
         .run(pattern.id);
+      // Credit the source lesson — this veto prevented a potential repeat mistake
+      if (pattern.lesson_id) {
+        db.prepare('UPDATE lessons SET times_prevented_loss = times_prevented_loss + 1 WHERE id = ?')
+          .run(pattern.lesson_id);
+      }
     }
   }
 
