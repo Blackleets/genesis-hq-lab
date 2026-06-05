@@ -1,16 +1,8 @@
-// orgState.mjs — the single source of truth for Genesis HQ's operational state.
+// orgState.mjs — Genesis HQ operational state.
 // Written by commandExecutor. Read by agentRunner every tick.
-// If org-state.json doesn't exist, system runs in default mode.
+// Persisted to SQLite org_state table (atomic writes, survives crashes).
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const __dir = dirname(fileURLToPath(import.meta.url));
-const STATE_PATH = join(__dir, '..', '..', 'data', 'org-state.json');
-const DATA_DIR   = join(__dir, '..', '..', 'data');
-
-if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
+import db from '../db/database.mjs';
 
 // ─── Default org state ────────────────────────────────────────────────────────
 
@@ -41,9 +33,13 @@ const DEFAULT_STATE = {
 
 export function getOrgState() {
   try {
-    if (!existsSync(STATE_PATH)) return { ...DEFAULT_STATE };
-    const raw = readFileSync(STATE_PATH, 'utf8');
-    return { ...DEFAULT_STATE, ...JSON.parse(raw) };
+    const rows = db.prepare('SELECT key, value FROM org_state').all();
+    if (rows.length === 0) return { ...DEFAULT_STATE };
+    const stored = {};
+    for (const { key, value } of rows) {
+      try { stored[key] = JSON.parse(value); } catch { stored[key] = value; }
+    }
+    return { ...DEFAULT_STATE, ...stored };
   } catch {
     return { ...DEFAULT_STATE };
   }
@@ -59,7 +55,20 @@ export function setOrgState(updates) {
     lastUpdated: new Date().toISOString(),
     commandCount: (current.commandCount ?? 0) + 1,
   };
-  writeFileSync(STATE_PATH, JSON.stringify(next, null, 2), 'utf8');
+  const now = new Date().toISOString();
+  const upsert = db.prepare(
+    `INSERT OR REPLACE INTO org_state (key, value, updated_at) VALUES (?, ?, ?)`
+  );
+  const upsertAll = db.transaction((state) => {
+    for (const [key, value] of Object.entries(state)) {
+      upsert.run(key, JSON.stringify(value), now);
+    }
+  });
+  try {
+    upsertAll(next);
+  } catch (e) {
+    console.error('[orgState] Failed to persist:', e.message);
+  }
   return next;
 }
 
@@ -68,7 +77,7 @@ export function setOrgState(updates) {
 export function isDeptActive(deptName) {
   const state = getOrgState();
   if (state.mode === 'rest' || state.mode === 'emergency') return false;
-  if (state.activeDepts[deptName] === false) return false;
+  if (state.activeDepts?.[deptName] === false) return false;
   return true;
 }
 
@@ -110,7 +119,6 @@ export function processExpiredSchedules() {
     const restExpired = expired.find(s => s.action?.type === 'REST');
     const patch = { schedule: active };
     if (restExpired && state.mode === 'rest') patch.mode = 'normal';
-
     setOrgState(patch);
     console.log(`[orgState] ${expired.length} scheduled commands expired`);
   }
@@ -128,7 +136,7 @@ export function getStatusSummary() {
   lines.push(`Mode: ${state.mode.toUpperCase()}`);
   lines.push(`Risk: ${state.riskTolerance} (max ${(risk.maxRiskPct*100).toFixed(0)}%/trade, confidence ≥ ${(risk.minConfidence*100).toFixed(0)}%)`);
 
-  const depts = Object.entries(state.activeDepts)
+  const depts = Object.entries(state.activeDepts ?? {})
     .map(([d, active]) => `${active ? '●' : '○'} ${d}`)
     .join('  ');
   lines.push(`Depts: ${depts}`);
