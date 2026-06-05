@@ -34,7 +34,15 @@ export const DEFAULTS = Object.freeze({
   htfEmaFast:   9,
   htfEmaSlow:   21,
   htfMarginPct: 0.001,   // EMA separation on the HTF to call a trend
+  // ── Strategy selection ──
+  strategy:     'momentum', // 'momentum' (trend-follow) | 'meanreversion' (fade extremes)
+  // Mean-reversion params (used when strategy = 'meanreversion'):
+  mrRsiOversold:   30,   // LONG when RSI ≤ this (and price stretched below the mean)
+  mrRsiOverbought: 70,   // SHORT when RSI ≥ this (and price stretched above the mean)
+  mrDeviationPct:  0.004,// |price − EMA21| / EMA21 must be ≥ this to call it "stretched"
 });
+
+const STRING_KEYS = { strategy: new Set(['momentum', 'meanreversion']) };
 
 const CACHE_TTL_MS = 30_000;
 let _cache = null;        // { params, at }
@@ -66,12 +74,16 @@ export function getParams() {
   return params;
 }
 
-/** Only accept known numeric keys, so a bad file can't inject garbage. */
+/** Only accept known numeric keys (and validated string enums), so a bad file can't inject garbage. */
 function sanitize(obj) {
   const out = {};
   for (const key of Object.keys(DEFAULTS)) {
     const v = obj[key];
-    if (typeof v === 'number' && Number.isFinite(v)) out[key] = v;
+    if (STRING_KEYS[key]) {
+      if (STRING_KEYS[key].has(v)) out[key] = v;
+    } else if (typeof v === 'number' && Number.isFinite(v)) {
+      out[key] = v;
+    }
   }
   return out;
 }

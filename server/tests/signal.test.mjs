@@ -88,6 +88,42 @@ test('HTF filter does not block when HTF data is missing (neutral)', () => {
   assert.strictEqual(s.action, 'TRADE'); // no closes → neutral → allowed
 });
 
+// ── Mean-reversion strategy ──
+const MR = { ...P, strategy: 'meanreversion', useHtfFilter: 0 };
+
+test('mean-reversion LONG when oversold AND price stretched below the mean', () => {
+  // RSI 25 ≤ 30, price 99.4 vs EMA21 100 → −0.6% ≤ −0.4%
+  const s = evaluateSignal(ctx({ rsi14: 25, price: 99.4, ema21: 100, ema9: 100 }), MR);
+  assert.strictEqual(s.action, 'TRADE');
+  assert.strictEqual(s.side, 'LONG');
+});
+
+test('mean-reversion SHORT when overbought AND price stretched above the mean', () => {
+  const s = evaluateSignal(ctx({ rsi14: 75, price: 100.6, ema21: 100, ema9: 100 }), MR);
+  assert.strictEqual(s.action, 'TRADE');
+  assert.strictEqual(s.side, 'SHORT');
+});
+
+test('mean-reversion SKIP when RSI is extreme but price is NOT stretched', () => {
+  const s = evaluateSignal(ctx({ rsi14: 25, price: 99.95, ema21: 100, ema9: 100 }), MR);
+  assert.strictEqual(s.action, 'SKIP');
+});
+
+test('mean-reversion SKIP when price stretched but RSI not extreme', () => {
+  const s = evaluateSignal(ctx({ rsi14: 50, price: 99.4, ema21: 100, ema9: 100 }), MR);
+  assert.strictEqual(s.action, 'SKIP');
+});
+
+test('momentum and mean-reversion take OPPOSITE sides on the same oversold dip', () => {
+  // Oversold dip with a little downward momentum + bearish 1m EMA.
+  const dip = { rsi14: 28, price: 99.4, ema21: 100, ema9: 99.8, change1h: -0.3 };
+  const mom = evaluateSignal(ctx(dip), { ...P, useHtfFilter: 0 });          // momentum
+  const mr  = evaluateSignal(ctx(dip), MR);                                  // mean-reversion
+  // momentum would short the breakdown; mean-reversion buys the dip
+  assert.strictEqual(mr.side, 'LONG');
+  assert.ok(mom.side !== 'LONG');
+});
+
 test('score is in [0,1] and higher for stronger confluence', () => {
   const weak   = evaluateSignal(ctx({ ema9: 100.2, ema21: 100, change1h: 0.25, rsi14: 66 }), P);
   const strong = evaluateSignal(ctx({ ema9: 101.5, ema21: 100, change1h: 0.9,  rsi14: 56 }), P);

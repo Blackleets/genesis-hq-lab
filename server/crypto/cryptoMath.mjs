@@ -4,17 +4,28 @@
 
 import { getParams } from './strategyParams.mjs';
 
+// Round to N significant figures — keeps precision across price scales.
+// (Rounding to 2 decimals worked for BTC ~$100k but collapsed low-priced alts
+// like DOGE ~$0.12, where target/stop landed on the entry → fake instant wins.)
+function roundSig(x, sig = 6) {
+  if (!Number.isFinite(x) || x === 0) return 0;
+  const digits = Math.ceil(Math.log10(Math.abs(x)));
+  const power = sig - digits;
+  const m = 10 ** power;
+  return Math.round(x * m) / m;
+}
+
 export function computeCryptoTargets(side, entryPrice, params = getParams()) {
   const { targetPct, stopPct } = params;
   if (side === 'LONG') {
     return {
-      targetPrice: Math.round(entryPrice * (1 + targetPct) * 100) / 100,
-      stopPrice:   Math.round(entryPrice * (1 - stopPct)   * 100) / 100,
+      targetPrice: roundSig(entryPrice * (1 + targetPct)),
+      stopPrice:   roundSig(entryPrice * (1 - stopPct)),
     };
   }
   return {
-    targetPrice: Math.round(entryPrice * (1 - targetPct) * 100) / 100,
-    stopPrice:   Math.round(entryPrice * (1 + stopPct)   * 100) / 100,
+    targetPrice: roundSig(entryPrice * (1 - targetPct)),
+    stopPrice:   roundSig(entryPrice * (1 + stopPct)),
   };
 }
 

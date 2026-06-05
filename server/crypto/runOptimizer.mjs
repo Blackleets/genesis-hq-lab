@@ -41,7 +41,17 @@ const SPACE = {
   timeoutHours: [1, 2, 3, 4, 6, 8],
   useHtfFilter: [0, 1],
   htfMinutes:   [5, 15, 30],
+  strategy:        ['momentum', 'meanreversion'],
+  mrRsiOversold:   [20, 25, 30],
+  mrRsiOverbought: [70, 75, 80],
+  mrDeviationPct:  [0.003, 0.005, 0.008],
 };
+
+// Seed coordinate descent from BOTH strategy families so each is explored.
+const SEEDS = (current) => [
+  { ...current, strategy: 'momentum' },
+  { ...current, strategy: 'meanreversion', targetPct: 0.005, stopPct: 0.006, useHtfFilter: 1, mrRsiOversold: 25, mrRsiOverbought: 75, mrDeviationPct: 0.005 },
+];
 
 function split(klines) {
   const cut = Math.floor(klines.length * IS_FRACTION);
@@ -92,8 +102,13 @@ async function runOnce() {
   const oosEval = makeEvaluate(oosWin);
   const current = getParams();
 
-  const best = coordinateDescent({ base: current, space: SPACE, evaluate: isEval, rounds: 3, minTrades: MIN_TRADES });
+  let best = { params: null, score: -Infinity, metrics: null };
+  for (const seed of SEEDS(current)) {
+    const r = coordinateDescent({ base: seed, space: SPACE, evaluate: isEval, rounds: 3, minTrades: MIN_TRADES });
+    if (r.params && r.score > best.score) best = r;
+  }
   if (!best.params) { console.warn('[optimizer] No in-sample candidate met min trades — skipping.'); return; }
+  console.log(`[optimizer] Best strategy: ${best.params.strategy}`);
 
   const decision = shouldAdopt({ current, candidate: best.params, evaluate: oosEval, minTrades: MIN_TRADES });
 
