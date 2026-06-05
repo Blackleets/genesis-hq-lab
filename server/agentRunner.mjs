@@ -21,6 +21,32 @@ import { getTreasury } from './trading/treasury.mjs';
 import { getDashboardMetrics } from './trading/analytics.mjs';
 import { getOrgState, processExpiredSchedules, getRiskSettings, isDeptActive } from './command/orgState.mjs';
 import { runCryptoTradingCycle, manageCryptoPositions } from './crypto/cryptoWorkflow.mjs';
+import { appendFileSync, mkdirSync, existsSync } from 'node:fs';
+import { join as pathJoin, dirname as pathDirname } from 'node:path';
+import { fileURLToPath as pathFromUrl } from 'node:url';
+
+const __agentDir = pathDirname(pathFromUrl(import.meta.url));
+const LOGS_DIR   = pathJoin(__agentDir, '..', 'logs');
+
+if (!existsSync(LOGS_DIR)) mkdirSync(LOGS_DIR, { recursive: true });
+
+function writeCrashLog(type, err) {
+  const entry = `\n[${new Date().toISOString()}] ${type}\n${err?.stack ?? String(err)}\n${'─'.repeat(60)}`;
+  try {
+    appendFileSync(pathJoin(LOGS_DIR, 'crash.log'), entry, 'utf8');
+  } catch { /* never throw in error handler */ }
+  console.error(`[agentRunner] CRASH (${type}):`, err?.message ?? err);
+}
+
+process.on('uncaughtException', (err) => {
+  writeCrashLog('uncaughtException', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  writeCrashLog('unhandledRejection', reason);
+  // Don't exit for unhandled rejections — let the loop continue
+});
 
 const INTERVAL_MS = 5 * 60 * 1000;  // 5 minutes
 const AGENT_ID = 'market-agent-1';
