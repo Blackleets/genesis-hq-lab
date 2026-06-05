@@ -21,6 +21,7 @@ import TradingHistoryView from './TradingHistoryView';
 import LiveTradingPanel from './LiveTradingPanel';
 import AgentLivePanel from './AgentLivePanel';
 import ResearchSignalsPanel from './ResearchSignalsPanel';
+import ScalpingDashboard from './ScalpingDashboard';
 
 const AUTO_REFRESH_MS = 30_000;
 const EXECUTION_EVENT_KINDS = new Set([
@@ -616,6 +617,18 @@ export default function MarketsView() {
             </div>
           </section>
         )}
+
+        {/* ── Scalping fast system — positions, stop/take levels, 30-day gate ── */}
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex-1 h-px bg-trim" />
+            <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-zinc-600 shrink-0">
+              {language === 'es' ? 'Sistema Scalping Fast' : 'Scalping Fast System'}
+            </span>
+            <div className="flex-1 h-px bg-trim" />
+          </div>
+          <ScalpingDashboard />
+        </section>
 
         <LiveTradingPanel />
 

@@ -31,11 +31,61 @@ export interface AgentTrade {
   reason: string;
   evidence: string;       // JSON array
   status: 'open' | 'closed' | 'vetoed' | 'expired';
-  resolved_outcome?: 'YES' | 'NO';
+  trade_type?: 'scalp' | 'swing';
+  resolved_outcome?: 'YES' | 'NO' | 'TAKE_PROFIT' | 'STOP_LOSS';
   pnl?: number;
   opened_at: string;
   closed_at?: string;
   days_to_close?: number;
+}
+
+export interface GateCondition {
+  id: string;
+  label: string;
+  passed: boolean;
+  value: string;
+}
+
+export interface TrainingStatus {
+  startDate: string;
+  dayNumber: number;
+  daysRemaining: number;
+  phase: 1 | 2 | 3;
+  phaseLabel: string;
+  phaseGoal: string;
+  stats: {
+    totalClosed: number;
+    wins: number;
+    losses: number;
+    winRate: number;
+    totalPnl: number;
+    bestTrade: number;
+    worstTrade: number;
+  };
+  capital: {
+    current: number;
+    starting: number;
+    totalReturn: number;
+    drawdownNow: number;
+    maxDrawdown: number;
+  };
+  gate: {
+    passed: boolean;
+    passedCount: number;
+    totalChecks: number;
+    conditions: GateCondition[];
+    summary: string;
+  };
+  realMoneyReady: boolean;
+}
+
+export interface TrainingResponse {
+  ok: boolean;
+  training: TrainingStatus;
+  daily: { day: string; trades: number; wins: number; losses: number; daily_pnl: number }[];
+  circuit: { tripped: boolean; reason?: string; consecutiveStopLosses: number };
+  openScalps: number;
+  openSwings: number;
 }
 
 export interface AgentLesson {
@@ -140,6 +190,7 @@ export const agentClient = {
   getSignals:  () => get<{ ok: boolean; signals: AgentSignal[]; accuracy: { total: number; correct: number; rate: number | null } }>('/api/agent/signals'),
   getSkills:   () => get<{ ok: boolean; deployed: SkillVersion[] }>('/api/agent/skills'),
   getDashboard:() => get<TradingDashboard>('/api/trading/dashboard'),
+  getTraining: () => get<TrainingResponse>('/api/trading/training'),
   getStatus:   () => get<OrgStatus>('/api/command/status'),
   getHealth:   () => get<HealthStatus>('/api/health'),
   getMarketing:() => get<MarketingContent>('/api/agent/marketing'),
