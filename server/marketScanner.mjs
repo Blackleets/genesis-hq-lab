@@ -5,11 +5,33 @@
 const POLYMARKET_BASE = 'https://gamma-api.polymarket.com';
 const KALSHI_BASE = 'https://trading-api.kalshi.com/trade-api/v2';
 
+// ─── Retry helper — exponential backoff, skips 4xx client errors ─────────────
+
+async function fetchWithRetry(url, options = {}, maxAttempts = 3) {
+  let lastErr;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetch(url, options);
+      if (res.ok) return res;
+      if (res.status >= 400 && res.status < 500) return res; // client error — don't retry
+      lastErr = new Error(`HTTP ${res.status}`);
+    } catch (err) {
+      lastErr = err;
+    }
+    if (attempt < maxAttempts) {
+      const delay = Math.pow(2, attempt - 1) * 1000; // 1000ms, 2000ms
+      console.warn(`[marketScanner] Attempt ${attempt}/${maxAttempts} failed (${lastErr?.message}). Retrying in ${delay}ms…`);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  throw lastErr;
+}
+
 // ─── Polymarket ───────────────────────────────────────────────────────────────
 
 async function fetchPolymarket(limit = 15) {
   try {
-    const res = await fetch(
+    const res = await fetchWithRetry(
       `${POLYMARKET_BASE}/events?limit=${limit}&active=true&archived=false&order=volume24hr&ascending=false`,
       { signal: AbortSignal.timeout(8000) }
     );
@@ -70,7 +92,7 @@ async function fetchKalshi(limit = 15) {
   if (!apiKey) return []; // graceful skip if no key
 
   try {
-    const res = await fetch(
+    const res = await fetchWithRetry(
       `${KALSHI_BASE}/markets?limit=${limit}&status=open`,
       {
         headers: { 'Authorization': `Bearer ${apiKey}` },
