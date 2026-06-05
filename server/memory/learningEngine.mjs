@@ -190,28 +190,30 @@ function createMistakePattern(trade, lesson, lessonId) {
 // This is the KEY function — called BEFORE every trade decision
 
 export function getDecisionContext(category, priceMin, priceMax) {
-  // Recent relevant lessons — ordered by real effectiveness, not just severity string
-  const lessons = db.prepare(`
-    SELECT id, lesson_text, new_rule, category, severity,
-           times_prevented_loss, times_retrieved
-    FROM lessons
-    WHERE deprecated = 0
-      AND (category = ? OR category = 'all' OR ? = 'general')
-    ORDER BY
-      CASE severity WHEN 'critical' THEN 3 WHEN 'warning' THEN 2 WHEN 'info' THEN 1 ELSE 0 END DESC,
-      times_prevented_loss DESC,
-      times_retrieved DESC,
-      created_at DESC
-    LIMIT 8
-  `).all(category, category);
+  // Atomic SELECT + UPDATE so times_retrieved stays consistent under concurrent writes
+  const lessons = tx(() => {
+    const results = db.prepare(`
+      SELECT id, lesson_text, new_rule, category, severity,
+             times_prevented_loss, times_retrieved
+      FROM lessons
+      WHERE deprecated = 0
+        AND (category = ? OR category = 'all' OR ? = 'general')
+      ORDER BY
+        CASE severity WHEN 'critical' THEN 3 WHEN 'warning' THEN 2 WHEN 'info' THEN 1 ELSE 0 END DESC,
+        times_prevented_loss DESC,
+        times_retrieved DESC,
+        created_at DESC
+      LIMIT 8
+    `).all(category, category);
 
-  // Track retrieval — agents learn which lessons are being applied
-  if (lessons.length > 0) {
-    const placeholders = lessons.map(() => '?').join(', ');
-    db.prepare(
-      `UPDATE lessons SET times_retrieved = times_retrieved + 1 WHERE id IN (${placeholders})`
-    ).run(...lessons.map(l => l.id));
-  }
+    if (results.length > 0) {
+      const placeholders = results.map(() => '?').join(', ');
+      db.prepare(
+        `UPDATE lessons SET times_retrieved = times_retrieved + 1 WHERE id IN (${placeholders})`
+      ).run(...results.map(l => l.id));
+    }
+    return results;
+  });
 
   // Active hard rules
   const rules = db.prepare(`
