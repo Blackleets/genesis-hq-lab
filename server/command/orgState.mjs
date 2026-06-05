@@ -2,7 +2,7 @@
 // Written by commandExecutor. Read by agentRunner every tick.
 // Persisted to SQLite org_state table (atomic writes, survives crashes).
 
-import db from '../db/database.mjs';
+import db, { tx } from '../db/database.mjs';
 
 // ─── Default org state ────────────────────────────────────────────────────────
 
@@ -55,17 +55,16 @@ export function setOrgState(updates) {
     lastUpdated: new Date().toISOString(),
     commandCount: (current.commandCount ?? 0) + 1,
   };
-  const now = new Date().toISOString();
-  const upsert = db.prepare(
-    `INSERT OR REPLACE INTO org_state (key, value, updated_at) VALUES (?, ?, ?)`
-  );
-  const upsertAll = db.transaction((state) => {
-    for (const [key, value] of Object.entries(state)) {
-      upsert.run(key, JSON.stringify(value), now);
-    }
-  });
   try {
-    upsertAll(next);
+    tx(() => {
+      const now = new Date().toISOString();
+      const upsert = db.prepare(
+        `INSERT OR REPLACE INTO org_state (key, value, updated_at) VALUES (?, ?, ?)`
+      );
+      for (const [key, value] of Object.entries(next)) {
+        upsert.run(key, JSON.stringify(value), now);
+      }
+    });
   } catch (e) {
     console.error('[orgState] Failed to persist:', e.message);
   }
