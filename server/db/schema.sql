@@ -354,3 +354,69 @@ CREATE TABLE IF NOT EXISTS org_state (
   value      TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+
+-- ─── AGENT DECISIONS — full audit trail of every signal emitted ───────────────
+-- Populated by MarketAnalystAgent (and future agents) on every BUY/SELL signal.
+-- outcome / resolved_at set when the linked trade closes.
+-- Idempotency: INSERT OR IGNORE + deterministic ID (agent:ticker:signal:window).
+
+CREATE TABLE IF NOT EXISTS agent_decisions (
+  id               TEXT    PRIMARY KEY,
+  timestamp        INTEGER NOT NULL,
+  ticker           TEXT    NOT NULL,
+  agent_name       TEXT    NOT NULL,
+  signal           TEXT    NOT NULL,   -- 'BUY' | 'SELL'
+  confidence       REAL    NOT NULL,
+  reasoning_json   TEXT    NOT NULL,   -- JSON array of strings
+  market_price     REAL,               -- yesPrice at decision time
+  market_category  TEXT,
+  outcome          TEXT,               -- NULL until resolved: 'WIN' | 'LOSS' | 'NEUTRAL'
+  resolved_at      INTEGER             -- Unix ms, NULL until resolved
+);
+
+CREATE INDEX IF NOT EXISTS idx_decisions_ticker  ON agent_decisions(ticker);
+CREATE INDEX IF NOT EXISTS idx_decisions_agent   ON agent_decisions(agent_name);
+CREATE INDEX IF NOT EXISTS idx_decisions_ts      ON agent_decisions(timestamp);
+CREATE INDEX IF NOT EXISTS idx_decisions_signal  ON agent_decisions(signal);
+CREATE INDEX IF NOT EXISTS idx_decisions_outcome ON agent_decisions(outcome);
+
+-- ─── AGENT PERFORMANCE — rolling accuracy per agent ──────────────────────────
+-- Recalculated from agent_decisions ground truth after every market resolution.
+-- Never incremented — always a full recomputation (no counter drift).
+--
+-- brier_score: mean((confidence - actual)²) — lower = better calibration
+--              0.25 = random, 0.0 = perfect. Added to the user-specified fields.
+
+CREATE TABLE IF NOT EXISTS agent_performance (
+  agent_name           TEXT    PRIMARY KEY,
+  total_predictions    INTEGER NOT NULL DEFAULT 0,
+  correct_predictions  INTEGER NOT NULL DEFAULT 0,
+  accuracy_score       REAL    NOT NULL DEFAULT 0.0,   -- correct / total  (0.0–1.0)
+  avg_confidence       REAL    NOT NULL DEFAULT 0.0,   -- mean stated confidence
+  brier_score          REAL    NOT NULL DEFAULT 0.25,  -- calibration score (lower = better)
+  updated_at           INTEGER NOT NULL                -- Unix ms
+);
+
+-- ─── CONSENSUS DECISIONS — multi-agent aggregated signal ──────────────────────
+-- One row per ticker per 15-min window. INSERT OR REPLACE so the decision is
+-- refreshed if resolveConsensus is called again within the same window.
+-- vetoed = 1 when a BLOCK signal above the threshold overrides all scoring.
+
+CREATE TABLE IF NOT EXISTS consensus_decisions (
+  id             TEXT    PRIMARY KEY,          -- '{ticker}:{windowBucket}'
+  ticker         TEXT    NOT NULL,
+  timestamp      INTEGER NOT NULL,             -- Unix ms
+  decision       TEXT    NOT NULL,             -- 'BUY' | 'SELL' | 'HOLD'
+  buy_score      REAL    NOT NULL DEFAULT 0.0, -- total weighted BUY contribution
+  sell_score     REAL    NOT NULL DEFAULT 0.0, -- total weighted SELL contribution
+  hold_score     REAL    NOT NULL DEFAULT 0.0, -- total weighted HOLD contribution
+  vetoed         INTEGER NOT NULL DEFAULT 0,   -- 1 if any agent vetoed
+  veto_by        TEXT,                         -- agent_name that fired the veto
+  signal_count   INTEGER NOT NULL DEFAULT 0,   -- how many signals were aggregated
+  breakdown_json TEXT    NOT NULL DEFAULT '[]',-- [{agentName, signal, confidence, weight, contribution}]
+  explanation    TEXT    NOT NULL DEFAULT ''   -- human-readable decision rationale
+);
+
+CREATE INDEX IF NOT EXISTS idx_consensus_ticker    ON consensus_decisions(ticker);
+CREATE INDEX IF NOT EXISTS idx_consensus_timestamp ON consensus_decisions(timestamp);
+CREATE INDEX IF NOT EXISTS idx_consensus_decision  ON consensus_decisions(decision);

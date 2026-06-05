@@ -31,6 +31,10 @@ import {
   startWS      as kalshiStartWS,
   getKalshiStatus,
 } from './kalshi/adapter.mjs';
+import { start as startMarketAnalyst }                    from './agents/marketAnalyst.mjs';
+import { getRecentDecisions, getDecisionStats }           from './memory/decisionLedger.mjs';
+import { getAgentPerformance }                            from './memory/decisionAccuracyEngine.mjs';
+import { getRecentConsensus, getConsensusForTicker }      from './memory/consensusEngine.mjs';
 
 // In-memory SkillOpt job state (single concurrent job)
 const skilloptJob = { running: false, lastResult: null, startedAt: null, agent: null };
@@ -63,6 +67,8 @@ function broadcast(event) {
 agentSetBroadcast(broadcast);
 // Give Kalshi adapter access to the broadcast channel
 kalshiSetBroadcast(broadcast);
+// Start MarketAnalystAgent (subscribes to internal market_update bus)
+startMarketAnalyst(broadcast);
 
 const HOST = process.env.HOST || '127.0.0.1';
 const PORT = Number(process.env.PORT || 8787);
@@ -498,6 +504,35 @@ const server = createServer(async (req, res) => {
       const accuracy = getSignalAccuracy();
       sendJson(res, 200, { ok: true, signals, accuracy });
     } catch (e) { sendJson(res, 200, { ok: true, signals: [], accuracy: { total: 0, correct: 0, rate: null } }); }
+    return;
+  }
+
+  if (url.pathname === '/api/agent/performance') {
+    try {
+      sendJson(res, 200, { ok: true, performance: getAgentPerformance() });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  if (url.pathname === '/api/agent/decisions') {
+    try {
+      const limit = Math.min(Number(url.searchParams.get('limit') || 50), 200);
+      const decisions = getRecentDecisions(limit);
+      const stats     = getDecisionStats();
+      sendJson(res, 200, { ok: true, decisions, stats });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  if (url.pathname === '/api/agent/consensus') {
+    try {
+      const limit  = Math.min(Number(url.searchParams.get('limit') || 20), 200);
+      const ticker = url.searchParams.get('ticker');
+      const data   = ticker
+        ? getConsensusForTicker(ticker, limit)
+        : getRecentConsensus(limit);
+      sendJson(res, 200, { ok: true, consensus: data });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;
   }
 
