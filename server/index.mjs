@@ -250,6 +250,91 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === '/api/agent/learning-health' && req.method === 'GET') {
+    try {
+      const byCategory = db.prepare(`
+        SELECT category,
+               COUNT(*) AS total,
+               SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) AS critical,
+               SUM(CASE WHEN severity = 'warning'  THEN 1 ELSE 0 END) AS warnings,
+               SUM(times_retrieved)      AS total_retrieved,
+               SUM(times_prevented_loss) AS total_prevented
+        FROM lessons WHERE deprecated = 0
+        GROUP BY category ORDER BY total DESC
+      `).all();
+
+      const topLessons = db.prepare(`
+        SELECT id, lesson_text, category, severity,
+               times_retrieved, times_prevented_loss, created_at
+        FROM lessons
+        WHERE deprecated = 0
+        ORDER BY times_prevented_loss DESC, times_retrieved DESC
+        LIMIT 5
+      `).all();
+
+      const unreadCount = db.prepare(
+        `SELECT COUNT(*) AS cnt FROM lessons WHERE deprecated = 0 AND times_retrieved = 0`
+      ).get()?.cnt ?? 0;
+
+      const patterns = db.prepare(`
+        SELECT pattern_desc, triggered_count, true_positive, false_positive, active, lesson_id
+        FROM mistake_patterns
+        ORDER BY triggered_count DESC LIMIT 10
+      `).all();
+
+      const activePatterns = patterns.filter(p => p.active).length;
+      const totalTriggered = patterns.reduce((s, p) => s + (p.triggered_count ?? 0), 0);
+      const totalFp        = patterns.reduce((s, p) => s + (p.false_positive ?? 0), 0);
+
+      const recentRow = db.prepare(`
+        SELECT SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) AS wins, COUNT(*) AS total
+        FROM (
+          SELECT pnl FROM trades
+          WHERE status = 'closed' AND COALESCE(trade_type,'prediction') <> 'crypto_scalp'
+          ORDER BY closed_at DESC LIMIT 10
+        )
+      `).get();
+
+      const allTwenty = db.prepare(`
+        SELECT pnl FROM trades
+        WHERE status = 'closed' AND COALESCE(trade_type,'prediction') <> 'crypto_scalp'
+        ORDER BY closed_at DESC LIMIT 20
+      `).all();
+      const olderTen = allTwenty.slice(10);
+      const olderWins  = olderTen.filter(t => t.pnl > 0).length;
+      const olderWinRate  = olderTen.length > 0 ? olderWins / olderTen.length : null;
+
+      const recentWinRate = recentRow?.total > 0 ? recentRow.wins / recentRow.total : null;
+      const direction = recentWinRate != null && olderWinRate != null
+        ? recentWinRate > olderWinRate ? 'improving' : recentWinRate < olderWinRate ? 'declining' : 'stable'
+        : 'insufficient_data';
+
+      return sendJson(res, 200, {
+        ok: true,
+        learning: {
+          totalLessons:  byCategory.reduce((s, c) => s + c.total, 0),
+          unreadLessons: unreadCount,
+          byCategory,
+          topLessons,
+        },
+        vetoPrevention: {
+          activePatterns,
+          totalTriggered,
+          falsePositiveRate: totalTriggered > 0 ? totalFp / totalTriggered : 0,
+          patterns: patterns.slice(0, 5),
+        },
+        winRateTrend: {
+          recent10:  recentWinRate,
+          prior10:   olderWinRate,
+          direction,
+        },
+        generatedAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      return sendJson(res, 500, { ok: false, error: err.message });
+    }
+  }
+
   if (url.pathname === '/api/agent/lessons') {
     try {
       // Read from SQLite lessons table
