@@ -34,6 +34,7 @@ let _ws = null;
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
 
 export function startWS() {
+  if (_ws) return;  // already running — idempotent
   const apiKey = process.env.KALSHI_API_KEY;
   if (!apiKey) {
     console.log('[kalshi] No KALSHI_API_KEY — WebSocket disabled (REST polling still active)');
