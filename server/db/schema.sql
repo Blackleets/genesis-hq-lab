@@ -347,3 +347,10 @@ ALTER TABLE trades ADD COLUMN exit_reason  TEXT;
 
 -- 24h quote volume at entry — lets us model realistic exit slippage on close.
 ALTER TABLE trades ADD COLUMN entry_volume24h REAL;
+
+-- ─── ORG STATE — persists org mode, departments, focus, goal across restarts ──
+CREATE TABLE IF NOT EXISTS org_state (
+  key        TEXT PRIMARY KEY,
+  value      TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
