@@ -7,7 +7,8 @@ import db, { tx } from '../db/database.mjs';
 // ─── Check if a proposed trade should be vetoed ──────────────────────────────
 
 export function checkVeto(proposal) {
-  const { category, yesPrice, noPrice, volumeTotal, daysToClose } = proposal;
+  const category = proposal.marketCategory ?? proposal.category;
+  const { yesPrice, noPrice, volumeTotal, daysToClose } = proposal;
   const intendedPrice = proposal.outcome === 'YES' ? yesPrice : noPrice;
 
   const vetoes = [];
@@ -34,7 +35,7 @@ export function checkVeto(proposal) {
         severity: 'warning',
       });
       // Increment pattern trigger count
-      db.prepare('UPDATE mistake_patterns SET triggered_count = triggered_count + 1, last_triggered = datetime("now") WHERE id = ?')
+      db.prepare("UPDATE mistake_patterns SET triggered_count = triggered_count + 1, last_triggered = datetime('now') WHERE id = ?")
         .run(pattern.id);
       // Credit the source lesson — this veto prevented a potential repeat mistake
       if (pattern.lesson_id) {

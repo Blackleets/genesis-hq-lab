@@ -28,7 +28,7 @@ async function stepScan() {
 
 // ─── STEP 2 — QUALIFY (no Claude) ────────────────────────────────────────────
 
-function stepQualify(markets) {
+export function stepQualify(markets) {
   const qualified = markets.filter(m =>
     m.volumeTotal >= 5000 &&
     m.volume24h >= 200 &&
