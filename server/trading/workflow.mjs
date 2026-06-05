@@ -235,6 +235,15 @@ export async function runLearningCycle() {
   for (const trade of openTrades) {
     // Check if market has resolved
     const status = await getMarketStatus(trade.market_source, trade.market_id);
+
+    // Market was delisted/cancelled — expire immediately so capital is returned
+    if (status?.status === 'cancelled') {
+      db.prepare(`UPDATE trades SET status = 'expired', closed_at = datetime('now') WHERE id = ?`).run(trade.id);
+      settleTradeCapital(trade.capital_used, 0); // refund capital, no gain/loss
+      console.log(`[workflow] CANCELLED: ${trade.market_question?.slice(0, 40)} — market delisted`);
+      continue;
+    }
+
     if (!status || status.status !== 'resolved' || !status.result) continue;
 
     const resolvedOutcome = status.result.toUpperCase();

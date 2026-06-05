@@ -171,10 +171,11 @@ export async function getMarketStatus(source, marketId) {
     const apiKey = process.env.KALSHI_API_KEY;
     if (!apiKey) return null;
     try {
-      const res = await fetch(`${KALSHI_BASE}/markets/${marketId}`, {
+      const res = await fetchWithRetry(`${KALSHI_BASE}/markets/${marketId}`, {
         headers: { 'Authorization': `Bearer ${apiKey}` },
         signal: AbortSignal.timeout(5000),
       });
+      if (res.status === 404) return { status: 'cancelled', result: null };
       if (!res.ok) return null;
       const { market } = await res.json();
       return {
@@ -186,9 +187,10 @@ export async function getMarketStatus(source, marketId) {
 
   if (source === 'polymarket') {
     try {
-      const res = await fetch(`${POLYMARKET_BASE}/markets/${marketId}`, {
+      const res = await fetchWithRetry(`${POLYMARKET_BASE}/markets/${marketId}`, {
         signal: AbortSignal.timeout(5000),
       });
+      if (res.status === 404) return { status: 'cancelled', result: null };
       if (!res.ok) return null;
       const market = await res.json();
       const resolved = market.closed || market.archived;
@@ -207,9 +209,9 @@ export async function getMarketStatus(source, marketId) {
 export async function fetchCurrentPrice(source, marketId) {
   if (source === 'polymarket') {
     try {
-      const res = await fetch(`${POLYMARKET_BASE}/markets/${marketId}`, {
+      const res = await fetchWithRetry(`${POLYMARKET_BASE}/markets/${marketId}`, {
         signal: AbortSignal.timeout(4000),
-      });
+      }, 2);
       if (!res.ok) return null;
       const market = await res.json();
       let outcomes, prices;
@@ -229,10 +231,10 @@ export async function fetchCurrentPrice(source, marketId) {
     const apiKey = process.env.KALSHI_API_KEY;
     if (!apiKey) return null;
     try {
-      const res = await fetch(`${KALSHI_BASE}/markets/${marketId}`, {
+      const res = await fetchWithRetry(`${KALSHI_BASE}/markets/${marketId}`, {
         headers: { 'Authorization': `Bearer ${apiKey}` },
         signal: AbortSignal.timeout(4000),
-      });
+      }, 2);
       if (!res.ok) return null;
       const { market } = await res.json();
       return {
