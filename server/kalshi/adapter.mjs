@@ -51,14 +51,25 @@ export function startWS() {
   });
 
   _ws.on('order_filled', (fill) => {
-    state.lastFill = { ...fill, receivedAt: Date.now() };
-    console.log(`[kalshi] ORDER FILLED: ${fill.ticker} ${fill.side} ×${fill.count} @ $${fill.price.toFixed(2)}`);
-    _broadcast?.({ type: 'kalshi:order_filled', ...fill, ts: Date.now() });
+    // try-catch: this handler runs inside KalshiWS.emit() — an uncaught
+    // exception here would propagate back through ws.mjs's #onMessage.
+    // ws.mjs wraps #onMessage in try-catch, but defensive here too.
+    try {
+      state.lastFill = { ...fill, receivedAt: Date.now() };
+      console.log(`[kalshi] ORDER FILLED: ${fill.ticker} ${fill.side} ×${fill.count} @ $${(fill.price ?? 0).toFixed(2)}`);
+      _broadcast?.({ type: 'kalshi:order_filled', ...fill, ts: Date.now() });
+    } catch (err) {
+      console.error('[kalshi] order_filled handler error:', err.message);
+    }
   });
 
   _ws.on('position_updated', (pos) => {
-    state.lastPositionUpdate = { ...pos, receivedAt: Date.now() };
-    _broadcast?.({ type: 'kalshi:position_updated', ...pos, ts: Date.now() });
+    try {
+      state.lastPositionUpdate = { ...pos, receivedAt: Date.now() };
+      _broadcast?.({ type: 'kalshi:position_updated', ...pos, ts: Date.now() });
+    } catch (err) {
+      console.error('[kalshi] position_updated handler error:', err.message);
+    }
   });
 
   _ws.connect();
