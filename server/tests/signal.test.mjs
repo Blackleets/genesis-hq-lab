@@ -1,9 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluateSignal } from '../crypto/signal.mjs';
+import { evaluateSignal, computeHtfTrend } from '../crypto/signal.mjs';
 import { DEFAULTS } from '../crypto/strategyParams.mjs';
 
 const P = DEFAULTS;
+
+// Enough 1m closes for a 15m EMA21 (21 * 15 = 315) following a slope.
+const sloped = (dir) => Array.from({ length: 360 }, (_, i) => 1000 + dir * i * 0.2);
 
 // Helper to build a context with sane defaults, overridable per test.
 function ctx(over = {}) {
@@ -52,6 +55,37 @@ test('SKIP when EMAs are flat (no trend confluence)', () => {
 test('SKIP when trend up but momentum is negative (conflict)', () => {
   const s = evaluateSignal(ctx({ ema9: 101, ema21: 100, change1h: -0.5, rsi14: 55 }), P);
   assert.strictEqual(s.action, 'SKIP');
+});
+
+test('computeHtfTrend — bullish/bearish/neutral by slope', () => {
+  assert.strictEqual(computeHtfTrend(sloped(+1), P), 'bullish');
+  assert.strictEqual(computeHtfTrend(sloped(-1), P), 'bearish');
+  assert.strictEqual(computeHtfTrend(Array.from({ length: 360 }, () => 1000), P), 'neutral');
+  assert.strictEqual(computeHtfTrend([1, 2, 3], P), 'neutral'); // insufficient data
+});
+
+test('HTF filter blocks a 1m LONG when the higher timeframe is bearish', () => {
+  const c = { ema9: 101, ema21: 100, change1h: 0.5, rsi14: 55, closes: sloped(-1) };
+  const s = evaluateSignal(ctx(c), { ...P, useHtfFilter: 1 });
+  assert.strictEqual(s.action, 'SKIP');
+});
+
+test('HTF filter allows a 1m LONG when the higher timeframe is bullish', () => {
+  const c = { ema9: 101, ema21: 100, change1h: 0.5, rsi14: 55, closes: sloped(+1) };
+  const s = evaluateSignal(ctx(c), { ...P, useHtfFilter: 1 });
+  assert.strictEqual(s.action, 'TRADE');
+  assert.strictEqual(s.side, 'LONG');
+});
+
+test('HTF filter OFF ignores the higher timeframe', () => {
+  const c = { ema9: 101, ema21: 100, change1h: 0.5, rsi14: 55, closes: sloped(-1) };
+  const s = evaluateSignal(ctx(c), { ...P, useHtfFilter: 0 });
+  assert.strictEqual(s.action, 'TRADE'); // bearish HTF ignored
+});
+
+test('HTF filter does not block when HTF data is missing (neutral)', () => {
+  const s = evaluateSignal(ctx({ ema9: 101, ema21: 100, change1h: 0.5, rsi14: 55 }), { ...P, useHtfFilter: 1 });
+  assert.strictEqual(s.action, 'TRADE'); // no closes → neutral → allowed
 });
 
 test('score is in [0,1] and higher for stronger confluence', () => {

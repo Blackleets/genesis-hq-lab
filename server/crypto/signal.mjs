@@ -8,9 +8,34 @@
 //   { price, change1h(%), volume24h, ema9, ema21, rsi14, ... }
 
 import { DEFAULTS } from './strategyParams.mjs';
+import { computeEma } from './priceFeeder.mjs';
 
 function clamp01(x) {
   return Math.max(0, Math.min(1, x));
+}
+
+/**
+ * Higher-timeframe trend from 1m closes. Resamples the 1m series to `htfMinutes`
+ * bars (every Nth close) and compares EMA fast vs slow. Pure — same in live and
+ * backtest so the multi-timeframe filter is consistent. Returns 'bullish' |
+ * 'bearish' | 'neutral'. Neutral when data is insufficient (never blocks).
+ */
+export function computeHtfTrend(closes, params = DEFAULTS) {
+  const { htfMinutes, htfEmaFast, htfEmaSlow, htfMarginPct } = params;
+  if (!Array.isArray(closes) || closes.length < htfEmaSlow * htfMinutes) return 'neutral';
+
+  const htf = [];
+  const need = htfEmaSlow * 3;
+  for (let i = closes.length - 1; i >= 0 && htf.length < need; i -= htfMinutes) {
+    htf.unshift(closes[i]);
+  }
+  if (htf.length < htfEmaSlow) return 'neutral';
+
+  const fast = computeEma(htf, htfEmaFast);
+  const slow = computeEma(htf, htfEmaSlow);
+  if (fast >= slow * (1 + htfMarginPct)) return 'bullish';
+  if (fast <= slow * (1 - htfMarginPct)) return 'bearish';
+  return 'neutral';
 }
 
 export function evaluateSignal(ctx, params = DEFAULTS) {
@@ -59,6 +84,15 @@ export function evaluateSignal(ctx, params = DEFAULTS) {
     else if (bearishTrend && !downMomentum) reasons.push('Trend down but momentum not down (conflict)');
     else reasons.push(`RSI ${ctx.rsi14} outside entry band`);
     return { action: 'SKIP', side: null, score: 0, reasons };
+  }
+
+  // ── Multi-timeframe filter: never trade against the higher-timeframe trend ──
+  if (params.useHtfFilter) {
+    const htf = computeHtfTrend(ctx.closes, params);
+    if ((side === 'LONG' && htf === 'bearish') || (side === 'SHORT' && htf === 'bullish')) {
+      return { action: 'SKIP', side: null, score: 0, reasons: [`Higher timeframe (${params.htfMinutes}m) is ${htf} — blocks ${side}`] };
+    }
+    if (htf !== 'neutral') reasons.push(`HTF ${params.htfMinutes}m ${htf} confirms`);
   }
 
   // ── Confluence score in [0,1]: stronger separation/momentum + RSI centered → higher ──

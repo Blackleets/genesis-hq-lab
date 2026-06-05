@@ -28,6 +28,12 @@ export const DEFAULTS = Object.freeze({
   rsiShortMin:  32,      // SHORT only when RSI in [32, 55] — falling, not oversold
   rsiShortMax:  55,
   minVolume24h: 1_000_000,
+  // ── Multi-timeframe (HTF) trend filter ──
+  useHtfFilter: 1,       // 1 = only trade when the higher timeframe agrees, 0 = off
+  htfMinutes:   15,      // higher timeframe in minutes (1m candles resampled to this)
+  htfEmaFast:   9,
+  htfEmaSlow:   21,
+  htfMarginPct: 0.001,   // EMA separation on the HTF to call a trend
 });
 
 const CACHE_TTL_MS = 30_000;

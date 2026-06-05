@@ -23,7 +23,7 @@ const HEARTBEAT = join(__dir, '..', '..', 'data', 'strategy', 'optimizer_heartbe
 
 const ONCE = process.argv.includes('--once');
 const arg = (n, d) => { const h = process.argv.find(a => a.startsWith(`--${n}=`)); return h ? h.split('=')[1] : d; };
-const DAYS = parseInt(arg('days', '45'), 10);
+const DAYS = parseInt(process.env.OPTIMIZER_DAYS ?? arg('days', '45'), 10);
 const INTERVAL_MIN = parseInt(process.env.OPTIMIZER_INTERVAL_MIN ?? arg('interval', '45'), 10);
 const MIN_TRADES = parseInt(process.env.OPTIMIZER_MIN_TRADES ?? '30', 10);
 const IS_FRACTION = 0.7;
@@ -39,6 +39,8 @@ const SPACE = {
   rsiShortMin:  [28, 32, 36, 40],
   rsiShortMax:  [52, 55, 60],
   timeoutHours: [1, 2, 3, 4, 6, 8],
+  useHtfFilter: [0, 1],
+  htfMinutes:   [5, 15, 30],
 };
 
 function split(klines) {

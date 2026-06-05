@@ -4,10 +4,9 @@
 
 const BINANCE_BASE = 'https://api.binance.com/api/v3';
 
-// 1-minute candles to pull per asset. Needs ≥60 for a TRUE 1h change and a
-// stable EMA21/RSI14. (Was 30 — which silently made change1h fall back to the
-// 24h ticker percent, the wrong signal.)
-const KLINES_LIMIT = 120;
+// 1-minute candles to pull per asset. ≥60 for a true 1h change; 360 so the
+// multi-timeframe filter can build a 15m EMA21 (21 * 15 = 315) from resampled 1m.
+const KLINES_LIMIT = 360;
 
 const DEFAULT_ASSETS = [
   { symbol: 'BTC', pair: 'BTCUSDT' },
@@ -89,6 +88,7 @@ export function buildAssetContext(symbol, pair, klines, ticker) {
     ema21:     Math.round(ema21 * 100) / 100,
     rsi14,
     trend,
+    closes,    // raw 1m closes — used by the multi-timeframe (HTF) filter
   };
 }
 

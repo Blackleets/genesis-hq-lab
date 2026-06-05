@@ -21,3 +21,8 @@ services:
         value: 10000
       - key: ANTHROPIC_API_KEY
         sync: false
+      # Optimizer footprint tuned for the 512MB free tier (smaller window, less often).
+      - key: OPTIMIZER_DAYS
+        value: "14"
+      - key: OPTIMIZER_INTERVAL_MIN
+        value: "120"

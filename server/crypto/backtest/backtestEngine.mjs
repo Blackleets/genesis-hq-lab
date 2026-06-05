@@ -11,7 +11,7 @@ import { evaluateSignal } from '../signal.mjs';
 import { computeMetrics } from './metrics.mjs';
 
 const VOLUME_WINDOW = 1440; // candles (~24h of 1m bars) for the volume estimate
-const CTX_WINDOW = 120;     // trailing closes used per candle — keeps the loop O(n), not O(n²)
+const CTX_WINDOW = 360;     // trailing closes per candle — enough for the 15m HTF filter; still O(n)
 
 /** Build a priceFeeder-shaped context from a trailing window of closes + 24h volume. */
 function buildCtx(closes, volume24h) {
@@ -27,12 +27,13 @@ function buildCtx(closes, volume24h) {
     ema9:  Math.round(computeEma(closes, 9) * 100) / 100,
     ema21: Math.round(computeEma(closes, 21) * 100) / 100,
     rsi14: computeRsi(closes, 14),
+    closes,    // trailing 1m closes — used by the multi-timeframe filter
   };
 }
 
 export function runBacktest(klines, params, opts = {}) {
   const signalFn   = opts.signalFn ?? evaluateSignal;
-  const warmup     = opts.warmup ?? 60;
+  const warmup     = opts.warmup ?? 320; // enough trailing closes for the 15m HTF filter
   const positionUsd = opts.positionUsd ?? 100;
   const startCapital = opts.startCapital ?? 10_000;
   const feePct     = opts.feePct ?? getCryptoFeePct();
