@@ -1,17 +1,22 @@
-// KalshiAdapter — real-time WebSocket layer for Kalshi portfolio events.
-// REST operations (market data, order placement) remain in marketScanner.mjs
-// and execution.mjs. This module adds fills/positions via the Kalshi WS API
-// and pipes them into the existing broadcast channel used by all agents.
+// KalshiAdapter — real-time WebSocket layer for Kalshi portfolio events
+// plus periodic REST polling that normalizes market state to market_update events.
 //
-// Usage:
-//   import { setBroadcast, startWS, stopWS, getKalshiStatus } from './kalshi/adapter.mjs';
-//   setBroadcast(broadcast);   // call once, before startWS
-//   startWS();                 // call after server is listening
+// Two data streams, one adapter:
+//   WS  (wss://trading-api.kalshi.com/trade-api/ws/v2)
+//       → portfolio channel → fills → kalshi:order_filled
+//                           → positions → kalshi:position_updated
 //
-// Silent degraded mode: when KALSHI_API_KEY is not set, startWS() is a no-op.
-// All events are optional — missing them does not affect the trading pipeline.
+//   REST (GET /trade-api/v2/markets, every MARKET_POLL_MS)
+//       → raw markets → normalizeMarket() → market_update
+//
+// Both streams flow through the same broadcast() channel.
+// Silent degraded mode when KALSHI_API_KEY is not set.
 
 import KalshiWS from './ws.mjs';
+
+const KALSHI_REST_BASE = 'https://trading-api.kalshi.com/trade-api/v2';
+const MARKET_POLL_MS   = 5 * 60_000;   // every 5 minutes
+const MARKET_LIMIT     = 50;            // max markets per REST call
 
 // ─── Broadcast injection ──────────────────────────────────────────────────────
 
@@ -25,22 +30,123 @@ export function setBroadcast(fn) {
 
 const state = {
   wsConnected:        false,
-  lastFill:           null,   // most recent order fill received via WS
-  lastPositionUpdate: null,   // most recent position update received via WS
+  lastFill:           null,
+  lastPositionUpdate: null,
 };
 
-let _ws = null;
+let _ws              = null;
+let _marketPollTimer = null;
+
+// ─── Normalization helpers ────────────────────────────────────────────────────
+
+// Coerce to finite number or null.
+function _toNum(v) {
+  const n = Number(v);
+  return v != null && isFinite(n) ? n : null;
+}
+
+// Coerce Kalshi cent-integer price (0–100) to decimal fraction (0.00–1.00) or null.
+// Handles: number, numeric string, null, undefined, non-numeric string.
+function _toCents(v) {
+  const n = Number(v);
+  return v != null && isFinite(n) ? n / 100 : null;
+}
+
+// ─── normalizeMarket — pure function ─────────────────────────────────────────
+//
+// Input:  raw Kalshi REST market object from GET /trade-api/v2/markets
+//         { ticker, yes_ask, no_ask, volume_24h, open_interest, category, close_time, ... }
+//
+// Output: canonical market_update event ready for broadcast
+//         All fields are present; missing source data produces null (never undefined).
+
+export function normalizeMarket(raw) {
+  const ticker = raw?.ticker ?? null;
+
+  // daysToClose: positive integer, 0 if already at close, null if no close_time
+  let daysToClose = null;
+  if (raw?.close_time) {
+    const ms = new Date(raw.close_time).getTime() - Date.now();
+    daysToClose = ms > 0 ? Math.round(ms / 86_400_000) : 0;
+  }
+
+  return {
+    type:           'market_update',
+    ticker,
+    marketId:       ticker,                     // Kalshi ticker IS the market id
+    yesPrice:       _toCents(raw?.yes_ask),     // cents → fraction  e.g. 55 → 0.55
+    noPrice:        _toCents(raw?.no_ask),
+    volume24h:      _toNum(raw?.volume_24h),
+    liquidity:      _toNum(raw?.open_interest),
+    daysToClose,
+    marketCategory: raw?.category ?? null,
+    ts:             Date.now(),
+  };
+}
+
+// ─── publishMarketUpdates ─────────────────────────────────────────────────────
+//
+// Normalize and broadcast an array of raw Kalshi REST market objects.
+// Skips any market where the ticker is null (unidentifiable).
+// Never throws — errors per-market are logged and skipped.
+
+export function publishMarketUpdates(rawMarkets) {
+  if (!_broadcast || !Array.isArray(rawMarkets) || rawMarkets.length === 0) return;
+  let published = 0;
+  for (const m of rawMarkets) {
+    try {
+      const event = normalizeMarket(m);
+      if (event.ticker == null) continue;
+      _broadcast(event);
+      published++;
+    } catch (err) {
+      console.error('[kalshi] publishMarketUpdates error:', err.message);
+    }
+  }
+  if (published > 0) {
+    console.log(`[kalshi] market poll: ${published}/${rawMarkets.length} market_update events broadcast`);
+  }
+}
+
+// ─── Internal REST poll ───────────────────────────────────────────────────────
+
+async function _pollOnce(apiKey) {
+  try {
+    const res = await fetch(
+      `${KALSHI_REST_BASE}/markets?limit=${MARKET_LIMIT}&status=open`,
+      {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        signal:  AbortSignal.timeout(10_000),
+      }
+    );
+    if (!res.ok) {
+      console.warn(`[kalshi] market poll HTTP ${res.status} — skipping`);
+      return;
+    }
+    const body = await res.json();
+    const markets = body?.markets ?? body ?? [];
+    publishMarketUpdates(Array.isArray(markets) ? markets : []);
+  } catch (err) {
+    console.warn('[kalshi] market poll error:', err.message);
+  }
+}
+
+function _startMarketPoll(apiKey) {
+  _pollOnce(apiKey);  // immediate first run on startup
+  _marketPollTimer = setInterval(() => _pollOnce(apiKey), MARKET_POLL_MS);
+}
 
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
 
 export function startWS() {
-  if (_ws) return;  // already running — idempotent
+  if (_ws) return;  // idempotent — already started
   const apiKey = process.env.KALSHI_API_KEY;
   if (!apiKey) {
-    console.log('[kalshi] No KALSHI_API_KEY — WebSocket disabled (REST polling still active)');
+    console.log('[kalshi] No KALSHI_API_KEY — WebSocket and market poll disabled (REST scan still active)');
     return;
   }
 
+  // ── WebSocket: real-time fills and position updates ──
   _ws = new KalshiWS(apiKey);
 
   _ws.on('connected', () => {
@@ -52,9 +158,6 @@ export function startWS() {
   });
 
   _ws.on('order_filled', (fill) => {
-    // try-catch: this handler runs inside KalshiWS.emit() — an uncaught
-    // exception here would propagate back through ws.mjs's #onMessage.
-    // ws.mjs wraps #onMessage in try-catch, but defensive here too.
     try {
       state.lastFill = { ...fill, receivedAt: Date.now() };
       console.log(`[kalshi] ORDER FILLED: ${fill.ticker} ${fill.side} ×${fill.count} @ $${(fill.price ?? 0).toFixed(2)}`);
@@ -74,9 +177,14 @@ export function startWS() {
   });
 
   _ws.connect();
+
+  // ── REST poll: periodic market state for market_update events ──
+  _startMarketPoll(apiKey);
 }
 
 export function stopWS() {
+  clearInterval(_marketPollTimer);
+  _marketPollTimer = null;
   _ws?.stop();
   _ws = null;
   state.wsConnected = false;
@@ -88,6 +196,7 @@ export function getKalshiStatus() {
   return {
     enabled:            !!process.env.KALSHI_API_KEY,
     wsConnected:        state.wsConnected,
+    marketPollActive:   _marketPollTimer != null,
     lastFill:           state.lastFill,
     lastPositionUpdate: state.lastPositionUpdate,
   };
