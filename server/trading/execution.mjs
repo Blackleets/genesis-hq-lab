@@ -1,5 +1,26 @@
 import { saveTrade } from '../memory/tradingMemory.mjs';
 import { computePaperFillCosts } from './costs.mjs';
+import { appendFileSync, mkdirSync, existsSync } from 'node:fs';
+import { join as execPathJoin, dirname as execDirname } from 'node:path';
+import { fileURLToPath as execFromUrl } from 'node:url';
+
+const __execDir = execDirname(execFromUrl(import.meta.url));
+const EXEC_LOGS = execPathJoin(__execDir, '..', '..', 'logs');
+
+function logFailedOrder(tradeProposal, error) {
+  const entry = JSON.stringify({
+    at: new Date().toISOString(),
+    marketId: tradeProposal.marketId,
+    marketSource: tradeProposal.marketSource,
+    outcome: tradeProposal.outcome,
+    capitalUsed: tradeProposal.capitalUsed,
+    error: String(error),
+  }) + '\n';
+  try {
+    if (!existsSync(EXEC_LOGS)) mkdirSync(EXEC_LOGS, { recursive: true });
+    appendFileSync(execPathJoin(EXEC_LOGS, 'failed_orders.log'), entry, 'utf8');
+  } catch { /* never throw in error logging */ }
+}
 
 const KALSHI_BASE = 'https://trading-api.kalshi.com/trade-api/v2';
 
@@ -29,12 +50,9 @@ export async function executeTrade(tradeProposal) {
     if (tradeProposal.marketSource === 'kalshi') {
         const orderResult = await placeKalshiOrder(tradeProposal);
         if (!orderResult.ok) {
-            console.warn('[execution] Kalshi order failed:', orderResult.error);
-            const fallbackId = saveTrade({
-                ...tradeProposal,
-                reason: `${tradeProposal.reason} | REAL ORDER FAILED: ${orderResult.error}`,
-            });
-            return { executed: true, tradeId: fallbackId, mode: 'paper', fallback: true, error: orderResult.error };
+            console.error('[execution] REAL ORDER FAILED (Kalshi):', orderResult.error);
+            logFailedOrder(tradeProposal, orderResult.error);
+            return { executed: false, mode: 'real_failed', reason: orderResult.error };
         }
 
         const tradeId = saveTrade(tradeProposal);
