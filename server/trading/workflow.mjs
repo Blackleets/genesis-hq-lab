@@ -79,7 +79,9 @@ async function stepDebate(market) {
     if (signal) signals = [signal];
     // Plus any recent stored signals for the category
     signals = [...signals, ...getMarketSignals(market)];
-  } catch { /* research is best-effort, never blocks a trade */ }
+  } catch (err) {
+    console.warn(`[workflow] Research unavailable for "${market.question?.slice(0, 40)}": ${err.message}`);
+  }
 
   const result = await runDebate(market, ctx.lessons, ctx.rules, signals);
 
