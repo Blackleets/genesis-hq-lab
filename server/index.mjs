@@ -26,6 +26,11 @@ import {
 import { getLogs as getAgentLogs } from './agents/agentMemory.mjs';
 import { getProviderStatus } from './agents/providerRouter.mjs';
 import { getCryptoOverview, getOptimizerHeartbeat, computeCryptoEdgeScorecard } from './crypto/cryptoAnalytics.mjs';
+import {
+  setBroadcast as kalshiSetBroadcast,
+  startWS      as kalshiStartWS,
+  getKalshiStatus,
+} from './kalshi/adapter.mjs';
 
 // In-memory SkillOpt job state (single concurrent job)
 const skilloptJob = { running: false, lastResult: null, startedAt: null, agent: null };
@@ -56,6 +61,8 @@ function broadcast(event) {
 
 // Give agent engine access to the broadcast channel
 agentSetBroadcast(broadcast);
+// Give Kalshi adapter access to the broadcast channel
+kalshiSetBroadcast(broadcast);
 
 const HOST = process.env.HOST || '127.0.0.1';
 const PORT = Number(process.env.PORT || 8787);
@@ -659,6 +666,11 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === '/api/kalshi/status') {
+    sendJson(res, 200, getKalshiStatus());
+    return;
+  }
+
   if (url.pathname === '/api/polymarket/health') {
     const health = await fetchPolymarketHealth();
     sendJson(res, health.ok ? 200 : 502, health);
@@ -722,4 +734,5 @@ server.on('upgrade', (req, socket, head) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`[genesis-hq-lab-backend] listening on http://${HOST}:${PORT}`);
+  kalshiStartWS();
 });
