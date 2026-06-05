@@ -279,32 +279,22 @@ const server = createServer(async (req, res) => {
       const patterns = db.prepare(`
         SELECT pattern_desc, triggered_count, true_positive, false_positive, active, lesson_id
         FROM mistake_patterns
-        ORDER BY triggered_count DESC LIMIT 10
+        ORDER BY triggered_count DESC
       `).all();
 
       const activePatterns = patterns.filter(p => p.active).length;
       const totalTriggered = patterns.reduce((s, p) => s + (p.triggered_count ?? 0), 0);
       const totalFp        = patterns.reduce((s, p) => s + (p.false_positive ?? 0), 0);
 
-      const recentRow = db.prepare(`
-        SELECT SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) AS wins, COUNT(*) AS total
-        FROM (
-          SELECT pnl FROM trades
-          WHERE status = 'closed' AND COALESCE(trade_type,'prediction') <> 'crypto_scalp'
-          ORDER BY closed_at DESC LIMIT 10
-        )
-      `).get();
-
       const allTwenty = db.prepare(`
         SELECT pnl FROM trades
         WHERE status = 'closed' AND COALESCE(trade_type,'prediction') <> 'crypto_scalp'
         ORDER BY closed_at DESC LIMIT 20
       `).all();
-      const olderTen = allTwenty.slice(10);
-      const olderWins  = olderTen.filter(t => t.pnl > 0).length;
-      const olderWinRate  = olderTen.length > 0 ? olderWins / olderTen.length : null;
-
-      const recentWinRate = recentRow?.total > 0 ? recentRow.wins / recentRow.total : null;
+      const recentTen = allTwenty.slice(0, 10);
+      const olderTen  = allTwenty.slice(10);
+      const recentWinRate = recentTen.length > 0 ? recentTen.filter(t => t.pnl > 0).length / recentTen.length : null;
+      const olderWinRate  = olderTen.length  > 0 ? olderTen.filter(t => t.pnl > 0).length  / olderTen.length  : null;
       const direction = recentWinRate != null && olderWinRate != null
         ? recentWinRate > olderWinRate ? 'improving' : recentWinRate < olderWinRate ? 'declining' : 'stable'
         : 'insufficient_data';
