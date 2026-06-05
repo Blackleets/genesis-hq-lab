@@ -62,20 +62,27 @@ export async function runPositionMonitor(broadcast) {
       const pnl = (currentPrice - entryPrice) * trade.shares;
       const pnlPct = (priceChange * 100).toFixed(1);
 
-      // Close the trade in DB
+      // Close the trade in DB — guard with AND status='open' to prevent
+      // double-settlement if runLearningCycle already closed this row
+      let rowsChanged = 0;
       tx(() => {
-        db.prepare(`
+        const info = db.prepare(`
           UPDATE trades
-          SET status          = 'closed',
-              exit_price      = ?,
-              pnl             = ?,
-              closed_at       = datetime('now'),
+          SET status           = 'closed',
+              exit_price       = ?,
+              pnl              = ?,
+              closed_at        = datetime('now'),
               resolved_outcome = ?
-          WHERE id = ?
+          WHERE id = ? AND status = 'open'
         `).run(currentPrice, pnl, exitReason, trade.id);
+        rowsChanged = info.changes;
       });
 
-      // Return capital to treasury
+      // Only settle capital if we actually closed the row (not already closed)
+      if (rowsChanged === 0) {
+        console.log(`[positionMonitor] SKIP: trade ${trade.id} already closed by another process`);
+        continue;
+      }
       settleTradeCapital(trade.capital_used, pnl);
 
       const label = exitReason === 'TAKE_PROFIT' ? '✅ TAKE PROFIT' : '🛑 STOP LOSS';

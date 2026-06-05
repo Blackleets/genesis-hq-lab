@@ -108,7 +108,7 @@ export default function GenesisHeader({ currentModule, onNavigate }: Props & { o
   })();
 
   return (
-    <header className="h-12 shrink-0 bg-carbon-200 border-b border-trim flex items-center justify-between px-4 relative overflow-hidden">
+    <header className="h-12 shrink-0 bg-carbon-200 border-b border-trim flex items-center justify-between px-4 relative">
       {/* Tactical scan line sweeps along bottom edge */}
       <div className="absolute inset-x-0 bottom-0 h-px genesis-scan-line pointer-events-none" />
 

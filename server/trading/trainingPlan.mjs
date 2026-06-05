@@ -57,10 +57,9 @@ export function getTrainingStatus() {
     FROM trades WHERE status = 'closed'
   `).get();
 
-  // Max drawdown ever seen (peak-to-trough in capital_history)
-  const peakCapital  = db.prepare(`SELECT MAX(total) AS peak FROM capital_history`).get()?.peak ?? STARTING_CAPITAL;
-  const troughCapital = db.prepare(`SELECT MIN(total) AS trough FROM capital_history`).get()?.trough ?? STARTING_CAPITAL;
-  const maxDrawdownEver = peakCapital > 0 ? (peakCapital - troughCapital) / peakCapital : 0;
+  // Max drawdown — walk history in time order, comparing each value to the
+  // running peak seen so far (peak-then-trough, not global max vs global min)
+  const maxDrawdownEver = computeMaxDrawdown();
 
   // Phase 3 loss streak
   const phase3Start = new Date(startDate.getTime() + 20 * 86_400_000).toISOString();
@@ -169,6 +168,30 @@ function evaluateGate({ dayNumber, totalClosed, winRate, totalPnl, maxDrawdownEv
       ? '✅ ALL CONDITIONS MET — System is ready for real capital deployment.'
       : `⏳ ${passedCount}/${conditions.length} conditions met. Complete training before real money.`,
   };
+}
+
+// ─── Max drawdown (time-ordered: peak then trough) ───────────────────────────
+// Walks capital_history in chronological order, tracking the running high-water
+// mark. At each point, drawdown = (peak_so_far - current) / peak_so_far.
+// This correctly ignores earlier lows that occurred BEFORE later peaks.
+
+function computeMaxDrawdown() {
+  const rows = db.prepare(
+    `SELECT total FROM capital_history ORDER BY recorded_at ASC`
+  ).all();
+
+  if (rows.length === 0) return 0;
+
+  let peak = rows[0].total;
+  let maxDD = 0;
+
+  for (const { total } of rows) {
+    if (total > peak) peak = total;
+    const dd = peak > 0 ? (peak - total) / peak : 0;
+    if (dd > maxDD) maxDD = dd;
+  }
+
+  return maxDD;
 }
 
 // ─── Max loss streak from a given date ───────────────────────────────────────
