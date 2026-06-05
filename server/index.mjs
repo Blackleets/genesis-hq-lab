@@ -72,6 +72,15 @@ function sendJson(res, status, payload) {
   res.end(JSON.stringify(payload));
 }
 
+function requireAuth(req, res) {
+  const secret = process.env.API_SECRET?.trim();
+  if (!secret) return true; // auth disabled when API_SECRET not set
+  const auth = req.headers['authorization'] ?? '';
+  if (auth === `Bearer ${secret}`) return true;
+  sendJson(res, 401, { ok: false, error: 'unauthorized', message: 'Invalid or missing API_SECRET token' });
+  return false;
+}
+
 function notFound(res) {
   sendJson(res, 404, {
     ok: false,
@@ -129,6 +138,7 @@ const server = createServer(async (req, res) => {
     let body = '';
     req.on('data', (chunk) => { body += chunk; });
     req.on('end', async () => {
+      if (!requireAuth(req, res)) return;
       try {
         const { goal } = JSON.parse(body);
         if (!goal || typeof goal !== 'string' || goal.trim().length === 0) {
@@ -157,6 +167,7 @@ const server = createServer(async (req, res) => {
     let body = '';
     req.on('data', (d) => { body += d; });
     req.on('end', async () => {
+      if (!requireAuth(req, res)) return;
       try {
         const { task } = JSON.parse(body || '{}');
         if (!task || typeof task !== 'string' || !task.trim()) {
@@ -421,6 +432,7 @@ const server = createServer(async (req, res) => {
     let body = '';
     req.on('data', c => body += c);
     req.on('end', async () => {
+      if (!requireAuth(req, res)) return;
       try {
         const { order, priority = 'high' } = JSON.parse(body);
         if (!order?.trim()) { sendJson(res, 400, { ok: false, error: 'order required' }); return; }
@@ -437,6 +449,7 @@ const server = createServer(async (req, res) => {
     let body = '';
     req.on('data', c => body += c);
     req.on('end', async () => {
+      if (!requireAuth(req, res)) return;
       try {
         const { command } = JSON.parse(body);
         if (!command?.trim()) { sendJson(res, 400, { ok: false, error: 'command required' }); return; }
@@ -473,6 +486,7 @@ const server = createServer(async (req, res) => {
     let body = '';
     req.on('data', c => body += c);
     req.on('end', () => {
+      if (!requireAuth(req, res)) return;
       let parsed = {};
       try { parsed = JSON.parse(body || '{}'); } catch { /* ignore */ }
       const agent = parsed?.agent ?? 'market-scanner';
@@ -526,6 +540,10 @@ const server = createServer(async (req, res) => {
           await readFile(join(__hdir, '..', 'data', 'memory', 'agent_heartbeat.json'), 'utf8')
         );
       } catch { /* heartbeat not written yet — first boot */ }
+      const lastTickAt = heartbeat?.lastTickAt ?? null;
+      const agentAlive = lastTickAt
+        ? (Date.now() - new Date(lastTickAt).getTime()) < 10 * 60 * 1000
+        : false;
       sendJson(res, 200, {
         ok: true,
         service: 'genesis-hq-lab-backend',
@@ -534,7 +552,8 @@ const server = createServer(async (req, res) => {
           capital: treasury.total,
           isPaused: treasury.isPaused ?? false,
           openTrades,
-          lastTickAt: heartbeat?.lastTickAt ?? null,
+          lastTickAt,
+          agentAlive,
           totalCycles: heartbeat?.totalCycles ?? 0,
           claudeEnabled: heartbeat?.claudeEnabled ?? false,
         },
