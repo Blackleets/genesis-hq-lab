@@ -234,6 +234,38 @@ describe('checkVeto — pattern match increments times_prevented_loss', () => {
     const v = result.vetoes.find(v => v.type === 'mistake_pattern');
     assert.ok(!v, 'price 0.3 is outside pattern range — should not match');
   });
+
+  // ── Regression: marketCategory field must be used, not category ──────────────
+  // Bug: checkVeto() was destructuring proposal.category which is always undefined
+  // in normal pipeline flow. Proposals use marketCategory. Fixed by reading
+  // proposal.marketCategory ?? proposal.category.
+  test('REGRESSION: proposal using marketCategory (not category) still matches patterns', () => {
+    // Verify proposal has marketCategory but NOT category — same shape the pipeline sends
+    assert.ok('marketCategory' in BASE_PROPOSAL, 'fixture must have marketCategory');
+    assert.ok(!('category' in BASE_PROPOSAL), 'fixture must NOT have category');
+
+    const result = checkVeto(BASE_PROPOSAL);
+    const v = result.vetoes.find(v => v.type === 'mistake_pattern');
+    assert.ok(v, 'pattern must fire even when proposal only has marketCategory');
+  });
+
+  // ── Regression: last_triggered must be written with datetime('now') ───────────
+  // Bug: datetime("now") (double-quotes) caused SQLite to interpret "now" as a
+  // column name, so last_triggered was never written. Fixed to datetime('now').
+  test('REGRESSION: last_triggered is set after pattern fires', () => {
+    const before = db.prepare(
+      `SELECT last_triggered FROM mistake_patterns WHERE id = ?`
+    ).get(PATTERN_ID);
+
+    checkVeto(BASE_PROPOSAL);
+
+    const after = db.prepare(
+      `SELECT last_triggered FROM mistake_patterns WHERE id = ?`
+    ).get(PATTERN_ID);
+    assert.ok(after.last_triggered !== null, 'last_triggered must be set after pattern fires');
+    // Verify it looks like a datetime string (not the literal string "now" or NULL)
+    assert.match(after.last_triggered, /^\d{4}-\d{2}-\d{2}/, 'last_triggered must be a valid date string');
+  });
 });
 
 // ─── getDecisionContext — times_retrieved counter (DB integration) ────────────
