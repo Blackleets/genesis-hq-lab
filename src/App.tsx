@@ -26,6 +26,7 @@ import { CommandBarProvider, useCommandBar } from '@workflows/CommandBar';
 import AgentExecutionView from '@agents/AgentExecutionView';
 import AgentCreator from '@creator/AgentCreator';
 import EdgeScorecardView from '@workflows/EdgeScorecardView';
+import CryptoLabView from '@workflows/CryptoLabView';
 import { actions, useSelectedModule } from '@core/store/genesisStore';
 import type { ModuleId } from '@core/data/moduleRegistry';
 
@@ -49,6 +50,7 @@ function ModuleRenderer({ module, setModule }: { module: ModuleId; setModule: (m
     case 'integrations':  return <IntegrationsView />;
     case 'agents-live':   return <AgentExecutionView />;
     case 'edge':        return <EdgeScorecardView />;
+    case 'crypto':        return <CryptoLabView />;
     default:
       return <ModulePlaceholder module={module} onBack={() => setModule('hq')} />;
   }

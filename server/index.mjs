@@ -25,6 +25,7 @@ import {
 } from './agents/agentEngine.mjs';
 import { getLogs as getAgentLogs } from './agents/agentMemory.mjs';
 import { getProviderStatus } from './agents/providerRouter.mjs';
+import { getCryptoOverview, getOptimizerHeartbeat, computeCryptoEdgeScorecard } from './crypto/cryptoAnalytics.mjs';
 
 // In-memory SkillOpt job state (single concurrent job)
 const skilloptJob = { running: false, lastResult: null, startedAt: null, agent: null };
@@ -285,7 +286,8 @@ const server = createServer(async (req, res) => {
   if (url.pathname === '/api/trading/edge-scorecard') {
     try {
       const scorecard = computeEdgeScorecard();
-      sendJson(res, 200, { ok: true, ...scorecard });
+      const crypto = computeCryptoEdgeScorecard();
+      sendJson(res, 200, { ok: true, ...scorecard, crypto });
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;
   }
@@ -301,6 +303,14 @@ const server = createServer(async (req, res) => {
         sendJson(res, 200, { ok: true, treasury });
       } catch (e2) { sendJson(res, 500, { ok: false, error: e2.message }); }
     }
+    return;
+  }
+
+  if (url.pathname === '/api/crypto/overview') {
+    try {
+      const overview = getCryptoOverview();
+      sendJson(res, 200, { ok: true, ...overview });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;
   }
 
@@ -528,6 +538,7 @@ const server = createServer(async (req, res) => {
           totalCycles: heartbeat?.totalCycles ?? 0,
           claudeEnabled: heartbeat?.claudeEnabled ?? false,
         },
+        optimizer: getOptimizerHeartbeat(),
       });
     } catch {
       sendJson(res, 200, {

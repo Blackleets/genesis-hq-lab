@@ -22,34 +22,34 @@ Rules:
 
 const JSON_DIRECTIVE = `\n\nRespond ONLY with valid JSON. No markdown. No explanation outside the JSON.`;
 
-function fallbackCryptoDebate(asset) {
-  const bullishSetup = asset.trend === 'bullish' && asset.rsi14 >= 40 && asset.rsi14 <= 60;
-  const bearishSetup = asset.trend === 'bearish' && asset.rsi14 >= 40 && asset.rsi14 <= 60;
-
-  if (bullishSetup) {
-    return { action: 'TRADE', outcome: 'LONG', confidence: 0.63,
-      bull: { evidence: ['EMA9 > EMA21 bullish', `RSI ${asset.rsi14} neutral-rising`] },
-      bear: { risks: ['Rule-based fallback — limited signal quality'] },
-      arbiterSummary: 'Rule-based: bullish EMA + neutral RSI → LONG' };
+// Without an API key the signal already decided the side via confluence rules,
+// so the fallback simply CONFIRMS that side (the edge lives in signal.mjs now).
+function fallbackCryptoDebate(asset, proposedSide) {
+  const side = proposedSide ?? (asset.trend === 'bullish' ? 'LONG' : asset.trend === 'bearish' ? 'SHORT' : null);
+  if (!side) {
+    return { action: 'SKIP', skipReason: 'Rule-based fallback: no side', confidence: 0 };
   }
-  if (bearishSetup) {
-    return { action: 'TRADE', outcome: 'SHORT', confidence: 0.63,
-      bull: { evidence: ['Rule-based fallback'] },
-      bear: { risks: ['EMA9 < EMA21 bearish', `RSI ${asset.rsi14} neutral-falling`] },
-      arbiterSummary: 'Rule-based: bearish EMA + neutral RSI → SHORT' };
-  }
-  return { action: 'SKIP', skipReason: 'Rule-based fallback: indicators not aligned', confidence: 0 };
+  return {
+    action: 'TRADE', outcome: side, confidence: 0.63,
+    bull: { evidence: [`Confluence signal proposed ${side}`, `RSI ${asset.rsi14}`, `Trend ${asset.trend}`] },
+    bear: { risks: ['Rule-based fallback — no LLM confirmation'] },
+    arbiterSummary: `Rule-based confirmation of signal: ${side}`,
+  };
 }
 
-export async function runCryptoDebate(asset, contextLessons = []) {
+export async function runCryptoDebate(asset, contextLessons = [], proposedSide = null) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return fallbackCryptoDebate(asset);
+  if (!apiKey) return fallbackCryptoDebate(asset, proposedSide);
 
   const lessonsCtx = contextLessons.length > 0
     ? `\nPrevious crypto lessons:\n${contextLessons.slice(0, 3).map(l => `- ${l.lesson_text || l.lesson}`).join('\n')}`
     : '';
 
-  const userPrompt = `ASSET TO DEBATE:
+  const sideDirective = proposedSide
+    ? `\nA confluence signal (EMA trend + momentum + RSI + volume) already proposes: ${proposedSide}.\nBULL argues FOR ${proposedSide}; BEAR argues to SKIP. Arbiter CONFIRMS ${proposedSide} (action=TRADE) or SKIP. Do not flip the side.`
+    : '';
+
+  const userPrompt = `ASSET TO DEBATE:${sideDirective}
 Symbol: ${asset.symbol} (${asset.pair})
 Current price: $${asset.price}
 EMA9: $${asset.ema9} | EMA21: $${asset.ema21} | Trend: ${asset.trend.toUpperCase()}
@@ -108,15 +108,15 @@ Generate the full debate and decision. Respond with:
     if (!match) throw new Error('No JSON in response');
     const debate = JSON.parse(match[0]);
 
-    return enforceRules(debate, asset);
+    return enforceRules(debate, asset, proposedSide);
 
   } catch (err) {
     console.warn(`[cryptoDebate] Error for ${asset.symbol}:`, err.message);
-    return fallbackCryptoDebate(asset);
+    return fallbackCryptoDebate(asset, proposedSide);
   }
 }
 
-function enforceRules(debate, asset) {
+function enforceRules(debate, asset, proposedSide = null) {
   const arb = debate.arbiter;
   let action = arb.action ?? 'SKIP';
   let skipReason = arb.skip_reason;
@@ -137,7 +137,8 @@ function enforceRules(debate, asset) {
   return {
     action,
     skipReason: action === 'SKIP' ? (skipReason ?? 'Debate inconclusive') : null,
-    outcome: arb.outcome ?? 'LONG',
+    // The signal owns the direction; the debate only confirms or vetoes it.
+    outcome: proposedSide ?? arb.outcome ?? 'LONG',
     confidence: arb.final_confidence ?? 0.5,
     bull:  debate.bull,
     bear:  debate.bear,

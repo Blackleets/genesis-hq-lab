@@ -6,10 +6,10 @@ import { getCurrentPrice } from './priceFeeder.mjs';
 import { closeCryptoTrade } from './cryptoExecution.mjs';
 import { settleTradeCapital } from '../trading/treasury.mjs';
 import { analyzeClosedTrade } from '../memory/learningEngine.mjs';
-
-const TIMEOUT_HOURS = 4;
+import { getParams } from './strategyParams.mjs';
 
 export async function manageCryptoPositions() {
+  const TIMEOUT_HOURS = getParams().timeoutHours;
   const openTrades = db.prepare(`
     SELECT * FROM trades
     WHERE status = 'open' AND trade_type = 'crypto_scalp'

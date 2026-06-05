@@ -3,7 +3,41 @@
 // These are the metrics a real hedge fund watches. No vanity numbers.
 
 import db from '../db/database.mjs';
-import { getTreasury, getPnLSummary, getCapitalHistory } from './treasury.mjs';
+import { getTreasury, getCapitalHistory } from './treasury.mjs';
+import { getCryptoPnlSummary } from '../crypto/cryptoAnalytics.mjs';
+
+// Prediction-market metrics (Brier/Sharpe/calibration/edge scorecard) assume
+// YES/NO markets. Crypto scalp trades (LONG/SHORT) must NOT pollute them.
+const PREDICTION_ONLY = `COALESCE(trade_type, 'prediction') <> 'crypto_scalp'`;
+
+/** PnL summary for prediction-market trades only (excludes crypto scalps). */
+export function getPredictionPnlSummary() {
+  const closed = db.prepare(`
+    SELECT
+      COUNT(*) AS total,
+      SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) AS wins,
+      COALESCE(SUM(pnl), 0) AS total_pnl,
+      COALESCE(SUM(capital_used), 0) AS total_risked,
+      AVG(pnl) AS avg_pnl, MAX(pnl) AS best, MIN(pnl) AS worst
+    FROM trades WHERE status = 'closed' AND ${PREDICTION_ONLY}
+  `).get();
+  const open = db.prepare(`
+    SELECT COUNT(*) AS cnt, COALESCE(SUM(capital_used), 0) AS at_risk
+    FROM trades WHERE status = 'open' AND ${PREDICTION_ONLY}
+  `).get();
+  const total = closed?.total ?? 0;
+  return {
+    closed: {
+      total, wins: closed?.wins ?? 0,
+      winRate: total > 0 ? (closed.wins ?? 0) / total : 0,
+      totalPnl: closed?.total_pnl ?? 0, avgPnl: closed?.avg_pnl ?? 0,
+      bestTrade: closed?.best ?? 0, worstTrade: closed?.worst ?? 0,
+      totalRisked: closed?.total_risked ?? 0,
+      roi: closed?.total_risked > 0 ? closed.total_pnl / closed.total_risked : 0,
+    },
+    open: { count: open?.cnt ?? 0, atRisk: open?.at_risk ?? 0 },
+  };
+}
 
 // ─── Brier Score — calibration metric ────────────────────────────────────────
 // Measures how accurate confidence scores are.
@@ -14,7 +48,7 @@ export function computeBrierScore() {
   const trades = db.prepare(`
     SELECT confidence, resolved_outcome, outcome
     FROM trades
-    WHERE status = 'closed' AND confidence IS NOT NULL
+    WHERE status = 'closed' AND confidence IS NOT NULL AND outcome IN ('YES', 'NO')
   `).all();
 
   if (trades.length < 5) return { score: null, label: 'Insufficient data (need 5+ closed trades)', n: trades.length };
@@ -49,7 +83,7 @@ export function computeBrierScore() {
 export function computeSharpe() {
   const trades = db.prepare(`
     SELECT pnl, capital_used FROM trades
-    WHERE status = 'closed' AND capital_used > 0
+    WHERE status = 'closed' AND capital_used > 0 AND ${PREDICTION_ONLY}
     ORDER BY closed_at ASC
   `).all();
 
@@ -105,7 +139,7 @@ export function getCalibrationData() {
       COUNT(*) AS cnt,
       SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) AS wins
     FROM trades
-    WHERE status = 'closed' AND confidence >= 0.50
+    WHERE status = 'closed' AND confidence >= 0.50 AND ${PREDICTION_ONLY}
     GROUP BY bucket
     ORDER BY bucket
   `).all();
@@ -127,7 +161,7 @@ export function getCalibrationData() {
 export function getSignalAccuracy() {
   const trades = db.prepare(`
     SELECT evidence, pnl FROM trades
-    WHERE status = 'closed' AND evidence != '[]'
+    WHERE status = 'closed' AND evidence != '[]' AND ${PREDICTION_ONLY}
   `).all();
 
   const signalStats = {};
@@ -189,7 +223,8 @@ export function computeMaxDrawdown() {
 const MIN_TRADES_FOR_VERDICT = 10;
 
 export function computeEdgeScorecard() {
-  const pnl     = getPnLSummary();
+  // GO/NO-GO gates the PREDICTION-market real-trading switch → prediction-only PnL.
+  const pnl     = getPredictionPnlSummary();
   const brier   = computeBrierScore();
   const sharpe  = computeSharpe();
   const cal     = getCalibrationData();
@@ -253,7 +288,8 @@ export function computeEdgeScorecard() {
 
 export function getDashboardMetrics() {
   const treasury = getTreasury();
-  const pnl = getPnLSummary();
+  const pnl = getPredictionPnlSummary();   // prediction engine track record (crypto shown separately)
+  const crypto = getCryptoPnlSummary();     // crypto scalper, segmented
   const brier = computeBrierScore();
   const sharpe = computeSharpe();
   const breakdown = getCategoryBreakdown();
@@ -293,6 +329,14 @@ export function getDashboardMetrics() {
       openTrades: pnl.open.count,
       atRisk: pnl.open.atRisk,
       todaySkips: skipCount,
+    },
+    crypto: {
+      totalTrades: crypto.closed.total,
+      winRate: crypto.closed.winRate,
+      totalPnl: crypto.closed.totalPnl,
+      roi: crypto.closed.roi,
+      openTrades: crypto.open.count,
+      atRisk: crypto.open.atRisk,
     },
     breakdown,
     calibration,

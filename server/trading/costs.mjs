@@ -79,3 +79,55 @@ export function computePaperFillCosts(proposal) {
     costNote: `slippage ${(slippage * 100).toFixed(1)}% → fill @ ${effectivePrice.toFixed(4)} (quoted ${proposal.entryPrice.toFixed(4)})`,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Crypto spot cost model (Binance). Used by BOTH the live engine and the
+// backtest so paper PnL reflects what real execution would actually capture.
+// Sources:
+//   Fee:      Binance spot taker ≈ 0.1% per side (CRYPTO_FEE_PCT overrides)
+//   Slippage: small for liquid USDT pairs, scaled by order size vs 24h volume
+// ─────────────────────────────────────────────────────────────────────────────
+
+const DEFAULT_CRYPTO_FEE = 0.001; // 0.1% taker per side
+
+/** Taker fee fraction per side, overridable via env CRYPTO_FEE_PCT. */
+export function getCryptoFeePct() {
+  const v = parseFloat(process.env.CRYPTO_FEE_PCT ?? '');
+  return Number.isFinite(v) && v >= 0 ? v : DEFAULT_CRYPTO_FEE;
+}
+
+/** Slippage fraction for a spot order — small on liquid pairs, size-tiered. */
+export function cryptoSlippagePct(orderSizeUsd, volume24hUsd) {
+  if (orderSizeUsd <= 0) return 0;       // no market impact
+  if (volume24hUsd <= 0) return 0.001;   // no volume data → assume worst (0.1%)
+  const ratio = orderSizeUsd / volume24hUsd;
+  if (ratio < 0.0005) return 0.0002;     // tiny order: 0.02%
+  if (ratio < 0.005)  return 0.0005;     // medium order: 0.05%
+  return 0.001;                          // large order: 0.1%
+}
+
+/** Effective entry fill price: buying LONG pays up, opening SHORT sells down. */
+export function applyCryptoEntrySlippage(side, price, slippagePct) {
+  return side === 'LONG' ? price * (1 + slippagePct) : price * (1 - slippagePct);
+}
+
+/** Effective exit fill price: closing LONG sells down, closing SHORT buys up. */
+export function applyCryptoExitSlippage(side, price, slippagePct) {
+  return side === 'LONG' ? price * (1 - slippagePct) : price * (1 + slippagePct);
+}
+
+/**
+ * Net PnL for a crypto scalp round-trip, after slippage on both fills and
+ * taker fees on both notionals. Pure — same math in live and backtest.
+ * @param {{ side:'LONG'|'SHORT', entryPrice:number, exitPrice:number, shares:number, feePct?:number, slippagePct?:number }} t
+ * @returns {number} net PnL in dollars (negative = loss)
+ */
+export function cryptoNetPnl({ side, entryPrice, exitPrice, shares, feePct = getCryptoFeePct(), slippagePct = 0 }) {
+  const effEntry = applyCryptoEntrySlippage(side, entryPrice, slippagePct);
+  const effExit  = applyCryptoExitSlippage(side, exitPrice, slippagePct);
+  const gross = side === 'LONG'
+    ? (effExit - effEntry) * shares
+    : (effEntry - effExit) * shares;
+  const fees = feePct * (effEntry * shares + effExit * shares);
+  return Math.round((gross - fees) * 1000) / 1000;
+}

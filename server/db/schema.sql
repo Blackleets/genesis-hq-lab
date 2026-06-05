@@ -344,3 +344,6 @@ ALTER TABLE trades ADD COLUMN trade_type   TEXT DEFAULT 'prediction';
 ALTER TABLE trades ADD COLUMN target_price REAL;
 ALTER TABLE trades ADD COLUMN stop_price   REAL;
 ALTER TABLE trades ADD COLUMN exit_reason  TEXT;
+
+-- 24h quote volume at entry — lets us model realistic exit slippage on close.
+ALTER TABLE trades ADD COLUMN entry_volume24h REAL;

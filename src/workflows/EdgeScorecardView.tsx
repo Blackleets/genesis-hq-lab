@@ -3,7 +3,7 @@
 // verdict with the checks that are passing and failing.
 
 import { useEffect, useState, useCallback } from 'react';
-import { agentClient, type EdgeScorecard } from '@services/agentClient';
+import { agentClient, type EdgeScorecard, type CryptoEdgeScorecard } from '@services/agentClient';
 import { useLanguage } from '@core/i18n/languageStore';
 
 const POLL_MS = 30_000;
@@ -47,6 +47,54 @@ function StatTile({ label, value, sub }: { label: string; value: string; sub?: s
       <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-zinc-500">{label}</div>
       <div className="font-mono text-xl font-bold text-zinc-100 mt-1">{value}</div>
       {sub && <div className="font-mono text-[10px] text-zinc-500 mt-0.5">{sub}</div>}
+    </div>
+  );
+}
+
+function CryptoScorecard({ crypto, lang }: { crypto: CryptoEdgeScorecard; lang: string }) {
+  const es = lang === 'es';
+  const checkEntries = Object.entries(crypto.checks) as Array<[string, { pass: boolean; value: number | null; threshold: number; label: string }]>;
+  return (
+    <div className="border border-[#f7931a44] bg-[#f7931a08] px-4 py-4 space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-[9px] uppercase tracking-[0.2em] text-[#f7931a]">{es ? 'Motor Crypto · activo' : 'Crypto Engine · active'}</div>
+          <div className="text-[10px] text-zinc-500 mt-0.5">{es ? 'fuente' : 'source'}: {crypto.source}</div>
+        </div>
+        <VerdictBadge verdict={crypto.verdict} />
+      </div>
+
+      {crypto.nextMilestone && (
+        <div className="border border-zinc-700 bg-zinc-900/50 px-4 py-2 text-zinc-400 text-[12px]">⏳ {crypto.nextMilestone}</div>
+      )}
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatTile label={es ? 'Expectativa/trade' : 'Expectancy/trade'} value={crypto.expectancy != null ? `$${crypto.expectancy.toFixed(3)}` : '—'} />
+        <StatTile label="Win rate" value={`${(crypto.winRate * 100).toFixed(1)}%`} />
+        <StatTile label="Profit factor" value={crypto.profitFactor != null ? crypto.profitFactor.toFixed(2) : '—'} />
+        <StatTile label={es ? 'Max drawdown' : 'Max drawdown'} value={crypto.maxDrawdown != null ? `${(crypto.maxDrawdown * 100).toFixed(1)}%` : '—'} />
+      </div>
+
+      {checkEntries.length > 0 && (
+        <div className="bg-[#0d111a] border border-zinc-800 px-4 py-1">
+          {checkEntries.map(([key, check]) => (
+            <CheckRow key={key} label={check.label} pass={check.pass} value={check.value} threshold={check.threshold} />
+          ))}
+        </div>
+      )}
+
+      {crypto.verdict === 'NO_GO' && (
+        <div className="border border-red-400/30 bg-red-400/5 px-4 py-3 text-[12px] text-red-300">
+          {es
+            ? 'El edge aún no está probado. La señal actual no es rentable tras costos fuera de muestra — el optimizador sigue buscando una config válida antes de arriesgar capital.'
+            : 'Edge not proven yet. The current signal is unprofitable after costs out-of-sample — the optimizer keeps searching for a valid config before risking capital.'}
+        </div>
+      )}
+      {crypto.verdict === 'GO' && (
+        <div className="border border-green-400/40 bg-green-400/5 px-4 py-3 text-green-300 text-[12px]">
+          ✓ {es ? 'Edge validado out-of-sample. Listo para evaluar capital real en crypto.' : 'Edge validated out-of-sample. Ready to consider real crypto capital.'}
+        </div>
+      )}
     </div>
   );
 }
@@ -103,6 +151,13 @@ export default function EdgeScorecardView() {
         </div>
       ) : (
         <>
+          {/* Crypto engine — the currently active strategy */}
+          {data.crypto && <CryptoScorecard crypto={data.crypto} lang={lang} />}
+
+          {/* Prediction market engine */}
+          <div className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 pt-2">
+            {lang === 'es' ? 'Mercados de Predicción (Polymarket/Kalshi)' : 'Prediction Markets (Polymarket/Kalshi)'}
+          </div>
           <div><VerdictBadge verdict={data.verdict} /></div>
 
           {data.nextMilestone && (

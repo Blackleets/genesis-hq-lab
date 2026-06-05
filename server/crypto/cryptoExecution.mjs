@@ -3,27 +3,11 @@
 
 import db, { tx } from '../db/database.mjs';
 import { nanoid } from '../utils.mjs';
+import { cryptoNetPnl, cryptoSlippagePct } from '../trading/costs.mjs';
+import { computeCryptoTargets, computeCryptoPnl } from './cryptoMath.mjs';
 
-const TARGET_PCT = 0.015;
-const STOP_PCT   = 0.0075;
-
-export function computeCryptoTargets(side, entryPrice) {
-  if (side === 'LONG') {
-    return {
-      targetPrice: Math.round(entryPrice * (1 + TARGET_PCT) * 100) / 100,
-      stopPrice:   Math.round(entryPrice * (1 - STOP_PCT)   * 100) / 100,
-    };
-  }
-  return {
-    targetPrice: Math.round(entryPrice * (1 - TARGET_PCT) * 100) / 100,
-    stopPrice:   Math.round(entryPrice * (1 + STOP_PCT)   * 100) / 100,
-  };
-}
-
-export function computeCryptoPnl(side, entryPrice, exitPrice, shares) {
-  if (side === 'LONG') return Math.round((exitPrice - entryPrice) * shares * 1000) / 1000;
-  return Math.round((entryPrice - exitPrice) * shares * 1000) / 1000;
-}
+// Re-exported so existing importers (and tests) keep working.
+export { computeCryptoTargets, computeCryptoPnl };
 
 export function executeCryptoPaperTrade({ asset, side, entryPrice, capitalUsed, confidence, reason, evidence }) {
   const shares = Math.floor((capitalUsed / entryPrice) * 10000) / 10000;
@@ -36,11 +20,11 @@ export function executeCryptoPaperTrade({ asset, side, entryPrice, capitalUsed, 
       INSERT INTO trades
         (id, agent_id, market_id, market_source, market_question, market_category,
          outcome, entry_price, shares, capital_used, confidence, reason, evidence,
-         status, opened_at, asset_pair, trade_type, target_price, stop_price)
+         status, opened_at, asset_pair, trade_type, target_price, stop_price, entry_volume24h)
       VALUES
         (@id, @agent_id, @market_id, @market_source, @market_question, @market_category,
          @outcome, @entry_price, @shares, @capital_used, @confidence, @reason, @evidence,
-         'open', @opened_at, @asset_pair, 'crypto_scalp', @target_price, @stop_price)
+         'open', @opened_at, @asset_pair, 'crypto_scalp', @target_price, @stop_price, @entry_volume24h)
     `).run({
       id,
       agent_id:        'crypto-scalper-1',
@@ -59,6 +43,7 @@ export function executeCryptoPaperTrade({ asset, side, entryPrice, capitalUsed, 
       asset_pair:      asset.pair,
       target_price:    targetPrice,
       stop_price:      stopPrice,
+      entry_volume24h: asset.volume24h ?? null,
     });
   });
 
@@ -70,7 +55,16 @@ export function closeCryptoTrade(tradeId, exitPrice, exitReason) {
   const trade = db.prepare('SELECT * FROM trades WHERE id = ?').get(tradeId);
   if (!trade) return null;
 
-  const pnl = computeCryptoPnl(trade.outcome, trade.entry_price, exitPrice, trade.shares);
+  // Net PnL: gross move minus taker fees (both sides) and slippage on both fills.
+  // Same cost model the backtest uses, so live and validated results are comparable.
+  const slippagePct = cryptoSlippagePct(trade.capital_used, trade.entry_volume24h ?? 0);
+  const pnl = cryptoNetPnl({
+    side: trade.outcome,
+    entryPrice: trade.entry_price,
+    exitPrice,
+    shares: trade.shares,
+    slippagePct,
+  });
   const closedAt = new Date().toISOString();
 
   tx(() => {

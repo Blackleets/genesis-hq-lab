@@ -9,19 +9,22 @@ import { manageCryptoPositions } from './positionManager.mjs';
 import { kellySize, reserveCapital } from '../trading/treasury.mjs';
 import { preTradeCheck } from '../trading/riskManager.mjs';
 import { getDecisionContext } from '../memory/learningEngine.mjs';
+import { evaluateSignal } from './signal.mjs';
+import { getParams } from './strategyParams.mjs';
+import { dailyLossHalt, assetCooldown } from './cryptoRisk.mjs';
 
 export { manageCryptoPositions };
 
-function qualifyAssets(assets) {
-  // Lowered from 0.3% → 0.1% — captures real moves without being too restrictive
-  return assets.filter(a =>
-    Math.abs(a.change1h) >= 0.1 &&
-    a.volume24h >= 1_000_000
-  );
-}
-
 export async function runCryptoTradingCycle() {
-  const results = { scanned: 0, qualified: 0, debated: 0, executed: 0, tradeId: null };
+  const results = { scanned: 0, qualified: 0, debated: 0, executed: 0, tradeId: null, halted: false };
+
+  // Circuit breaker: stop opening new crypto positions once the daily loss cap is hit.
+  const halt = dailyLossHalt();
+  if (halt.halt) {
+    console.log(`[cryptoWorkflow] 🛑 ${halt.reason} — no new entries today`);
+    results.halted = true;
+    return results;
+  }
 
   const assets = await getAssetContexts();
   results.scanned = assets.length;
@@ -30,30 +33,45 @@ export async function runCryptoTradingCycle() {
     return results;
   }
 
-  const qualified = qualifyAssets(assets);
-  results.qualified = qualified.length;
-  if (qualified.length === 0) {
-    // Log what we saw so we can diagnose further
+  // Primary edge: confluence signal decides direction. Debate is confirmation only.
+  const params = getParams();
+  const candidates = assets
+    .map(a => ({ asset: a, signal: evaluateSignal(a, params) }))
+    .filter(c => c.signal.action === 'TRADE')
+    .sort((a, b) => b.signal.score - a.signal.score); // strongest setup first
+
+  results.qualified = candidates.length;
+  if (candidates.length === 0) {
     const summary = assets.map(a => `${a.symbol}:${a.change1h > 0 ? '+' : ''}${a.change1h}%`).join(' ');
-    console.log(`[cryptoWorkflow] No qualified assets — moves: ${summary}`);
+    console.log(`[cryptoWorkflow] No signal — moves: ${summary}`);
+    return results;
   }
-  if (qualified.length === 0) return results;
 
   const ctx = getDecisionContext('crypto', 0, 1);
 
-  for (const asset of qualified) {
-    const debate = await runCryptoDebate(asset, ctx.lessons);
-    results.debated++;
+  for (const { asset, signal } of candidates) {
+    const side = signal.side;
 
-    if (debate.action !== 'TRADE') {
-      console.log(`[cryptoWorkflow] SKIP ${asset.symbol}: ${debate.skipReason}`);
+    // Per-asset circuit breaker: skip an asset that's cooling down after a loss.
+    const cooldown = assetCooldown(asset.pair);
+    if (cooldown.cooling) {
+      console.log(`[cryptoWorkflow] SKIP ${asset.symbol}: ${cooldown.reason}`);
       continue;
     }
 
-    const side = debate.outcome;
-    console.log(`[cryptoWorkflow] DEBATE: ${side} ${asset.symbol} @ $${asset.price} (conf ${(debate.confidence * 100).toFixed(0)}%)`);
+    const debate = await runCryptoDebate(asset, ctx.lessons, side);
+    results.debated++;
 
-    const kellySizing = kellySize(debate.confidence, 0.5);
+    if (debate.action !== 'TRADE') {
+      console.log(`[cryptoWorkflow] SKIP ${asset.symbol} (${side}): ${debate.skipReason}`);
+      continue;
+    }
+
+    // Confidence: debate (Claude) is primary, but never below the signal's prior.
+    const confidence = Math.max(debate.confidence ?? 0, signal.score);
+    console.log(`[cryptoWorkflow] SIGNAL+DEBATE: ${side} ${asset.symbol} @ $${asset.price} (conf ${(confidence * 100).toFixed(0)}%, score ${signal.score})`);
+
+    const kellySizing = kellySize(confidence, 0.5);
     if (kellySizing.skip) {
       console.log(`[cryptoWorkflow] SIZE skip: ${kellySizing.reason}`);
       continue;
@@ -69,7 +87,7 @@ export async function runCryptoTradingCycle() {
       noPrice:        0.5,
       volumeTotal:    asset.volume24h,
       daysToClose:    1,
-      confidence:     debate.confidence,
+      confidence:     confidence,
       entryPrice:     asset.price,
       capitalUsed:    kellySizing.dollarSize,
       agentId:        'crypto-scalper-1',
@@ -92,13 +110,13 @@ export async function runCryptoTradingCycle() {
       side,
       entryPrice:   asset.price,
       capitalUsed:  kellySizing.dollarSize,
-      confidence:   debate.confidence,
+      confidence:   confidence,
       reason:       debate.arbiterSummary,
       evidence:     [
+        ...signal.reasons,
         ...(debate.bull?.evidence ?? []),
+        `Signal score: ${signal.score}`,
         `Kelly: ${(kellySizing.fraction * 100).toFixed(1)}%`,
-        `RSI: ${asset.rsi14}`,
-        `Trend: ${asset.trend}`,
       ],
     });
 

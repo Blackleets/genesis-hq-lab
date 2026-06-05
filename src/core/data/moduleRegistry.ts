@@ -25,7 +25,8 @@ export type ModuleId =
   | 'console'
   | 'integrations'
   | 'agents-live'
-  | 'edge';
+  | 'edge'
+  | 'crypto';
 
 export type ModuleState =
   | 'ready'
@@ -132,7 +133,7 @@ export const MODULES: ModuleEntry[] = [
   {
     id: 'hr',
     navKey: 'nav.hr',
-    state: 'ready',
+    state: 'visual-only',
     description: {
       es: 'Recursos humanos de Génesis: plantilla actual, cola de contratación y recomendaciones del Evaluador.',
       en: 'Genesis HR: current roster, hiring queue, and Evaluator recommendations.',
@@ -202,6 +203,24 @@ export const MODULES: ModuleEntry[] = [
     },
   },
   {
+    id: 'crypto',
+    navKey: 'nav.crypto',
+    state: 'ready',
+    description: {
+      es: 'Motor de scalping crypto: params en vivo, optimizador entrenando 24/7, PnL real con costos y posiciones abiertas.',
+      en: 'Crypto scalping engine: live params, optimizer training 24/7, real cost-aware PnL, and open positions.',
+    },
+    futureActions: [
+      { es: 'Ver al optimizador adoptar o rechazar configs (walk-forward).', en: 'Watch the optimizer adopt or reject configs (walk-forward).' },
+      { es: 'PnL crypto separado del de Polymarket, con costos.', en: 'Crypto PnL separated from Polymarket, cost-aware.' },
+      { es: 'Posiciones abiertas con target/stop en vivo.', en: 'Open positions with live target/stop.' },
+    ],
+    relation: {
+      es: 'El scalper crypto opera desde su escritorio en HQ con el motor validado por backtest.',
+      en: 'The crypto scalper trades from its HQ desk with the backtest-validated engine.',
+    },
+  },
+  {
     id: 'progress',
     navKey: 'nav.progress',
     state: 'ready',
@@ -258,7 +277,7 @@ export const MODULES: ModuleEntry[] = [
   {
     id: 'marketing',
     navKey: 'nav.marketing',
-    state: 'ready',
+    state: 'visual-only',
     description: {
       es: 'División de Marketing & Growth. Campañas, contenido, SEO y análisis de crecimiento gestionados por agentes especializados.',
       en: 'Marketing & Growth division. Campaigns, content, SEO, and growth analysis managed by specialized agents.',

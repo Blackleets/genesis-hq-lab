@@ -232,13 +232,14 @@ function getUnrealizedPnl() {
 
 async function getUnrealizedPnlAsync() {
   const openTrades = db.prepare(`
-    SELECT market_id, market_source, outcome, entry_price, shares
+    SELECT market_id, market_source, asset_pair, outcome, entry_price, shares
     FROM trades WHERE status = 'open'
   `).all();
   if (openTrades.length === 0) return 0;
 
   const prices = await Promise.allSettled(
-    openTrades.map(t => fetchCurrentPrice(t.market_source, t.market_id))
+    // Binance lookups need the bare pair (BTCUSDT), not market_id (BTCUSDT-<ts>).
+    openTrades.map(t => fetchCurrentPrice(t.market_source, t.market_source === 'binance' ? t.asset_pair : t.market_id))
   );
 
   let total = 0;

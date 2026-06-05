@@ -3,12 +3,34 @@
 // Pure math — no external libraries.
 
 const BINANCE_BASE = 'https://api.binance.com/api/v3';
-const ASSETS = [
+
+// 1-minute candles to pull per asset. Needs ≥60 for a TRUE 1h change and a
+// stable EMA21/RSI14. (Was 30 — which silently made change1h fall back to the
+// 24h ticker percent, the wrong signal.)
+const KLINES_LIMIT = 120;
+
+const DEFAULT_ASSETS = [
   { symbol: 'BTC', pair: 'BTCUSDT' },
   { symbol: 'ETH', pair: 'ETHUSDT' },
   { symbol: 'SOL', pair: 'SOLUSDT' },
   { symbol: 'BNB', pair: 'BNBUSDT' },
 ];
+
+// Asset list is configurable via env so new coins are a one-line change:
+//   CRYPTO_ASSETS=BTC:BTCUSDT,ETH:ETHUSDT,XRP:XRPUSDT
+export function getAssets() {
+  const raw = (process.env.CRYPTO_ASSETS ?? '').trim();
+  if (!raw) return DEFAULT_ASSETS;
+  const parsed = raw.split(',')
+    .map(s => s.trim())
+    .filter(Boolean)
+    .map(entry => {
+      const [symbol, pair] = entry.split(':').map(p => p.trim());
+      return symbol && pair ? { symbol, pair } : null;
+    })
+    .filter(Boolean);
+  return parsed.length > 0 ? parsed : DEFAULT_ASSETS;
+}
 
 // ─── EMA (exponential moving average) ─────────────────────────────────────────
 
@@ -74,10 +96,11 @@ export function buildAssetContext(symbol, pair, klines, ticker) {
 
 export async function getAssetContexts() {
   try {
-    const pairs = ASSETS.map(a => `"${a.pair}"`).join(',');
+    const assets = getAssets();
+    const pairs = assets.map(a => `"${a.pair}"`).join(',');
     const [tickerRes, ...klinesRes] = await Promise.all([
       fetch(`${BINANCE_BASE}/ticker/24hr?symbols=[${pairs}]`, { signal: AbortSignal.timeout(8000) }),
-      ...ASSETS.map(a => fetch(`${BINANCE_BASE}/klines?symbol=${a.pair}&interval=1m&limit=30`, { signal: AbortSignal.timeout(8000) })),
+      ...assets.map(a => fetch(`${BINANCE_BASE}/klines?symbol=${a.pair}&interval=1m&limit=${KLINES_LIMIT}`, { signal: AbortSignal.timeout(8000) })),
     ]);
 
     if (!tickerRes.ok) throw new Error(`Binance ticker HTTP ${tickerRes.status}`);
@@ -89,8 +112,8 @@ export async function getAssetContexts() {
     }));
 
     const contexts = [];
-    for (let i = 0; i < ASSETS.length; i++) {
-      const { symbol, pair } = ASSETS[i];
+    for (let i = 0; i < assets.length; i++) {
+      const { symbol, pair } = assets[i];
       const ticker = tickers.find(t => t.symbol === pair);
       const klines = klinesData[i];
       if (!ticker || !klines || klines.length < 22) continue;

@@ -146,6 +146,22 @@ export interface EdgeScorecardCheck {
   label: string;
 }
 
+export interface CryptoEdgeScorecard {
+  engine: 'crypto';
+  verdict: 'GO' | 'NO_GO' | 'INSUFFICIENT_DATA';
+  source: string;
+  totalClosed: number;
+  winRate: number;
+  roi: number;
+  totalPnl: number;
+  expectancy: number | null;
+  profitFactor: number | null;
+  maxDrawdown: number | null;
+  checks: Record<string, EdgeScorecardCheck>;
+  failingChecks: Array<{ key: string; label: string; value: number | null; threshold: number }>;
+  nextMilestone: string | null;
+}
+
 export interface EdgeScorecard {
   ok: boolean;
   verdict: 'GO' | 'NO_GO' | 'INSUFFICIENT_DATA';
@@ -162,6 +178,7 @@ export interface EdgeScorecard {
   checks: Record<string, EdgeScorecardCheck>;
   failingChecks: Array<{ key: string; label: string; value: number | null; threshold: number }>;
   nextMilestone: string | null;
+  crypto?: CryptoEdgeScorecard;
 }
 
 // ─── API calls ────────────────────────────────────────────────────────────────
