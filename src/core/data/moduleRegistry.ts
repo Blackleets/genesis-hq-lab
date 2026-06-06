@@ -26,7 +26,8 @@ export type ModuleId =
   | 'integrations'
   | 'agents-live'
   | 'edge'
-  | 'crypto';
+  | 'crypto'
+  | 'system';
 
 export type ModuleState =
   | 'ready'
@@ -218,6 +219,23 @@ export const MODULES: ModuleEntry[] = [
     relation: {
       es: 'El scalper crypto opera desde su escritorio en HQ con el motor validado por backtest.',
       en: 'The crypto scalper trades from its HQ desk with the backtest-validated engine.',
+    },
+  },
+  {
+    id: 'system',
+    navKey: 'nav.system',
+    state: 'ready',
+    description: {
+      es: 'Diagnóstico granular de sistema: DB, WebSocket, agentes, Kalshi, learning loop, treasury.',
+      en: 'Granular system diagnostics: DB, WebSocket, agents, Kalshi, learning loop, treasury.',
+    },
+    futureActions: [
+      { es: 'Alertas en tiempo real de desincronización.', en: 'Real-time desync alerts.' },
+      { es: 'Historial de issues detectados.', en: 'Detected issues history.' },
+    ],
+    relation: {
+      es: 'Source of truth del sistema — datos reales de todos los subsistemas.',
+      en: 'System source of truth — real data from all subsystems.',
     },
   },
   {

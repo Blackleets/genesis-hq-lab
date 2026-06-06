@@ -1960,16 +1960,19 @@ export type { TaskType };
 
 // ---------- trading selectors ----------
 
+// TODO_REAL_DATA: useCapital reads dead local state. Use useLiveTrading() from agentClient.ts instead.
 export function useCapital(): number {
   const s = useGenesisState();
   return s.capital;
 }
 
+// TODO_REAL_DATA: usePositions reads dead local state (always []). Use useAgentData().trades from agentClient.ts instead.
 export function usePositions(): PaperPosition[] {
   const s = useGenesisState();
   return Object.values(s.positions);
 }
 
+// TODO_REAL_DATA: useCapitalHistory reads dead local state. Use useLiveTrading().capitalHistory from agentClient.ts instead.
 export function useCapitalHistory(): { at: string; value: number }[] {
   const s = useGenesisState();
   return s.capitalHistory;
@@ -1980,6 +1983,8 @@ export function useWallet() {
   return { address: s.walletAddress, connected: s.walletConnected };
 }
 
+// TODO_REAL_DATA: useTradingStats reads dead local closedPositions (always []). Returns 0% win rate.
+// Use useLiveTrading() from agentClient.ts for real P&L stats.
 export function useTradingStats() {
   const s = useGenesisState();
   const closed = s.closedPositions;

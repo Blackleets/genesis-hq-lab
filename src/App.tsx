@@ -27,6 +27,7 @@ import AgentExecutionView from '@agents/AgentExecutionView';
 import AgentCreator from '@creator/AgentCreator';
 import EdgeScorecardView from '@workflows/EdgeScorecardView';
 import CryptoLabView from '@workflows/CryptoLabView';
+import SystemHealthView from '@ui/views/SystemHealthView';
 import { actions, useSelectedModule } from '@core/store/genesisStore';
 import type { ModuleId } from '@core/data/moduleRegistry';
 
@@ -51,6 +52,7 @@ function ModuleRenderer({ module, setModule }: { module: ModuleId; setModule: (m
     case 'agents-live':   return <AgentExecutionView />;
     case 'edge':        return <EdgeScorecardView />;
     case 'crypto':        return <CryptoLabView />;
+    case 'system':        return <SystemHealthView />;
     default:
       return <ModulePlaceholder module={module} onBack={() => setModule('hq')} />;
   }

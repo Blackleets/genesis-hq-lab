@@ -33,6 +33,7 @@ export const TRANSLATIONS = {
   'nav.agents-live':         { es: 'Agentes IA',                   en: 'AI Agents' },
   'nav.edge':            { es: 'Edge Scorecard',               en: 'Edge Scorecard' },
   'nav.crypto':          { es: 'Crypto Lab',                    en: 'Crypto Lab' },
+  'nav.system':          { es: 'System Health',                 en: 'System Health' },
 
   // ---------------- MODULE STATES ----------------
   'state.ready':             { es: 'listo',                        en: 'ready' },

@@ -35,6 +35,7 @@ import { start as startMarketAnalyst }                    from './agents/marketA
 import { getRecentDecisions, getDecisionStats }           from './memory/decisionLedger.mjs';
 import { getAgentPerformance }                            from './memory/decisionAccuracyEngine.mjs';
 import { getRecentConsensus, getConsensusForTicker }      from './memory/consensusEngine.mjs';
+import { getSystemTruth }                                 from './truthLayer.mjs';
 
 // In-memory SkillOpt job state (single concurrent job)
 const skilloptJob = { running: false, lastResult: null, startedAt: null, agent: null };
@@ -682,6 +683,17 @@ const server = createServer(async (req, res) => {
         service: 'genesis-hq-lab-backend',
         now: new Date().toISOString(),
       });
+    }
+    return;
+  }
+
+  // GET /api/system/health — granular truth layer diagnostics
+  if (url.pathname === '/api/system/health') {
+    try {
+      const truth = getSystemTruth(wsClients.size);
+      sendJson(res, truth.ok ? 200 : 503, truth);
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
     }
     return;
   }
