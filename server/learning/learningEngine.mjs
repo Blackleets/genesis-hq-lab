@@ -16,6 +16,7 @@
 
 import db from '../db/database.mjs';
 import { getRecentOutcomes, getOutcomeCount } from './outcomeModel.mjs';
+import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -288,8 +289,18 @@ export async function runWeightCalibrationCycle(safeMode = false) {
     _weightCache = newWeights;
     _saveWeightsToDB(newWeights, reason, outcomes.length);
     console.log(`[learningEngine] Weights updated (${reason}):`, JSON.stringify(changes));
+    logEvent({
+      category: CATEGORY.LEARNING, severity: SEVERITY.INFO, subsystem: 'learningEngine',
+      reason: `WEIGHTS_CHANGED: ${reason} (n=${outcomes.length} outcomes)`,
+      metadata: { changes, newWeights, metrics: { highBandWinRate: metrics.highBandWinRate, cautionWinRate: metrics.cautionWinRate, overallWinRate: metrics.overallWinRate } },
+    });
   } else {
     console.log(`[learningEngine] Calibration cycle complete — no adjustment needed (n=${outcomes.length})`);
+    logEvent({
+      category: CATEGORY.LEARNING, severity: SEVERITY.INFO, subsystem: 'learningEngine',
+      reason: `CALIBRATION_STABLE: no weight adjustment needed (n=${outcomes.length} outcomes)`,
+      metadata: { metrics: { highBandWinRate: metrics.highBandWinRate, overallWinRate: metrics.overallWinRate } },
+    });
   }
 
   _lastCycleAt = Date.now();

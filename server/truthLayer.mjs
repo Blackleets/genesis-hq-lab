@@ -22,6 +22,12 @@ import { getReconciliationStatus } from './memory/reconciliationEngine.mjs';
 import { getConfidenceDiagnostics } from './intelligence/confidenceEngine.mjs';
 import { getLearningDiagnostics } from './learning/learningEngine.mjs';
 import { getGlobalRiskDiagnostics } from './risk/globalRiskEngine.mjs';
+import {
+  getRecentEvents,
+  countBlockedTrades,
+  getActiveWarnings,
+  getTopFailureReason,
+} from './observability/eventTimeline.mjs';
 
 // ── Structured logger for desync events ──────────────────────────────────────
 
@@ -247,6 +253,23 @@ function probeLearningEngine() {
   }
 }
 
+// ── Operator visibility probe ─────────────────────────────────────────────────
+
+function probeOperatorVisibility() {
+  try {
+    return {
+      ok: true,
+      recentEvents:     getRecentEvents(15),
+      blockedTrades24h: countBlockedTrades(),
+      activeWarnings:   getActiveWarnings(),
+      topFailureReason: getTopFailureReason(),
+    };
+  } catch (err) {
+    _log.error('operatorVisibility', 'Operator visibility probe failed', err);
+    return { ok: false, error: err.message, recentEvents: [], blockedTrades24h: 0, activeWarnings: [], topFailureReason: null };
+  }
+}
+
 // ── Global risk engine probe ──────────────────────────────────────────────────
 
 function probeGlobalRisk() {
@@ -367,9 +390,10 @@ export function getSystemTruth(wsClientCount = 0) {
     learning:             probeLearning(),
     founderMode:          probeFounderMode(),
     executionDiagnostics: probeExecution(),
-    confidenceEngine:     probeConfidenceEngine(),
-    learningEngine:       probeLearningEngine(),
-    globalRisk:           probeGlobalRisk(),
+    confidenceEngine:      probeConfidenceEngine(),
+    learningEngine:        probeLearningEngine(),
+    globalRisk:            probeGlobalRisk(),
+    operatorVisibility:    probeOperatorVisibility(),
   };
 
   const issues = detectStaleState(checks);
@@ -418,6 +442,13 @@ export function getSystemTruth(wsClientCount = 0) {
         noTradeReasonCounts: checks.confidenceEngine.noTradeReasonCounts,
         lastDecisionAt:      checks.confidenceEngine.lastDecisionAt,
       } : null,
+    },
+    // ── Operator observability ────────────────────────────────────────────
+    operatorVisibility: {
+      recentEvents:     checks.operatorVisibility?.recentEvents     ?? [],
+      blockedTrades24h: checks.operatorVisibility?.blockedTrades24h ?? 0,
+      activeWarnings:   checks.operatorVisibility?.activeWarnings   ?? [],
+      topFailureReason: checks.operatorVisibility?.topFailureReason ?? null,
     },
     // ── Canonical learning state ──────────────────────────────────────────
     learning: {

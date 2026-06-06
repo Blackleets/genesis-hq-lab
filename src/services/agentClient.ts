@@ -223,6 +223,10 @@ export const agentClient = {
   getEdgeScorecard: () => get<EdgeScorecard>('/api/trading/edge-scorecard'),
   getRunnerStatus:  () => get<AgentRunnerStatus>('/api/agent/runner-status'),
   getTradeChart:    (id: string) => get<TradeChartData>(`/api/trading/trade/${id}/price-history`),
+  getOperatorTimeline: (params?: Record<string, string>) => {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return get<{ events: Array<{ id: string; ts: string; category: string; severity: string; subsystem: string; reason: string; metadata: Record<string, unknown> }> }>(`/api/operator/timeline${qs}`);
+  },
   pauseTrading:     () => fetch(apiUrl('/api/trading/pause'), { method: 'POST' }).then(r => r.json()).catch(() => null),
   resumeTrading:    () => fetch(apiUrl('/api/trading/resume'), { method: 'POST' }).then(r => r.json()).catch(() => null),
 

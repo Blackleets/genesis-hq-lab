@@ -27,7 +27,8 @@ export type ModuleId =
   | 'agents-live'
   | 'edge'
   | 'crypto'
-  | 'system';
+  | 'system'
+  | 'operator';
 
 export type ModuleState =
   | 'ready'
@@ -236,6 +237,23 @@ export const MODULES: ModuleEntry[] = [
     relation: {
       es: 'Source of truth del sistema — datos reales de todos los subsistemas.',
       en: 'System source of truth — real data from all subsystems.',
+    },
+  },
+  {
+    id: 'operator',
+    navKey: 'nav.operator',
+    state: 'ready',
+    description: {
+      es: 'Timeline de eventos del operador: cada decisión de trading, bloqueo de confianza, cambio de riesgo y calibración del learning loop.',
+      en: 'Operator event timeline: every trading decision, confidence block, risk change, and learning loop calibration.',
+    },
+    futureActions: [
+      { es: 'Filtrar por severidad o categoría.', en: 'Filter by severity or category.' },
+      { es: 'Ver explicación de cada trade bloqueado.', en: 'View explanation for each blocked trade.' },
+    ],
+    relation: {
+      es: 'Capa de observabilidad — responde POR QUÉ Genesis tomó o bloqueó cada decisión.',
+      en: 'Observability layer — answers WHY Genesis made or blocked each decision.',
     },
   },
   {

@@ -52,6 +52,14 @@ import {
   getReconciliationStatus,
   clearSafeMode as clearReconciliationSafeMode,
 }                                                         from './memory/reconciliationEngine.mjs';
+import {
+  getTimeline, getRecentEvents, getActiveWarnings, getTopFailureReason,
+  countBlockedTrades, getCurrentBlockers,
+}                                                         from './observability/eventTimeline.mjs';
+import { buildDecisionExplanation }                       from './observability/decisionExplainer.mjs';
+import { getGlobalRiskDiagnostics }                       from './risk/globalRiskEngine.mjs';
+import { getLearningDiagnostics }                         from './learning/learningEngine.mjs';
+import { getConfidenceDiagnostics }                       from './intelligence/confidenceEngine.mjs';
 
 // In-memory SkillOpt job state (single concurrent job)
 const skilloptJob = { running: false, lastResult: null, startedAt: null, agent: null };
@@ -804,6 +812,100 @@ const server = createServer(async (req, res) => {
       startedAt: skilloptJob.startedAt,
       lastResult: skilloptJob.lastResult,
     });
+    return;
+  }
+
+  // ─── OPERATOR OBSERVABILITY ──────────────────────────────────────────────────
+
+  // GET /api/operator/timeline — append-only event stream
+  if (url.pathname === '/api/operator/timeline') {
+    try {
+      const limit    = Math.min(Number(url.searchParams.get('limit') ?? 100), 500);
+      const category = url.searchParams.get('category') ?? null;
+      const severity = url.searchParams.get('severity') ?? null;
+      const since    = url.searchParams.get('since') ?? null;
+      sendJson(res, 200, { ok: true, events: getTimeline({ limit, category, severity, since }) });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  // GET /api/operator/decision/:tradeId — per-trade explanation
+  if (url.pathname.startsWith('/api/operator/decision/')) {
+    try {
+      const tradeId = url.pathname.replace('/api/operator/decision/', '').trim();
+      const explanation = buildDecisionExplanation(tradeId);
+      if (!explanation) {
+        sendJson(res, 404, { ok: false, error: `Trade ${tradeId} not found` });
+      } else {
+        sendJson(res, 200, { ok: true, explanation });
+      }
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  // GET /api/operator/system-summary — answers "why is Genesis not trading now?"
+  if (url.pathname === '/api/operator/system-summary') {
+    try {
+      const risk       = getGlobalRiskDiagnostics();
+      const confidence = getConfidenceDiagnostics();
+      const learning   = getLearningDiagnostics();
+      const blockers   = getCurrentBlockers();
+      const warnings   = getActiveWarnings();
+      const topFailure = getTopFailureReason();
+      const blocked24h = countBlockedTrades();
+
+      // Reconciliation
+      const recon = getReconciliationStatus();
+
+      // Is Genesis trading?
+      const tradingBlocked = risk.safeMode || recon.status === 'degraded';
+
+      sendJson(res, 200, {
+        ok: true,
+        summary: {
+          tradingBlocked,
+          currentBlockers: blockers,
+          topFailureReason24h: topFailure,
+          blockedTrades24h: blocked24h,
+        },
+        confidence: {
+          lastScore: confidence.lastScore,
+          lastBand: confidence.lastBand,
+          averageScore: confidence.averageScore,
+          blockedTrades: confidence.blockedTrades,
+          topNoTradeReason: Object.entries(confidence.noTradeReasonCounts ?? {})
+            .sort((a, b) => b[1] - a[1])[0]?.[0] ?? null,
+        },
+        risk: {
+          score: risk.score,
+          band: risk.band,
+          safeMode: risk.safeMode,
+          activeFlags: risk.activeFlags,
+          dimensions: risk.dimensions,
+          lastRefreshAt: risk.lastRefreshAt,
+        },
+        learning: {
+          totalTradesAnalyzed: learning.totalTradesAnalyzed,
+          recentAccuracy: learning.recentAccuracy,
+          highBandWinRate: learning.highBandWinRate,
+          lastCycleTime: learning.lastCycleTime,
+          lastCycleChanges: learning.lastCycleChanges,
+        },
+        reconciliation: {
+          status: recon.status,
+          issueCount: recon.issues?.length ?? 0,
+          safeMode: recon.safeMode,
+        },
+        activeWarnings: warnings.slice(0, 10),
+        recentEvents: getRecentEvents(15),
+      });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
     return;
   }
 

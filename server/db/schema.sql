@@ -444,3 +444,21 @@ CREATE INDEX IF NOT EXISTS idx_outcomes_result ON trade_outcomes (outcome_result
 CREATE INDEX IF NOT EXISTS idx_consensus_ticker    ON consensus_decisions(ticker);
 CREATE INDEX IF NOT EXISTS idx_consensus_timestamp ON consensus_decisions(timestamp);
 CREATE INDEX IF NOT EXISTS idx_consensus_decision  ON consensus_decisions(decision);
+
+-- ─── OPERATOR EVENTS — append-only observability timeline ─────────────────────
+-- Every meaningful system decision is logged here so operators can answer WHY.
+-- Append-only. Prune after 30 days if needed.
+
+CREATE TABLE IF NOT EXISTS operator_events (
+  id         TEXT PRIMARY KEY,
+  ts         TEXT NOT NULL,
+  category   TEXT NOT NULL,
+  severity   TEXT NOT NULL,
+  subsystem  TEXT NOT NULL,
+  reason     TEXT NOT NULL,
+  metadata   TEXT NOT NULL DEFAULT '{}'
+);
+
+CREATE INDEX IF NOT EXISTS idx_opevents_ts       ON operator_events(ts);
+CREATE INDEX IF NOT EXISTS idx_opevents_category ON operator_events(category);
+CREATE INDEX IF NOT EXISTS idx_opevents_severity ON operator_events(severity);

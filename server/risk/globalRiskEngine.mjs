@@ -28,6 +28,7 @@ import { getTreasury } from '../trading/treasury.mjs';
 import { getConfidenceDiagnostics } from '../intelligence/confidenceEngine.mjs';
 import { detectStalePositions, getPnLFreshness } from '../memory/pnlEngine.mjs';
 import { getLearningDiagnostics } from '../learning/learningEngine.mjs';
+import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs';
 
 const __dir     = dirname(fileURLToPath(import.meta.url));
 const LOGS_DIR  = join(__dir, '..', '..', 'logs');
@@ -337,6 +338,11 @@ export async function refreshGlobalRiskScore() {
     _score        = 100;
     _activeFlags  = ['ENGINE_FAILED'];
     logRiskEvent('ENGINE_FAILURE', { error: err?.message });
+    logEvent({
+      category: CATEGORY.RISK, severity: SEVERITY.CRITICAL, subsystem: 'globalRisk',
+      reason: `ENGINE_FAILURE: risk engine threw — defaulting to safe mode`,
+      metadata: { error: err?.message },
+    });
     return { score: 100, band: 'CRITICAL', safeMode: true, flags: ['ENGINE_FAILED'] };
   }
 
@@ -350,14 +356,32 @@ export async function refreshGlobalRiskScore() {
   if (result.score >= SAFE_MODE_THRESHOLD && !_safeMode) {
     _safeMode = true;
     logRiskEvent('GLOBAL_SAFE_MODE_ACTIVATED', { score: result.score, band: result.band, flags: result.flags.slice(0, 3) });
+    logEvent({
+      category: CATEGORY.RISK, severity: SEVERITY.CRITICAL, subsystem: 'globalRisk',
+      reason: `SAFE_MODE_ACTIVATED: system risk score ${result.score}/100 — trading suspended`,
+      metadata: { score: result.score, band: result.band, flags: result.flags.slice(0, 3) },
+    });
   } else if (result.score <= SAFE_MODE_CLEAR_THRESHOLD && _safeMode) {
     _safeMode = false;
     logRiskEvent('GLOBAL_SAFE_MODE_CLEARED', { score: result.score, band: result.band });
+    logEvent({
+      category: CATEGORY.RISK, severity: SEVERITY.INFO, subsystem: 'globalRisk',
+      reason: `SAFE_MODE_CLEARED: system risk score dropped to ${result.score}/100 — trading resumed`,
+      metadata: { score: result.score, band: result.band },
+    });
   }
 
   // Log risk band transitions
   if (prevBand !== result.band) {
     logRiskEvent('RISK_BAND_CHANGE', { from: prevBand, to: result.band, score: result.score });
+    const isEscalation = ['HIGH_RISK', 'CRITICAL'].includes(result.band);
+    logEvent({
+      category: CATEGORY.RISK,
+      severity: isEscalation ? SEVERITY.HIGH : SEVERITY.INFO,
+      subsystem: 'globalRisk',
+      reason: `RISK_BAND_CHANGE: ${prevBand ?? 'UNKNOWN'} → ${result.band} (score ${result.score}/100)`,
+      metadata: { from: prevBand, to: result.band, score: result.score, flags: result.flags.slice(0, 3) },
+    });
   }
 
   // Log if flags are new (spike detection)

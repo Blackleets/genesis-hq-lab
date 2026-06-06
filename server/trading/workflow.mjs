@@ -21,6 +21,7 @@ import { computeConfidence } from '../intelligence/confidenceEngine.mjs';
 import { createOutcomeRecord, saveOutcome } from '../learning/outcomeModel.mjs';
 import { isGlobalSafeMode } from '../risk/globalRiskEngine.mjs';
 import db from '../db/database.mjs';
+import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs';
 
 // ─── STEP 1 — SCAN ────────────────────────────────────────────────────────────
 
@@ -222,12 +223,27 @@ export async function runTradingCycle() {
   for (const market of qualified.slice(0, 10)) {
     // 3. Veto check (SQLite patterns, no Claude)
     const { veto } = stepVetoCheck(market);
-    if (veto.vetoed) { results.vetoed++; continue; }
+    if (veto.vetoed) {
+      results.vetoed++;
+      logEvent({
+        category: CATEGORY.TRADING, severity: SEVERITY.INFO, subsystem: 'workflow',
+        reason: `BLOCKED_VETO: ${veto.summary ?? 'pattern matched'}`,
+        metadata: { marketId: market.id, question: market.question?.slice(0, 60) },
+      });
+      continue;
+    }
 
     // 4. Debate (Claude call)
     const debateResult = await stepDebate(market);
     results.debated++;
-    if (debateResult.action !== 'TRADE') continue;
+    if (debateResult.action !== 'TRADE') {
+      logEvent({
+        category: CATEGORY.TRADING, severity: SEVERITY.INFO, subsystem: 'workflow',
+        reason: `BLOCKED_DEBATE_SKIP: ${debateResult.skipReason ?? 'low conviction'}`,
+        metadata: { marketId: market.id, question: market.question?.slice(0, 60) },
+      });
+      continue;
+    }
 
     // 4.5. Confidence gate — composite score blocks or sizes down low-conviction trades
     const confidenceResult = computeConfidence({
@@ -246,6 +262,15 @@ export async function runTradingCycle() {
       if (confidenceResult.explanation.negatives.length > 0) {
         console.log(`[workflow]   Negatives: ${confidenceResult.explanation.negatives.slice(0, 2).join(' | ')}`);
       }
+      logEvent({
+        category: CATEGORY.CONFIDENCE, severity: SEVERITY.WARNING, subsystem: 'workflow',
+        reason: `BLOCKED_CONFIDENCE: ${confidenceResult.score}/100 (${confidenceResult.band}) — ${confidenceResult.noTradeReason}`,
+        metadata: {
+          marketId: market.id, question: market.question?.slice(0, 60),
+          score: confidenceResult.score, band: confidenceResult.band,
+          negatives: confidenceResult.explanation?.negatives?.slice(0, 3),
+        },
+      });
       continue;
     }
 
@@ -259,7 +284,24 @@ export async function runTradingCycle() {
     if (execution.executed) {
       results.executed++;
       results.tradeId = execution.tradeId;
+      logEvent({
+        category: CATEGORY.TRADING, severity: SEVERITY.INFO, subsystem: 'workflow',
+        reason: `TRADE_EXECUTED: ${debateResult.outcome} on ${market.source}:${market.id}`,
+        metadata: {
+          tradeId: execution.tradeId, marketId: market.id,
+          question: market.question?.slice(0, 60),
+          outcome: debateResult.outcome, confidence: debateResult.confidence,
+          confidenceScore: confidenceResult.score, band: confidenceResult.band,
+          mode: execution.executionMode,
+        },
+      });
       break;  // one trade per cycle is enough
+    } else {
+      logEvent({
+        category: CATEGORY.TRADING, severity: SEVERITY.WARNING, subsystem: 'workflow',
+        reason: `BLOCKED_EXECUTION: ${execution.reason ?? 'execution failed'}`,
+        metadata: { marketId: market.id, question: market.question?.slice(0, 60) },
+      });
     }
   }
 
@@ -313,7 +355,20 @@ export async function runLearningCycle() {
       console.warn('[workflow] Outcome recording failed:', err?.message);
     }
 
-    console.log(`[workflow] CLOSED: ${trade.market_question?.slice(0, 40)} | PnL: $${(closedTrade.pnl ?? 0).toFixed(2)}`);
+    const pnl = closedTrade.pnl ?? 0;
+    const won = resolvedOutcome === closedTrade.outcome;
+    console.log(`[workflow] CLOSED: ${trade.market_question?.slice(0, 40)} | PnL: $${pnl.toFixed(2)}`);
+    logEvent({
+      category: CATEGORY.TRADING,
+      severity: pnl < -5 ? SEVERITY.WARNING : SEVERITY.INFO,
+      subsystem: 'workflow',
+      reason: `TRADE_CLOSED: ${won ? 'WIN' : 'LOSS'} $${pnl.toFixed(2)} — ${trade.market_question?.slice(0, 50)}`,
+      metadata: {
+        tradeId: trade.id, marketId: trade.market_id,
+        outcome: trade.outcome, resolvedOutcome, pnl,
+        lessonGenerated: !!lesson,
+      },
+    });
 
     await new Promise(r => setTimeout(r, 300)); // rate limit Claude calls
   }

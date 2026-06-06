@@ -74,6 +74,24 @@ function migrateIndexes() {
 
 migrateIndexes();
 
+function migrateObservability() {
+  const stmts = [
+    `CREATE TABLE IF NOT EXISTS operator_events (
+      id TEXT PRIMARY KEY, ts TEXT NOT NULL, category TEXT NOT NULL,
+      severity TEXT NOT NULL, subsystem TEXT NOT NULL,
+      reason TEXT NOT NULL, metadata TEXT NOT NULL DEFAULT '{}'
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_opevents_ts       ON operator_events(ts)`,
+    `CREATE INDEX IF NOT EXISTS idx_opevents_category ON operator_events(category)`,
+    `CREATE INDEX IF NOT EXISTS idx_opevents_severity ON operator_events(severity)`,
+  ];
+  for (const s of stmts) {
+    try { db.prepare(s).run(); } catch { /* idempotent */ }
+  }
+}
+
+migrateObservability();
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /** Execute a write operation in a transaction */
