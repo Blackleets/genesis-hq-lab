@@ -5,7 +5,8 @@ import type { UTCTimestamp, ISeriesApi, SeriesType } from 'lightweight-charts';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PAIRS     = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT'];
-const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1D'];
+// Binance API uses lowercase intervals: 1m 5m 15m 1h 4h 1d
+const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d'];
 const C = { up: '#00ff9c', down: '#ff4757', ema9: '#3da9fc', ema21: '#f59e0b' };
 
 // Binance public REST — CORS allowed from browser, no key needed
@@ -150,10 +151,15 @@ export default function CandleChart({ positions = [], onManualOrder }: Props) {
 
         chartRef.current!.timeScale().fitContent();
 
-        // Update header price
+        // Price = last close; % change = 24h (last 24 candles for 1h, else first vs last)
         const last = candles[candles.length - 1];
         setPrice(last.close);
-        setChange(((last.close - candles[0].open) / candles[0].open) * 100);
+        const refIdx = tf === '1h' ? Math.max(0, candles.length - 24)
+                     : tf === '4h' ? Math.max(0, candles.length - 6)
+                     : tf === '1d' ? Math.max(0, candles.length - 1)
+                     : 0;
+        const ref24h = candles[refIdx].open;
+        setChange(((last.close - ref24h) / ref24h) * 100);
       } catch (e) {
         if (!cancelled) setError((e as Error).message);
       } finally {
@@ -211,7 +217,7 @@ export default function CandleChart({ positions = [], onManualOrder }: Props) {
                 ${tf === iv
                   ? 'text-emerald-400 bg-emerald-400/10 border border-emerald-400/30'
                   : 'text-zinc-600 hover:text-zinc-400'}`}>
-              {iv}
+              {iv === '1d' ? '1D' : iv}
             </button>
           ))}
         </div>
@@ -225,7 +231,7 @@ export default function CandleChart({ positions = [], onManualOrder }: Props) {
         <span className="ml-auto text-zinc-600 tabular-nums">
           {loading
             ? <span className="animate-pulse">Cargando {symbol}…</span>
-            : `${symbol}/USDT · ${tf}`}
+            : `${symbol}/USDT · ${tf === '1d' ? '1D' : tf}`}
         </span>
       </div>
 

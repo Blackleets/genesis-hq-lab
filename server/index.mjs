@@ -352,16 +352,21 @@ const server = createServer(async (req, res) => {
     req.on('end', async () => {
       try {
         const { pair = 'BTCUSDT', side, capitalUsed = 100 } = JSON.parse(body);
-        if (!['LONG', 'SHORT'].includes(side)) { sendJson(res, 400, { ok: false, error: 'side must be LONG or SHORT' }); return; }
-        const { executeScalp } = await import('./crypto/cryptoExecution.mjs');
-        const price = await (await import('./crypto/priceFeeder.mjs')).getCurrentPrice(pair);
-        const asset = { symbol: pair.replace('USDT',''), pair };
-        const result = await executeScalp({
-          asset, side, entryPrice: price, capitalUsed,
-          reason: 'Manual order from Crypto Lab UI',
+        if (!['LONG', 'SHORT'].includes(side)) {
+          sendJson(res, 400, { ok: false, error: 'side must be LONG or SHORT' }); return;
+        }
+        const { getCurrentPrice } = await import('./crypto/priceFeeder.mjs');
+        const { executeCryptoPaperTrade } = await import('./crypto/cryptoExecution.mjs');
+        const entryPrice = await getCurrentPrice(pair);
+        const symbol = pair.replace('USDT', '');
+        const result = executeCryptoPaperTrade({
+          asset: { symbol, pair, volume24h: null },
+          side,
+          entryPrice,
+          capitalUsed,
           confidence: 0.7,
-          targetPrice: side === 'LONG' ? price * 1.02 : price * 0.98,
-          stopPrice: side === 'LONG' ? price * 0.985 : price * 1.015,
+          reason: `Manual order from Crypto Lab UI`,
+          evidence: [`Manual ${side} at $${entryPrice}`],
         });
         sendJson(res, 200, { ok: true, result });
       } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
