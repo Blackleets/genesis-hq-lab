@@ -28,7 +28,8 @@ export type ModuleId =
   | 'edge'
   | 'crypto'
   | 'system'
-  | 'operator';
+  | 'operator'
+  | 'alpha';
 
 export type ModuleState =
   | 'ready'
@@ -254,6 +255,24 @@ export const MODULES: ModuleEntry[] = [
     relation: {
       es: 'Capa de observabilidad — responde POR QUÉ Genesis tomó o bloqueó cada decisión.',
       en: 'Observability layer — answers WHY Genesis made or blocked each decision.',
+    },
+  },
+  {
+    id: 'alpha',
+    navKey: 'nav.alpha',
+    state: 'ready',
+    description: {
+      es: 'Validación de edge institucional: expectativa, calibración, scoring de agentes y análisis de régimen de mercado.',
+      en: 'Institutional edge validation: expectancy, calibration, agent scoring, and market regime analysis.',
+    },
+    futureActions: [
+      { es: '¿Tiene Genesis edge real?', en: 'Does Genesis have real edge?' },
+      { es: 'Qué nivel de confianza funciona.', en: 'Which confidence level works.' },
+      { es: 'Qué mercado duele al rendimiento.', en: 'Which market hurts performance.' },
+    ],
+    relation: {
+      es: 'Capa de verdad cuantitativa — mide si el sistema gana por skill o por suerte.',
+      en: 'Quantitative truth layer — measures whether the system wins by skill or luck.',
     },
   },
   {

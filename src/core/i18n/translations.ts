@@ -35,6 +35,7 @@ export const TRANSLATIONS = {
   'nav.crypto':          { es: 'Crypto Lab',                    en: 'Crypto Lab' },
   'nav.system':          { es: 'System Health',                 en: 'System Health' },
   'nav.operator':        { es: 'Operador Timeline',            en: 'Operator Timeline' },
+  'nav.alpha':           { es: 'Alpha Validation',             en: 'Alpha Validation' },
 
   // ---------------- MODULE STATES ----------------
   'state.ready':             { es: 'listo',                        en: 'ready' },

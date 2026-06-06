@@ -22,6 +22,7 @@ import { getReconciliationStatus } from './memory/reconciliationEngine.mjs';
 import { getConfidenceDiagnostics } from './intelligence/confidenceEngine.mjs';
 import { getLearningDiagnostics } from './learning/learningEngine.mjs';
 import { getGlobalRiskDiagnostics } from './risk/globalRiskEngine.mjs';
+import { getAlphaReport } from './research/alphaValidationEngine.mjs';
 import {
   getRecentEvents,
   countBlockedTrades,
@@ -253,6 +254,36 @@ function probeLearningEngine() {
   }
 }
 
+// ── Alpha research probe ──────────────────────────────────────────────────────
+
+function probeAlphaResearch() {
+  try {
+    const report = getAlphaReport();
+    const s = report.summary ?? {};
+    return {
+      ok: true,
+      verdict:            report.verdict,
+      hasEdge:            report.hasEdge,
+      verdictReason:      report.verdictReason,
+      tradeHistory:       report.tradeHistory,
+      dataInsufficient:   s.dataInsufficient ?? true,
+      expectancy:         s.expectancyPerTrade,
+      winRate:            s.winRate,
+      calibrationScore:   s.calibrationScore,
+      profitFactor:       s.profitFactor,
+      bestAgent:          s.bestAgent,
+      worstAgent:         s.worstAgent,
+      strongestMarket:    s.strongestMarket,
+      weakestMarket:      s.weakestMarket,
+      confidenceAccuracy: s.confidenceAccuracy,
+      falsePositiveRate:  s.falsePositiveRate,
+    };
+  } catch (err) {
+    _log.error('alphaResearch', 'Alpha research probe failed', err);
+    return { ok: false, error: err.message };
+  }
+}
+
 // ── Operator visibility probe ─────────────────────────────────────────────────
 
 function probeOperatorVisibility() {
@@ -394,6 +425,7 @@ export function getSystemTruth(wsClientCount = 0) {
     learningEngine:        probeLearningEngine(),
     globalRisk:            probeGlobalRisk(),
     operatorVisibility:    probeOperatorVisibility(),
+    alphaResearch:         probeAlphaResearch(),
   };
 
   const issues = detectStaleState(checks);
@@ -442,6 +474,24 @@ export function getSystemTruth(wsClientCount = 0) {
         noTradeReasonCounts: checks.confidenceEngine.noTradeReasonCounts,
         lastDecisionAt:      checks.confidenceEngine.lastDecisionAt,
       } : null,
+    },
+    // ── Alpha edge research ───────────────────────────────────────────────
+    alphaResearch: {
+      verdict:            checks.alphaResearch?.verdict          ?? 'NO_DATA',
+      hasEdge:            checks.alphaResearch?.hasEdge          ?? null,
+      verdictReason:      checks.alphaResearch?.verdictReason    ?? null,
+      tradeHistory:       checks.alphaResearch?.tradeHistory     ?? 0,
+      dataInsufficient:   checks.alphaResearch?.dataInsufficient ?? true,
+      expectancy:         checks.alphaResearch?.expectancy       ?? null,
+      winRate:            checks.alphaResearch?.winRate          ?? null,
+      calibrationScore:   checks.alphaResearch?.calibrationScore ?? null,
+      profitFactor:       checks.alphaResearch?.profitFactor     ?? null,
+      bestAgent:          checks.alphaResearch?.bestAgent        ?? null,
+      worstAgent:         checks.alphaResearch?.worstAgent       ?? null,
+      strongestMarket:    checks.alphaResearch?.strongestMarket  ?? null,
+      weakestMarket:      checks.alphaResearch?.weakestMarket    ?? null,
+      confidenceAccuracy: checks.alphaResearch?.confidenceAccuracy ?? null,
+      falsePositiveRate:  checks.alphaResearch?.falsePositiveRate  ?? null,
     },
     // ── Operator observability ────────────────────────────────────────────
     operatorVisibility: {

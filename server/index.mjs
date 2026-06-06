@@ -60,6 +60,12 @@ import { buildDecisionExplanation }                       from './observability/
 import { getGlobalRiskDiagnostics }                       from './risk/globalRiskEngine.mjs';
 import { getLearningDiagnostics }                         from './learning/learningEngine.mjs';
 import { getConfidenceDiagnostics }                       from './intelligence/confidenceEngine.mjs';
+import {
+  getAlphaReport,
+  computeExpectancy,
+  computeAgentEdgeScores,
+  computeRegimeAnalysis,
+}                                                         from './research/alphaValidationEngine.mjs';
 
 // In-memory SkillOpt job state (single concurrent job)
 const skilloptJob = { running: false, lastResult: null, startedAt: null, agent: null };
@@ -903,6 +909,38 @@ const server = createServer(async (req, res) => {
         activeWarnings: warnings.slice(0, 10),
         recentEvents: getRecentEvents(15),
       });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  // ─── ALPHA RESEARCH ──────────────────────────────────────────────────────────
+
+  // GET /api/research/edge — full edge analytics report
+  if (url.pathname === '/api/research/edge') {
+    try {
+      sendJson(res, 200, getAlphaReport());
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  // GET /api/research/agents — agent edge scores only
+  if (url.pathname === '/api/research/agents') {
+    try {
+      sendJson(res, 200, { ok: true, ...computeAgentEdgeScores() });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  // GET /api/research/regimes — regime analysis only
+  if (url.pathname === '/api/research/regimes') {
+    try {
+      sendJson(res, 200, { ok: true, ...computeRegimeAnalysis() });
     } catch (err) {
       sendJson(res, 500, { ok: false, error: err.message });
     }

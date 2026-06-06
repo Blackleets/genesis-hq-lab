@@ -1,7 +1,7 @@
 // GenesisSidebar — left-rail nav with division groups.
 // Modules are organized into 5 themed sections to reflect the company structure.
 
-import { Building2, Boxes, Sparkles, Users, BrainCircuit, Activity, FileText, Settings, Gauge, Wallet, Megaphone, Code, Terminal, Workflow, Bot, TrendingUp, Bitcoin, HeartPulse, ScrollText } from 'lucide-react';
+import { Building2, Boxes, Sparkles, Users, BrainCircuit, Activity, FileText, Settings, Gauge, Wallet, Megaphone, Code, Terminal, Workflow, Bot, TrendingUp, Bitcoin, HeartPulse, ScrollText, FlaskConical } from 'lucide-react';
 import GenesisLockup from '@ui/GenesisLogo';
 import { useT, useLanguage } from '@core/i18n/languageStore';
 import { MODULES, type ModuleId } from '@core/data/moduleRegistry';
@@ -32,6 +32,7 @@ const ICONS: Record<ModuleId, typeof Building2> = {
   crypto:        Bitcoin,
   system:        HeartPulse,
   operator:      ScrollText,
+  alpha:         FlaskConical,
 };
 
 interface SidebarGroup {
@@ -70,7 +71,7 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
     labelEs: 'Plataforma',
     labelEn: 'Platform',
     color: '#6b7280',
-    modules: ['system', 'operator', 'integrations', 'progress', 'settings', 'wallet'],
+    modules: ['system', 'operator', 'alpha', 'integrations', 'progress', 'settings', 'wallet'],
   },
 ];
 

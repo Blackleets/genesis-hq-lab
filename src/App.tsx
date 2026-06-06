@@ -29,6 +29,7 @@ import EdgeScorecardView from '@workflows/EdgeScorecardView';
 import CryptoLabView from '@workflows/CryptoLabView';
 import SystemHealthView from '@ui/views/SystemHealthView';
 import OperatorTimelineView from '@workflows/OperatorTimelineView';
+import AlphaValidationView from '@workflows/AlphaValidationView';
 import { actions, useSelectedModule } from '@core/store/genesisStore';
 import type { ModuleId } from '@core/data/moduleRegistry';
 
@@ -55,6 +56,7 @@ function ModuleRenderer({ module, setModule }: { module: ModuleId; setModule: (m
     case 'crypto':        return <CryptoLabView />;
     case 'system':        return <SystemHealthView />;
     case 'operator':      return <OperatorTimelineView />;
+    case 'alpha':         return <AlphaValidationView />;
     default:
       return <ModulePlaceholder module={module} onBack={() => setModule('hq')} />;
   }
