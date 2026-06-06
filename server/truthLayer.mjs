@@ -17,6 +17,7 @@ import { getKalshiStatus } from './kalshi/adapter.mjs';
 import { getOptimizerHeartbeat } from './crypto/cryptoAnalytics.mjs';
 import { getAgentPerformance } from './memory/decisionAccuracyEngine.mjs';
 import { getRecentConsensus } from './memory/consensusEngine.mjs';
+import { detectStalePositions, getPnLFreshness, getRealizedPnl } from './memory/pnlEngine.mjs';
 
 // ── Structured logger for desync events ──────────────────────────────────────
 
@@ -166,6 +167,42 @@ function probeFounderMode() {
   }
 }
 
+// ── Execution diagnostics probe ───────────────────────────────────────────────
+
+function probeExecution() {
+  try {
+    const stalePositions = detectStalePositions(48);
+    const freshness = getPnLFreshness();
+    const realized = getRealizedPnl();
+    const treasury = getTreasury();
+
+    // Flag if unrealized PnL is unavailable (open positions with no price)
+    const unrealizedDegraded = treasury.pnlDegraded === true;
+
+    if (stalePositions.length > 0) {
+      for (const p of stalePositions) {
+        _log.warn('stale_position', `Trade ${p.id} open for ${p.ageHours}h — may be orphaned`, { id: p.id, ageHours: p.ageHours });
+      }
+    }
+
+    return {
+      ok: true,
+      realizedPnl: realized.totalPnl,
+      winRate: realized.winRate,
+      totalTrades: realized.total,
+      stalePositionCount: stalePositions.length,
+      stalePositions,
+      pnlLastSettledAt: freshness.lastSettledAt,
+      pnlFresh: freshness.fresh,
+      unrealizedDegraded,
+      unrealizedPnl: treasury.unrealizedPnl,
+    };
+  } catch (err) {
+    _log.error('execution', 'Execution diagnostics probe failed', err);
+    return { ok: false, error: err.message };
+  }
+}
+
 // ── Stale data detection ──────────────────────────────────────────────────────
 
 function detectStaleState(checks) {
@@ -204,6 +241,30 @@ function detectStaleState(checks) {
     });
   }
 
+  if (checks.executionDiagnostics?.stalePositionCount > 0) {
+    issues.push({
+      severity: 'warn',
+      system: 'execution',
+      message: `${checks.executionDiagnostics.stalePositionCount} position(s) open >48h without resolution — possible orphans`,
+    });
+  }
+
+  if (checks.executionDiagnostics?.unrealizedDegraded && checks.agentRunner.openTrades > 0) {
+    issues.push({
+      severity: 'info',
+      system: 'execution',
+      message: 'Unrealized PnL unavailable — open positions exist but live prices not cached',
+    });
+  }
+
+  if (checks.executionDiagnostics?.pnlFresh === false) {
+    issues.push({
+      severity: 'info',
+      system: 'execution',
+      message: 'No trade settled in >24h — PnL data may be stale',
+    });
+  }
+
   // Log issues to server console
   for (const issue of issues) {
     if (issue.severity === 'warn') {
@@ -226,13 +287,14 @@ export function getSystemTruth(wsClientCount = 0) {
   const startMs = Date.now();
 
   const checks = {
-    database:    probeDatabase(),
-    treasury:    probeTreasury(),
-    agentRunner: probeAgentRunner(),
-    kalshi:      probeKalshi(),
-    optimizer:   probeOptimizer(),
-    learning:    probeLearning(),
-    founderMode: probeFounderMode(),
+    database:             probeDatabase(),
+    treasury:             probeTreasury(),
+    agentRunner:          probeAgentRunner(),
+    kalshi:               probeKalshi(),
+    optimizer:            probeOptimizer(),
+    learning:             probeLearning(),
+    founderMode:          probeFounderMode(),
+    executionDiagnostics: probeExecution(),
   };
 
   const issues = detectStaleState(checks);
@@ -260,6 +322,14 @@ export function getSystemTruth(wsClientCount = 0) {
       drawdownPct: checks.treasury.drawdownPct ?? 0,
       agentAlive: checks.agentRunner.agentAlive ?? false,
       lastTickAt: checks.agentRunner.lastTickAt ?? null,
+      // PnL diagnostics
+      realizedPnl: checks.executionDiagnostics?.realizedPnl ?? null,
+      winRate: checks.executionDiagnostics?.winRate ?? null,
+      totalTrades: checks.executionDiagnostics?.totalTrades ?? 0,
+      stalePositionCount: checks.executionDiagnostics?.stalePositionCount ?? 0,
+      unrealizedDegraded: checks.executionDiagnostics?.unrealizedDegraded ?? false,
+      pnlFresh: checks.executionDiagnostics?.pnlFresh ?? null,
+      unrealizedPnl: checks.executionDiagnostics?.unrealizedPnl ?? null,
     },
     // ── Canonical learning state ──────────────────────────────────────────
     learning: {

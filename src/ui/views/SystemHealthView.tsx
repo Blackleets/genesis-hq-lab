@@ -133,6 +133,40 @@ export default function SystemHealthView() {
           <Row label="Kalshi mode" value={truth.kalshi.mode ?? '—'} muted />
         </Section>
 
+        {/* Execution Diagnostics */}
+        <Section title="Execution Diagnostics">
+          <Row label="Realized PnL" value={
+            truth.execution.realizedPnl != null
+              ? `$${truth.execution.realizedPnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              : '—'
+          } muted={truth.execution.realizedPnl == null} />
+          <Row label="Unrealized PnL" value={
+            truth.execution.unrealizedDegraded
+              ? <span className="text-amber-400 font-mono text-[11px]">STALE — live prices unavailable</span>
+              : truth.execution.unrealizedPnl != null
+                ? `$${truth.execution.unrealizedPnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : '—'
+          } />
+          <Row label="Win rate" value={
+            truth.execution.winRate != null
+              ? `${(truth.execution.winRate * 100).toFixed(1)}%`
+              : '—'
+          } muted={truth.execution.winRate == null} />
+          <Row label="Total trades (closed)" value={truth.execution.totalTrades} muted={truth.execution.totalTrades === 0} />
+          <Row label="PnL data fresh" value={
+            truth.execution.pnlFresh === null
+              ? '— no trades yet'
+              : truth.execution.pnlFresh
+                ? <StatusDot ok label="Fresh" />
+                : <span className="text-amber-400 font-mono text-[11px]">STALE — no settlement in 24h</span>
+          } />
+          <Row label="Stale positions" value={
+            truth.execution.stalePositionCount === 0
+              ? <StatusDot ok label="None" />
+              : <span className="text-amber-400 font-mono text-[11px]">{truth.execution.stalePositionCount} position(s) open {'>'}48h</span>
+          } />
+        </Section>
+
         {/* Database */}
         <Section title="Database">
           <Row label="SQLite" value={<StatusDot ok={truth.database.ok} label={truth.database.ok ? 'OK' : 'Error'} />} />

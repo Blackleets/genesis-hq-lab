@@ -44,18 +44,22 @@ export function getTreasury() {
   const row = db.prepare('SELECT * FROM capital_history ORDER BY recorded_at DESC LIMIT 1').get();
   if (!row) return ensureTreasury();
 
-  const openPnl = getUnrealizedPnl();
+  const openPnl = getUnrealizedPnl();  // null when open positions exist and no live price available
+  const pnlDegraded = openPnl === null; // true = unrealizedPnl is unknown, not zero
+  const resolvedPnl = openPnl ?? 0;    // use 0 as conservative fallback for math only
+
   const peakCapital = getPeakCapital();
   const drawdownPct = peakCapital > 0
-    ? (peakCapital - (row.total + openPnl)) / peakCapital
+    ? (peakCapital - (row.total + resolvedPnl)) / peakCapital
     : 0;
 
   return {
     total: row.total,
     available: row.available,
     inTrades: row.in_trades,
-    unrealizedPnl: openPnl,
-    netWorth: row.total + openPnl,
+    unrealizedPnl: openPnl,    // null = degraded (not zero)
+    pnlDegraded,               // flag for UI: show stale indicator when true
+    netWorth: pnlDegraded ? null : row.total + openPnl,
     peakCapital,
     drawdownPct: Math.max(0, drawdownPct),
     isPaused: drawdownPct >= DRAWDOWN_PAUSE_PCT,
@@ -217,15 +221,11 @@ export function kellySize(confidence, marketPrice) {
 // ─── Unrealized P&L from open trades ─────────────────────────────────────────
 
 function getUnrealizedPnl() {
-  // We don't have live price updates, so approximate from entry price
-  // In a real system, we'd fetch current prices from Polymarket/Kalshi
-  const openTrades = db.prepare(`
-    SELECT capital_used, entry_price, shares FROM trades WHERE status = 'open'
-  `).all();
-
-  // Conservative: assume current price = entry price (no change)
-  // This underestimates wins and overestimates stability — correct for risk management
-  return 0;
+  // Sync path cannot fetch live prices — return null (degraded state).
+  // Callers must check treasury.pnlDegraded === true and show a stale indicator.
+  // Use getTreasuryAsync() for live mark-to-market.
+  const openCount = db.prepare(`SELECT COUNT(*) AS n FROM trades WHERE status = 'open'`).get()?.n ?? 0;
+  return openCount === 0 ? 0 : null;  // null = "data unavailable", not 0
 }
 
 // ─── Async unrealized P&L — fetches live prices from market APIs ──────────────

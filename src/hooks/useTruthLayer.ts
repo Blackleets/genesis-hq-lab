@@ -63,6 +63,19 @@ export interface SystemTruth {
     drawdownPct: number;
     agentAlive: boolean;
     lastTickAt: string | null;
+    realizedPnl: number | null;
+    winRate: number | null;
+    totalTrades: number;
+    stalePositionCount: number;
+    unrealizedDegraded: boolean;
+    pnlFresh: boolean | null;
+    unrealizedPnl: number | null;
+  };
+  executionDiagnostics?: {
+    ok: boolean;
+    stalePositions?: Array<{ id: string; marketId: string; source: string; ageHours: number }>;
+    pnlLastSettledAt?: string | null;
+    error?: string;
   };
   issues: TruthIssue[];
   error?: string;

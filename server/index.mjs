@@ -36,6 +36,13 @@ import { getRecentDecisions, getDecisionStats }           from './memory/decisio
 import { getAgentPerformance }                            from './memory/decisionAccuracyEngine.mjs';
 import { getRecentConsensus, getConsensusForTicker }      from './memory/consensusEngine.mjs';
 import { getSystemTruth }                                 from './truthLayer.mjs';
+import {
+  getPnLDashboard,
+  getAttributionList,
+  getTradeAttribution,
+  detectStalePositions,
+  getPnLFreshness,
+}                                                         from './memory/pnlEngine.mjs';
 
 // In-memory SkillOpt job state (single concurrent job)
 const skilloptJob = { running: false, lastResult: null, startedAt: null, agent: null };
@@ -244,8 +251,10 @@ const server = createServer(async (req, res) => {
     try {
       const snapshot = await getSnapshot();
       sendJson(res, 200, { ok: true, ...snapshot });
-    } catch {
-      sendJson(res, 200, { ok: true, capital: { total: 10000, available: 10000 }, trades: { open: 0, closed: 0, all: [] }, lessons: [], agentStats: {}, performance: { totalTrades: 0, winRate: 0, totalPnL: 0 } });
+    } catch (err) {
+      // NEVER return fake financial data — return a clear error instead
+      console.error('[api/agent/status] snapshot failed:', err?.message);
+      sendJson(res, 503, { ok: false, error: 'snapshot_unavailable', message: err?.message ?? 'Internal error' });
     }
     return;
   }
@@ -391,6 +400,52 @@ const server = createServer(async (req, res) => {
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;
   }
+
+  // ── PnL Engine endpoints ───────────────────────────────────────────────────
+
+  if (url.pathname === '/api/pnl/summary') {
+    try {
+      sendJson(res, 200, { ok: true, pnl: getPnLDashboard() });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/pnl/attribution') {
+    const limit = Math.min(Number(url.searchParams.get('limit') || 20), 100);
+    try {
+      sendJson(res, 200, { ok: true, attribution: getAttributionList(limit) });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  const pnlAttributionMatch = url.pathname.match(/^\/api\/pnl\/attribution\/([^/]+)$/);
+  if (pnlAttributionMatch) {
+    try {
+      const attribution = getTradeAttribution(pnlAttributionMatch[1]);
+      if (!attribution) { sendJson(res, 404, { ok: false, error: 'trade_not_found' }); return; }
+      sendJson(res, 200, { ok: true, attribution });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/pnl/freshness') {
+    try {
+      const stale = detectStalePositions(48);
+      const freshness = getPnLFreshness();
+      sendJson(res, 200, { ok: true, freshness, stalePositions: stale });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  // ── Treasury ───────────────────────────────────────────────────────────────
 
   if (url.pathname === '/api/trading/treasury') {
     try {
