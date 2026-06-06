@@ -14,6 +14,10 @@
 //   6. Generate lessons from closed trades
 //   7. Log status to console + write to data/memory/
 
+import { writeFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { generateMarketingContent } from './decisionEngine.mjs';
 import { getCapital, getSnapshot, getRecentLessons } from './memoryStore.mjs';
 import { runTradingCycle, runLearningCycle } from './trading/workflow.mjs';
@@ -21,6 +25,27 @@ import { getTreasury } from './trading/treasury.mjs';
 import { getDashboardMetrics } from './trading/analytics.mjs';
 import { getOrgState, processExpiredSchedules, getRiskSettings, isDeptActive } from './command/orgState.mjs';
 import { runCryptoTradingCycle, manageCryptoPositions } from './crypto/cryptoWorkflow.mjs';
+
+const __dir = dirname(fileURLToPath(import.meta.url));
+const STATUS_FILE = join(__dir, '..', 'data', 'agent-status.json');
+
+let _agentStatus = {};
+
+function writeAgentStatus(update) {
+  try {
+    _agentStatus = { ..._agentStatus, ...update, updatedAt: new Date().toISOString() };
+    writeFileSync(STATUS_FILE, JSON.stringify(_agentStatus, null, 2), 'utf8');
+  } catch { /* never block the agent loop */ }
+}
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[agentRunner] ⚠ UNHANDLED REJECTION:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[agentRunner] ✖ UNCAUGHT EXCEPTION:', err);
+  process.exit(1);
+});
 
 const INTERVAL_MS = 5 * 60 * 1000;  // 5 minutes
 const AGENT_ID = 'market-agent-1';
@@ -72,6 +97,22 @@ async function tick() {
 
     const trading = await runTradingCycle();
     console.log(`[agentRunner] Cycle: scanned=${trading.scanned} qualified=${trading.qualified} vetoed=${trading.vetoed} debated=${trading.debated} executed=${trading.executed}`);
+
+    writeAgentStatus({
+      tickCount: _tickCount + 1,
+      lastTickAt: new Date().toISOString(),
+      lastSwing: {
+        scanned: trading.scanned,
+        qualified: trading.qualified,
+        vetoed: trading.vetoed,
+        debated: trading.debated,
+        executed: trading.executed,
+        closedByLearning: learning.closed,
+        lessonsGenerated: learning.learned,
+        at: new Date().toISOString(),
+      },
+      nextSwingAt: new Date(Date.now() + INTERVAL_MS).toISOString(),
+    });
 
     return summarize(start);
 

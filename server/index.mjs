@@ -1,4 +1,9 @@
 import { createServer } from 'node:http';
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dir = dirname(fileURLToPath(import.meta.url));
 import { WebSocketServer } from 'ws';
 import { fetchPolymarketEventsSnapshot, fetchPolymarketHealth } from './polymarket.mjs';
 import { generateClaudePlan } from './claudePlanner.mjs';
@@ -412,6 +417,50 @@ const server = createServer(async (req, res) => {
     try {
       const history = getCapitalHistory(100);
       sendJson(res, 200, { ok: true, history });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  if (url.pathname === '/api/agent/runner-status') {
+    try {
+      const raw = readFileSync(join(__dir, '..', 'data', 'agent-status.json'), 'utf8');
+      sendJson(res, 200, { ok: true, running: true, status: JSON.parse(raw) });
+    } catch {
+      sendJson(res, 200, { ok: true, running: false, status: null });
+    }
+    return;
+  }
+
+  // GET /api/trading/trade/:id/price-history
+  const priceHistoryMatch = url.pathname.match(/^\/api\/trading\/trade\/([^/]+)\/price-history$/);
+  if (priceHistoryMatch) {
+    try {
+      const tradeId = priceHistoryMatch[1];
+      const trade = db.prepare('SELECT * FROM trades WHERE id = ?').get(tradeId);
+      if (!trade) { sendJson(res, 404, { ok: false, error: 'Trade not found' }); return; }
+      const snapshots = db.prepare(`
+        SELECT yes_price, no_price, recorded_at FROM price_snapshots
+        WHERE trade_id = ? ORDER BY recorded_at ASC
+      `).all(tradeId);
+      sendJson(res, 200, { ok: true, trade, snapshots });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  if (url.pathname === '/api/trading/pause' && req.method === 'POST') {
+    try {
+      const { setOrgState } = await import('./command/orgState.mjs');
+      setOrgState({ mode: 'rest' });
+      sendJson(res, 200, { ok: true, message: 'Trading paused' });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  if (url.pathname === '/api/trading/resume' && req.method === 'POST') {
+    try {
+      const { setOrgState } = await import('./command/orgState.mjs');
+      setOrgState({ mode: 'active' });
+      sendJson(res, 200, { ok: true, message: 'Trading resumed' });
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;
   }

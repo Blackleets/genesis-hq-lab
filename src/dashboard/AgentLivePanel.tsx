@@ -209,9 +209,54 @@ interface Props {
   compact?: boolean;   // true = only capital + open trades (for sidebar of other modules)
 }
 
+function timeUntil(iso: string | undefined) {
+  if (!iso) return '?';
+  const ms = new Date(iso).getTime() - Date.now();
+  if (ms <= 0) return 'now';
+  const m = Math.floor(ms / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+function RunnerActivityPanel({ status }: { status: ReturnType<typeof useAgentData>['runnerStatus'] }) {
+  if (!status) {
+    return (
+      <div className="gx-card px-4 py-3">
+        <div className="gx-overline mb-1">Agent Runner</div>
+        <div className="font-mono text-[10px] text-zinc-600">Starting… first tick in ~5 min</div>
+      </div>
+    );
+  }
+  const sw = status.lastSwing;
+  return (
+    <div className="gx-card px-4 py-3 space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="gx-overline">Agent Runner</span>
+        {status.tickCount && <span className="font-mono text-[9px] text-zinc-600">Tick #{status.tickCount}</span>}
+      </div>
+      {sw && (
+        <div className="grid grid-cols-5 gap-1 text-center">
+          {([['scanned', sw.scanned], ['qualified', sw.qualified], ['vetoed', sw.vetoed], ['debated', sw.debated], ['executed', sw.executed]] as [string, number][]).map(([label, val]) => (
+            <div key={label}>
+              <div className={`font-mono text-sm font-bold ${label === 'executed' && val > 0 ? 'text-emerald-400' : 'text-zinc-300'}`}>{val}</div>
+              <div className="font-mono text-[8px] text-zinc-600 uppercase">{label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-3 font-mono text-[9px] text-zinc-600 pt-0.5">
+        {status.nextSwingAt && <span>Next swing: {timeUntil(status.nextSwingAt)}</span>}
+        {sw?.closedByLearning !== undefined && sw.closedByLearning > 0 && (
+          <span className="text-emerald-400/60">{sw.closedByLearning} closed · {sw.lessonsGenerated} lessons</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AgentLivePanel({ compact = false }: Props) {
   const lang = useLanguage();
-  const { dashboard, trades, lessons, status, online, lastSync } = useAgentData();
+  const { dashboard, trades, lessons, status, runnerStatus, online, lastSync } = useAgentData();
 
   if (!online) return <OfflineBanner lang={lang} />;
 
@@ -230,6 +275,9 @@ export default function AgentLivePanel({ compact = false }: Props) {
           </span>
         </div>
       )}
+
+      {/* Runner activity */}
+      <RunnerActivityPanel status={runnerStatus} />
 
       {/* Org status */}
       {status && <OrgStatusRow status={status} />}
