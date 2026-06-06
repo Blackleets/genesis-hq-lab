@@ -16,6 +16,11 @@ import { closeTrade } from '../memory/tradingMemory.mjs';
 import { settleTradeCapital } from './treasury.mjs';
 import { getMarketStatus } from '../marketScanner.mjs';
 import { researchMarket, getMarketSignals } from '../research/researchAgent.mjs';
+import { processMarketResolution } from '../memory/decisionAccuracyEngine.mjs';
+import { isSafeMode } from '../memory/reconciliationEngine.mjs';
+import { computeConfidence } from '../intelligence/confidenceEngine.mjs';
+import { createOutcomeRecord, saveOutcome } from '../learning/outcomeModel.mjs';
+import { isGlobalSafeMode } from '../risk/globalRiskEngine.mjs';
 import db from '../db/database.mjs';
 
 // ─── STEP 1 — SCAN ────────────────────────────────────────────────────────────
@@ -98,13 +103,20 @@ async function stepDebate(market) {
 
 // ─── STEP 5 — SIZE + EXECUTE ──────────────────────────────────────────────────
 
-async function stepExecute(market, debateResult) {
+async function stepExecute(market, debateResult, kellyMultiplier = 1.0) {
   const intendedPrice = debateResult.outcome === 'YES' ? market.yesPrice : market.noPrice;
   const kellySizing = kellySize(debateResult.confidence, intendedPrice);
 
   if (kellySizing.skip) {
     console.log(`[workflow] SIZE: skip — ${kellySizing.reason}`);
     return { executed: false, reason: kellySizing.reason };
+  }
+
+  // Apply confidence-engine kelly multiplier (0.5x CAUTION → 1.2x HIGH_CONVICTION)
+  if (kellyMultiplier !== 1.0) {
+    kellySizing.dollarSize = Math.round(kellySizing.dollarSize * kellyMultiplier * 100) / 100;
+    kellySizing.shares     = kellySizing.shares * kellyMultiplier;
+    kellySizing.fraction   = kellySizing.fraction * kellyMultiplier;
   }
 
   const proposal = {
@@ -200,6 +212,13 @@ export async function runTradingCycle() {
   results.qualified = qualified.length;
   if (qualified.length === 0) return results;
 
+  // 2.5. Global risk gate — block entire cycle if system risk is critical
+  if (isGlobalSafeMode()) {
+    console.log('[workflow] GLOBAL_SAFE_MODE — system risk score ≥ 85, trading suspended');
+    results.globalRiskBlocked = true;
+    return results;
+  }
+
   // Try markets in order until one executes or we run out
   for (const market of qualified.slice(0, 10)) {
     // 3. Veto check (SQLite patterns, no Claude)
@@ -211,8 +230,33 @@ export async function runTradingCycle() {
     results.debated++;
     if (debateResult.action !== 'TRADE') continue;
 
-    // 5. Size + Execute
-    const execution = await stepExecute(market, debateResult);
+    // 4.5. Confidence gate — composite score blocks or sizes down low-conviction trades
+    const confidenceResult = computeConfidence({
+      market,
+      debateResult,
+      agentId: 'market-agent-1',
+      safeMode: isSafeMode(),
+    });
+
+    if (!confidenceResult.shouldTrade) {
+      results.confidenceBlocked = (results.confidenceBlocked ?? 0) + 1;
+      console.log(
+        `[workflow] CONFIDENCE BLOCK: ${confidenceResult.score}/100 (${confidenceResult.band})` +
+        ` — ${confidenceResult.noTradeReason}`,
+      );
+      if (confidenceResult.explanation.negatives.length > 0) {
+        console.log(`[workflow]   Negatives: ${confidenceResult.explanation.negatives.slice(0, 2).join(' | ')}`);
+      }
+      continue;
+    }
+
+    console.log(
+      `[workflow] CONFIDENCE: ${confidenceResult.score}/100 (${confidenceResult.band})` +
+      ` — Kelly ×${confidenceResult.kellyMultiplier}`,
+    );
+
+    // 5. Size + Execute (with confidence-adjusted Kelly)
+    const execution = await stepExecute(market, debateResult, confidenceResult.kellyMultiplier);
     if (execution.executed) {
       results.executed++;
       results.tradeId = execution.tradeId;
@@ -259,9 +303,19 @@ export async function runLearningCycle() {
     // Update agent scoring
     updateAfterTrade(trade.agent_id ?? 'market-agent-1', closedTrade);
 
+    // Compare agent decisions for this ticker against the actual outcome
+    processMarketResolution(trade.market_id, resolvedOutcome);
+
     // Generate lesson
     const lesson = await analyzeClosedTrade(closedTrade);
     if (lesson) learned++;
+
+    // Record outcome for learning loop (append-only, idempotent)
+    try {
+      saveOutcome(createOutcomeRecord(closedTrade));
+    } catch (err) {
+      console.warn('[workflow] Outcome recording failed:', err?.message);
+    }
 
     console.log(`[workflow] CLOSED: ${trade.market_question?.slice(0, 40)} | PnL: $${(closedTrade.pnl ?? 0).toFixed(2)}`);
 

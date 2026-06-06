@@ -12,6 +12,7 @@
 // Both streams flow through the same broadcast() channel.
 // Silent degraded mode when KALSHI_API_KEY is not set.
 
+import { EventEmitter } from 'node:events';
 import KalshiWS from './ws.mjs';
 
 const KALSHI_REST_BASE = 'https://trading-api.kalshi.com/trade-api/v2';
@@ -24,6 +25,18 @@ let _broadcast = null;
 
 export function setBroadcast(fn) {
   _broadcast = fn;
+}
+
+// ─── Internal event bus (server-side consumers) ───────────────────────────────
+//
+// Separate from _broadcast (which only pushes to WS clients).
+// Allows server-side modules like MarketAnalystAgent to subscribe to
+// market_update events without going through the WS layer.
+
+const _internalBus = new EventEmitter();
+
+export function onMarketUpdate(fn) {
+  _internalBus.on('market_update', fn);
 }
 
 // ─── Runtime state ────────────────────────────────────────────────────────────
@@ -91,14 +104,17 @@ export function normalizeMarket(raw) {
 // Never throws — errors per-market are logged and skipped.
 
 export function publishMarketUpdates(rawMarkets) {
-  if (!_broadcast || !Array.isArray(rawMarkets) || rawMarkets.length === 0) return;
+  if (!Array.isArray(rawMarkets) || rawMarkets.length === 0) return;
   let published = 0;
   for (const m of rawMarkets) {
     try {
       const event = normalizeMarket(m);
       if (event.ticker == null) continue;
-      _broadcast(event);
-      published++;
+      _internalBus.emit('market_update', event);  // server-side consumers first
+      if (_broadcast) {
+        _broadcast(event);                          // WS clients (frontend)
+        published++;
+      }
     } catch (err) {
       console.error('[kalshi] publishMarketUpdates error:', err.message);
     }

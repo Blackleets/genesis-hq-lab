@@ -417,6 +417,30 @@ CREATE TABLE IF NOT EXISTS consensus_decisions (
   explanation    TEXT    NOT NULL DEFAULT ''   -- human-readable decision rationale
 );
 
+-- ─── TRADE OUTCOMES — closed-loop learning records ────────────────────────────
+-- Append-only. One row per resolved trade. Never updated after insert.
+-- Primary key = 'outcome-{tradeId}' prevents duplicate recording.
+
+CREATE TABLE IF NOT EXISTS trade_outcomes (
+  id               TEXT PRIMARY KEY,           -- 'outcome-{tradeId}'
+  trade_id         TEXT NOT NULL UNIQUE,
+  agent_source     TEXT NOT NULL DEFAULT 'market-agent-1',
+  market_source    TEXT NOT NULL DEFAULT 'unknown',
+  market_category  TEXT NOT NULL DEFAULT 'general',
+  recorded_at      TEXT NOT NULL,              -- ISO 8601
+  entry_confidence REAL NOT NULL,              -- arbiter float 0.0-1.0
+  confidence_band  TEXT NOT NULL DEFAULT 'UNKNOWN', -- BLOCK/LOW_CONFIDENCE/CAUTION/GOOD_SETUP/HIGH_CONVICTION
+  pnl_realized     REAL NOT NULL DEFAULT 0,    -- USD
+  pnl_pct          REAL NOT NULL DEFAULT 0,    -- fraction of capital used
+  duration_hours   REAL NOT NULL DEFAULT 0,
+  outcome_result   TEXT NOT NULL,              -- 'WIN' | 'LOSS' | 'NEUTRAL'
+  market_snapshot  TEXT NOT NULL DEFAULT '{}'  -- JSON: source, category, entryPrice
+);
+
+CREATE INDEX IF NOT EXISTS idx_outcomes_agent  ON trade_outcomes (agent_source, recorded_at);
+CREATE INDEX IF NOT EXISTS idx_outcomes_band   ON trade_outcomes (confidence_band, recorded_at);
+CREATE INDEX IF NOT EXISTS idx_outcomes_result ON trade_outcomes (outcome_result, recorded_at);
+
 CREATE INDEX IF NOT EXISTS idx_consensus_ticker    ON consensus_decisions(ticker);
 CREATE INDEX IF NOT EXISTS idx_consensus_timestamp ON consensus_decisions(timestamp);
 CREATE INDEX IF NOT EXISTS idx_consensus_decision  ON consensus_decisions(decision);

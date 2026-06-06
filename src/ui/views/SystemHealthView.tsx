@@ -167,6 +167,75 @@ export default function SystemHealthView() {
           } />
         </Section>
 
+        {/* Startup Reconciliation */}
+        {truth.execution.startupReconciliation && (
+          <Section title="Startup Reconciliation">
+            <Row label="Status" value={
+              truth.execution.startupReconciliation.safeMode
+                ? <span className="text-red-400 font-mono text-[11px] font-bold">SAFE_MODE — trades blocked</span>
+                : truth.execution.startupReconciliation.status === 'recovering'
+                  ? <span className="text-amber-400 font-mono text-[11px]">RECOVERING</span>
+                  : <StatusDot ok label="Healthy" />
+            } />
+            <Row label="Recovered positions" value={truth.execution.startupReconciliation.recoveredPositions} muted={truth.execution.startupReconciliation.recoveredPositions === 0} />
+            <Row label="Orphans detected" value={
+              truth.execution.startupReconciliation.orphanCount === 0
+                ? <StatusDot ok label="None" />
+                : <span className="text-amber-400 font-mono text-[11px]">{truth.execution.startupReconciliation.orphanCount}</span>
+            } />
+            <Row label="Unresolved exposure" value={
+              truth.execution.startupReconciliation.unresolvedExposure > 0
+                ? `$${truth.execution.startupReconciliation.unresolvedExposure.toFixed(2)}`
+                : '—'
+            } muted={truth.execution.startupReconciliation.unresolvedExposure === 0} />
+            <Row label="Issues" value={truth.execution.startupReconciliation.issueCount} muted={truth.execution.startupReconciliation.issueCount === 0} />
+            <Row label="Last run" value={
+              truth.execution.startupReconciliation.lastRun
+                ? new Date(truth.execution.startupReconciliation.lastRun).toLocaleTimeString()
+                : '—'
+            } muted />
+          </Section>
+        )}
+
+        {/* Drawdown Protection */}
+        {truth.execution.drawdownProtection && (
+          <Section title="Drawdown Protection">
+            <Row label="Peak capital" value={`$${Math.round(truth.execution.drawdownProtection.peakCapital).toLocaleString()}`} />
+            <Row label="Persistence" value={
+              truth.execution.drawdownProtection.persistence
+                ? <StatusDot ok label="SQLite (survives restart)" />
+                : <span className="text-red-400 font-mono text-[11px]">IN-MEMORY — resets on restart</span>
+            } />
+            <Row label="Source" value={truth.execution.drawdownProtection.source} muted />
+            <Row label="Peak loaded" value={
+              <StatusDot ok={truth.execution.drawdownProtection.peakCapitalLoaded} label={truth.execution.drawdownProtection.peakCapitalLoaded ? 'Yes' : 'No peak data'} />
+            } />
+          </Section>
+        )}
+
+        {/* Confidence Engine */}
+        {truth.execution.confidenceEngine && (
+          <Section title="Confidence Engine">
+            <Row label="Last score" value={
+              truth.execution.confidenceEngine.lastScore != null
+                ? `${truth.execution.confidenceEngine.lastScore}/100`
+                : '—'
+            } muted={truth.execution.confidenceEngine.lastScore == null} />
+            <Row label="Last band" value={truth.execution.confidenceEngine.lastBand ?? '—'} muted={!truth.execution.confidenceEngine.lastBand} />
+            <Row label="Avg score (50 trades)" value={
+              truth.execution.confidenceEngine.averageScore != null
+                ? `${truth.execution.confidenceEngine.averageScore}/100`
+                : '—'
+            } muted={truth.execution.confidenceEngine.averageScore == null} />
+            <Row label="Blocked trades" value={truth.execution.confidenceEngine.blockedTrades} muted={truth.execution.confidenceEngine.blockedTrades === 0} />
+            <Row label="Last decision" value={
+              truth.execution.confidenceEngine.lastDecisionAt
+                ? new Date(truth.execution.confidenceEngine.lastDecisionAt).toLocaleTimeString()
+                : '—'
+            } muted />
+          </Section>
+        )}
+
         {/* Database */}
         <Section title="Database">
           <Row label="SQLite" value={<StatusDot ok={truth.database.ok} label={truth.database.ok ? 'OK' : 'Error'} />} />

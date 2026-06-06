@@ -164,10 +164,9 @@ export function settleTradeCapital(capitalUsed, pnl) {
         datetime('now')
       FROM capital_history ORDER BY recorded_at DESC LIMIT 1
     `).run(
-      pnl,                               // total changes by pnl
-      returned,                          // available gets back capitalUsed + pnl
-      capitalUsed,                       // inTrades reduces by what was allocated
-      // Reinvestment buckets (only for gains)
+      pnl,
+      returned,
+      capitalUsed,
       pnl > 0 ? pnl * REINVESTMENT.reserve : 0,
       pnl > 0 ? pnl * REINVESTMENT.agentUpgrade : 0,
       pnl > 0 ? pnl * REINVESTMENT.experiments : 0,
@@ -176,6 +175,17 @@ export function settleTradeCapital(capitalUsed, pnl) {
       pnl,
     );
   });
+
+  // Update peak capital if new total exceeds current peak (monotonically increasing).
+  // Must read after tx() completes so we see the updated total.
+  const newRow = db.prepare('SELECT total FROM capital_history ORDER BY recorded_at DESC LIMIT 1').get();
+  const newTotal = newRow?.total ?? 0;
+  const currentPeak = getPeakCapital();
+  if (newTotal > currentPeak) {
+    _peakCache = { value: newTotal, source: 'sqlite' };
+    _persistPeak(newTotal);
+    console.log(`[treasury:peak] New peak capital: $${newTotal.toFixed(2)} (was $${currentPeak.toFixed(2)})`);
+  }
 }
 
 // ─── Kelly fraction calculator ────────────────────────────────────────────────
@@ -270,11 +280,68 @@ async function getUnrealizedPnlAsync() {
   return Math.round(total * 100) / 100;  // round to cents
 }
 
-// ─── Peak capital (for drawdown calculation) ──────────────────────────────────
+// ─── Peak capital — persisted in org_state ────────────────────────────────────
+//
+// Stored as key='peak_capital' in org_state so it survives restarts and crashes.
+// Module-level cache avoids hitting SQLite on every getTreasury() call.
+// Cache is populated lazily on first access and refreshed only when a new peak is set.
+//
+// Fallback chain (fail-safe):
+//   1. org_state row          → primary source (SQLite, explicit)
+//   2. MAX(capital_history)   → migration seed (SQLite, implicit)
+//   3. STARTING_CAPITAL const → last resort when DB unavailable
+//
+// Never decreases: peak is monotonically increasing by definition.
+
+let _peakCache = null;  // { value: number, source: 'sqlite'|'memory' }
+
+function _loadPeakFromDB() {
+  try {
+    const stored = db.prepare(`SELECT value FROM org_state WHERE key = 'peak_capital'`).get();
+    if (stored) {
+      const v = parseFloat(stored.value);
+      if (isFinite(v) && v > 0) {
+        console.log(`[treasury:peak] Loaded from org_state: $${v.toFixed(2)}`);
+        return { value: v, source: 'sqlite' };
+      }
+    }
+    // First boot or migration: seed from capital_history MAX
+    const hist = db.prepare('SELECT MAX(total) AS peak FROM capital_history').get();
+    const seeded = hist?.peak ?? STARTING_CAPITAL;
+    _persistPeak(seeded);
+    console.log(`[treasury:peak] Seeded from capital_history: $${seeded.toFixed(2)}`);
+    return { value: seeded, source: 'sqlite' };
+  } catch (err) {
+    console.warn('[treasury:peak] SQLite unavailable — using in-memory fallback:', err?.message);
+    return { value: STARTING_CAPITAL, source: 'memory' };
+  }
+}
+
+function _persistPeak(value) {
+  try {
+    db.prepare(`
+      INSERT OR REPLACE INTO org_state (key, value, updated_at)
+      VALUES ('peak_capital', ?, datetime('now'))
+    `).run(value.toFixed(2));
+  } catch (err) {
+    console.warn('[treasury:peak] Failed to persist peak capital:', err?.message);
+  }
+}
 
 function getPeakCapital() {
-  const row = db.prepare('SELECT MAX(total) AS peak FROM capital_history').get();
-  return row?.peak ?? STARTING_CAPITAL;
+  if (!_peakCache) _peakCache = _loadPeakFromDB();
+  return _peakCache.value;
+}
+
+/** Exported for health diagnostics and tests. */
+export function getPeakCapitalMeta() {
+  if (!_peakCache) _peakCache = _loadPeakFromDB();
+  return { value: _peakCache.value, source: _peakCache.source };
+}
+
+/** Test-only: reset module-level cache to simulate a server restart. */
+export function _resetPeakCacheForTest() {
+  _peakCache = null;
 }
 
 // ─── P&L summary ─────────────────────────────────────────────────────────────

@@ -4,6 +4,8 @@
 
 import db from '../db/database.mjs';
 import { getTreasury } from './treasury.mjs';
+import { isSafeMode } from '../memory/reconciliationEngine.mjs';
+import { isGlobalSafeMode } from '../risk/globalRiskEngine.mjs';
 
 // ─── Risk constants ───────────────────────────────────────────────────────────
 
@@ -29,6 +31,19 @@ export function preTradeCheck(proposal) {
   const treasury = getTreasury();
 
   // ── Hard blocks ─────────────────────────────────────────────────────────────
+
+  // 0a. Global risk safe mode — system-level block takes precedence over all other checks
+  if (isGlobalSafeMode()) {
+    errors.push('GLOBAL_RISK: system risk score ≥ 85 — safe mode active, all trading suspended');
+  }
+
+  // 0b. Safe mode — startup reconciliation is incomplete or degraded
+  if (isSafeMode()) {
+    errors.push(
+      'SAFE_MODE: Startup reconciliation degraded — new trades blocked until operator ' +
+      'reviews open positions and clears via POST /api/reconciliation/clear'
+    );
+  }
 
   // 1. Drawdown protection
   if (treasury.isPaused) {

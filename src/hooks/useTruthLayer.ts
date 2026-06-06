@@ -45,6 +45,16 @@ export interface SystemTruth {
     lastConsensusDecision?: string | null;
     lastConsensusAt?: number | null;
     error?: string;
+    outcomeEngine?: {
+      totalTradesAnalyzed: number;
+      recentAccuracy: number | null;
+      avgPnl: number | null;
+      activeWeights: Record<string, number>;
+      lastCycleTime: string | null;
+      lastCycleChanges: Record<string, number> | null;
+      highBandWinRate: number | null;
+      cautionWinRate: number | null;
+    } | null;
   };
   founderMode: {
     ok: boolean;
@@ -53,6 +63,16 @@ export interface SystemTruth {
     goal?: string | null;
     deptMarkets?: string;
     deptCrypto?: string;
+    error?: string;
+  };
+  globalRisk?: {
+    ok: boolean;
+    score: number;
+    band: 'HEALTHY' | 'WATCH' | 'ELEVATED' | 'HIGH_RISK' | 'CRITICAL';
+    safeMode: boolean;
+    activeFlags: string[];
+    dimensions: Record<string, { score: number; max: number }>;
+    lastRefreshAt: string | null;
     error?: string;
   };
   execution: {
@@ -70,11 +90,57 @@ export interface SystemTruth {
     unrealizedDegraded: boolean;
     pnlFresh: boolean | null;
     unrealizedPnl: number | null;
+    drawdownProtection: {
+      peakCapital: number;
+      source: 'sqlite' | 'memory';
+      persistence: boolean;
+      peakCapitalLoaded: boolean;
+    } | null;
+    startupReconciliation: {
+      status: 'healthy' | 'recovering' | 'degraded';
+      recoveredPositions: number;
+      orphanCount: number;
+      unresolvedExposure: number;
+      lastRun: string | null;
+      issueCount: number;
+      safeMode: boolean;
+    } | null;
+    confidenceEngine: {
+      lastScore: number | null;
+      lastBand: string | null;
+      averageScore: number | null;
+      blockedTrades: number;
+      noTradeReasonCounts: Record<string, number>;
+      lastDecisionAt: string | null;
+    } | null;
+    globalRisk: {
+      score: number;
+      band: string;
+      safeMode: boolean;
+      activeFlags: string[];
+      dimensions: Record<string, { score: number; max: number }>;
+      lastRefreshAt: string | null;
+    };
   };
   executionDiagnostics?: {
     ok: boolean;
     stalePositions?: Array<{ id: string; marketId: string; source: string; ageHours: number }>;
     pnlLastSettledAt?: string | null;
+    drawdownProtection?: {
+      peakCapital: number;
+      source: 'sqlite' | 'memory';
+      persistence: boolean;
+      peakCapitalLoaded: boolean;
+    };
+    startupReconciliation?: {
+      status: 'healthy' | 'recovering' | 'degraded';
+      recoveredPositions: number;
+      orphanCount: number;
+      unresolvedExposure: number;
+      lastRun: string | null;
+      issueCount: number;
+      safeMode: boolean;
+    };
     error?: string;
   };
   issues: TruthIssue[];

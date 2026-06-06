@@ -10,7 +10,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import db from './db/database.mjs';
-import { getTreasury } from './trading/treasury.mjs';
+import { getTreasury, getPeakCapitalMeta } from './trading/treasury.mjs';
 import { getOpenTrades } from './memory/tradingMemory.mjs';
 import { getOrgState } from './command/orgState.mjs';
 import { getKalshiStatus } from './kalshi/adapter.mjs';
@@ -18,6 +18,10 @@ import { getOptimizerHeartbeat } from './crypto/cryptoAnalytics.mjs';
 import { getAgentPerformance } from './memory/decisionAccuracyEngine.mjs';
 import { getRecentConsensus } from './memory/consensusEngine.mjs';
 import { detectStalePositions, getPnLFreshness, getRealizedPnl } from './memory/pnlEngine.mjs';
+import { getReconciliationStatus } from './memory/reconciliationEngine.mjs';
+import { getConfidenceDiagnostics } from './intelligence/confidenceEngine.mjs';
+import { getLearningDiagnostics } from './learning/learningEngine.mjs';
+import { getGlobalRiskDiagnostics } from './risk/globalRiskEngine.mjs';
 
 // ── Structured logger for desync events ──────────────────────────────────────
 
@@ -185,6 +189,9 @@ function probeExecution() {
       }
     }
 
+    const peakMeta = getPeakCapitalMeta();
+    const reconciliation = getReconciliationStatus();
+
     return {
       ok: true,
       realizedPnl: realized.totalPnl,
@@ -196,10 +203,60 @@ function probeExecution() {
       pnlFresh: freshness.fresh,
       unrealizedDegraded,
       unrealizedPnl: treasury.unrealizedPnl,
+      drawdownProtection: {
+        peakCapital: peakMeta.value,
+        source: peakMeta.source,
+        persistence: peakMeta.source === 'sqlite',
+        peakCapitalLoaded: peakMeta.value > 0,
+      },
+      startupReconciliation: {
+        status: reconciliation.status,
+        recoveredPositions: reconciliation.recoveredPositions,
+        orphanCount: reconciliation.orphanCount,
+        unresolvedExposure: reconciliation.unresolvedExposure,
+        lastRun: reconciliation.lastRun,
+        issueCount: (reconciliation.issues ?? []).length,
+        safeMode: reconciliation.status === 'degraded',
+      },
     };
   } catch (err) {
     _log.error('execution', 'Execution diagnostics probe failed', err);
     return { ok: false, error: err.message };
+  }
+}
+
+// ── Confidence engine diagnostics probe ──────────────────────────────────────
+
+function probeConfidenceEngine() {
+  try {
+    return { ok: true, ...getConfidenceDiagnostics() };
+  } catch (err) {
+    _log.error('confidence', 'Confidence engine probe failed', err);
+    return { ok: false, error: err.message };
+  }
+}
+
+// ── Learning engine diagnostics probe ────────────────────────────────────────
+
+function probeLearningEngine() {
+  try {
+    return { ok: true, ...getLearningDiagnostics() };
+  } catch (err) {
+    _log.error('learningEngine', 'Learning engine probe failed', err);
+    return { ok: false, error: err.message };
+  }
+}
+
+// ── Global risk engine probe ──────────────────────────────────────────────────
+
+function probeGlobalRisk() {
+  try {
+    const diag = getGlobalRiskDiagnostics();
+    return { ok: true, ...diag };
+  } catch (err) {
+    _log.error('globalRisk', 'Global risk engine probe failed', err);
+    // Fail-safe: surface as CRITICAL if probe itself throws
+    return { ok: false, score: 100, band: 'CRITICAL', safeMode: true, activeFlags: ['PROBE_FAILED'], error: err.message };
   }
 }
 
@@ -265,6 +322,21 @@ function detectStaleState(checks) {
     });
   }
 
+  const recon = checks.executionDiagnostics?.startupReconciliation;
+  if (recon?.safeMode) {
+    issues.push({
+      severity: 'warn',
+      system: 'reconciliation',
+      message: `SAFE_MODE active — ${recon.issueCount} reconciliation issue(s). New trades blocked. POST /api/reconciliation/clear to resume.`,
+    });
+  } else if (recon?.status === 'recovering') {
+    issues.push({
+      severity: 'info',
+      system: 'reconciliation',
+      message: `Reconciliation recovering — ${recon.orphanCount} orphan(s), $${recon.unresolvedExposure?.toFixed(2) ?? '0.00'} unresolved exposure`,
+    });
+  }
+
   // Log issues to server console
   for (const issue of issues) {
     if (issue.severity === 'warn') {
@@ -295,6 +367,9 @@ export function getSystemTruth(wsClientCount = 0) {
     learning:             probeLearning(),
     founderMode:          probeFounderMode(),
     executionDiagnostics: probeExecution(),
+    confidenceEngine:     probeConfidenceEngine(),
+    learningEngine:       probeLearningEngine(),
+    globalRisk:           probeGlobalRisk(),
   };
 
   const issues = detectStaleState(checks);
@@ -330,6 +405,19 @@ export function getSystemTruth(wsClientCount = 0) {
       unrealizedDegraded: checks.executionDiagnostics?.unrealizedDegraded ?? false,
       pnlFresh: checks.executionDiagnostics?.pnlFresh ?? null,
       unrealizedPnl: checks.executionDiagnostics?.unrealizedPnl ?? null,
+      // Drawdown protection
+      drawdownProtection: checks.executionDiagnostics?.drawdownProtection ?? null,
+      // Startup reconciliation
+      startupReconciliation: checks.executionDiagnostics?.startupReconciliation ?? null,
+      // Confidence engine
+      confidenceEngine: checks.confidenceEngine?.ok ? {
+        lastScore:           checks.confidenceEngine.lastScore,
+        lastBand:            checks.confidenceEngine.lastBand,
+        averageScore:        checks.confidenceEngine.averageScore,
+        blockedTrades:       checks.confidenceEngine.blockedTrades,
+        noTradeReasonCounts: checks.confidenceEngine.noTradeReasonCounts,
+        lastDecisionAt:      checks.confidenceEngine.lastDecisionAt,
+      } : null,
     },
     // ── Canonical learning state ──────────────────────────────────────────
     learning: {
@@ -337,6 +425,26 @@ export function getSystemTruth(wsClientCount = 0) {
       activeVetoes: checks.learning.activeVetoes ?? 0,
       agentsTracked: checks.learning.agentsTracked ?? 0,
       lastConsensusDecision: checks.learning.lastConsensusDecision ?? null,
+      // Global risk orchestrator
+      globalRisk: {
+        score:       checks.globalRisk?.score ?? 0,
+        band:        checks.globalRisk?.band  ?? 'HEALTHY',
+        safeMode:    checks.globalRisk?.safeMode ?? false,
+        activeFlags: checks.globalRisk?.activeFlags ?? [],
+        dimensions:  checks.globalRisk?.dimensions ?? {},
+        lastRefreshAt: checks.globalRisk?.lastRefreshAt ?? null,
+      },
+      // Outcome learning loop
+      outcomeEngine: checks.learningEngine?.ok ? {
+        totalTradesAnalyzed: checks.learningEngine.totalTradesAnalyzed,
+        recentAccuracy:      checks.learningEngine.recentAccuracy,
+        avgPnl:              checks.learningEngine.avgPnl,
+        activeWeights:       checks.learningEngine.activeWeights,
+        lastCycleTime:       checks.learningEngine.lastCycleTime,
+        lastCycleChanges:    checks.learningEngine.lastCycleChanges,
+        highBandWinRate:     checks.learningEngine.highBandWinRate,
+        cautionWinRate:      checks.learningEngine.cautionWinRate,
+      } : null,
     },
   };
 }

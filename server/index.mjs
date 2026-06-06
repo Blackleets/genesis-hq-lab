@@ -43,6 +43,10 @@ import {
   detectStalePositions,
   getPnLFreshness,
 }                                                         from './memory/pnlEngine.mjs';
+import {
+  getReconciliationStatus,
+  clearSafeMode as clearReconciliationSafeMode,
+}                                                         from './memory/reconciliationEngine.mjs';
 
 // In-memory SkillOpt job state (single concurrent job)
 const skilloptJob = { running: false, lastResult: null, startedAt: null, agent: null };
@@ -747,6 +751,28 @@ const server = createServer(async (req, res) => {
     try {
       const truth = getSystemTruth(wsClients.size);
       sendJson(res, truth.ok ? 200 : 503, truth);
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  // GET /api/reconciliation/status — startup reconciliation diagnostics
+  if (url.pathname === '/api/reconciliation/status') {
+    try {
+      sendJson(res, 200, { ok: true, reconciliation: getReconciliationStatus() });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  // POST /api/reconciliation/clear — operator clears safe mode after review
+  if (url.pathname === '/api/reconciliation/clear' && req.method === 'POST') {
+    if (!requireAuth(req, res)) return;
+    try {
+      const cleared = clearReconciliationSafeMode();
+      sendJson(res, 200, { ok: true, reconciliation: cleared, message: 'Safe mode cleared — trading resumed' });
     } catch (err) {
       sendJson(res, 500, { ok: false, error: err.message });
     }

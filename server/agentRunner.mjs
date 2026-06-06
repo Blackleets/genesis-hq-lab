@@ -18,6 +18,9 @@ import { generateMarketingContent } from './decisionEngine.mjs';
 import { getCapital, getSnapshot, getRecentLessons } from './memoryStore.mjs';
 import { runTradingCycle, runLearningCycle } from './trading/workflow.mjs';
 import { getTreasury } from './trading/treasury.mjs';
+import { runStartupReconciliation, getReconciliationStatus, isSafeMode } from './memory/reconciliationEngine.mjs';
+import { runWeightCalibrationCycle } from './learning/learningEngine.mjs';
+import { refreshGlobalRiskScore, getGlobalRiskDiagnostics } from './risk/globalRiskEngine.mjs';
 import { getDashboardMetrics } from './trading/analytics.mjs';
 import { getOrgState, processExpiredSchedules, getRiskSettings, isDeptActive } from './command/orgState.mjs';
 import { runCryptoTradingCycle, manageCryptoPositions } from './crypto/cryptoWorkflow.mjs';
@@ -88,6 +91,23 @@ async function tick() {
     const learning = await runLearningCycle();
     if (learning.closed > 0) {
       console.log(`[agentRunner] Learning: ${learning.closed} trades closed, ${learning.learned} lessons generated`);
+    }
+
+    // ── Weight calibration cycle (rate-limited to 30 min) ──
+    try {
+      await runWeightCalibrationCycle(isSafeMode());
+    } catch (err) {
+      console.warn('[agentRunner] Weight calibration cycle error:', err?.message);
+    }
+
+    // ── Global risk refresh (runs on every tick, updates system risk score) ──
+    try {
+      const riskResult = await refreshGlobalRiskScore();
+      if (riskResult.band === 'HIGH_RISK' || riskResult.band === 'CRITICAL') {
+        console.log(`[agentRunner] ⚠️  RISK: ${riskResult.score}/100 (${riskResult.band}) — ${riskResult.flags?.[0] ?? 'see risk_events.log'}`);
+      }
+    } catch (err) {
+      console.warn('[agentRunner] Global risk refresh error:', err?.message);
     }
 
     // ── Trading cycle — only if dept is active ──
@@ -190,6 +210,25 @@ console.log('╚═════════════════════�
 if (!process.env.ANTHROPIC_API_KEY) {
   console.warn('⚠️  ANTHROPIC_API_KEY not set in .env — decision engine disabled');
   console.warn('   The agent will continue using rule-based fallback debate logic. Set ANTHROPIC_API_KEY in .env to enable the full Claude decision engine.');
+}
+
+// ── Startup reconciliation — runs ONCE before the first tick ─────────────────
+// Verifies all open positions against exchange state.
+// If any position cannot be verified (network failure, conflict) → DEGRADED.
+// In DEGRADED state, riskManager blocks all new trades until operator clears.
+try {
+  await runStartupReconciliation();
+  const rStatus = getReconciliationStatus();
+  if (rStatus.status === 'degraded') {
+    console.error(
+      `[agentRunner] ⚠️  SAFE_EXECUTION_MODE: ${rStatus.issues.length} unresolved issue(s). ` +
+      `New trades blocked. POST /api/reconciliation/clear to resume after review.`
+    );
+  }
+} catch (err) {
+  // Reconciliation itself failed — enter degraded mode conservatively.
+  console.error('[agentRunner] Startup reconciliation threw unexpectedly:', err?.message);
+  // The reconciliationEngine will have persisted degraded state internally before throwing.
 }
 
 // Run immediately
