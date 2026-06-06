@@ -66,6 +66,8 @@ import {
   computeAgentEdgeScores,
   computeRegimeAnalysis,
 }                                                         from './research/alphaValidationEngine.mjs';
+import { getSchedulerStatus }                             from './trading/executionScheduler.mjs';
+import { getTrainingMetrics }                             from './trading/positionMonitor.mjs';
 
 // In-memory SkillOpt job state (single concurrent job)
 const skilloptJob = { running: false, lastResult: null, startedAt: null, agent: null };
@@ -941,6 +943,28 @@ const server = createServer(async (req, res) => {
   if (url.pathname === '/api/research/regimes') {
     try {
       sendJson(res, 200, { ok: true, ...computeRegimeAnalysis() });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  // ─── LIVE TRADING STATUS (Phase 6A) ──────────────────────────────────────────
+
+  // GET /api/trading/live-status — scheduler status + training metrics
+  if (url.pathname === '/api/trading/live-status') {
+    try {
+      sendJson(res, 200, { ok: true, ...getSchedulerStatus() });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  // GET /api/trading/training — training mode metrics only
+  if (url.pathname === '/api/trading/training') {
+    try {
+      sendJson(res, 200, { ok: true, ...getTrainingMetrics() });
     } catch (err) {
       sendJson(res, 500, { ok: false, error: err.message });
     }

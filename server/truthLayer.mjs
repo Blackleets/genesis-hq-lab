@@ -23,6 +23,7 @@ import { getConfidenceDiagnostics } from './intelligence/confidenceEngine.mjs';
 import { getLearningDiagnostics } from './learning/learningEngine.mjs';
 import { getGlobalRiskDiagnostics } from './risk/globalRiskEngine.mjs';
 import { getAlphaReport } from './research/alphaValidationEngine.mjs';
+import { getSchedulerStatus } from './trading/executionScheduler.mjs';
 import {
   getRecentEvents,
   countBlockedTrades,
@@ -284,6 +285,17 @@ function probeAlphaResearch() {
   }
 }
 
+// ── Live trading probe (Phase 6A scheduler) ───────────────────────────────────
+
+function probeLiveTrading() {
+  try {
+    return { ok: true, ...getSchedulerStatus() };
+  } catch (err) {
+    _log.error('liveTrading', 'Live trading probe failed', err);
+    return { ok: false, error: err.message };
+  }
+}
+
 // ── Operator visibility probe ─────────────────────────────────────────────────
 
 function probeOperatorVisibility() {
@@ -426,6 +438,7 @@ export function getSystemTruth(wsClientCount = 0) {
     globalRisk:            probeGlobalRisk(),
     operatorVisibility:    probeOperatorVisibility(),
     alphaResearch:         probeAlphaResearch(),
+    liveTrading:           probeLiveTrading(),
   };
 
   const issues = detectStaleState(checks);
@@ -492,6 +505,18 @@ export function getSystemTruth(wsClientCount = 0) {
       weakestMarket:      checks.alphaResearch?.weakestMarket    ?? null,
       confidenceAccuracy: checks.alphaResearch?.confidenceAccuracy ?? null,
       falsePositiveRate:  checks.alphaResearch?.falsePositiveRate  ?? null,
+    },
+    // ── Phase 6A live trading scheduler ──────────────────────────────────
+    liveTrading: {
+      ok:          checks.liveTrading?.ok          ?? false,
+      started:     checks.liveTrading?.started     ?? false,
+      startedAt:   checks.liveTrading?.startedAt   ?? null,
+      mode:        checks.liveTrading?.mode        ?? 'paper',
+      allocation:  checks.liveTrading?.allocation  ?? null,
+      ticks:       checks.liveTrading?.ticks       ?? null,
+      errors:      checks.liveTrading?.errors      ?? null,
+      lastRun:     checks.liveTrading?.lastRun     ?? null,
+      training:    checks.liveTrading?.training    ?? null,
     },
     // ── Operator observability ────────────────────────────────────────────
     operatorVisibility: {

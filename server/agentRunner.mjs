@@ -28,6 +28,7 @@ import { refreshGlobalRiskScore, getGlobalRiskDiagnostics } from './risk/globalR
 import { getDashboardMetrics } from './trading/analytics.mjs';
 import { getOrgState, processExpiredSchedules, getRiskSettings, isDeptActive } from './command/orgState.mjs';
 import { runCryptoTradingCycle, manageCryptoPositions } from './crypto/cryptoWorkflow.mjs';
+import { startScheduler } from './trading/executionScheduler.mjs';
 import { appendFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join as pathJoin, dirname as pathDirname } from 'node:path';
 import { fileURLToPath as pathFromUrl } from 'node:url';
@@ -289,6 +290,9 @@ if (!ONCE) {
     setInterval(() => { fetch(`${_renderUrl}/api/health`).catch(() => {}); }, 10 * 60 * 1000);
     console.log('[agentRunner] Self-ping active → will keep Render awake every 10 min');
   }
+
+  // Phase 6A — tiered execution scheduler (FAST 5s / MID 30s / SLOW 5min)
+  startScheduler();
 
   // Crypto scalping loop — every 1 minute
   setInterval(async () => {
