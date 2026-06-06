@@ -3,7 +3,7 @@
 // Data source: /api/trading/trade/:id/price-history (polled every 30s while open)
 
 import { useEffect, useRef, useState } from 'react';
-import { createChart, LineSeries, type IChartApi, type ISeriesApi, type LineSeriesOptions } from 'lightweight-charts';
+import { createChart, createSeriesMarkers, LineSeries, type IChartApi, type ISeriesApi, type LineSeriesOptions } from 'lightweight-charts';
 import { agentClient, type TradeChartData } from '../../lib/agentClient';
 import { useLanguage } from '../../i18n/languageStore';
 
@@ -149,7 +149,7 @@ export default function TradeChart({ tradeId, isOpen = true }: Props) {
       });
     }
 
-    seriesRef.current.setMarkers(markers);
+    createSeriesMarkers(seriesRef.current, markers);
 
     chartRef.current.timeScale().fitContent();
   }, [chartData]);

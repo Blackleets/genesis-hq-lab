@@ -24,7 +24,7 @@ export interface AgentData {
 export function useAgentData(): AgentData {
   const { lastMessage } = useWebSocket();
   const failureCount = useRef(0);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const [data, setData] = useState<AgentData>({
     dashboard: null,
