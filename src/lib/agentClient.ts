@@ -223,19 +223,51 @@ export interface HealthStatus {
   agent?: { capital: number; isPaused: boolean; openTrades: number };
 }
 
+export interface AgentRunnerStatus {
+  ok: boolean;
+  running: boolean;
+  status: {
+    tickCount: number;
+    lastTickAt: string;
+    updatedAt: string;
+    nextSwingAt: string;
+    nextScalpAt: string;
+    nextMonitorAt: string;
+    lastSwing?: {
+      scanned: number;
+      qualified: number;
+      vetoed: number;
+      debated: number;
+      executed: number;
+      closedByLearning: number;
+      lessonsGenerated: number;
+      at: string;
+    };
+    lastScalp?: {
+      scanned: number;
+      vetoed: number;
+      debated: number;
+      executed: number;
+      circuitBreaker: boolean;
+      at: string;
+    };
+  } | null;
+}
+
 // ─── API calls ────────────────────────────────────────────────────────────────
 
 export const agentClient = {
-  getTrades:   () => get<{ ok: boolean; trades: AgentTrade[] }>('/api/agent/trades'),
-  getLessons:  () => get<{ ok: boolean; lessons: AgentLesson[] }>('/api/agent/lessons'),
-  getSignals:  () => get<{ ok: boolean; signals: AgentSignal[]; accuracy: { total: number; correct: number; rate: number | null } }>('/api/agent/signals'),
-  getSkills:   () => get<{ ok: boolean; deployed: SkillVersion[] }>('/api/agent/skills'),
-  getDashboard:() => get<TradingDashboard>('/api/trading/dashboard'),
-  getTraining: () => get<TrainingResponse>('/api/trading/training'),
-  getStatus:    () => get<OrgStatus>('/api/command/status'),
-  getHealth:    () => get<HealthStatus>('/api/health'),
-  getMarketing: () => get<MarketingContent>('/api/agent/marketing'),
-  getTradeChart:(id: string) => get<TradeChartData>(`/api/trading/trade/${id}/price-history`),
+  getTrades:       () => get<{ ok: boolean; trades: AgentTrade[] }>('/api/agent/trades'),
+  getLessons:      () => get<{ ok: boolean; lessons: AgentLesson[] }>('/api/agent/lessons'),
+  getSignals:      () => get<{ ok: boolean; signals: AgentSignal[]; accuracy: { total: number; correct: number; rate: number | null } }>('/api/agent/signals'),
+  getSkills:       () => get<{ ok: boolean; deployed: SkillVersion[] }>('/api/agent/skills'),
+  getDashboard:    () => get<TradingDashboard>('/api/trading/dashboard'),
+  getTraining:     () => get<TrainingResponse>('/api/trading/training'),
+  getStatus:       () => get<OrgStatus>('/api/command/status'),
+  getHealth:       () => get<HealthStatus>('/api/health'),
+  getMarketing:    () => get<MarketingContent>('/api/agent/marketing'),
+  getRunnerStatus: () => get<AgentRunnerStatus>('/api/agent/runner-status'),
+  getTradeChart:   (id: string) => get<TradeChartData>(`/api/trading/trade/${id}/price-history`),
 
   pauseTrading:  () => fetch(apiUrl('/api/trading/pause'),  { method: 'POST', signal: AbortSignal.timeout(5000) }).then(r => r.json()).catch(() => null),
   resumeTrading: () => fetch(apiUrl('/api/trading/resume'), { method: 'POST', signal: AbortSignal.timeout(5000) }).then(r => r.json()).catch(() => null),

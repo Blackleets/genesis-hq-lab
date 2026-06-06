@@ -47,6 +47,24 @@ process.on('uncaughtException', (err) => {
 
 let tickCount = 0;
 
+// ─── Shared agent status (written by runner, read by HTTP server) ─────────────
+// Stored in data/agent-status.json so both processes can access it.
+
+import { writeFileSync, readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+const __agentDir = dirname(fileURLToPath(import.meta.url));
+const STATUS_PATH = join(__agentDir, '..', 'data', 'agent-status.json');
+
+function writeAgentStatus(update) {
+  try {
+    let current = {};
+    try { current = JSON.parse(readFileSync(STATUS_PATH, 'utf8')); } catch {}
+    const next = { ...current, ...update, updatedAt: new Date().toISOString() };
+    writeFileSync(STATUS_PATH, JSON.stringify(next, null, 2), 'utf8');
+  } catch { /* non-critical */ }
+}
+
 // ─── Single tick ──────────────────────────────────────────────────────────────
 
 async function tick() {
@@ -91,6 +109,24 @@ async function tick() {
     const trading = await runTradingCycle();
     console.log(`[agentRunner] Swing: scanned=${trading.scanned} qualified=${trading.qualified} vetoed=${trading.vetoed} debated=${trading.debated} executed=${trading.executed}`);
 
+    writeAgentStatus({
+      tickCount,
+      lastTickAt: new Date().toISOString(),
+      lastSwing: {
+        scanned:   trading.scanned,
+        qualified: trading.qualified,
+        vetoed:    trading.vetoed,
+        debated:   trading.debated,
+        executed:  trading.executed,
+        closedByLearning: learning.closed,
+        lessonsGenerated: learning.learned,
+        at: new Date().toISOString(),
+      },
+      nextSwingAt: new Date(Date.now() + INTERVAL_MS).toISOString(),
+      nextScalpAt: new Date(Date.now() + SCALP_INTERVAL_MS).toISOString(),
+      nextMonitorAt: new Date(Date.now() + MONITOR_INTERVAL_MS).toISOString(),
+    });
+
     return summarize(start);
 
   } catch (err) {
@@ -131,6 +167,16 @@ async function scalpTick() {
         `debated=${result.debated} executed=${result.executed}${result.circuitBreaker ? ' [CIRCUIT BREAKER]' : ''}`
       );
     }
+    writeAgentStatus({
+      lastScalp: {
+        scanned:       result.scanned,
+        vetoed:        result.vetoed,
+        debated:       result.debated,
+        executed:      result.executed,
+        circuitBreaker: result.circuitBreaker,
+        at: new Date().toISOString(),
+      },
+    });
   } catch (err) {
     console.error('[scalping] Tick error:', err.message);
   }

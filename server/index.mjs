@@ -478,6 +478,21 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // ── Agent runner live status (last tick, next tick, markets scanned) ──
+  if (url.pathname === '/api/agent/runner-status') {
+    try {
+      const { readFileSync } = await import('node:fs');
+      const { join, dirname } = await import('node:path');
+      const { fileURLToPath } = await import('node:url');
+      const __d = dirname(fileURLToPath(import.meta.url));
+      const statusPath = join(__d, '..', 'data', 'agent-status.json');
+      let status = null;
+      try { status = JSON.parse(readFileSync(statusPath, 'utf8')); } catch {}
+      sendJson(res, 200, { ok: true, running: !!status, status });
+    } catch (e) { sendJson(res, 200, { ok: true, running: false, status: null }); }
+    return;
+  }
+
   if (url.pathname === '/api/health') {
     try {
       const treasury = getTreasury();

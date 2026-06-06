@@ -2,23 +2,24 @@
 // Returns null while loading; components degrade gracefully when backend is offline.
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { agentClient, type TradingDashboard, type AgentTrade, type AgentLesson, type OrgStatus, type AgentSignal, type SkillVersion, type MarketingContent } from '../lib/agentClient';
+import { agentClient, type TradingDashboard, type AgentTrade, type AgentLesson, type OrgStatus, type AgentSignal, type SkillVersion, type MarketingContent, type AgentRunnerStatus } from '../lib/agentClient';
 import { useWebSocket } from './useWebSocket';
 
 const POLL_MS_BASE = 10_000;
 const POLL_MS_MAX  = 60_000;
 
 export interface AgentData {
-  dashboard: TradingDashboard | null;
-  trades:    AgentTrade[];
-  lessons:   AgentLesson[];
-  signals:   AgentSignal[];
+  dashboard:    TradingDashboard | null;
+  trades:       AgentTrade[];
+  lessons:      AgentLesson[];
+  signals:      AgentSignal[];
   signalAccuracy: { total: number; correct: number; rate: number | null } | null;
-  skills:    SkillVersion[];
-  marketing: MarketingContent | null;
-  status:    OrgStatus | null;
-  online:    boolean;
-  lastSync:  string | null;
+  skills:       SkillVersion[];
+  marketing:    MarketingContent | null;
+  status:       OrgStatus | null;
+  runnerStatus: AgentRunnerStatus['status'];
+  online:       boolean;
+  lastSync:     string | null;
 }
 
 export function useAgentData(): AgentData {
@@ -27,16 +28,17 @@ export function useAgentData(): AgentData {
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const [data, setData] = useState<AgentData>({
-    dashboard: null,
-    trades:    [],
-    lessons:   [],
-    signals:   [],
+    dashboard:    null,
+    trades:       [],
+    lessons:      [],
+    signals:      [],
     signalAccuracy: null,
-    skills:    [],
-    marketing: null,
-    status:    null,
-    online:    false,
-    lastSync:  null,
+    skills:       [],
+    marketing:    null,
+    status:       null,
+    runnerStatus: null,
+    online:       false,
+    lastSync:     null,
   });
 
   const refresh = useCallback(async () => {
@@ -47,7 +49,7 @@ export function useAgentData(): AgentData {
       return;
     }
 
-    const [dashboard, tradesRes, lessonsRes, signalsRes, skillsRes, marketing, status] = await Promise.all([
+    const [dashboard, tradesRes, lessonsRes, signalsRes, skillsRes, marketing, status, runnerRes] = await Promise.all([
       agentClient.getDashboard(),
       agentClient.getTrades(),
       agentClient.getLessons(),
@@ -55,20 +57,22 @@ export function useAgentData(): AgentData {
       agentClient.getSkills(),
       agentClient.getMarketing(),
       agentClient.getStatus(),
+      agentClient.getRunnerStatus(),
     ]);
 
     failureCount.current = 0;
     setData({
-      dashboard: dashboard ?? null,
-      trades:    tradesRes?.trades ?? [],
-      lessons:   lessonsRes?.lessons ?? [],
-      signals:   signalsRes?.signals ?? [],
+      dashboard:    dashboard ?? null,
+      trades:       tradesRes?.trades ?? [],
+      lessons:      lessonsRes?.lessons ?? [],
+      signals:      signalsRes?.signals ?? [],
       signalAccuracy: signalsRes?.accuracy ?? null,
-      skills:    skillsRes?.deployed ?? [],
-      marketing: marketing ?? null,
-      status:    status ?? null,
-      online:    true,
-      lastSync:  new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      skills:       skillsRes?.deployed ?? [],
+      marketing:    marketing ?? null,
+      status:       status ?? null,
+      runnerStatus: runnerRes?.status ?? null,
+      online:       true,
+      lastSync:     new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
     });
   }, []);
 

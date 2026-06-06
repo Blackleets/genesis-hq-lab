@@ -1,10 +1,10 @@
 // AgentLivePanel — real-time agent trading activity from the backend runner.
-// Shows capital, open positions, closed trades, lessons, and org status.
+// Shows capital, open positions, closed trades, lessons, org status, and runner activity.
 // Degrades gracefully when server is offline.
 
 import { useAgentData } from '../hooks/useAgentData';
 import { useLanguage } from '../i18n/languageStore';
-import type { AgentTrade } from '../lib/agentClient';
+import type { AgentTrade, AgentRunnerStatus } from '../lib/agentClient';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -163,6 +163,131 @@ function TradeRow({ trade }: { trade: AgentTrade }) {
   );
 }
 
+// ─── Agent runner activity panel ─────────────────────────────────────────────
+
+function timeUntil(iso: string) {
+  const ms = new Date(iso).getTime() - Date.now();
+  if (ms <= 0) return 'now';
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  return `${Math.round(s / 60)}m`;
+}
+
+function timeAgo(iso: string) {
+  const ms = Date.now() - new Date(iso).getTime();
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.round(s / 60)}m ago`;
+  return `${Math.round(s / 3600)}h ago`;
+}
+
+function RunnerActivityPanel({ runnerStatus, lang }: { runnerStatus: AgentRunnerStatus['status']; lang: string }) {
+  if (!runnerStatus) {
+    return (
+      <div className="border border-amber-500/20 bg-carbon-200 px-4 py-3">
+        <div className="flex items-center gap-2">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+          <span className="font-mono text-[10px] text-amber-400">
+            {lang === 'es' ? 'Agente arrancando… primer tick en ~5 min' : 'Agent starting… first tick in ~5 min'}
+          </span>
+        </div>
+        <p className="font-mono text-[9px] text-zinc-600 mt-1 leading-snug">
+          {lang === 'es'
+            ? 'El runner escanea Polymarket cada 5 min. Agente de scalping cada 10 min.'
+            : 'Runner scans Polymarket every 5 min. Scalp agent every 10 min.'}
+        </p>
+      </div>
+    );
+  }
+
+  const sw = runnerStatus.lastSwing;
+  const sc = runnerStatus.lastScalp;
+
+  return (
+    <div className="border border-trim bg-carbon-200">
+      <div className="px-4 py-2 border-b border-trim flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 genesis-status-dot" />
+          <span className="font-mono text-[9px] uppercase tracking-widest text-emerald-400">
+            {lang === 'es' ? 'Agente activo' : 'Agent running'}
+          </span>
+        </div>
+        <span className="font-mono text-[8px] text-zinc-600">
+          Tick #{runnerStatus.tickCount}
+        </span>
+      </div>
+
+      <div className="px-4 py-2.5 space-y-2">
+        {/* Last swing cycle */}
+        {sw && (
+          <div>
+            <div className="font-mono text-[8px] uppercase tracking-wider text-zinc-600 mb-1">
+              {lang === 'es' ? 'Último ciclo swing' : 'Last swing cycle'} · {timeAgo(sw.at)}
+            </div>
+            <div className="grid grid-cols-4 gap-1">
+              {[
+                { label: lang === 'es' ? 'Escaneados' : 'Scanned',  val: sw.scanned,   color: '#3da9fc' },
+                { label: lang === 'es' ? 'Calificados' : 'Qualified', val: sw.qualified, color: '#ffd24a' },
+                { label: lang === 'es' ? 'Debatidos' : 'Debated',   val: sw.debated,   color: '#a78bfa' },
+                { label: lang === 'es' ? 'Ejecutados' : 'Executed',  val: sw.executed,  color: sw.executed > 0 ? '#00ff9c' : '#71717a' },
+              ].map(({ label, val, color }) => (
+                <div key={label} className="text-center">
+                  <div className="font-mono text-[12px] font-bold" style={{ color }}>{val}</div>
+                  <div className="font-mono text-[7px] text-zinc-700 uppercase leading-tight">{label}</div>
+                </div>
+              ))}
+            </div>
+            {sw.closedByLearning > 0 && (
+              <div className="font-mono text-[8px] text-emerald-600 mt-1">
+                ✓ {sw.closedByLearning} {lang === 'es' ? 'trades cerrados · ' : 'trades closed · '}
+                {sw.lessonsGenerated} {lang === 'es' ? 'lecciones' : 'lessons'}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Last scalp cycle */}
+        {sc && (
+          <div className="pt-1.5 border-t border-trim">
+            <div className="font-mono text-[8px] uppercase tracking-wider text-zinc-600 mb-1">
+              {lang === 'es' ? 'Último ciclo scalp' : 'Last scalp cycle'} · {timeAgo(sc.at)}
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="font-mono text-[9px] text-zinc-400">
+                {sc.scanned} {lang === 'es' ? 'candidatos' : 'candidates'}
+              </span>
+              {sc.executed > 0 && (
+                <span className="font-mono text-[9px] text-emerald-400">
+                  ✓ {sc.executed} {lang === 'es' ? 'scalp ejecutado' : 'scalp executed'}
+                </span>
+              )}
+              {sc.circuitBreaker && (
+                <span className="font-mono text-[9px] text-red-400">⚡ circuit breaker</span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Next cycles */}
+        <div className="pt-1.5 border-t border-trim flex items-center gap-4">
+          <span className="font-mono text-[8px] text-zinc-600">
+            {lang === 'es' ? 'Próx. swing:' : 'Next swing:'}{' '}
+            <span className="text-zinc-400">{timeUntil(runnerStatus.nextSwingAt)}</span>
+          </span>
+          <span className="font-mono text-[8px] text-zinc-600">
+            {lang === 'es' ? 'scalp:' : 'scalp:'}{' '}
+            <span className="text-zinc-400">{timeUntil(runnerStatus.nextScalpAt)}</span>
+          </span>
+          <span className="font-mono text-[8px] text-zinc-600">
+            {lang === 'es' ? 'monitor:' : 'monitor:'}{' '}
+            <span className="text-zinc-400">{timeUntil(runnerStatus.nextMonitorAt)}</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Org status pill row ──────────────────────────────────────────────────────
 
 function OrgStatusRow({ status }: { status: NonNullable<ReturnType<typeof useAgentData>['status']> }) {
@@ -203,7 +328,7 @@ interface Props {
 
 export default function AgentLivePanel({ compact = false }: Props) {
   const lang = useLanguage();
-  const { dashboard, trades, lessons, status, online, lastSync } = useAgentData();
+  const { dashboard, trades, lessons, status, runnerStatus, online, lastSync } = useAgentData();
 
   if (!online) return <OfflineBanner lang={lang} />;
 
@@ -225,6 +350,9 @@ export default function AgentLivePanel({ compact = false }: Props) {
 
       {/* Org status */}
       {status && <OrgStatusRow status={status} />}
+
+      {/* Runner activity */}
+      <RunnerActivityPanel runnerStatus={runnerStatus} lang={lang} />
 
       {/* Capital */}
       {dashboard && <CapitalBar dashboard={dashboard} />}
