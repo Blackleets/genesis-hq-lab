@@ -732,4 +732,15 @@ server.on('upgrade', (req, socket, head) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`[genesis-hq-lab-backend] listening on http://${HOST}:${PORT}`);
+
+  // Keep Render free tier awake — ping own /api/health every 4 min
+  const renderUrl = process.env.RENDER_EXTERNAL_URL;
+  if (renderUrl) {
+    console.log(`[keepalive] Self-ping active → ${renderUrl}/api/health every 4 min`);
+    setInterval(() => {
+      fetch(`${renderUrl}/api/health`, { signal: AbortSignal.timeout(10000) })
+        .then(() => {})
+        .catch(() => {});
+    }, 4 * 60 * 1000);
+  }
 });
