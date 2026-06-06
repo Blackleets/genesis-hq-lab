@@ -80,9 +80,9 @@ function rebalanceAllocations() {
         for (const k of others) {
           _allocation[k] = clampAllocation(_allocation[k] - reduce);
         }
-        logEvent(CATEGORY.EXECUTION, SEVERITY.INFO, 'scheduler',
-          `ALLOCATION REBALANCE: ${key} → ${(_allocation[key]*100).toFixed(0)}% (outperforming by ${((rate-avgOther)*100).toFixed(0)}%)`,
-          { allocation: { ..._allocation } });
+        logEvent({ category: CATEGORY.EXECUTION, severity: SEVERITY.INFO, subsystem: 'scheduler',
+          reason: `ALLOCATION REBALANCE: ${key} → ${(_allocation[key]*100).toFixed(0)}% (outperforming by ${((rate-avgOther)*100).toFixed(0)}%)`,
+          metadata: { allocation: { ..._allocation } } });
       }
     }
   } catch { /* rebalance failure is non-fatal */ }
@@ -137,7 +137,7 @@ async function runFast() {
   } catch (err) {
     _stats.errors.fast++;
     console.error('[scheduler] FAST tick error:', err.message);
-    logEvent(CATEGORY.EXECUTION, SEVERITY.HIGH, 'scheduler', `FAST loop error: ${err.message}`);
+    logEvent({ category: CATEGORY.EXECUTION, severity: SEVERITY.HIGH, subsystem: 'scheduler', reason: `FAST loop error: ${err.message}` });
   } finally {
     _running.fast = false;
   }
@@ -163,7 +163,7 @@ async function runMid() {
   } catch (err) {
     _stats.errors.mid++;
     console.error('[scheduler] MID tick error:', err.message);
-    logEvent(CATEGORY.EXECUTION, SEVERITY.HIGH, 'scheduler', `MID loop error: ${err.message}`);
+    logEvent({ category: CATEGORY.EXECUTION, severity: SEVERITY.HIGH, subsystem: 'scheduler', reason: `MID loop error: ${err.message}` });
   } finally {
     _running.mid = false;
   }
@@ -192,7 +192,7 @@ async function runSlow() {
   } catch (err) {
     _stats.errors.slow++;
     console.error('[scheduler] SLOW tick error:', err.message);
-    logEvent(CATEGORY.EXECUTION, SEVERITY.HIGH, 'scheduler', `SLOW loop error: ${err.message}`);
+    logEvent({ category: CATEGORY.EXECUTION, severity: SEVERITY.HIGH, subsystem: 'scheduler', reason: `SLOW loop error: ${err.message}` });
   } finally {
     _running.slow = false;
   }
@@ -224,9 +224,9 @@ export function startScheduler() {
 
   const mode = TRAINING_MODE ? 'TRAINING' : 'PAPER';
   console.log(`[scheduler] ▶ Started (${mode} mode) | FAST=5s MID=30s SLOW=5min | alloc=${JSON.stringify(_allocation)}`);
-  logEvent(CATEGORY.EXECUTION, SEVERITY.INFO, 'scheduler',
-    `Execution scheduler started (${mode} mode)`,
-    { allocation: _allocation, intervals: { fastMs: FAST_INTERVAL_MS, midMs: MID_INTERVAL_MS, slowMs: SLOW_INTERVAL_MS } });
+  logEvent({ category: CATEGORY.EXECUTION, severity: SEVERITY.INFO, subsystem: 'scheduler',
+    reason: `Execution scheduler started (${mode} mode)`,
+    metadata: { allocation: _allocation, intervals: { fastMs: FAST_INTERVAL_MS, midMs: MID_INTERVAL_MS, slowMs: SLOW_INTERVAL_MS } } });
 }
 
 /** Stop all loops gracefully. */
@@ -235,7 +235,7 @@ export function stopScheduler() {
   _timers = [];
   _started = false;
   console.log('[scheduler] ■ Stopped');
-  logEvent(CATEGORY.EXECUTION, SEVERITY.INFO, 'scheduler', 'Execution scheduler stopped');
+  logEvent({ category: CATEGORY.EXECUTION, severity: SEVERITY.INFO, subsystem: 'scheduler', reason: 'Execution scheduler stopped' });
 }
 
 /** Get current scheduler status for API and truth layer. */

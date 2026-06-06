@@ -68,6 +68,7 @@ import {
 }                                                         from './research/alphaValidationEngine.mjs';
 import { getSchedulerStatus }                             from './trading/executionScheduler.mjs';
 import { getTrainingMetrics }                             from './trading/positionMonitor.mjs';
+import { getMarketIntelligence, getCryptoFeedEvents }     from './crypto/marketIntelligence.mjs';
 
 // In-memory SkillOpt job state (single concurrent job)
 const skilloptJob = { running: false, lastResult: null, startedAt: null, agent: null };
@@ -546,6 +547,23 @@ const server = createServer(async (req, res) => {
         sendJson(res, 200, { ok: true, result });
       } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     });
+    return;
+  }
+
+  if (url.pathname === '/api/crypto/feed') {
+    try {
+      const limit = Math.min(100, parseInt(url.searchParams.get('limit') ?? '60', 10));
+      const events = getCryptoFeedEvents(limit);
+      sendJson(res, 200, { ok: true, events });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  if (url.pathname === '/api/crypto/market-intelligence') {
+    try {
+      const intel = getMarketIntelligence();
+      sendJson(res, 200, { ok: true, ...intel });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;
   }
 

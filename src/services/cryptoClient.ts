@@ -70,3 +70,54 @@ export async function loadCryptoOverview(): Promise<CryptoOverview> {
   if (!res.ok) throw new Error(`Crypto overview failed: ${res.status}`);
   return res.json() as Promise<CryptoOverview>;
 }
+
+// ─── Execution Feed ───────────────────────────────────────────────────────────
+
+export interface FeedEvent {
+  id: string | number;
+  ts: string;
+  category: string;
+  severity: string;
+  subsystem: string;
+  reason: string;
+  metadata?: Record<string, unknown>;
+}
+
+export async function loadCryptoFeed(limit = 60): Promise<FeedEvent[]> {
+  try {
+    const res = await fetch(apiUrl(`/api/crypto/feed?limit=${limit}`), {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return [];
+    const data = await res.json() as { ok: boolean; events: FeedEvent[] };
+    return data.events ?? [];
+  } catch { return []; }
+}
+
+// ─── Market Intelligence ──────────────────────────────────────────────────────
+
+export interface MarketIntel {
+  momentum: 'Bullish' | 'Neutral' | 'Bearish';
+  volatility: 'Low' | 'Medium' | 'High';
+  trend: 'Strong' | 'Weak' | 'Mixed' | 'Unknown';
+  regime: 'Scalp' | 'Swing' | 'Risk-Off';
+  recommendation: 'LONG' | 'SHORT' | 'WATCH' | 'WAIT';
+  confidence: { score: number; band: string };
+  risk: { band: string; score: number; safeMode: boolean };
+  activity: {
+    signalsLast3h: number;
+    longs: number;
+    shorts: number;
+    recentWinRate: number | null;
+  };
+}
+
+export async function loadMarketIntelligence(): Promise<MarketIntel | null> {
+  try {
+    const res = await fetch(apiUrl('/api/crypto/market-intelligence'), {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return null;
+    return res.json() as Promise<MarketIntel>;
+  } catch { return null; }
+}

@@ -18,6 +18,8 @@ export const CATEGORY = {
   LEARNING:   'LEARNING',
   RISK:       'RISK',
   SYSTEM:     'SYSTEM',
+  EXECUTION:  'EXECUTION',  // Phase 6A engine execution events
+  SCAN:       'SCAN',       // Phase 6A market scanning events
 };
 
 export const SEVERITY = {

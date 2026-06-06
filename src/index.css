@@ -133,3 +133,47 @@
 @media (prefers-reduced-motion: reduce) {
   [class^="gw-anim-"], .gw-core { animation: none; }
 }
+
+/* ── Crypto Terminal 2.0 — 4-zone grid ────────────────────────────────────
+   ZONE D (left) | ZONE A (center chart) | ZONE B (right intel)
+   ZONE C (full-width positions bar at bottom)
+   Uses explicit grid so each zone is isolated and overflow-safe. */
+
+.crypto-terminal-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 200px 1fr 200px;
+  grid-template-rows: 1fr 140px;
+  gap: 4px;
+  padding: 4px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.crypto-zone-feed {
+  grid-column: 1;
+  grid-row: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.crypto-zone-chart {
+  grid-column: 2;
+  grid-row: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.crypto-zone-intel {
+  grid-column: 3;
+  grid-row: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.crypto-zone-positions {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  min-height: 0;
+  overflow: hidden;
+}

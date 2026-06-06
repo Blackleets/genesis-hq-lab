@@ -140,7 +140,7 @@ export async function runScalpingCycle() {
 
   // Safety gates
   if (isGlobalSafeMode() || isSafeMode()) {
-    logEvent(CATEGORY.EXECUTION, SEVERITY.WARNING, AGENT_ID, 'SCALPING BLOCKED — safe mode');
+    logEvent({ category: CATEGORY.EXECUTION, severity: SEVERITY.WARNING, subsystem: AGENT_ID, reason: 'SCALPING BLOCKED — safe mode' });
     result.blocked = true;
     return result;
   }
@@ -152,7 +152,7 @@ export async function runScalpingCycle() {
   // Risk gate: skip if system risk is CRITICAL
   const risk = getGlobalRiskDiagnostics();
   if (risk.band === 'CRITICAL') {
-    logEvent(CATEGORY.RISK, SEVERITY.WARNING, AGENT_ID, `SCALPING PAUSED — risk band CRITICAL (${risk.score}/100)`);
+    logEvent({ category: CATEGORY.RISK, severity: SEVERITY.WARNING, subsystem: AGENT_ID, reason: `SCALPING PAUSED — risk band CRITICAL (${risk.score}/100)` });
     return result;
   }
 
@@ -169,9 +169,9 @@ export async function runScalpingCycle() {
   for (const asset of assets) {
     // Operator visibility: log what we're scanning
     if (result.scanned > 0) {
-      logEvent(CATEGORY.SCAN, SEVERITY.INFO, AGENT_ID,
-        `SCANNING ${asset.symbol} @ $${asset.price.toFixed(2)} | RSI ${asset.rsi14} | trend ${asset.trend}`,
-        { symbol: asset.symbol, price: asset.price, rsi: asset.rsi14 });
+      logEvent({ category: CATEGORY.SCAN, severity: SEVERITY.INFO, subsystem: AGENT_ID,
+        reason: `SCANNING ${asset.symbol} @ $${asset.price.toFixed(2)} | RSI ${asset.rsi14} | trend ${asset.trend}`,
+        metadata: { symbol: asset.symbol, price: asset.price, rsi: asset.rsi14 } });
     }
 
     const signal = evaluateScalpSignal(asset);
@@ -182,16 +182,16 @@ export async function runScalpingCycle() {
     }
 
     if (signal.confidence < MIN_CONFIDENCE) {
-      logEvent(CATEGORY.SCAN, SEVERITY.INFO, AGENT_ID,
-        `${asset.symbol}: signal ${signal.side} but conf ${(signal.confidence*100).toFixed(0)}% < ${(MIN_CONFIDENCE*100).toFixed(0)}% gate`);
+      logEvent({ category: CATEGORY.SCAN, severity: SEVERITY.INFO, subsystem: AGENT_ID,
+        reason: `${asset.symbol}: signal ${signal.side} but conf ${(signal.confidence*100).toFixed(0)}% < ${(MIN_CONFIDENCE*100).toFixed(0)}% gate` });
       result.skipped++;
       continue;
     }
 
     // Duplicate check
     if (hasOpenPosition(asset.pair, TRADE_TYPE)) {
-      logEvent(CATEGORY.SCAN, SEVERITY.INFO, AGENT_ID,
-        `${asset.symbol}: SKIP — position already open`);
+      logEvent({ category: CATEGORY.SCAN, severity: SEVERITY.INFO, subsystem: AGENT_ID,
+        reason: `${asset.symbol}: SKIP — position already open` });
       result.skipped++;
       continue;
     }

@@ -75,7 +75,7 @@ export async function runEventAlphaCycle() {
 
   // Safety gates
   if (isGlobalSafeMode() || isSafeMode()) {
-    logEvent(CATEGORY.EXECUTION, SEVERITY.WARNING, AGENT_ID, 'EVENT ALPHA BLOCKED — safe mode');
+    logEvent({ category: CATEGORY.EXECUTION, severity: SEVERITY.WARNING, subsystem: AGENT_ID, reason: 'EVENT ALPHA BLOCKED — safe mode' });
     result.blocked = true;
     return result;
   }
@@ -113,13 +113,13 @@ export async function runEventAlphaCycle() {
   result.qualified = qualified.length;
 
   if (qualified.length === 0) {
-    logEvent(CATEGORY.SCAN, SEVERITY.INFO, AGENT_ID,
-      `ANALYZING KALSHI/POLYMARKET: ${markets.length} scanned, none qualify`);
+    logEvent({ category: CATEGORY.SCAN, severity: SEVERITY.INFO, subsystem: AGENT_ID,
+      reason: `ANALYZING KALSHI/POLYMARKET: ${markets.length} scanned, none qualify` });
     return result;
   }
 
-  logEvent(CATEGORY.SCAN, SEVERITY.INFO, AGENT_ID,
-    `ANALYZING KALSHI/POLYMARKET: ${result.scanned} scanned, ${result.qualified} qualify for EV check`);
+  logEvent({ category: CATEGORY.SCAN, severity: SEVERITY.INFO, subsystem: AGENT_ID,
+    reason: `ANALYZING KALSHI/POLYMARKET: ${result.scanned} scanned, ${result.qualified} qualify for EV check` });
 
   let tradesThisCycle = 0;
 
@@ -173,9 +173,9 @@ export async function runEventAlphaCycle() {
     const ev = computeEV(genesisProb, entryPrice);
     const edge = computeEdge(genesisProb, marketProb);
 
-    logEvent(CATEGORY.SCAN, SEVERITY.INFO, AGENT_ID,
-      `EV CHECK: ${market.question?.slice(0, 50)} | Genesis=${(genesisProb*100).toFixed(0)}% vs Market=${(marketProb*100).toFixed(0)}% | EV=${(ev*100).toFixed(1)}%`,
-      { ev, edge, genesisProb, marketProb, market: market.question });
+    logEvent({ category: CATEGORY.SCAN, severity: SEVERITY.INFO, subsystem: AGENT_ID,
+      reason: `EV CHECK: ${market.question?.slice(0, 50)} | Genesis=${(genesisProb*100).toFixed(0)}% vs Market=${(marketProb*100).toFixed(0)}% | EV=${(ev*100).toFixed(1)}%`,
+      metadata: { ev, edge, genesisProb, marketProb, market: market.question } });
 
     if (ev < EV_THRESHOLD) {
       result.rejected++;
@@ -234,9 +234,9 @@ export async function runEventAlphaCycle() {
     if (execution.executed) {
       result.executed++;
       tradesThisCycle++;
-      logEvent(CATEGORY.EXECUTION, SEVERITY.INFO, AGENT_ID,
-        `OPEN EVENT ALPHA: ${debateResult.outcome} "${market.question?.slice(0, 50)}" | EV=${(ev*100).toFixed(1)}%`,
-        { tradeId: execution.tradeId, ev, genesisProb, marketProb });
+      logEvent({ category: CATEGORY.EXECUTION, severity: SEVERITY.INFO, subsystem: AGENT_ID,
+        reason: `OPEN EVENT ALPHA: ${debateResult.outcome} "${market.question?.slice(0, 50)}" | EV=${(ev*100).toFixed(1)}%`,
+        metadata: { tradeId: execution.tradeId, ev, genesisProb, marketProb } });
       console.log(`[eventAlpha] ✓ ${debateResult.outcome} "${market.question?.slice(0, 50)}" | EV ${(ev*100).toFixed(1)}% | $${kellySizing.dollarSize.toFixed(2)}`);
     }
   }

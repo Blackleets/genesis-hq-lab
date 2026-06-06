@@ -133,7 +133,7 @@ export async function runSwingCycle() {
 
   const risk = getGlobalRiskDiagnostics();
   if (risk.band === 'CRITICAL' || risk.band === 'HIGH_RISK') {
-    logEvent(CATEGORY.RISK, SEVERITY.WARNING, AGENT_ID, `SWING PAUSED — risk band ${risk.band}`);
+    logEvent({ category: CATEGORY.RISK, severity: SEVERITY.WARNING, subsystem: AGENT_ID, reason: `SWING PAUSED — risk band ${risk.band}` });
     return result;
   }
 
@@ -147,9 +147,9 @@ export async function runSwingCycle() {
   result.scanned = assets.length;
 
   for (const asset of assets) {
-    logEvent(CATEGORY.SCAN, SEVERITY.INFO, AGENT_ID,
-      `ANALYZING SWING: ${asset.symbol} @ $${asset.price.toFixed(2)} | 1h change: ${asset.change1h > 0 ? '+' : ''}${asset.change1h}%`,
-      { symbol: asset.symbol, price: asset.price, change1h: asset.change1h });
+    logEvent({ category: CATEGORY.SCAN, severity: SEVERITY.INFO, subsystem: AGENT_ID,
+      reason: `ANALYZING SWING: ${asset.symbol} @ $${asset.price.toFixed(2)} | 1h change: ${asset.change1h > 0 ? '+' : ''}${asset.change1h}%`,
+      metadata: { symbol: asset.symbol, price: asset.price, change1h: asset.change1h } });
 
     const signal = evaluateSwingSignal(asset);
 
