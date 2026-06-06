@@ -319,6 +319,56 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // GET /api/crypto/candles?pair=BTCUSDT&interval=1h&limit=120
+  if (url.pathname === '/api/crypto/candles') {
+    try {
+      const pair     = url.searchParams.get('pair') ?? 'BTCUSDT';
+      const interval = url.searchParams.get('interval') ?? '1h';
+      const limit    = Math.min(500, parseInt(url.searchParams.get('limit') ?? '120', 10));
+      const r = await fetch(
+        `https://api.binance.com/api/v3/klines?symbol=${pair}&interval=${interval}&limit=${limit}`,
+        { signal: AbortSignal.timeout(6000) }
+      );
+      if (!r.ok) { sendJson(res, 502, { ok: false, error: `Binance ${r.status}` }); return; }
+      const raw = await r.json();
+      // [openTime, open, high, low, close, volume, closeTime, ...]
+      const candles = raw.map(k => ({
+        time:   Math.floor(k[0] / 1000),
+        open:   parseFloat(k[1]),
+        high:   parseFloat(k[2]),
+        low:    parseFloat(k[3]),
+        close:  parseFloat(k[4]),
+        volume: parseFloat(k[5]),
+      }));
+      sendJson(res, 200, { ok: true, pair, interval, candles });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  // POST /api/crypto/order — manual trade order
+  if (url.pathname === '/api/crypto/order' && req.method === 'POST') {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', async () => {
+      try {
+        const { pair = 'BTCUSDT', side, capitalUsed = 100 } = JSON.parse(body);
+        if (!['LONG', 'SHORT'].includes(side)) { sendJson(res, 400, { ok: false, error: 'side must be LONG or SHORT' }); return; }
+        const { executeScalp } = await import('./crypto/cryptoExecution.mjs');
+        const price = await (await import('./crypto/priceFeeder.mjs')).getCurrentPrice(pair);
+        const asset = { symbol: pair.replace('USDT',''), pair };
+        const result = await executeScalp({
+          asset, side, entryPrice: price, capitalUsed,
+          reason: 'Manual order from Crypto Lab UI',
+          confidence: 0.7,
+          targetPrice: side === 'LONG' ? price * 1.02 : price * 0.98,
+          stopPrice: side === 'LONG' ? price * 0.985 : price * 1.015,
+        });
+        sendJson(res, 200, { ok: true, result });
+      } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    });
+    return;
+  }
+
   if (url.pathname === '/api/trading/risk') {
     try {
       const risk = getRiskMetrics();
