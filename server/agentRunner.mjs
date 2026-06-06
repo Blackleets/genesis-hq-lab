@@ -30,6 +30,21 @@ const AGENT_ID           = 'market-agent-1';
 const ONCE               = process.argv.includes('--once');
 const VERBOSE            = process.argv.includes('--verbose') || process.argv.includes('-v');
 
+// ─── Global error handlers ────────────────────────────────────────────────────
+// Catch any promise rejection or sync throw that escaped its local try-catch.
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[agentRunner] ⚠️  UNHANDLED REJECTION — investigate immediately:');
+  console.error(reason);
+  // Do NOT exit — the trading loops must keep running.
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[agentRunner] 💀 UNCAUGHT EXCEPTION — state may be corrupted:');
+  console.error(err);
+  process.exit(1);  // Let the supervisor (pm2/nodemon) restart cleanly.
+});
+
 let tickCount = 0;
 
 // ─── Single tick ──────────────────────────────────────────────────────────────

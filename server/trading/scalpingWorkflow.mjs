@@ -27,6 +27,9 @@ import { nanoid } from '../utils.mjs';
 
 // ─── Scalping constants ───────────────────────────────────────────────────────
 
+// TP/SL thresholds — must match positionMonitor.mjs THRESHOLDS.scalp
+const THRESHOLDS = { takeProfit: 0.28, stopLoss: 0.20 };
+
 const SCALP = {
   maxOpenPositions: 3,       // max concurrent scalp trades
   maxCapitalPct:    0.03,    // 3% per scalp (tighter than 5% swing)
@@ -201,9 +204,11 @@ function executeScalp(market, debate, maxPositionUSD) {
       `Scalp: ${market.daysToClose}d horizon | $${market.volume24h?.toFixed(0) ?? '?'}/day volume`,
       `Kelly: ${(fraction*100).toFixed(1)}% | TP: +28% | SL: -20%`,
     ],
-    openedAt:     new Date().toISOString(),
-    daysToClose:  market.daysToClose,
-    tradeType:    'scalp',
+    openedAt:          new Date().toISOString(),
+    daysToClose:       market.daysToClose,
+    tradeType:         'scalp',
+    stopLossPrice:     intendedPrice * (1 - THRESHOLDS.stopLoss),
+    takeProfitPrice:   intendedPrice * (1 + THRESHOLDS.takeProfit),
   });
 
   console.log(
@@ -214,10 +219,21 @@ function executeScalp(market, debate, maxPositionUSD) {
   return { executed: true, tradeId, dollarSize, fraction, intendedPrice, shares };
 }
 
+// ─── Concurrency guard ────────────────────────────────────────────────────────
+// Prevents two overlapping cycles when Claude API is slow (>10 min response)
+let _cycleRunning = false;
+
 // ─── Main scalping cycle ──────────────────────────────────────────────────────
 
 export async function runScalpingCycle() {
+  if (_cycleRunning) {
+    console.log('[scalping] Previous cycle still running — skipping this tick');
+    return { scanned: 0, candidates: 0, vetoed: 0, debated: 0, executed: 0, skipped: 0, circuitBreaker: false };
+  }
+  _cycleRunning = true;
+
   const result = { scanned: 0, candidates: 0, vetoed: 0, debated: 0, executed: 0, skipped: 0, circuitBreaker: false };
+  try {
 
   // Check circuit breaker first (3 consecutive stop-losses)
   const cb = getScalpingCircuitBreaker();
@@ -273,4 +289,7 @@ export async function runScalpingCycle() {
   }
 
   return result;
+  } finally {
+    _cycleRunning = false;
+  }
 }

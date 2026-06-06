@@ -20,11 +20,13 @@ async function get<T>(path: string): Promise<T | null> {
 export interface AgentTrade {
   id: string;
   agent_id: string;
+  market_id?: string;
   market_question: string;
   market_source: string;
   market_category: string;
   outcome: 'YES' | 'NO';
   entry_price: number;
+  exit_price?: number;
   shares: number;
   capital_used: number;
   confidence: number;
@@ -37,6 +39,44 @@ export interface AgentTrade {
   opened_at: string;
   closed_at?: string;
   days_to_close?: number;
+  stop_loss_price?: number;
+  take_profit_price?: number;
+}
+
+export interface OpenScalpTrade {
+  id: string;
+  market_id: string;
+  market_question: string;
+  outcome: 'YES' | 'NO';
+  entry_price: number;
+  shares: number;
+  capital_used: number;
+  opened_at: string;
+  stop_loss_price: number | null;
+  take_profit_price: number | null;
+}
+
+export interface PriceSnapshot {
+  yes_price: number;
+  no_price: number;
+  recorded_at: string;
+}
+
+export interface TradeChartData {
+  ok: boolean;
+  trade: {
+    id: string;
+    market_question: string;
+    outcome: 'YES' | 'NO';
+    entry_price: number;
+    exit_price: number | null;
+    opened_at: string;
+    closed_at: string | null;
+    pnl: number | null;
+    stop_loss_price: number | null;
+    take_profit_price: number | null;
+  };
+  snapshots: PriceSnapshot[];
 }
 
 export interface GateCondition {
@@ -86,6 +126,7 @@ export interface TrainingResponse {
   circuit: { tripped: boolean; reason?: string; consecutiveStopLosses: number };
   openScalps: number;
   openSwings: number;
+  openScalpTrades: OpenScalpTrade[];
 }
 
 export interface AgentLesson {
@@ -191,9 +232,13 @@ export const agentClient = {
   getSkills:   () => get<{ ok: boolean; deployed: SkillVersion[] }>('/api/agent/skills'),
   getDashboard:() => get<TradingDashboard>('/api/trading/dashboard'),
   getTraining: () => get<TrainingResponse>('/api/trading/training'),
-  getStatus:   () => get<OrgStatus>('/api/command/status'),
-  getHealth:   () => get<HealthStatus>('/api/health'),
-  getMarketing:() => get<MarketingContent>('/api/agent/marketing'),
+  getStatus:    () => get<OrgStatus>('/api/command/status'),
+  getHealth:    () => get<HealthStatus>('/api/health'),
+  getMarketing: () => get<MarketingContent>('/api/agent/marketing'),
+  getTradeChart:(id: string) => get<TradeChartData>(`/api/trading/trade/${id}/price-history`),
+
+  pauseTrading:  () => fetch(apiUrl('/api/trading/pause'),  { method: 'POST', signal: AbortSignal.timeout(5000) }).then(r => r.json()).catch(() => null),
+  resumeTrading: () => fetch(apiUrl('/api/trading/resume'), { method: 'POST', signal: AbortSignal.timeout(5000) }).then(r => r.json()).catch(() => null),
 
   sendCommand: async (command: string) => {
     try {

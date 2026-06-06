@@ -13,31 +13,35 @@ export function saveTrade(trade) {
       INSERT OR REPLACE INTO trades
         (id, agent_id, market_id, market_source, market_question, market_category,
          outcome, entry_price, shares, capital_used, trade_type, confidence, reason, evidence,
-         signals_used, lessons_applied, rules_applied, status, opened_at, days_to_close)
+         signals_used, lessons_applied, rules_applied, status, opened_at, days_to_close,
+         stop_loss_price, take_profit_price)
       VALUES
         (@id, @agent_id, @market_id, @market_source, @market_question, @market_category,
          @outcome, @entry_price, @shares, @capital_used, @trade_type, @confidence, @reason, @evidence,
-         @signals_used, @lessons_applied, @rules_applied, 'open', @opened_at, @days_to_close)
+         @signals_used, @lessons_applied, @rules_applied, 'open', @opened_at, @days_to_close,
+         @stop_loss_price, @take_profit_price)
     `).run({
       id,
-      agent_id:        trade.agentId ?? 'market-agent-1',
-      market_id:       trade.marketId,
-      market_source:   trade.marketSource,
-      market_question: trade.marketQuestion,
-      market_category: trade.marketCategory ?? 'general',
-      outcome:         trade.outcome,
-      entry_price:     trade.entryPrice,
-      shares:          trade.shares,
-      capital_used:    trade.capitalUsed,
-      trade_type:      trade.tradeType ?? 'swing',
-      confidence:      trade.confidence,
-      reason:          trade.reason,
-      evidence:        JSON.stringify(trade.evidence ?? []),
-      signals_used:    JSON.stringify(trade.signalsUsed ?? []),
-      lessons_applied: JSON.stringify(trade.lessonsApplied ?? []),
-      rules_applied:   JSON.stringify(trade.rulesApplied ?? []),
-      opened_at:       trade.openedAt ?? new Date().toISOString(),
-      days_to_close:   trade.daysToClose ?? null,
+      agent_id:          trade.agentId ?? 'market-agent-1',
+      market_id:         trade.marketId,
+      market_source:     trade.marketSource,
+      market_question:   trade.marketQuestion,
+      market_category:   trade.marketCategory ?? 'general',
+      outcome:           trade.outcome,
+      entry_price:       trade.entryPrice,
+      shares:            trade.shares,
+      capital_used:      trade.capitalUsed,
+      trade_type:        trade.tradeType ?? 'swing',
+      confidence:        trade.confidence,
+      reason:            trade.reason,
+      evidence:          JSON.stringify(trade.evidence ?? []),
+      signals_used:      JSON.stringify(trade.signalsUsed ?? []),
+      lessons_applied:   JSON.stringify(trade.lessonsApplied ?? []),
+      rules_applied:     JSON.stringify(trade.rulesApplied ?? []),
+      opened_at:         trade.openedAt ?? new Date().toISOString(),
+      days_to_close:     trade.daysToClose ?? null,
+      stop_loss_price:   trade.stopLossPrice ?? null,
+      take_profit_price: trade.takeProfitPrice ?? null,
     });
 
     // Index in FTS
@@ -50,8 +54,12 @@ export function saveTrade(trade) {
 }
 
 // ─── Close a trade (market resolved) ─────────────────────────────────────────
+//
+// settleCapital: when true, inserts the capital_history row inside the SAME
+// transaction as the trade UPDATE so both are atomic (crash-safe).
+// Callers that pass settleCapital:true MUST NOT call settleTradeCapital() again.
 
-export function closeTrade(tradeId, resolvedOutcome) {
+export function closeTrade(tradeId, resolvedOutcome, { settleCapital = false } = {}) {
   const trade = db.prepare('SELECT * FROM trades WHERE id = ?').get(tradeId);
   if (!trade) return null;
 
@@ -60,13 +68,49 @@ export function closeTrade(tradeId, resolvedOutcome) {
   const pnl       = (exitPrice - trade.entry_price) * trade.shares;
   const closedAt  = new Date().toISOString();
 
+  let rowsChanged = 0;
   tx(() => {
-    db.prepare(`
+    const info = db.prepare(`
       UPDATE trades
       SET status = 'closed', resolved_outcome = ?, exit_price = ?, pnl = ?, closed_at = ?
-      WHERE id = ?
+      WHERE id = ? AND status = 'open'
     `).run(resolvedOutcome, exitPrice, pnl, closedAt, tradeId);
+    rowsChanged = info.changes;
+
+    if (rowsChanged > 0 && settleCapital) {
+      const returned = trade.capital_used + pnl;
+      db.prepare(`
+        INSERT INTO capital_history
+          (total, available, in_trades, bucket_reserve, bucket_upgrade,
+           bucket_exp, bucket_expand, bucket_liquid, note, recorded_at)
+        SELECT
+          total + ?,
+          available + ?,
+          MAX(0, in_trades - ?),
+          bucket_reserve + ?,
+          bucket_upgrade + ?,
+          bucket_exp + ?,
+          bucket_expand + ?,
+          bucket_liquid + ?,
+          'Trade settled PnL: ' || printf('%.2f', ?),
+          datetime('now')
+        FROM capital_history ORDER BY recorded_at DESC LIMIT 1
+      `).run(
+        pnl,
+        returned,
+        trade.capital_used,
+        pnl > 0 ? pnl * 0.40 : 0,
+        pnl > 0 ? pnl * 0.25 : 0,
+        pnl > 0 ? pnl * 0.15 : 0,
+        pnl > 0 ? pnl * 0.10 : 0,
+        pnl > 0 ? pnl * 0.10 : 0,
+        pnl,
+      );
+    }
   });
+
+  // Already closed by another process (positionMonitor race)
+  if (rowsChanged === 0) return null;
 
   return { ...trade, resolvedOutcome, exitPrice, pnl, closedAt };
 }

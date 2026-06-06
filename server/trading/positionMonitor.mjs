@@ -11,7 +11,6 @@
 
 import db, { tx } from '../db/database.mjs';
 import { fetchCurrentPrice } from '../marketScanner.mjs';
-import { settleTradeCapital } from './treasury.mjs';
 
 // ─── Exit thresholds ──────────────────────────────────────────────────────────
 
@@ -47,6 +46,14 @@ export async function runPositionMonitor(broadcast) {
       const currentPrice = trade.outcome === 'YES' ? yesPrice : noPrice;
       if (currentPrice == null || isNaN(currentPrice)) continue;
 
+      // Record price snapshot for TradeChart (every monitor cycle = ~2 min)
+      try {
+        db.prepare(`
+          INSERT INTO price_snapshots (trade_id, yes_price, no_price)
+          VALUES (?, ?, ?)
+        `).run(trade.id, yesPrice, noPrice);
+      } catch { /* price_snapshots table may not exist on old DBs — ignore */ }
+
       const entryPrice  = trade.entry_price;
       const priceChange = (currentPrice - entryPrice) / entryPrice; // fraction
 
@@ -63,7 +70,9 @@ export async function runPositionMonitor(broadcast) {
       const pnlPct = (priceChange * 100).toFixed(1);
 
       // Close the trade in DB — guard with AND status='open' to prevent
-      // double-settlement if runLearningCycle already closed this row
+      // double-settlement if runLearningCycle already closed this row.
+      // Capital settlement runs INSIDE the same tx for atomicity: if the
+      // process crashes mid-flight, both ops roll back together (no capital leak).
       let rowsChanged = 0;
       tx(() => {
         const info = db.prepare(`
@@ -76,14 +85,44 @@ export async function runPositionMonitor(broadcast) {
           WHERE id = ? AND status = 'open'
         `).run(currentPrice, pnl, exitReason, trade.id);
         rowsChanged = info.changes;
+
+        if (rowsChanged > 0) {
+          const returned = trade.capital_used + pnl;
+          db.prepare(`
+            INSERT INTO capital_history
+              (total, available, in_trades, bucket_reserve, bucket_upgrade,
+               bucket_exp, bucket_expand, bucket_liquid, note, recorded_at)
+            SELECT
+              total + ?,
+              available + ?,
+              MAX(0, in_trades - ?),
+              bucket_reserve + ?,
+              bucket_upgrade + ?,
+              bucket_exp + ?,
+              bucket_expand + ?,
+              bucket_liquid + ?,
+              'Trade settled PnL: ' || printf('%.2f', ?),
+              datetime('now')
+            FROM capital_history ORDER BY recorded_at DESC LIMIT 1
+          `).run(
+            pnl,
+            returned,
+            trade.capital_used,
+            pnl > 0 ? pnl * 0.40 : 0,
+            pnl > 0 ? pnl * 0.25 : 0,
+            pnl > 0 ? pnl * 0.15 : 0,
+            pnl > 0 ? pnl * 0.10 : 0,
+            pnl > 0 ? pnl * 0.10 : 0,
+            pnl,
+          );
+        }
       });
 
-      // Only settle capital if we actually closed the row (not already closed)
+      // Only proceed if we actually closed the row (not already closed by workflow)
       if (rowsChanged === 0) {
         console.log(`[positionMonitor] SKIP: trade ${trade.id} already closed by another process`);
         continue;
       }
-      settleTradeCapital(trade.capital_used, pnl);
 
       const label = exitReason === 'TAKE_PROFIT' ? '✅ TAKE PROFIT' : '🛑 STOP LOSS';
       console.log(

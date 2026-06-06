@@ -5,7 +5,8 @@
 import { useEffect, useState } from 'react';
 import { useLanguage } from '../i18n/languageStore';
 import { agentClient } from '../lib/agentClient';
-import type { TrainingResponse } from '../lib/agentClient';
+import type { TrainingResponse, OpenScalpTrade } from '../lib/agentClient';
+import TradeChart from './charts/TradeChart';
 
 // ─── Training gate condition row ─────────────────────────────────────────────
 
@@ -27,6 +28,75 @@ function GateRow({ condition }: { condition: { label: string; passed: boolean; v
       >
         {condition.value}
       </span>
+    </li>
+  );
+}
+
+// ─── Open scalp position row with expandable TradingView chart ───────────────
+
+function ScalpPositionRow({ trade, lang }: { trade: OpenScalpTrade; lang: string }) {
+  const [showChart, setShowChart] = useState(false);
+
+  const tp  = trade.take_profit_price ?? trade.entry_price * 1.28;
+  const sl  = trade.stop_loss_price  ?? trade.entry_price * 0.80;
+  const elapsed = Math.floor((Date.now() - new Date(trade.opened_at).getTime()) / 60_000);
+  const elapsedStr = elapsed < 60
+    ? `${elapsed}m`
+    : elapsed < 1440
+      ? `${Math.floor(elapsed / 60)}h`
+      : `${Math.floor(elapsed / 1440)}d`;
+
+  return (
+    <li className="border-b border-trim last:border-b-0">
+      {/* Row header */}
+      <div className="px-3 py-2 flex items-start gap-2">
+        <span
+          className="font-mono text-[9px] px-1 shrink-0 border mt-0.5"
+          style={{
+            color: trade.outcome === 'YES' ? '#00ff9c' : '#ff4757',
+            borderColor: trade.outcome === 'YES' ? '#00ff9c44' : '#ff475744',
+          }}
+        >
+          {trade.outcome}
+        </span>
+        <span className="font-mono text-[9px] text-zinc-400 flex-1 leading-snug">
+          {trade.market_question.length > 52
+            ? trade.market_question.slice(0, 51) + '…'
+            : trade.market_question}
+        </span>
+        <div className="shrink-0 text-right">
+          <div className="font-mono text-[10px] text-zinc-300">${trade.capital_used.toFixed(2)}</div>
+          <div className="font-mono text-[9px] text-zinc-600">{elapsedStr}</div>
+        </div>
+      </div>
+
+      {/* Entry / TP / SL */}
+      <div className="px-3 pb-1.5 flex items-center gap-3">
+        <span className="font-mono text-[9px] text-zinc-600">
+          {lang === 'es' ? 'Entrada' : 'Entry'}: <span className="text-zinc-300">{trade.entry_price.toFixed(3)}</span>
+        </span>
+        <span className="font-mono text-[9px]" style={{ color: '#00ff9c' }}>
+          TP {tp.toFixed(3)}
+        </span>
+        <span className="font-mono text-[9px]" style={{ color: '#ff4757' }}>
+          SL {sl.toFixed(3)}
+        </span>
+        <button
+          className="ml-auto font-mono text-[9px] text-zinc-500 hover:text-zinc-300 transition-colors"
+          onClick={() => setShowChart(v => !v)}
+        >
+          {showChart
+            ? (lang === 'es' ? '▲ ocultar' : '▲ hide')
+            : (lang === 'es' ? '▼ gráfico' : '▼ chart')}
+        </button>
+      </div>
+
+      {/* Expandable TradingView chart */}
+      {showChart && (
+        <div className="px-2 pb-2">
+          <TradeChart tradeId={trade.id} isOpen />
+        </div>
+      )}
     </li>
   );
 }
@@ -95,7 +165,7 @@ export default function ScalpingDashboard() {
     );
   }
 
-  const { training, daily, circuit, openScalps, openSwings } = data;
+  const { training, daily, circuit, openScalps, openSwings, openScalpTrades } = data;
 
   const phaseColor = training.phase === 1 ? '#3da9fc'
                    : training.phase === 2 ? '#ffd24a'
@@ -199,15 +269,28 @@ export default function ScalpingDashboard() {
             <span className="text-zinc-500 text-[9px]">{circuit.reason}</span>
           </div>
         ) : (
-          <div className="px-3 py-2 font-mono text-[9px] text-zinc-600">
+          <div className="px-3 py-2 font-mono text-[9px] text-zinc-600 border-b border-trim">
             {lang === 'es'
-              ? `Stop-loss/take-profit activo. TP +28% | SL -20%. Monitor cada 2 min.`
-              : `Stop-loss/take-profit active. TP +28% | SL -20%. Monitor every 2 min.`}
+              ? `TP +28% | SL -20% · Monitor cada 2 min`
+              : `TP +28% | SL -20% · Monitor every 2 min`}
             {circuit.consecutiveStopLosses > 0 && (
               <span className="text-amber-400 ml-2">
                 ({circuit.consecutiveStopLosses} {lang === 'es' ? 'stop seguidos' : 'consecutive stops'})
               </span>
             )}
+          </div>
+        )}
+
+        {/* Per-position rows with expandable TradingView chart */}
+        {openScalpTrades && openScalpTrades.length > 0 ? (
+          <ul>
+            {openScalpTrades.map((trade) => (
+              <ScalpPositionRow key={trade.id} trade={trade} lang={lang} />
+            ))}
+          </ul>
+        ) : (
+          <div className="px-3 py-3 font-mono text-[9px] text-zinc-700">
+            {lang === 'es' ? 'Sin scalps activos en este momento.' : 'No active scalp positions.'}
           </div>
         )}
       </section>

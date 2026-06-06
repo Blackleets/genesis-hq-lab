@@ -13,7 +13,6 @@ import { saveTrade } from '../memory/tradingMemory.mjs';
 import { updateAfterTrade } from '../memory/agentScoring.mjs';
 import { analyzeClosedTrade } from '../memory/learningEngine.mjs';
 import { closeTrade } from '../memory/tradingMemory.mjs';
-import { settleTradeCapital } from './treasury.mjs';
 import { getMarketStatus } from '../marketScanner.mjs';
 import { researchMarket, getMarketSignals } from '../research/researchAgent.mjs';
 import db from '../db/database.mjs';
@@ -228,13 +227,10 @@ export async function runLearningCycle() {
 
     const resolvedOutcome = status.result.toUpperCase();
 
-    // Close the trade in SQLite
-    const closedTrade = closeTrade(trade.id, resolvedOutcome);
+    // Close the trade in SQLite — capital settlement is atomic inside closeTrade
+    const closedTrade = closeTrade(trade.id, resolvedOutcome, { settleCapital: true });
     if (!closedTrade) continue;
     closed++;
-
-    // Settle capital (returns funds + pnl to treasury)
-    settleTradeCapital(trade.capital_used, closedTrade.pnl);
 
     // Update agent scoring
     updateAfterTrade(trade.agent_id ?? 'market-agent-1', closedTrade);

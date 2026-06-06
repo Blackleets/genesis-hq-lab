@@ -15,7 +15,7 @@ import { getAllDeployed, getSkillHistory } from './skills/skillRegistry.mjs';
 import { runSkillOpt } from './skills/runSkillOpt.mjs';
 import db from './db/database.mjs';
 import { executeCommand, getCommandHistory } from './command/commandExecutor.mjs';
-import { getOrgState, getStatusSummary } from './command/orgState.mjs';
+import { getOrgState, setOrgState, getStatusSummary } from './command/orgState.mjs';
 import { getTrainingStatus, getDailyPerformance } from './trading/trainingPlan.mjs';
 import { getScalpingCircuitBreaker } from './trading/positionMonitor.mjs';
 
@@ -240,9 +240,16 @@ const server = createServer(async (req, res) => {
       const training  = getTrainingStatus();
       const daily     = getDailyPerformance();
       const circuit   = getScalpingCircuitBreaker();
-      const openScalps = db.prepare(`SELECT COUNT(*) AS cnt FROM trades WHERE status='open' AND trade_type='scalp'`).get()?.cnt ?? 0;
-      const openSwings = db.prepare(`SELECT COUNT(*) AS cnt FROM trades WHERE status='open' AND trade_type='swing'`).get()?.cnt ?? 0;
-      sendJson(res, 200, { ok: true, training, daily, circuit, openScalps, openSwings });
+      const openScalpTrades = db.prepare(`
+        SELECT id, market_id, market_question, outcome, entry_price, shares,
+               capital_used, opened_at, stop_loss_price, take_profit_price
+        FROM trades
+        WHERE status = 'open' AND trade_type = 'scalp'
+        ORDER BY opened_at ASC
+      `).all();
+      const openScalps = openScalpTrades.length;
+      const openSwings = db.prepare(`SELECT COUNT(*) AS cnt FROM trades WHERE status='open' AND (trade_type='swing' OR trade_type IS NULL)`).get()?.cnt ?? 0;
+      sendJson(res, 200, { ok: true, training, daily, circuit, openScalps, openSwings, openScalpTrades });
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;
   }
@@ -259,6 +266,40 @@ const server = createServer(async (req, res) => {
     try {
       const agents = getLeaderboard();
       sendJson(res, 200, { ok: true, agents });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  // ── Emergency pause / resume ──
+  if (url.pathname === '/api/trading/pause' && req.method === 'POST') {
+    const state = setOrgState({ mode: 'rest' });
+    sendJson(res, 200, { ok: true, mode: state.mode });
+    return;
+  }
+
+  if (url.pathname === '/api/trading/resume' && req.method === 'POST') {
+    const state = setOrgState({ mode: 'active' });
+    sendJson(res, 200, { ok: true, mode: state.mode });
+    return;
+  }
+
+  // ── Price history for a specific trade (for TradeChart) ──
+  if (url.pathname.startsWith('/api/trading/trade/') && url.pathname.endsWith('/price-history')) {
+    try {
+      const parts = url.pathname.split('/');
+      const tradeId = parts[parts.length - 2];
+      const trade = db.prepare(`
+        SELECT id, market_question, outcome, entry_price, exit_price,
+               opened_at, closed_at, pnl, stop_loss_price, take_profit_price
+        FROM trades WHERE id = ?
+      `).get(tradeId);
+      if (!trade) { sendJson(res, 404, { ok: false, error: 'Trade not found' }); return; }
+      const snapshots = db.prepare(`
+        SELECT yes_price, no_price, recorded_at
+        FROM price_snapshots WHERE trade_id = ?
+        ORDER BY recorded_at ASC
+      `).all(tradeId);
+      sendJson(res, 200, { ok: true, trade, snapshots });
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;
   }

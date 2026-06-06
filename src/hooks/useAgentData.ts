@@ -1,11 +1,12 @@
-// useAgentData — polls the backend agent runner every 10s.
+// useAgentData — polls the backend agent runner with exponential backoff.
 // Returns null while loading; components degrade gracefully when backend is offline.
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { agentClient, type TradingDashboard, type AgentTrade, type AgentLesson, type OrgStatus, type AgentSignal, type SkillVersion, type MarketingContent } from '../lib/agentClient';
 import { useWebSocket } from './useWebSocket';
 
-const POLL_MS = 10_000;
+const POLL_MS_BASE = 10_000;
+const POLL_MS_MAX  = 60_000;
 
 export interface AgentData {
   dashboard: TradingDashboard | null;
@@ -22,6 +23,8 @@ export interface AgentData {
 
 export function useAgentData(): AgentData {
   const { lastMessage } = useWebSocket();
+  const failureCount = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
 
   const [data, setData] = useState<AgentData>({
     dashboard: null,
@@ -39,6 +42,7 @@ export function useAgentData(): AgentData {
   const refresh = useCallback(async () => {
     const health = await agentClient.getHealth();
     if (!health?.ok) {
+      failureCount.current++;
       setData((prev) => ({ ...prev, online: false }));
       return;
     }
@@ -53,6 +57,7 @@ export function useAgentData(): AgentData {
       agentClient.getStatus(),
     ]);
 
+    failureCount.current = 0;
     setData({
       dashboard: dashboard ?? null,
       trades:    tradesRes?.trades ?? [],
@@ -67,11 +72,19 @@ export function useAgentData(): AgentData {
     });
   }, []);
 
-  useEffect(() => {
-    void refresh();
-    const id = setInterval(() => void refresh(), POLL_MS);
-    return () => clearInterval(id);
+  const scheduleNext = useCallback(() => {
+    clearTimeout(timerRef.current);
+    const delay = Math.min(POLL_MS_MAX, POLL_MS_BASE * Math.pow(2, failureCount.current));
+    timerRef.current = setTimeout(async () => {
+      await refresh();
+      scheduleNext();
+    }, delay);
   }, [refresh]);
+
+  useEffect(() => {
+    void refresh().then(scheduleNext);
+    return () => clearTimeout(timerRef.current);
+  }, [refresh, scheduleNext]);
 
   useEffect(() => {
     if (!lastMessage) return;
