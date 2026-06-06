@@ -26,6 +26,7 @@ db.pragma('synchronous = NORMAL');
 // WAL allows many readers + one writer; busy_timeout makes writers retry instead
 // of throwing "database is locked" when they briefly contend.
 db.pragma('busy_timeout = 5000');
+db.pragma('wal_autocheckpoint = 1000');
 
 // Apply schema (idempotent — CREATE TABLE IF NOT EXISTS)
 function migrate() {
@@ -52,6 +53,26 @@ function migrate() {
 }
 
 migrate();
+
+function migrateIndexes() {
+  const stmts = [
+    `CREATE INDEX IF NOT EXISTS idx_trades_type_status ON trades(trade_type, status)`,
+    `CREATE INDEX IF NOT EXISTS idx_trades_market_status ON trades(market_id, status)`,
+    `CREATE TABLE IF NOT EXISTS price_snapshots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      trade_id TEXT NOT NULL,
+      yes_price REAL NOT NULL,
+      no_price  REAL NOT NULL,
+      recorded_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_snapshots_trade ON price_snapshots(trade_id, recorded_at)`,
+  ];
+  for (const s of stmts) {
+    try { db.prepare(s).run(); } catch { /* idempotent */ }
+  }
+}
+
+migrateIndexes();
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

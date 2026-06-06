@@ -327,9 +327,16 @@ export default function AgentExecutionView() {
           {loading ? (
             <p className="px-4 py-4 font-mono text-[11px] text-zinc-600">Conectando…</p>
           ) : error ? (
-            <div className="px-4 py-4 font-mono text-[11px]">
-              <p className="text-red-400 mb-1">Backend offline</p>
-              <p className="text-zinc-600">Ejecuta: npm run server</p>
+            <div className="px-4 py-4 font-mono text-[11px] space-y-2">
+              <p className="text-amber-400 font-bold">⏳ Backend despertando…</p>
+              <p className="text-zinc-500 leading-relaxed">
+                El servidor Render está iniciando (puede tardar 30–60 seg en el plan gratuito).
+              </p>
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-1 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded font-mono text-[10px] transition-colors">
+                Reintentar
+              </button>
             </div>
           ) : (
             agents.map((a) => (

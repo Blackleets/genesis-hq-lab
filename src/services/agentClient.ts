@@ -20,11 +20,13 @@ async function get<T>(path: string): Promise<T | null> {
 export interface AgentTrade {
   id: string;
   agent_id: string;
+  market_id?: string;
   market_question: string;
   market_source: string;
   market_category: string;
   outcome: 'YES' | 'NO';
   entry_price: number;
+  exit_price?: number;
   shares: number;
   capital_used: number;
   confidence: number;
@@ -36,6 +38,32 @@ export interface AgentTrade {
   opened_at: string;
   closed_at?: string;
   days_to_close?: number;
+  stop_loss_price?: number;
+  take_profit_price?: number;
+}
+
+export interface AgentRunnerStatus {
+  ok: boolean;
+  running: boolean;
+  status: {
+    tickCount?: number;
+    lastTickAt?: string;
+    updatedAt?: string;
+    nextSwingAt?: string;
+    lastSwing?: {
+      scanned: number; qualified: number; vetoed: number;
+      debated: number; executed: number;
+      closedByLearning: number; lessonsGenerated: number; at: string;
+    };
+    lastScalp?: { scanned: number; executed: number; at: string };
+  } | null;
+}
+
+export interface PriceSnapshot { yes_price: number; no_price: number; recorded_at: string; }
+export interface TradeChartData {
+  ok: boolean;
+  trade: AgentTrade & { stop_loss_price?: number; take_profit_price?: number };
+  snapshots: PriceSnapshot[];
 }
 
 export interface AgentLesson {
@@ -184,15 +212,19 @@ export interface EdgeScorecard {
 // ─── API calls ────────────────────────────────────────────────────────────────
 
 export const agentClient = {
-  getTrades:   () => get<{ ok: boolean; trades: AgentTrade[] }>('/api/agent/trades'),
-  getLessons:  () => get<{ ok: boolean; lessons: AgentLesson[] }>('/api/agent/lessons'),
-  getSignals:  () => get<{ ok: boolean; signals: AgentSignal[]; accuracy: { total: number; correct: number; rate: number | null } }>('/api/agent/signals'),
-  getSkills:   () => get<{ ok: boolean; deployed: SkillVersion[] }>('/api/agent/skills'),
-  getDashboard:() => get<TradingDashboard>('/api/trading/dashboard'),
-  getStatus:   () => get<OrgStatus>('/api/command/status'),
-  getHealth:   () => get<HealthStatus>('/api/health'),
-  getMarketing:() => get<MarketingContent>('/api/agent/marketing'),
+  getTrades:        () => get<{ ok: boolean; trades: AgentTrade[] }>('/api/agent/trades'),
+  getLessons:       () => get<{ ok: boolean; lessons: AgentLesson[] }>('/api/agent/lessons'),
+  getSignals:       () => get<{ ok: boolean; signals: AgentSignal[]; accuracy: { total: number; correct: number; rate: number | null } }>('/api/agent/signals'),
+  getSkills:        () => get<{ ok: boolean; deployed: SkillVersion[] }>('/api/agent/skills'),
+  getDashboard:     () => get<TradingDashboard>('/api/trading/dashboard'),
+  getStatus:        () => get<OrgStatus>('/api/command/status'),
+  getHealth:        () => get<HealthStatus>('/api/health'),
+  getMarketing:     () => get<MarketingContent>('/api/agent/marketing'),
   getEdgeScorecard: () => get<EdgeScorecard>('/api/trading/edge-scorecard'),
+  getRunnerStatus:  () => get<AgentRunnerStatus>('/api/agent/runner-status'),
+  getTradeChart:    (id: string) => get<TradeChartData>(`/api/trading/trade/${id}/price-history`),
+  pauseTrading:     () => fetch(apiUrl('/api/trading/pause'), { method: 'POST' }).then(r => r.json()).catch(() => null),
+  resumeTrading:    () => fetch(apiUrl('/api/trading/resume'), { method: 'POST' }).then(r => r.json()).catch(() => null),
 
   sendCommand: async (command: string) => {
     try {
