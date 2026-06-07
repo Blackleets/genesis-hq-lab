@@ -3,8 +3,9 @@
 // Replaces the old full-width data strip so the chart can be the hero.
 
 import { useState } from 'react';
-import type { CryptoOverview } from '@services/cryptoClient';
+import type { CryptoOverview, TradeStory } from '@services/cryptoClient';
 import { ActivePositionsTerminal } from './ActivePositionsTerminal';
+import { TradeTimeline } from './TradeTimeline';
 
 const ACCENT = '#f7931a';
 
@@ -20,20 +21,27 @@ const ago = (iso?: string | null) => {
   return `${Math.floor(m / 60)}h ago`;
 };
 
-type Tab = 'POSITIONS' | 'STATS';
+type Tab = 'POSITIONS' | 'STATS' | 'TRADES';
 
 const TAB_COLOR: Record<Tab, string> = {
   POSITIONS: '#3b82f6',
   STATS:     ACCENT,
+  TRADES:    '#a855f7',
 };
 
 interface Props {
   data: CryptoOverview | null;
   es: boolean;
   className?: string;
+  tradeStories?: TradeStory[];
+  selectedTradeId?: string | null;
+  onSelectTrade?: (id: string | null) => void;
 }
 
-export function DeskPanel({ data, es, className = '' }: Props) {
+export function DeskPanel({
+  data, es, className = '',
+  tradeStories = [], selectedTradeId = null, onSelectTrade,
+}: Props) {
   const [tab, setTab] = useState<Tab>('POSITIONS');
 
   const p = data?.params;
@@ -48,7 +56,7 @@ export function DeskPanel({ data, es, className = '' }: Props) {
     }}>
       {/* Tab bar */}
       <div style={{ display: 'flex', flexShrink: 0, borderBottom: '1px solid #1e2a3a' }}>
-        {(['POSITIONS', 'STATS'] as Tab[]).map(t => (
+        {(['POSITIONS', 'STATS', 'TRADES'] as Tab[]).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -71,6 +79,13 @@ export function DeskPanel({ data, es, className = '' }: Props) {
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {tab === 'POSITIONS' ? (
           <ActivePositionsTerminal positions={data?.positions ?? []} noBorder />
+        ) : tab === 'TRADES' ? (
+          <TradeTimeline
+            trades={tradeStories}
+            selectedTradeId={selectedTradeId}
+            onSelect={onSelectTrade}
+            es={es}
+          />
         ) : (
           <div className="gx-scroll" style={{ height: '100%', overflowY: 'auto', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 12 }}>
 

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useLanguage } from '@core/i18n/languageStore';
-import { loadCryptoOverview, type CryptoOverview } from '@services/cryptoClient';
+import { loadCryptoOverview, loadTradeStories, type CryptoOverview, type TradeStory } from '@services/cryptoClient';
 import CandleChart from '@dashboard/charts/CandleChart';
 import { apiUrl } from '@services/apiBase';
 import { CommentaryFeed } from '../components/crypto/CommentaryFeed';
@@ -19,6 +19,8 @@ export default function CryptoLabView() {
   const [data, setData] = useState<CryptoOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [orderStatus, setOrderStatus] = useState<string | null>(null);
+  const [tradeStories, setTradeStories] = useState<TradeStory[]>([]);
+  const [selectedTradeId, setSelectedTradeId] = useState<string | null>(null);
 
   const fetchOverview = useCallback(async () => {
     try {
@@ -30,11 +32,18 @@ export default function CryptoLabView() {
     }
   }, []);
 
+  const fetchTrades = useCallback(async () => {
+    const t = await loadTradeStories(60);
+    setTradeStories(t);
+  }, []);
+
   useEffect(() => {
     fetchOverview();
-    const id = setInterval(fetchOverview, 15_000);
-    return () => clearInterval(id);
-  }, [fetchOverview]);
+    fetchTrades();
+    const id  = setInterval(fetchOverview, 15_000);
+    const id2 = setInterval(fetchTrades, 15_000);
+    return () => { clearInterval(id); clearInterval(id2); };
+  }, [fetchOverview, fetchTrades]);
 
   async function handleManualOrder(side: 'LONG' | 'SHORT', pair: string) {
     setOrderStatus(`Enviando ${side} ${pair.replace('USDT', '')}…`);
@@ -104,6 +113,9 @@ export default function CryptoLabView() {
           <CandleChart
             positions={data?.positions ?? []}
             onManualOrder={handleManualOrder}
+            tradeStories={tradeStories}
+            selectedTradeId={selectedTradeId}
+            onSelectTrade={setSelectedTradeId}
           />
         </div>
 
@@ -112,9 +124,15 @@ export default function CryptoLabView() {
           <CommentaryFeed />
         </div>
 
-        {/* Desk panel — positions + stats (bottom-center) */}
+        {/* Desk panel — positions + stats + trades (bottom-center) */}
         <div className="crypto-zone-desk">
-          <DeskPanel data={data} es={es} />
+          <DeskPanel
+            data={data}
+            es={es}
+            tradeStories={tradeStories}
+            selectedTradeId={selectedTradeId}
+            onSelectTrade={setSelectedTradeId}
+          />
         </div>
 
         {/* Market Intelligence / Depth (bottom-right) */}

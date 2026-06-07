@@ -173,3 +173,34 @@ export async function loadDepth(pair = 'BTCUSDT', levels = 20): Promise<DepthDat
     return depth as DepthData;
   } catch { return null; }
 }
+
+// ─── Trade Stories (chart storytelling overlay) ───────────────────────────────
+
+export interface TradeStory {
+  id:           string;
+  pair:         string;
+  side:         'LONG' | 'SHORT';
+  entry_price:  number;
+  exit_price:   number | null;
+  target_price: number | null;
+  stop_price:   number | null;
+  pnl:          number | null;
+  confidence:   number;          // 0–1
+  reason:       string;
+  evidence:     string[];
+  exit_reason:  string | null;
+  exit_kind:    'TP' | 'SL' | 'TIMEOUT' | 'CONFIDENCE' | 'EXIT' | null;
+  opened_at:    string;
+  closed_at:    string | null;
+  status:       string;
+}
+
+export async function loadTradeStories(limit = 40, pair?: string): Promise<TradeStory[]> {
+  try {
+    const q = pair ? `?limit=${limit}&pair=${pair}` : `?limit=${limit}`;
+    const res = await fetch(apiUrl(`/api/crypto/trades${q}`), { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return [];
+    const data = await res.json() as { ok: boolean; trades: TradeStory[] };
+    return data.trades ?? [];
+  } catch { return []; }
+}

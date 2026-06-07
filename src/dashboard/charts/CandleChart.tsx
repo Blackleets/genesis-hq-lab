@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { createChart, CandlestickSeries, LineSeries, HistogramSeries } from 'lightweight-charts';
-import type { UTCTimestamp, ISeriesApi, SeriesType } from 'lightweight-charts';
+import { createChart, CandlestickSeries, LineSeries, HistogramSeries, createSeriesMarkers } from 'lightweight-charts';
+import type { UTCTimestamp, ISeriesApi, SeriesType, SeriesMarker, Time, ISeriesMarkersPluginApi } from 'lightweight-charts';
+import type { TradeStory } from '@services/cryptoClient';
+import { TradeStoryCard } from '../../components/crypto/TradeStoryCard';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -11,6 +13,57 @@ const C = { up: '#00ff9c', down: '#ff4757', ema9: '#3da9fc', ema21: '#f59e0b' };
 
 // Binance public REST — CORS allowed from browser, no key needed
 const BINANCE = 'https://api.binance.com/api/v3';
+
+// Timeframe → seconds (for click tolerance + replay padding)
+const TF_SECONDS: Record<string, number> = {
+  '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400,
+};
+
+const EXIT_COLOR: Record<string, string> = {
+  TP: '#22c55e', SL: '#ef4444', TIMEOUT: '#f59e0b', CONFIDENCE: '#f97316', EXIT: '#9ca3af',
+};
+
+function toUnix(iso: string | null): number | null {
+  if (!iso) return null;
+  const ms = Date.parse(iso);
+  return Number.isNaN(ms) ? null : Math.floor(ms / 1000);
+}
+
+// Build entry + exit markers for the trades on the current pair.
+function buildMarkers(trades: TradeStory[], pair: string, selectedId: string | null): SeriesMarker<Time>[] {
+  const markers: SeriesMarker<Time>[] = [];
+  for (const t of trades) {
+    if (t.pair !== pair) continue;
+    const sel = t.id === selectedId;
+    const entryT = toUnix(t.opened_at);
+    if (entryT != null) {
+      const isLong = t.side === 'LONG';
+      markers.push({
+        time: entryT as UTCTimestamp,
+        position: isLong ? 'belowBar' : 'aboveBar',
+        shape: isLong ? 'arrowUp' : 'arrowDown',
+        color: sel ? (isLong ? '#4ade80' : '#c084fc') : (isLong ? '#22c55e' : '#a855f7'),
+        text: t.side,
+        size: sel ? 2 : 1,
+      });
+    }
+    const exitT = toUnix(t.closed_at);
+    if (exitT != null && t.exit_kind) {
+      const col = EXIT_COLOR[t.exit_kind] ?? '#9ca3af';
+      markers.push({
+        time: exitT as UTCTimestamp,
+        position: 'aboveBar',
+        shape: 'circle',
+        color: sel ? '#ffffff' : col,
+        text: t.exit_kind === 'TP' ? 'TP' : t.exit_kind === 'SL' ? 'SL' : 'EXIT',
+        size: sel ? 2 : 1,
+      });
+    }
+  }
+  // lightweight-charts requires markers sorted ascending by time
+  markers.sort((a, b) => (a.time as number) - (b.time as number));
+  return markers;
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,6 +81,9 @@ export interface AgentPosition {
 interface Props {
   positions?: AgentPosition[];
   onManualOrder?: (side: 'LONG' | 'SHORT', pair: string) => void;
+  tradeStories?: TradeStory[];
+  selectedTradeId?: string | null;
+  onSelectTrade?: (id: string | null) => void;
 }
 
 // ─── EMA helper ───────────────────────────────────────────────────────────────
@@ -42,15 +98,26 @@ function ema(closes: number[], period: number): number[] {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function CandleChart({ positions = [], onManualOrder }: Props) {
+export default function CandleChart({
+  positions = [], onManualOrder,
+  tradeStories = [], selectedTradeId = null, onSelectTrade,
+}: Props) {
   const wrapRef  = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ReturnType<typeof createChart> | null>(null);
 
   // Keep series in refs so we only create them once
-  const csRef  = useRef<ISeriesApi<SeriesType> | null>(null);
-  const e9Ref  = useRef<ISeriesApi<SeriesType> | null>(null);
-  const e21Ref = useRef<ISeriesApi<SeriesType> | null>(null);
-  const volRef = useRef<ISeriesApi<SeriesType> | null>(null);
+  const csRef      = useRef<ISeriesApi<SeriesType> | null>(null);
+  const e9Ref      = useRef<ISeriesApi<SeriesType> | null>(null);
+  const e21Ref     = useRef<ISeriesApi<SeriesType> | null>(null);
+  const volRef     = useRef<ISeriesApi<SeriesType> | null>(null);
+  const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
+
+  // Latest props/state for use inside the once-created click handler
+  const tradesRef   = useRef<TradeStory[]>(tradeStories);
+  const onSelectRef = useRef(onSelectTrade);
+  const selectedRef = useRef<string | null>(selectedTradeId);
+  const pairRef     = useRef('BTCUSDT');
+  const tfRef       = useRef('1h');
 
   const [pair, setPair]         = useState('BTCUSDT');
   const [tf, setTf]             = useState('1h');
@@ -58,6 +125,15 @@ export default function CandleChart({ positions = [], onManualOrder }: Props) {
   const [change, setChange]     = useState(0);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
+  const [candlesLoadedAt, setCandlesLoadedAt] = useState(0);
+
+  useEffect(() => { tradesRef.current = tradeStories; }, [tradeStories]);
+  useEffect(() => { onSelectRef.current = onSelectTrade; }, [onSelectTrade]);
+  useEffect(() => { selectedRef.current = selectedTradeId; }, [selectedTradeId]);
+  useEffect(() => { pairRef.current = pair; }, [pair]);
+  useEffect(() => { tfRef.current = tf; }, [tf]);
+
+  const selectedTrade = tradeStories.find(t => t.id === selectedTradeId) ?? null;
 
   // ── Create chart + series ONCE ──────────────────────────────────────────────
   useEffect(() => {
@@ -98,6 +174,28 @@ export default function CandleChart({ positions = [], onManualOrder }: Props) {
     });
     chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.85, bottom: 0 } });
 
+    // Trade markers primitive (v5) — attached to the candlestick series
+    markersRef.current = createSeriesMarkers(csRef.current, []);
+
+    // Click → select the nearest trade marker (entry or exit) by time
+    chart.subscribeClick((param) => {
+      if (param.time == null || !onSelectRef.current) return;
+      const clicked = param.time as number;
+      const tol = (TF_SECONDS[tfRef.current] ?? 3600) * 2.5;
+      let best: { id: string; d: number } | null = null;
+      for (const t of tradesRef.current) {
+        if (t.pair !== pairRef.current) continue;
+        for (const iso of [t.opened_at, t.closed_at]) {
+          const u = toUnix(iso);
+          if (u == null) continue;
+          const d = Math.abs(u - clicked);
+          if (d <= tol && (!best || d < best.d)) best = { id: t.id, d };
+        }
+      }
+      // Toggle off if re-clicking the already-selected trade
+      onSelectRef.current(best ? (best.id === selectedRef.current ? null : best.id) : null);
+    });
+
     // Responsive width + height — chart fills its container cell
     const ro = new ResizeObserver(() => {
       if (wrapRef.current) chart.applyOptions({
@@ -107,7 +205,7 @@ export default function CandleChart({ positions = [], onManualOrder }: Props) {
     });
     ro.observe(wrapRef.current);
 
-    return () => { ro.disconnect(); chart.remove(); chartRef.current = null; };
+    return () => { ro.disconnect(); chart.remove(); chartRef.current = null; markersRef.current = null; };
   }, []);
 
   // ── Load candles whenever pair or tf changes ────────────────────────────────
@@ -153,6 +251,7 @@ export default function CandleChart({ positions = [], onManualOrder }: Props) {
         })));
 
         chartRef.current!.timeScale().fitContent();
+        setCandlesLoadedAt(Date.now());  // signals marker/replay effects to re-run
 
         // Price = last close; % change = 24h (last 24 candles for 1h, else first vs last)
         const last = candles[candles.length - 1];
@@ -176,6 +275,34 @@ export default function CandleChart({ positions = [], onManualOrder }: Props) {
 
     return () => { cancelled = true; clearTimeout(init); clearInterval(poll); };
   }, [pair, tf]);
+
+  // ── Trade markers: recompute when trades/pair/selection/data change ──────────
+  useEffect(() => {
+    if (!markersRef.current) return;
+    markersRef.current.setMarkers(buildMarkers(tradeStories, pair, selectedTradeId));
+  }, [tradeStories, pair, selectedTradeId, candlesLoadedAt]);
+
+  // ── When a trade on another pair is selected, switch the chart to its pair ───
+  useEffect(() => {
+    if (selectedTrade && selectedTrade.pair && selectedTrade.pair !== pair) {
+      setPair(selectedTrade.pair);
+    }
+  }, [selectedTrade, pair]);
+
+  // ── Replay: pan/zoom the chart to the selected trade's time window ───────────
+  useEffect(() => {
+    if (!chartRef.current || !selectedTrade || selectedTrade.pair !== pair) return;
+    const from = toUnix(selectedTrade.opened_at);
+    const to   = toUnix(selectedTrade.closed_at) ?? Math.floor(Date.now() / 1000);
+    if (from == null) return;
+    const pad = (TF_SECONDS[tf] ?? 3600) * 12;  // ~12 candles of context each side
+    try {
+      chartRef.current.timeScale().setVisibleRange({
+        from: (from - pad) as UTCTimestamp,
+        to:   (to + pad) as UTCTimestamp,
+      });
+    } catch { /* range outside loaded data — ignore */ }
+  }, [selectedTrade, pair, tf, candlesLoadedAt]);
 
   // ── Derived ────────────────────────────────────────────────────────────────
   const symbol   = pair.replace('USDT', '');
@@ -265,7 +392,12 @@ export default function CandleChart({ positions = [], onManualOrder }: Props) {
       )}
 
       {/* ── Chart canvas — flex-fills the remaining card height ─────────── */}
-      <div ref={wrapRef} className="w-full flex-1 min-h-0" style={{ minHeight: 200 }} />
+      <div className="relative w-full flex-1 min-h-0" style={{ minHeight: 200 }}>
+        <div ref={wrapRef} className="absolute inset-0" />
+        {selectedTrade && (
+          <TradeStoryCard trade={selectedTrade} onClose={() => onSelectTrade?.(null)} />
+        )}
+      </div>
 
       {/* ── Manual order panel ──────────────────────────────────────────── */}
       {onManualOrder && (

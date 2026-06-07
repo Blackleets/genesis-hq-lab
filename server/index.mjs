@@ -71,6 +71,7 @@ import { getTrainingMetrics }                             from './trading/positi
 import { getMarketIntelligence, getCryptoFeedEvents }     from './crypto/marketIntelligence.mjs';
 import { fetchDepth }                                     from './crypto/liquidityMatrix.mjs';
 import { getCommentary }                                  from './ai/commentaryEngine.mjs';
+import { getTradeStories }                                from './crypto/tradeHistory.mjs';
 
 // In-memory SkillOpt job state (single concurrent job)
 const skilloptJob = { running: false, lastResult: null, startedAt: null, agent: null };
@@ -586,6 +587,17 @@ const server = createServer(async (req, res) => {
       const limit = Math.min(120, Math.max(1, parseInt(url.searchParams.get('limit') ?? '40', 10)));
       const commentary = await getCommentary({ limit });
       sendJson(res, 200, { ok: true, commentary });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  // GET /api/crypto/trades?limit=40&pair=BTCUSDT — trade stories for chart overlay
+  if (url.pathname === '/api/crypto/trades') {
+    try {
+      const limit = Math.min(120, Math.max(1, parseInt(url.searchParams.get('limit') ?? '40', 10)));
+      const pair  = url.searchParams.get('pair') || null;
+      const trades = getTradeStories({ limit, pair: pair ? pair.toUpperCase() : null });
+      sendJson(res, 200, { ok: true, trades });
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;
   }
