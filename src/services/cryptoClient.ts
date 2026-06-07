@@ -204,3 +204,35 @@ export async function loadTradeStories(limit = 40, pair?: string): Promise<Trade
     return data.trades ?? [];
   } catch { return []; }
 }
+
+// ─── Trading Co-Pilot ─────────────────────────────────────────────────────────
+
+export interface CopilotAnalysis {
+  pair: string;
+  side: 'LONG' | 'SHORT';
+  price: number;
+  confidence: number;             // 0–100
+  engineEndorsed: boolean;
+  risk: { score: number; band: string; safeMode: boolean };
+  tp: number; sl: number; tpPct: number; slPct: number;
+  regime: string; momentum: string; volatility: string;
+  evPct: number; evUsd: number; winProb: number;
+  positive: string[];
+  negative: string[];
+  simulation: { pTP: number; pSL: number; pTimeout: number };
+  safety: { blocked: boolean; reasons: string[] };
+}
+
+export async function analyzeCopilot(pair: string, side: 'LONG' | 'SHORT'): Promise<CopilotAnalysis | null> {
+  try {
+    const res = await fetch(apiUrl('/api/crypto/copilot'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pair, side }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json() as { ok: boolean; analysis: CopilotAnalysis };
+    return data.ok ? data.analysis : null;
+  } catch { return null; }
+}

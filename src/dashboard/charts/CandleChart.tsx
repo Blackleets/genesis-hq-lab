@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { createChart, CandlestickSeries, LineSeries, HistogramSeries, createSeriesMarkers } from 'lightweight-charts';
 import type { UTCTimestamp, ISeriesApi, SeriesType, SeriesMarker, Time, ISeriesMarkersPluginApi } from 'lightweight-charts';
-import type { TradeStory } from '@services/cryptoClient';
+import type { TradeStory, CopilotAnalysis } from '@services/cryptoClient';
+import { analyzeCopilot } from '@services/cryptoClient';
 import { TradeStoryCard } from '../../components/crypto/TradeStoryCard';
+import { CopilotPanel } from '../../components/crypto/CopilotPanel';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -126,6 +128,12 @@ export default function CandleChart({
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
   const [candlesLoadedAt, setCandlesLoadedAt] = useState(0);
+
+  // Co-pilot pre-trade state
+  const [copilotSide, setCopilotSide]         = useState<'LONG' | 'SHORT' | null>(null);
+  const [copilotAnalysis, setCopilotAnalysis] = useState<CopilotAnalysis | null>(null);
+  const [copilotLoading, setCopilotLoading]   = useState(false);
+  const [copilotExecuting, setCopilotExecuting] = useState(false);
 
   useEffect(() => { tradesRef.current = tradeStories; }, [tradeStories]);
   useEffect(() => { onSelectRef.current = onSelectTrade; }, [onSelectTrade]);
@@ -304,6 +312,29 @@ export default function CandleChart({
     } catch { /* range outside loaded data — ignore */ }
   }, [selectedTrade, pair, tf, candlesLoadedAt]);
 
+  // ── Co-pilot handlers ────────────────────────────────────────────────────────
+  async function openCopilot(side: 'LONG' | 'SHORT') {
+    setCopilotSide(side);
+    setCopilotAnalysis(null);
+    setCopilotLoading(true);
+    const a = await analyzeCopilot(pair, side);
+    setCopilotAnalysis(a);
+    setCopilotLoading(false);
+  }
+  function closeCopilot() {
+    setCopilotSide(null);
+    setCopilotAnalysis(null);
+    setCopilotLoading(false);
+  }
+  async function executeCopilot() {
+    if (!copilotSide || !onManualOrder) return;
+    setCopilotExecuting(true);
+    try { await onManualOrder(copilotSide, pair); } finally {
+      setCopilotExecuting(false);
+      closeCopilot();
+    }
+  }
+
   // ── Derived ────────────────────────────────────────────────────────────────
   const symbol   = pair.replace('USDT', '');
   const isUp     = change >= 0;
@@ -394,29 +425,42 @@ export default function CandleChart({
       {/* ── Chart canvas — flex-fills the remaining card height ─────────── */}
       <div className="relative w-full flex-1 min-h-0" style={{ minHeight: 200 }}>
         <div ref={wrapRef} className="absolute inset-0" />
-        {selectedTrade && (
+        {selectedTrade && !copilotSide && (
           <TradeStoryCard trade={selectedTrade} onClose={() => onSelectTrade?.(null)} />
+        )}
+        {copilotSide && (
+          <CopilotPanel
+            analysis={copilotAnalysis}
+            loading={copilotLoading}
+            executing={copilotExecuting}
+            onExecute={executeCopilot}
+            onClose={closeCopilot}
+          />
         )}
       </div>
 
-      {/* ── Manual order panel ──────────────────────────────────────────── */}
+      {/* ── Manual order panel — opens the Co-Pilot pre-trade analysis ───── */}
       {onManualOrder && (
         <div className="border-t border-zinc-800 px-4 py-3 flex items-center gap-3 flex-wrap">
           <div className="flex-1 min-w-0">
             <div className="font-mono text-[12px] text-zinc-300 font-bold">{symbol}/USDT</div>
-            <div className="font-mono text-[10px] text-zinc-600">$100 · paper trade · ejecución inmediata</div>
+            <div className="font-mono text-[10px] text-zinc-600">$100 · paper · ◆ co-pilot asistido</div>
           </div>
           <button
-            onClick={() => onManualOrder('LONG', pair)}
+            type="button"
+            onClick={() => openCopilot('LONG')}
+            disabled={copilotSide !== null}
             className="font-mono text-[13px] font-bold px-6 py-2.5 rounded
-              bg-emerald-500 hover:bg-emerald-400 active:scale-95
+              bg-emerald-500 hover:bg-emerald-400 active:scale-95 disabled:opacity-50
               text-black transition-all">
             Long ▲
           </button>
           <button
-            onClick={() => onManualOrder('SHORT', pair)}
+            type="button"
+            onClick={() => openCopilot('SHORT')}
+            disabled={copilotSide !== null}
             className="font-mono text-[13px] font-bold px-6 py-2.5 rounded
-              bg-rose-500 hover:bg-rose-400 active:scale-95
+              bg-rose-500 hover:bg-rose-400 active:scale-95 disabled:opacity-50
               text-white transition-all">
             Short ▼
           </button>

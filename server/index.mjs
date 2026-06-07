@@ -72,6 +72,7 @@ import { getMarketIntelligence, getCryptoFeedEvents }     from './crypto/marketI
 import { fetchDepth }                                     from './crypto/liquidityMatrix.mjs';
 import { getCommentary }                                  from './ai/commentaryEngine.mjs';
 import { getTradeStories }                                from './crypto/tradeHistory.mjs';
+import { analyzeTrade, assertTradeAllowed }               from './crypto/copilot.mjs';
 
 // In-memory SkillOpt job state (single concurrent job)
 const skilloptJob = { running: false, lastResult: null, startedAt: null, agent: null };
@@ -534,6 +535,12 @@ const server = createServer(async (req, res) => {
         if (!['LONG', 'SHORT'].includes(side)) {
           sendJson(res, 400, { ok: false, error: 'side must be LONG or SHORT' }); return;
         }
+        // SAFETY GATE (authoritative): never bypass safe mode / risk systems.
+        const gate = assertTradeAllowed({ pair });
+        if (gate.blocked) {
+          sendJson(res, 403, { ok: false, blocked: true, error: gate.reasons[0], reasons: gate.reasons });
+          return;
+        }
         const { getCurrentPrice } = await import('./crypto/priceFeeder.mjs');
         const { executeCryptoPaperTrade } = await import('./crypto/cryptoExecution.mjs');
         const entryPrice = await getCurrentPrice(pair);
@@ -599,6 +606,23 @@ const server = createServer(async (req, res) => {
       const trades = getTradeStories({ limit, pair: pair ? pair.toUpperCase() : null });
       sendJson(res, 200, { ok: true, trades });
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  // POST /api/crypto/copilot { pair, side } — pre-trade co-pilot analysis
+  if (url.pathname === '/api/crypto/copilot' && req.method === 'POST') {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', async () => {
+      try {
+        const { pair = 'BTCUSDT', side } = JSON.parse(body || '{}');
+        if (!['LONG', 'SHORT'].includes(side)) {
+          sendJson(res, 400, { ok: false, error: 'side must be LONG or SHORT' }); return;
+        }
+        const analysis = await analyzeTrade({ pair: pair.toUpperCase(), side });
+        sendJson(res, 200, { ok: true, analysis });
+      } catch (e) { sendJson(res, 502, { ok: false, error: e.message }); }
+    });
     return;
   }
 
