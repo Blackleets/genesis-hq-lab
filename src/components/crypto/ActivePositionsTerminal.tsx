@@ -29,17 +29,18 @@ interface Props {
   positions: CryptoPosition[];
   currentPrices?: Record<string, number>;  // pair → current price for live unrealized PnL
   className?: string;
+  noBorder?: boolean;
 }
 
-export function ActivePositionsTerminal({ positions, currentPrices = {}, className = '' }: Props) {
+export function ActivePositionsTerminal({ positions, currentPrices = {}, className = '', noBorder = false }: Props) {
   return (
     <div
       className={className}
       style={{
         height: '100%',
         background: '#0a0e1a',
-        border: '1px solid #1e2a3a',
-        borderRadius: 8,
+        border:       noBorder ? 'none' : '1px solid #1e2a3a',
+        borderRadius: noBorder ? 0 : 8,
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',

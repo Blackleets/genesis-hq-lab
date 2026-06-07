@@ -71,26 +71,26 @@ export async function loadCryptoOverview(): Promise<CryptoOverview> {
   return res.json() as Promise<CryptoOverview>;
 }
 
-// ─── Execution Feed ───────────────────────────────────────────────────────────
+// ─── AI Commentary ────────────────────────────────────────────────────────────
 
-export interface FeedEvent {
-  id: string | number;
-  ts: string;
-  category: string;
+export interface CommentaryItem {
+  id:       string;
+  ts:       string;
+  type:     string;   // SCANNING | ANALYZING | SIGNAL_FOUND | TRADE_REJECTED | ...
+  text:     string;
+  detail:   string;
   severity: string;
-  subsystem: string;
-  reason: string;
-  metadata?: Record<string, unknown>;
+  source:   'deterministic' | 'llm';
 }
 
-export async function loadCryptoFeed(limit = 60): Promise<FeedEvent[]> {
+export async function loadCommentary(limit = 40): Promise<CommentaryItem[]> {
   try {
-    const res = await fetch(apiUrl(`/api/crypto/feed?limit=${limit}`), {
+    const res = await fetch(apiUrl(`/api/crypto/commentary?limit=${limit}`), {
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return [];
-    const data = await res.json() as { ok: boolean; events: FeedEvent[] };
-    return data.events ?? [];
+    const data = await res.json() as { ok: boolean; commentary: CommentaryItem[] };
+    return data.commentary ?? [];
   } catch { return []; }
 }
 

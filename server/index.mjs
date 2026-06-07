@@ -70,6 +70,7 @@ import { getSchedulerStatus }                             from './trading/execut
 import { getTrainingMetrics }                             from './trading/positionMonitor.mjs';
 import { getMarketIntelligence, getCryptoFeedEvents }     from './crypto/marketIntelligence.mjs';
 import { fetchDepth }                                     from './crypto/liquidityMatrix.mjs';
+import { getCommentary }                                  from './ai/commentaryEngine.mjs';
 
 // In-memory SkillOpt job state (single concurrent job)
 const skilloptJob = { running: false, lastResult: null, startedAt: null, agent: null };
@@ -576,6 +577,16 @@ const server = createServer(async (req, res) => {
       const data   = await fetchDepth(pair, levels);
       sendJson(res, 200, { ok: true, ...data });
     } catch (e) { sendJson(res, 502, { ok: false, error: e.message }); }
+    return;
+  }
+
+  // GET /api/crypto/commentary?limit=40 — AI commentary feed
+  if (url.pathname === '/api/crypto/commentary') {
+    try {
+      const limit = Math.min(120, Math.max(1, parseInt(url.searchParams.get('limit') ?? '40', 10)));
+      const commentary = await getCommentary({ limit });
+      sendJson(res, 200, { ok: true, commentary });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;
   }
 
