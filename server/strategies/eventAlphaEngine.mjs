@@ -35,11 +35,19 @@ import { isDeptActive } from '../command/orgState.mjs';
 
 const AGENT_ID = 'event-alpha-1';
 
-const EV_THRESHOLD    = parseFloat(process.env.EVENT_EV_THRESHOLD ?? '0.08');  // 8% min EV
-const MIN_CONFIDENCE  = parseFloat(process.env.EVENT_MIN_CONF ?? '0.72');
+// Training-mode gates: 4% EV is a realistic positive edge for prediction markets
+// (8% rejected nearly everything); genesisProb ≥ 0.62 still requires the model to
+// favour the outcome. See trainingTuning.test.mjs. Risk/safe-mode gates unchanged.
+const EV_THRESHOLD    = parseFloat(process.env.EVENT_EV_THRESHOLD ?? '0.04');  // 4% min EV
+const MIN_CONFIDENCE  = parseFloat(process.env.EVENT_MIN_CONF ?? '0.62');
 const MAX_TRADES_PER_CYCLE = parseInt(process.env.EVENT_MAX_TRADES ?? '2', 10);
 
 const TRAINING_MODE = ['1', 'true', 'yes'].includes((process.env.TRAINING_MODE ?? '').toLowerCase());
+
+/** Effective event-alpha engine config (used by diagnostics + tuning tests). */
+export function eventConfig() {
+  return { evThreshold: EV_THRESHOLD, minConfidence: MIN_CONFIDENCE, maxTradesPerCycle: MAX_TRADES_PER_CYCLE };
+}
 
 // ── EV calculation ────────────────────────────────────────────────────────────
 

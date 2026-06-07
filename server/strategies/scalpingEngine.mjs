@@ -32,9 +32,17 @@ const TRADE_TYPE  = 'scalp_v2';
 // TP/SL from env or defaults
 const TP_PCT = parseFloat(process.env.SCALP_TP_PCT ?? '0.004');   // 0.4% default
 const SL_PCT = parseFloat(process.env.SCALP_SL_PCT ?? '0.002');   // 0.2% default
-const MIN_CONFIDENCE = parseFloat(process.env.SCALP_MIN_CONF ?? '0.70');
+// Training-mode gate: 0.65 matches the engine's confidence FLOOR (evaluateScalpSignal
+// returns 0.65 at the minimum qualifying score). A higher gate would reject every
+// borderline-but-valid signal and starve training. See trainingTuning.test.mjs.
+const MIN_CONFIDENCE = parseFloat(process.env.SCALP_MIN_CONF ?? '0.65');
 const MAX_CAPITAL_PER_TRADE = parseFloat(process.env.SCALP_MAX_CAPITAL ?? '200'); // $200 max per scalp
 const TIMEOUT_HOURS = parseFloat(process.env.SCALP_TIMEOUT_H ?? '2');
+
+/** Effective scalp engine config (used by diagnostics + tuning tests). */
+export function scalpConfig() {
+  return { minConfidence: MIN_CONFIDENCE, tpPct: TP_PCT, slPct: SL_PCT, maxCapital: MAX_CAPITAL_PER_TRADE, timeoutHours: TIMEOUT_HOURS };
+}
 
 const TRAINING_MODE = ['1', 'true', 'yes'].includes((process.env.TRAINING_MODE ?? '').toLowerCase());
 

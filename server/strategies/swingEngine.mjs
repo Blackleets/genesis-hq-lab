@@ -22,11 +22,18 @@ const TRADE_TYPE = 'swing_v1';
 
 const TP_PCT = parseFloat(process.env.SWING_TP_PCT ?? '0.05');    // 5% default
 const SL_PCT = parseFloat(process.env.SWING_SL_PCT ?? '0.015');   // 1.5% default
-const MIN_CONFIDENCE = parseFloat(process.env.SWING_MIN_CONF ?? '0.80');
+// Training-mode gate: 0.70 — stricter than scalp (0.65) but not the old 0.80 that
+// blocked nearly every swing setup. See trainingTuning.test.mjs.
+const MIN_CONFIDENCE = parseFloat(process.env.SWING_MIN_CONF ?? '0.70');
 const MAX_CAPITAL_PER_TRADE = parseFloat(process.env.SWING_MAX_CAPITAL ?? '300'); // $300 max
 const TIMEOUT_HOURS = parseFloat(process.env.SWING_TIMEOUT_H ?? '12');
 
 const TRAINING_MODE = ['1', 'true', 'yes'].includes((process.env.TRAINING_MODE ?? '').toLowerCase());
+
+/** Effective swing engine config (used by diagnostics + tuning tests). */
+export function swingConfig() {
+  return { minConfidence: MIN_CONFIDENCE, tpPct: TP_PCT, slPct: SL_PCT, maxCapital: MAX_CAPITAL_PER_TRADE, timeoutHours: TIMEOUT_HOURS };
+}
 
 // ── Resample 1m closes to N-minute bars ──────────────────────────────────────
 

@@ -6,6 +6,7 @@ import { useState } from 'react';
 import type { CryptoOverview, TradeStory } from '@services/cryptoClient';
 import { ActivePositionsTerminal } from './ActivePositionsTerminal';
 import { TradeTimeline } from './TradeTimeline';
+import { EngineTelemetry } from './EngineTelemetry';
 
 const ACCENT = '#f7931a';
 
@@ -88,6 +89,9 @@ export function DeskPanel({
           />
         ) : (
           <div className="gx-scroll" style={{ height: '100%', overflowY: 'auto', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+            {/* Execution telemetry — loop status + why-no-trade */}
+            <EngineTelemetry />
 
             {/* PnL by asset */}
             <div>

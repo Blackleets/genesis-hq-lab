@@ -223,6 +223,36 @@ export interface CopilotAnalysis {
   safety: { blocked: boolean; reasons: string[] };
 }
 
+// ─── Execution Diagnostics (training telemetry) ───────────────────────────────
+
+export interface LoopStatus {
+  running: boolean;
+  ticks: number;
+  lastRun: string | null;
+  errors: number;
+}
+
+export interface ExecutionDiagnostics {
+  loops: { scalping: LoopStatus; event: LoopStatus; swing: LoopStatus };
+  gates: {
+    scalp: { minConfidence: number; tpPct: number; slPct: number };
+    swing: { minConfidence: number };
+    event: { evThreshold: number; minConfidence: number };
+  };
+  training: { total: number; open: number; closed: number; winRate: number | null; totalPnl: number } | null;
+  mode: string;
+  recentScans: { ts: string; reason: string; subsystem: string }[];
+}
+
+export async function loadDiagnostics(): Promise<ExecutionDiagnostics | null> {
+  try {
+    const res = await fetch(apiUrl('/api/crypto/diagnostics'), { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return null;
+    const data = await res.json() as { ok: boolean } & ExecutionDiagnostics;
+    return data.ok ? data : null;
+  } catch { return null; }
+}
+
 export async function analyzeCopilot(pair: string, side: 'LONG' | 'SHORT'): Promise<CopilotAnalysis | null> {
   try {
     const res = await fetch(apiUrl('/api/crypto/copilot'), {

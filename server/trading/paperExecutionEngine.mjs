@@ -63,13 +63,13 @@ export async function openCryptoPosition(opts) {
 
   // ── Safety gates — NEVER bypass ──
   if (isGlobalSafeMode()) {
-    logEvent(CATEGORY.EXECUTION, SEVERITY.WARNING, agentId,
-      `BLOCKED (global safe mode): ${side} ${asset.symbol}`, { asset: asset.symbol });
+    logEvent({ category: CATEGORY.EXECUTION, severity: SEVERITY.WARNING, subsystem: agentId,
+      reason: `BLOCKED (global safe mode): ${side} ${asset.symbol}`, metadata: { asset: asset.symbol } });
     return { executed: false, reason: 'global_safe_mode', blocked: true };
   }
   if (isSafeMode()) {
-    logEvent(CATEGORY.EXECUTION, SEVERITY.WARNING, agentId,
-      `BLOCKED (reconciliation safe mode): ${side} ${asset.symbol}`, { asset: asset.symbol });
+    logEvent({ category: CATEGORY.EXECUTION, severity: SEVERITY.WARNING, subsystem: agentId,
+      reason: `BLOCKED (reconciliation safe mode): ${side} ${asset.symbol}`, metadata: { asset: asset.symbol } });
     return { executed: false, reason: 'reconciliation_safe_mode', blocked: true };
   }
 
@@ -148,8 +148,8 @@ export async function openCryptoPosition(opts) {
   });
 
   const msg = `OPEN ${side} ${asset.symbol} @ $${effectiveEntryPrice.toFixed(2)} → TP $${tp.toFixed ? tp.toFixed(2) : tp} | SL $${sl.toFixed ? sl.toFixed(2) : sl} | capital $${effectiveCapital.toFixed(2)}`;
-  logEvent(CATEGORY.EXECUTION, SEVERITY.INFO, agentId, msg,
-    { tradeId: id, confidence, asset: asset.symbol, side, tradeType });
+  logEvent({ category: CATEGORY.EXECUTION, severity: SEVERITY.INFO, subsystem: agentId, reason: msg,
+    metadata: { tradeId: id, confidence, asset: asset.symbol, side, tradeType, type: 'open' } });
 
   if (TRAINING_MODE) {
     console.log(`[paperExec][TRAINING] ${agentId}: ${msg} | conf=${(confidence * 100).toFixed(0)}% | slippage=${(slippagePct * 100).toFixed(2)}%`);
@@ -193,13 +193,13 @@ export async function closeCryptoPosition(tradeId, currentPrice, exitReason, age
     risk_close:         'RISK CLOSE',
   }[exitReason] ?? exitReason.toUpperCase();
 
-  logEvent(
-    won ? CATEGORY.EXECUTION : CATEGORY.RISK,
-    won ? SEVERITY.INFO : SEVERITY.WARNING,
-    agentId ?? trade.agent_id,
-    `${exitLabel}: ${trade.outcome} ${trade.asset_pair ?? ''} @ $${currentPrice.toFixed(2)} | PnL $${(closedTrade.pnl ?? 0).toFixed(2)}`,
-    { tradeId, pnl: closedTrade.pnl, exitReason, asset: trade.asset_pair, won }
-  );
+  logEvent({
+    category: won ? CATEGORY.EXECUTION : CATEGORY.RISK,
+    severity: won ? SEVERITY.INFO : SEVERITY.WARNING,
+    subsystem: agentId ?? trade.agent_id,
+    reason: `${exitLabel}: ${trade.outcome} ${trade.asset_pair ?? ''} @ $${currentPrice.toFixed(2)} | PnL $${(closedTrade.pnl ?? 0).toFixed(2)}`,
+    metadata: { tradeId, pnl: closedTrade.pnl, exitReason, asset: trade.asset_pair, won, type: 'close' },
+  });
 
   if (TRAINING_MODE) {
     console.log(`[paperExec][TRAINING] ${agentId ?? trade.agent_id}: ${exitLabel} ${trade.outcome} ${trade.asset_pair ?? ''} @ $${currentPrice.toFixed(2)} | PnL=$${(closedTrade.pnl ?? 0).toFixed(2)}`);

@@ -73,6 +73,10 @@ import { fetchDepth }                                     from './crypto/liquidi
 import { getCommentary }                                  from './ai/commentaryEngine.mjs';
 import { getTradeStories }                                from './crypto/tradeHistory.mjs';
 import { analyzeTrade, assertTradeAllowed }               from './crypto/copilot.mjs';
+import { getSchedulerStatus }                             from './trading/executionScheduler.mjs';
+import { scalpConfig }                                    from './strategies/scalpingEngine.mjs';
+import { swingConfig }                                    from './strategies/swingEngine.mjs';
+import { eventConfig }                                    from './strategies/eventAlphaEngine.mjs';
 
 // In-memory SkillOpt job state (single concurrent job)
 const skilloptJob = { running: false, lastResult: null, startedAt: null, agent: null };
@@ -605,6 +609,42 @@ const server = createServer(async (req, res) => {
       const pair  = url.searchParams.get('pair') || null;
       const trades = getTradeStories({ limit, pair: pair ? pair.toUpperCase() : null });
       sendJson(res, 200, { ok: true, trades });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  // GET /api/crypto/diagnostics — execution telemetry (loop status + rejections + gates)
+  if (url.pathname === '/api/crypto/diagnostics') {
+    try {
+      const sched = getSchedulerStatus();
+      const now = Date.now();
+      const isLive = (iso) => iso ? (now - new Date(iso).getTime()) < 60_000 : false;
+
+      // Recent rejection / scan reasons for operator "why no trade" visibility
+      const recent = (() => {
+        try {
+          return getTimeline({ limit: 12, category: 'SCAN' }).map(e => ({
+            ts: e.ts, reason: e.reason, subsystem: e.subsystem,
+          }));
+        } catch { return []; }
+      })();
+
+      sendJson(res, 200, {
+        ok: true,
+        loops: {
+          scalping: { running: sched.started && isLive(sched.lastRun?.fast), ticks: sched.ticks?.fast ?? 0, lastRun: sched.lastRun?.fast ?? null, errors: sched.errors?.fast ?? 0 },
+          event:    { running: sched.started && isLive(sched.lastRun?.mid),  ticks: sched.ticks?.mid ?? 0,  lastRun: sched.lastRun?.mid ?? null,  errors: sched.errors?.mid ?? 0 },
+          swing:    { running: sched.started && isLive(sched.lastRun?.slow), ticks: sched.ticks?.slow ?? 0, lastRun: sched.lastRun?.slow ?? null, errors: sched.errors?.slow ?? 0 },
+        },
+        gates: {
+          scalp: scalpConfig(),
+          swing: swingConfig(),
+          event: eventConfig(),
+        },
+        training: sched.training ?? null,
+        mode: sched.mode,
+        recentScans: recent,
+      });
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;
   }

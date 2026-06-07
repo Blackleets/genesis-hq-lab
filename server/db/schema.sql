@@ -323,7 +323,12 @@ VALUES
   ('research-agent-1','Research Intel',  'researcher', 'research',           1, datetime('now')),
   ('ceo-agent',       'Genesis CEO',     'ceo',        'executive',          5, datetime('now')),
   ('sentinel',        'Sentinel',        'guardian',   'operations',         3, datetime('now')),
-  ('marketing-agent', 'Marketing Agent', 'marketer',   'marketing',          1, datetime('now'));
+  ('marketing-agent', 'Marketing Agent', 'marketer',   'marketing',          1, datetime('now')),
+  -- Phase 6A paper-training engines. Without these rows the trades.agent_id
+  -- FOREIGN KEY fails and EVERY engine execution is silently rejected.
+  ('scalping-engine-1', 'Scalping Engine',   'trader', 'crypto_scalping',    1, datetime('now')),
+  ('swing-engine-1',    'Swing Engine',      'trader', 'crypto_scalping',    1, datetime('now')),
+  ('event-alpha-1',     'Event Alpha Engine','trader', 'prediction_markets', 1, datetime('now'));
 
 -- Seed initial operating rules from Constitution
 INSERT OR IGNORE INTO operating_rules (id, rule_text, rule_type, scope, priority, source, created_at)
