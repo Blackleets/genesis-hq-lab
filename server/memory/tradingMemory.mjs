@@ -17,12 +17,12 @@ export function saveTrade(trade) {
         (id, agent_id, market_id, market_source, market_question, market_category,
          outcome, entry_price, shares, capital_used, confidence, reason, evidence,
          signals_used, lessons_applied, rules_applied, status, opened_at, days_to_close,
-         stop_loss_price, take_profit_price)
+         stop_price, target_price)
       VALUES
         (@id, @agent_id, @market_id, @market_source, @market_question, @market_category,
          @outcome, @entry_price, @shares, @capital_used, @confidence, @reason, @evidence,
          @signals_used, @lessons_applied, @rules_applied, 'open', @opened_at, @days_to_close,
-         @stop_loss_price, @take_profit_price)
+         @stop_price, @target_price)
     `).run({
       id,
       agent_id:          trade.agentId ?? 'market-agent-1',
@@ -42,8 +42,8 @@ export function saveTrade(trade) {
       rules_applied:     JSON.stringify(trade.rulesApplied ?? []),
       opened_at:         trade.openedAt ?? new Date().toISOString(),
       days_to_close:     trade.daysToClose ?? null,
-      stop_loss_price:   trade.stopLossPrice ?? null,
-      take_profit_price: trade.takeProfitPrice ?? null,
+      stop_price:        trade.stopLossPrice ?? null,
+      target_price:      trade.takeProfitPrice ?? null,
     });
 
     // Index in FTS

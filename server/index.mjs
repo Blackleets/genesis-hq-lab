@@ -508,8 +508,9 @@ const server = createServer(async (req, res) => {
       const pair     = url.searchParams.get('pair') ?? 'BTCUSDT';
       const interval = url.searchParams.get('interval') ?? '1h';
       const limit    = Math.min(500, parseInt(url.searchParams.get('limit') ?? '120', 10));
+      const binanceBase = process.env.BINANCE_BASE || 'https://data-api.binance.vision/api/v3';
       const r = await fetch(
-        `https://api.binance.com/api/v3/klines?symbol=${pair}&interval=${interval}&limit=${limit}`,
+        `${binanceBase}/klines?symbol=${pair}&interval=${interval}&limit=${limit}`,
         { signal: AbortSignal.timeout(6000) }
       );
       if (!r.ok) { sendJson(res, 502, { ok: false, error: `Binance ${r.status}` }); return; }

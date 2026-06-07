@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const CACHE_DIR = join(__dir, '..', '..', '..', 'data', 'backtest');
-const BINANCE = 'https://api.binance.com/api/v3';
+const BINANCE = process.env.BINANCE_BASE || 'https://data-api.binance.vision/api/v3';
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 

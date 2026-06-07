@@ -2,7 +2,9 @@
 // No API key required. Returns price context with EMA9/EMA21 and RSI14.
 // Pure math — no external libraries.
 
-const BINANCE_BASE = 'https://api.binance.com/api/v3';
+// api.binance.com is geo-blocked (HTTP 451) from many cloud regions (e.g. Render US).
+// data-api.binance.vision mirrors the public market-data API with no geo-block/auth.
+const BINANCE_BASE = process.env.BINANCE_BASE || 'https://data-api.binance.vision/api/v3';
 
 // 1-minute candles to pull per asset. ≥60 for a true 1h change; 360 so the
 // multi-timeframe filter can build a 15m EMA21 (21 * 15 = 315) from resampled 1m.

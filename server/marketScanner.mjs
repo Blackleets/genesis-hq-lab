@@ -245,7 +245,8 @@ export async function fetchCurrentPrice(source, marketId) {
   }
   if (source === 'binance') {
     try {
-      const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${marketId}`, {
+      const binanceBase = process.env.BINANCE_BASE || 'https://data-api.binance.vision/api/v3';
+      const res = await fetch(`${binanceBase}/ticker/price?symbol=${marketId}`, {
         signal: AbortSignal.timeout(3000),
       });
       if (!res.ok) return null;

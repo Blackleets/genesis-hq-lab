@@ -3,7 +3,7 @@
 // and order flow signals. 3s in-memory cache per pair.
 // getOrderFlowState() is consumed by marketIntelligence.mjs.
 
-const BINANCE_BASE    = 'https://api.binance.com/api/v3';
+const BINANCE_BASE    = process.env.BINANCE_BASE || 'https://data-api.binance.vision/api/v3';
 const CACHE_TTL_MS    = 3_000;
 const WALL_MULTIPLIER = 4;
 const THIN_THRESHOLD  = 5;

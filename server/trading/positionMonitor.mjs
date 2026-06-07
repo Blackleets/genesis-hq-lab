@@ -80,7 +80,7 @@ async function checkMomentumCollapse(trade) {
     const pair = trade.asset_pair;
     if (!pair) return false;
 
-    const BINANCE_BASE = 'https://api.binance.com/api/v3';
+    const BINANCE_BASE = process.env.BINANCE_BASE || 'https://data-api.binance.vision/api/v3';
     const res = await fetch(`${BINANCE_BASE}/klines?symbol=${pair}&interval=1m&limit=20`, {
       signal: AbortSignal.timeout(4000),
     });

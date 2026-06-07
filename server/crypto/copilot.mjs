@@ -17,7 +17,7 @@ import {
 } from './cryptoRisk.mjs';
 import db from '../db/database.mjs';
 
-const BINANCE = 'https://api.binance.com/api/v3';
+const BINANCE = process.env.BINANCE_BASE || 'https://data-api.binance.vision/api/v3';
 const NOTIONAL = 100;  // paper position size used for EV in dollars
 
 function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
