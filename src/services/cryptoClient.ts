@@ -121,3 +121,55 @@ export async function loadMarketIntelligence(): Promise<MarketIntel | null> {
     return res.json() as Promise<MarketIntel>;
   } catch { return null; }
 }
+
+// ─── Liquidity Matrix / Depth ─────────────────────────────────────────────────
+
+export interface DepthLevel {
+  price:  number;
+  size:   number;
+  pct:    number;    // 0–1, relative to max size on this side (bar width)
+  isWall: boolean;   // size >= 4× average for this side
+  isVoid: boolean;
+}
+
+export interface DepthSignals {
+  buyPressure:      boolean;
+  sellPressure:     boolean;
+  sellWall:         boolean;
+  bidWall:          boolean;
+  thinLiquidity:    boolean;
+  absorptionZone:   boolean;
+  momentumBuilding: boolean;
+}
+
+export interface DepthData {
+  pair:         string;
+  midPrice:     number;
+  spread:       number;
+  spreadPct:    number;
+  imbalance:    number;       // [-1, 1]
+  imbalancePct: number;
+  totalBidSize: number;
+  totalAskSize: number;
+  bids:         DepthLevel[]; // sorted DESC from mid (best bid = index 0)
+  asks:         DepthLevel[]; // sorted ASC  from mid (best ask = index 0)
+  reading:      string;
+  readingColor: string;
+  readingBg:    string;
+  signals:      DepthSignals;
+  fetchedAt:    string;
+}
+
+export async function loadDepth(pair = 'BTCUSDT', levels = 20): Promise<DepthData | null> {
+  try {
+    const res = await fetch(
+      apiUrl(`/api/crypto/depth?pair=${pair}&levels=${levels}`),
+      { signal: AbortSignal.timeout(5000) }
+    );
+    if (!res.ok) return null;
+    const json = await res.json() as { ok: boolean } & DepthData;
+    if (!json.ok) return null;
+    const { ok: _ok, ...depth } = json;
+    return depth as DepthData;
+  } catch { return null; }
+}

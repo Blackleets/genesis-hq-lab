@@ -69,6 +69,7 @@ import {
 import { getSchedulerStatus }                             from './trading/executionScheduler.mjs';
 import { getTrainingMetrics }                             from './trading/positionMonitor.mjs';
 import { getMarketIntelligence, getCryptoFeedEvents }     from './crypto/marketIntelligence.mjs';
+import { fetchDepth }                                     from './crypto/liquidityMatrix.mjs';
 
 // In-memory SkillOpt job state (single concurrent job)
 const skilloptJob = { running: false, lastResult: null, startedAt: null, agent: null };
@@ -564,6 +565,17 @@ const server = createServer(async (req, res) => {
       const intel = getMarketIntelligence();
       sendJson(res, 200, { ok: true, ...intel });
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  // GET /api/crypto/depth?pair=BTCUSDT&levels=20
+  if (url.pathname === '/api/crypto/depth') {
+    try {
+      const pair   = (url.searchParams.get('pair') ?? 'BTCUSDT').toUpperCase();
+      const levels = Math.min(50, Math.max(5, parseInt(url.searchParams.get('levels') ?? '20', 10)));
+      const data   = await fetchDepth(pair, levels);
+      sendJson(res, 200, { ok: true, ...data });
+    } catch (e) { sendJson(res, 502, { ok: false, error: e.message }); }
     return;
   }
 

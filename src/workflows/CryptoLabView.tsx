@@ -4,7 +4,7 @@ import { loadCryptoOverview, type CryptoOverview } from '@services/cryptoClient'
 import CandleChart from '@dashboard/charts/CandleChart';
 import { apiUrl } from '@services/apiBase';
 import { ExecutionFeed } from '../components/crypto/ExecutionFeed';
-import { MarketIntelPanel } from '../components/crypto/MarketIntelPanel';
+import { RightPanel } from '../components/crypto/RightPanel';
 import { ActivePositionsTerminal } from '../components/crypto/ActivePositionsTerminal';
 
 const ACCENT = '#f7931a';
@@ -122,9 +122,9 @@ export default function CryptoLabView() {
           />
         </div>
 
-        {/* ZONE B — Market Intelligence (right) */}
+        {/* ZONE B — Market Intelligence / Depth (right) */}
         <div className="crypto-zone-intel">
-          <MarketIntelPanel />
+          <RightPanel />
         </div>
 
         {/* ZONE C — Active Positions Terminal (full-width bottom) */}

@@ -6,6 +6,7 @@ import db from '../db/database.mjs';
 import { getGlobalRiskDiagnostics } from '../risk/globalRiskEngine.mjs';
 import { getConfidenceDiagnostics } from '../intelligence/confidenceEngine.mjs';
 import { getTimeline } from '../observability/eventTimeline.mjs';
+import { getOrderFlowState } from './liquidityMatrix.mjs';
 
 // ── Market Intelligence ────────────────────────────────────────────────────────
 
@@ -93,6 +94,20 @@ export function getMarketIntelligence() {
     recommendation = 'WAIT';
   }
 
+  const orderFlow = (() => {
+    try {
+      const of = getOrderFlowState();
+      if (!of) return null;
+      return {
+        imbalance: of.imbalance,
+        reading:   of.reading,
+        signals:   of.signals,
+        pair:      of.pair,
+        ts:        of.ts,
+      };
+    } catch { return null; }
+  })();
+
   return {
     momentum,
     volatility,
@@ -107,6 +122,7 @@ export function getMarketIntelligence() {
       shorts,
       recentWinRate: winRate !== null ? Math.round(winRate * 100) / 100 : null,
     },
+    orderFlow,
   };
 }
 

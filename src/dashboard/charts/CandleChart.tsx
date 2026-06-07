@@ -70,7 +70,7 @@ export default function CandleChart({ positions = [], onManualOrder }: Props) {
       rightPriceScale: { borderColor: '#27272a' },
       timeScale:       { borderColor: '#27272a', timeVisible: true },
       width:  wrapRef.current.clientWidth,
-      height: 380,
+      height: wrapRef.current.clientHeight || 380,
     });
     chartRef.current = chart;
 
@@ -98,9 +98,12 @@ export default function CandleChart({ positions = [], onManualOrder }: Props) {
     });
     chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.85, bottom: 0 } });
 
-    // Responsive width
+    // Responsive width + height — chart fills its container cell
     const ro = new ResizeObserver(() => {
-      if (wrapRef.current) chart.applyOptions({ width: wrapRef.current.clientWidth });
+      if (wrapRef.current) chart.applyOptions({
+        width:  wrapRef.current.clientWidth,
+        height: wrapRef.current.clientHeight || 380,
+      });
     });
     ro.observe(wrapRef.current);
 
@@ -180,7 +183,7 @@ export default function CandleChart({ positions = [], onManualOrder }: Props) {
   const myPos    = positions.filter(p => p.pair === pair);
 
   return (
-    <div className="gx-card overflow-hidden">
+    <div className="gx-card overflow-hidden h-full flex flex-col min-h-0">
 
       {/* ── Top bar: pairs + price + timeframes ─────────────────────────── */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 flex-wrap">
@@ -261,8 +264,8 @@ export default function CandleChart({ positions = [], onManualOrder }: Props) {
         </div>
       )}
 
-      {/* ── Chart canvas ────────────────────────────────────────────────── */}
-      <div ref={wrapRef} className="w-full" style={{ minHeight: 380 }} />
+      {/* ── Chart canvas — flex-fills the remaining card height ─────────── */}
+      <div ref={wrapRef} className="w-full flex-1 min-h-0" style={{ minHeight: 200 }} />
 
       {/* ── Manual order panel ──────────────────────────────────────────── */}
       {onManualOrder && (
