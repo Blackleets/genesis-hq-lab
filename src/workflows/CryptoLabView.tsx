@@ -1,11 +1,17 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useLanguage } from '@core/i18n/languageStore';
-import { loadCryptoOverview, loadTradeStories, type CryptoOverview, type TradeStory } from '@services/cryptoClient';
+import {
+  loadCryptoOverview, loadTradeStories, loadCommentary, loadDiagnostics,
+  type CryptoOverview, type TradeStory, type CommentaryItem, type ExecutionDiagnostics,
+} from '@services/cryptoClient';
 import CandleChart from '@dashboard/charts/CandleChart';
 import { apiUrl } from '@services/apiBase';
 import { CommentaryFeed } from '../components/crypto/CommentaryFeed';
 import { RightPanel } from '../components/crypto/RightPanel';
 import { DeskPanel } from '../components/crypto/DeskPanel';
+import { LiveActivityStrip } from '../components/crypto/LiveActivityStrip';
+import { OperatorStatusBar } from '../components/crypto/OperatorStatusBar';
+import { TradeNotifier } from '../components/crypto/TradeNotifier';
 
 const ACCENT = '#f7931a';
 
@@ -21,6 +27,8 @@ export default function CryptoLabView() {
   const [orderStatus, setOrderStatus] = useState<string | null>(null);
   const [tradeStories, setTradeStories] = useState<TradeStory[]>([]);
   const [selectedTradeId, setSelectedTradeId] = useState<string | null>(null);
+  const [commentary, setCommentary] = useState<CommentaryItem[]>([]);
+  const [diagnostics, setDiagnostics] = useState<ExecutionDiagnostics | null>(null);
 
   const fetchOverview = useCallback(async () => {
     try {
@@ -32,18 +40,37 @@ export default function CryptoLabView() {
     }
   }, []);
 
-  const fetchTrades = useCallback(async () => {
-    const t = await loadTradeStories(60);
-    setTradeStories(t);
+  const fetchTrades = useCallback(async () => { setTradeStories(await loadTradeStories(60)); }, []);
+  const fetchCommentary = useCallback(async () => {
+    const c = await loadCommentary(40);
+    if (c.length > 0) setCommentary(c);
+  }, []);
+  const fetchDiagnostics = useCallback(async () => {
+    const d = await loadDiagnostics();
+    if (d) setDiagnostics(d);
   }, []);
 
   useEffect(() => {
-    fetchOverview();
-    fetchTrades();
-    const id  = setInterval(fetchOverview, 15_000);
+    fetchOverview(); fetchTrades(); fetchCommentary(); fetchDiagnostics();
+    const id1 = setInterval(fetchOverview, 15_000);
     const id2 = setInterval(fetchTrades, 15_000);
-    return () => { clearInterval(id); clearInterval(id2); };
-  }, [fetchOverview, fetchTrades]);
+    const id3 = setInterval(fetchCommentary, 5_000);
+    const id4 = setInterval(fetchDiagnostics, 10_000);
+    return () => { clearInterval(id1); clearInterval(id2); clearInterval(id3); clearInterval(id4); };
+  }, [fetchOverview, fetchTrades, fetchCommentary, fetchDiagnostics]);
+
+  // Today's realized stats — computed from closed trades (real, no extra fetch)
+  const today = useMemo(() => {
+    const startMs = new Date().setHours(0, 0, 0, 0);
+    let pnl = 0, wins = 0, losses = 0;
+    for (const t of tradeStories) {
+      if (t.status === 'closed' && t.closed_at && Date.parse(t.closed_at) >= startMs) {
+        pnl += t.pnl ?? 0;
+        if ((t.pnl ?? 0) > 0) wins++; else if ((t.pnl ?? 0) < 0) losses++;
+      }
+    }
+    return { pnl, wins, losses };
+  }, [tradeStories]);
 
   async function handleManualOrder(side: 'LONG' | 'SHORT', pair: string) {
     setOrderStatus(`Enviando ${side} ${pair.replace('USDT', '')}…`);
@@ -69,36 +96,45 @@ export default function CryptoLabView() {
 
   return (
     <main className="flex-1 min-w-0 min-h-0 flex flex-col bg-carbon-300 overflow-hidden">
-      {/* ── Header strip ─────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 shrink-0">
-        <div className="flex items-center gap-3">
-          <span className="inline-block w-2 h-2 rounded-full animate-pulse" style={{ background: ACCENT }} />
-          <span className="font-mono text-xs uppercase tracking-wider text-zinc-500">Genesis HQ · Crypto Terminal</span>
-          {pnl && (
-            <div className="flex gap-4 ml-4">
-              <span className="font-mono text-xs" style={{ color: pnl.closed.totalPnl >= 0 ? '#22c55e' : '#ef4444' }}>
-                PnL {usd(pnl.closed.totalPnl)}
-              </span>
-              <span className="font-mono text-xs text-zinc-500">
-                Win {pnl.closed.total > 0 ? pct(pnl.closed.winRate) : '—'}
-              </span>
-              <span className="font-mono text-xs text-amber-400">
-                {pnl.open.count} open
-              </span>
-            </div>
+      {/* ── Header: brand row + live activity strip + operator status bar ─── */}
+      <div className="shrink-0 border-b border-zinc-800">
+        {/* Row 1 — brand + lifetime PnL */}
+        <div className="flex items-center justify-between px-4 py-2.5">
+          <div className="flex items-center gap-3">
+            <span className="inline-block w-2 h-2 rounded-full animate-pulse" style={{ background: ACCENT }} />
+            <span className="font-mono text-xs uppercase tracking-wider text-zinc-500">Genesis HQ · Crypto Terminal</span>
+            {pnl && (
+              <div className="flex gap-4 ml-4">
+                <span className="font-mono text-xs" style={{ color: pnl.closed.totalPnl >= 0 ? '#22c55e' : '#ef4444' }}>
+                  PnL {usd(pnl.closed.totalPnl)}
+                </span>
+                <span className="font-mono text-xs text-zinc-500">
+                  Win {pnl.closed.total > 0 ? pct(pnl.closed.winRate) : '—'}
+                </span>
+                <span className="font-mono text-xs text-amber-400">{pnl.open.count} open</span>
+              </div>
+            )}
+          </div>
+          {error && <span className="font-mono text-[10px] text-red-400">⚠ backend offline</span>}
+          {orderStatus && (
+            <span className="font-mono text-[10px] text-zinc-300 flex items-center gap-1">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              {orderStatus}
+            </span>
           )}
         </div>
-        {error && (
-          <span className="font-mono text-[10px] text-red-400">
-            ⚠ backend offline
-          </span>
-        )}
-        {orderStatus && (
-          <span className="font-mono text-[10px] text-zinc-300 flex items-center gap-1">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-            {orderStatus}
-          </span>
-        )}
+
+        {/* Row 2 — live activity strip (priority-aware) */}
+        <div className="border-t border-zinc-800/60">
+          <LiveActivityStrip items={commentary} />
+        </div>
+
+        {/* Row 3 — operator status bar (counter + training + heartbeat) */}
+        <OperatorStatusBar
+          diagnostics={diagnostics}
+          openCount={pnl?.open.count ?? 0}
+          today={today}
+        />
       </div>
 
       {/* ── Chart-Hero Terminal Grid ──────────────────────────────────── */}
@@ -121,7 +157,7 @@ export default function CryptoLabView() {
 
         {/* AI Commentary (bottom-left) */}
         <div className="crypto-zone-commentary">
-          <CommentaryFeed />
+          <CommentaryFeed items={commentary} />
         </div>
 
         {/* Desk panel — positions + stats + trades (bottom-center) */}
@@ -132,6 +168,7 @@ export default function CryptoLabView() {
             tradeStories={tradeStories}
             selectedTradeId={selectedTradeId}
             onSelectTrade={setSelectedTradeId}
+            diagnostics={diagnostics}
           />
         </div>
 
@@ -140,6 +177,9 @@ export default function CryptoLabView() {
           <RightPanel />
         </div>
       </div>
+
+      {/* Premium trade notifications (fixed, bottom-right) */}
+      <TradeNotifier commentary={commentary} trades={tradeStories} />
     </main>
   );
 }

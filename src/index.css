@@ -177,3 +177,11 @@
   min-height: 0;
   overflow: hidden;
 }
+
+/* ── Operator visibility layer — subtle motion (premium, GPU-cheap) ───────── */
+@keyframes gx-pulse  { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes gx-fadein { 0% { opacity: 0; transform: translateY(2px); } 100% { opacity: 1; transform: translateY(0); } }
+@keyframes gx-toast-in { 0% { opacity: 0; transform: translateX(12px); } 100% { opacity: 1; transform: translateX(0); } }
+@media (prefers-reduced-motion: reduce) {
+  [style*="gx-pulse"], [style*="gx-fadein"], [style*="gx-toast-in"] { animation: none !important; }
+}

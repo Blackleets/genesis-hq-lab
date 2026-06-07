@@ -74,7 +74,7 @@ import { getCommentary }                                  from './ai/commentaryE
 import { getTradeStories }                                from './crypto/tradeHistory.mjs';
 import { analyzeTrade, assertTradeAllowed }               from './crypto/copilot.mjs';
 import { getSchedulerStatus }                             from './trading/executionScheduler.mjs';
-import { scalpConfig }                                    from './strategies/scalpingEngine.mjs';
+import { scalpConfig, getLastScanSnapshot }               from './strategies/scalpingEngine.mjs';
 import { swingConfig }                                    from './strategies/swingEngine.mjs';
 import { eventConfig }                                    from './strategies/eventAlphaEngine.mjs';
 
@@ -629,21 +629,50 @@ const server = createServer(async (req, res) => {
         } catch { return []; }
       })();
 
+      // ── Training progress extras (computed from existing SQL — no extra polling) ──
+      const trainingExtras = (() => {
+        try {
+          const t = sched.training;
+          // Best engine: highest win rate among engines with ≥3 closed trades
+          let bestEngine = null, bestRate = -1;
+          const ENGINE_LABEL = { scalp_v2: 'SCALP', swing_v1: 'SWING', 'event-alpha': 'EVENT' };
+          for (const e of (t?.byType ?? [])) {
+            if (e.trades >= 3 && (e.winRate ?? 0) > bestRate) { bestRate = e.winRate ?? 0; bestEngine = ENGINE_LABEL[e.tradeType] ?? e.tradeType; }
+          }
+          // Training day: days since the first crypto trade (1–30 window)
+          const first = db.prepare(`SELECT MIN(opened_at) m FROM trades WHERE trade_type IN ('crypto_scalp','scalp_v2','swing_v1')`).get()?.m;
+          const trainingDay = first
+            ? Math.min(30, Math.max(1, Math.ceil((Date.now() - new Date(first).getTime()) / 86_400_000)))
+            : 1;
+          // Confidence accuracy: calibration = 1 - avg(|confidence - won|) over closed crypto trades
+          const cal = db.prepare(`
+            SELECT confidence, CASE WHEN pnl > 0 THEN 1 ELSE 0 END won
+            FROM trades WHERE trade_type IN ('scalp_v2','swing_v1') AND status='closed' AND confidence IS NOT NULL
+            ORDER BY closed_at DESC LIMIT 50
+          `).all();
+          const confidenceAccuracy = cal.length >= 5
+            ? Math.round((1 - cal.reduce((s, r) => s + Math.abs((r.confidence ?? 0) - r.won), 0) / cal.length) * 100)
+            : null;
+          return { bestEngine, trainingDay, confidenceAccuracy };
+        } catch { return { bestEngine: null, trainingDay: 1, confidenceAccuracy: null }; }
+      })();
+
       sendJson(res, 200, {
         ok: true,
         loops: {
-          scalping: { running: sched.started && isLive(sched.lastRun?.fast), ticks: sched.ticks?.fast ?? 0, lastRun: sched.lastRun?.fast ?? null, errors: sched.errors?.fast ?? 0 },
-          event:    { running: sched.started && isLive(sched.lastRun?.mid),  ticks: sched.ticks?.mid ?? 0,  lastRun: sched.lastRun?.mid ?? null,  errors: sched.errors?.mid ?? 0 },
-          swing:    { running: sched.started && isLive(sched.lastRun?.slow), ticks: sched.ticks?.slow ?? 0, lastRun: sched.lastRun?.slow ?? null, errors: sched.errors?.slow ?? 0 },
+          scalping: { running: sched.started && isLive(sched.lastRun?.fast), ticks: sched.ticks?.fast ?? 0, lastRun: sched.lastRun?.fast ?? null, errors: sched.errors?.fast ?? 0, expectedMs: sched.intervals?.fastMs ?? 5000 },
+          event:    { running: sched.started && isLive(sched.lastRun?.mid),  ticks: sched.ticks?.mid ?? 0,  lastRun: sched.lastRun?.mid ?? null,  errors: sched.errors?.mid ?? 0,  expectedMs: sched.intervals?.midMs ?? 30000 },
+          swing:    { running: sched.started && isLive(sched.lastRun?.slow), ticks: sched.ticks?.slow ?? 0, lastRun: sched.lastRun?.slow ?? null, errors: sched.errors?.slow ?? 0, expectedMs: sched.intervals?.slowMs ?? 300000 },
         },
         gates: {
           scalp: scalpConfig(),
           swing: swingConfig(),
           event: eventConfig(),
         },
-        training: sched.training ?? null,
+        training: sched.training ? { ...sched.training, ...trainingExtras } : trainingExtras,
         mode: sched.mode,
         recentScans: recent,
+        scanSnapshot: (() => { try { return getLastScanSnapshot(); } catch { return { at: null, assets: [] }; } })(),
       });
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;

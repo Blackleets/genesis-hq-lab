@@ -230,6 +230,21 @@ export interface LoopStatus {
   ticks: number;
   lastRun: string | null;
   errors: number;
+  expectedMs: number;
+}
+
+export interface ScanAsset {
+  symbol: string;
+  price: number;
+  rsi: number;
+  action: 'TRADE' | 'WAIT';
+  side: 'LONG' | 'SHORT' | null;
+  confidence: number;   // 0–100
+  gate: number;         // 0–100
+  score: number;
+  signals: string[];
+  missing: string[];    // human-readable missing confluences
+  reason: string;       // ACCEPTED | LOW_CONFIDENCE | LOW_VOLATILITY | NO_EDGE | POSITION_OPEN | ...
 }
 
 export interface ExecutionDiagnostics {
@@ -239,9 +254,13 @@ export interface ExecutionDiagnostics {
     swing: { minConfidence: number };
     event: { evThreshold: number; minConfidence: number };
   };
-  training: { total: number; open: number; closed: number; winRate: number | null; totalPnl: number } | null;
+  training: {
+    total: number; open: number; closed: number; winRate: number | null; totalPnl: number;
+    bestEngine?: string | null; trainingDay?: number; confidenceAccuracy?: number | null;
+  } | null;
   mode: string;
   recentScans: { ts: string; reason: string; subsystem: string }[];
+  scanSnapshot: { at: string | null; assets: ScanAsset[] };
 }
 
 export async function loadDiagnostics(): Promise<ExecutionDiagnostics | null> {

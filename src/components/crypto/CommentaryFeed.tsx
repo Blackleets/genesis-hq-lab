@@ -68,9 +68,10 @@ function formatTs(ts: string): string {
 
 interface Props {
   className?: string;
+  items?: CommentaryItem[];   // when supplied by parent, skip internal polling
 }
 
-export function CommentaryFeed({ className = '' }: Props) {
+export function CommentaryFeed({ className = '', items: extItems }: Props) {
   const [items, dispatch] = useReducer(reducer, []);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const scrollRef  = useRef<HTMLDivElement>(null);
@@ -81,11 +82,18 @@ export function CommentaryFeed({ className = '' }: Props) {
     if (fetched.length > 0) dispatch({ type: 'merge', items: fetched });
   }, []);
 
+  // Parent supplies items → merge them (no own polling). Otherwise self-poll.
   useEffect(() => {
+    if (extItems === undefined) return;
+    if (extItems.length > 0) dispatch({ type: 'merge', items: extItems });
+  }, [extItems]);
+
+  useEffect(() => {
+    if (extItems !== undefined) return;
     poll();
     const id = setInterval(poll, POLL_MS);
     return () => clearInterval(id);
-  }, [poll]);
+  }, [poll, extItems]);
 
   // Auto-scroll to newest (top) only when the user is already at the top.
   useEffect(() => {

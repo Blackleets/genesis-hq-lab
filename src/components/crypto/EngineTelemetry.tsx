@@ -1,11 +1,20 @@
-// EngineTelemetry.tsx — live execution telemetry for the operator.
-// Shows whether each paper-training loop is actually running, the active
-// confidence gates, training stats, and the most recent "why no trade" reasons.
+// EngineTelemetry.tsx — live execution telemetry + premium "why no trade" explainer.
+// Teaches the operator how Genesis thinks: per-asset reason + missing confluences.
+// Accepts diagnostics from a parent (no double-poll); falls back to self-poll.
 
 import { useEffect, useState, useCallback } from 'react';
-import { loadDiagnostics, type ExecutionDiagnostics, type LoopStatus } from '@services/cryptoClient';
+import { loadDiagnostics, type ExecutionDiagnostics, type LoopStatus, type ScanAsset } from '@services/cryptoClient';
 
 const POLL_MS = 10_000;
+
+const REASON_LABEL: Record<string, string> = {
+  LOW_CONFIDENCE:  'Low confidence',
+  LOW_VOLATILITY:  'Market too quiet',
+  HIGH_VOLATILITY: 'Too volatile (gap risk)',
+  NO_EDGE:         'No confluence edge',
+  POSITION_OPEN:   'Position already open',
+  ACCEPTED:        'Accepted',
+};
 
 function LoopRow({ label, s }: { label: string; s: LoopStatus }) {
   const color = s.running ? '#22c55e' : '#ef4444';
@@ -13,9 +22,7 @@ function LoopRow({ label, s }: { label: string; s: LoopStatus }) {
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0' }}>
       <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0 }} />
       <span style={{ color: '#9ca3af', fontSize: 10, width: 72 }}>{label}</span>
-      <span style={{ color, fontSize: 9, fontWeight: 700, width: 78 }}>
-        {s.running ? 'RUNNING' : 'NOT RUNNING'}
-      </span>
+      <span style={{ color, fontSize: 9, fontWeight: 700, width: 78 }}>{s.running ? 'RUNNING' : 'NOT RUNNING'}</span>
       <span style={{ color: '#4b5563', fontSize: 9, marginLeft: 'auto' }}>
         {s.ticks} ticks{s.errors > 0 ? ` · ${s.errors} err` : ''}
       </span>
@@ -23,25 +30,72 @@ function LoopRow({ label, s }: { label: string; s: LoopStatus }) {
   );
 }
 
-export function EngineTelemetry() {
-  const [d, setD] = useState<ExecutionDiagnostics | null>(null);
+function WhyNoTrade({ asset }: { asset: ScanAsset }) {
+  const sym = asset.symbol;
+  const accepted = asset.reason === 'ACCEPTED';
+  const color = accepted ? '#22c55e' : asset.reason === 'LOW_CONFIDENCE' ? '#f59e0b' : '#6b7280';
+
+  return (
+    <div style={{
+      padding: '6px 8px', borderRadius: 4, background: '#0a0e1a',
+      border: '1px solid #161b26', marginBottom: 4,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ color: '#e5e7eb', fontSize: 10, fontWeight: 700 }}>{sym}</span>
+        <span style={{ color, fontSize: 8, fontWeight: 700, letterSpacing: 0.5 }}>
+          {accepted ? '✓ TRADED' : 'REJECTED'}
+        </span>
+        {asset.side && !accepted && (
+          <span style={{ color: '#4b5563', fontSize: 8 }}>({asset.side} candidate)</span>
+        )}
+      </div>
+      <div style={{ color: '#9ca3af', fontSize: 9, marginTop: 2 }}>
+        Reason: <span style={{ color }}>{REASON_LABEL[asset.reason] ?? asset.reason}</span>
+      </div>
+      {asset.reason === 'LOW_CONFIDENCE' && (
+        <div style={{ color: '#78716c', fontSize: 9 }}>
+          {asset.confidence} &lt; required {asset.gate}
+        </div>
+      )}
+      {!accepted && asset.missing.length > 0 && (
+        <div style={{ marginTop: 2 }}>
+          <span style={{ color: '#4b5563', fontSize: 8 }}>Missing confluences:</span>
+          {asset.missing.map((m, i) => (
+            <div key={i} style={{ color: '#6b7280', fontSize: 9, display: 'flex', gap: 4 }}>
+              <span style={{ color: '#ef4444' }}>·</span><span>{m}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface Props {
+  diagnostics?: ExecutionDiagnostics | null;
+}
+
+export function EngineTelemetry({ diagnostics: ext }: Props) {
+  const [self, setSelf] = useState<ExecutionDiagnostics | null>(null);
 
   const poll = useCallback(async () => {
     const data = await loadDiagnostics();
-    if (data) setD(data);
+    if (data) setSelf(data);
   }, []);
 
+  // Only self-poll when no diagnostics are supplied by the parent.
   useEffect(() => {
+    if (ext !== undefined) return;
     poll();
     const id = setInterval(poll, POLL_MS);
     return () => clearInterval(id);
-  }, [poll]);
+  }, [poll, ext]);
 
-  if (!d) {
-    return <div style={{ color: '#374151', fontSize: 10, fontFamily: 'monospace' }}>Loading telemetry…</div>;
-  }
+  const d = ext ?? self;
+  if (!d) return <div style={{ color: '#374151', fontSize: 10, fontFamily: 'monospace' }}>Loading telemetry…</div>;
 
   const t = d.training;
+  const assets = d.scanSnapshot?.assets ?? [];
 
   return (
     <div style={{ fontFamily: 'monospace' }}>
@@ -53,14 +107,12 @@ export function EngineTelemetry() {
       <LoopRow label="EVENT"    s={d.loops.event} />
       <LoopRow label="SWING"    s={d.loops.swing} />
 
-      {/* Active gates */}
       <div style={{ display: 'flex', gap: 8, marginTop: 6, fontSize: 9, color: '#4b5563' }}>
-        <span>scalp conf ≥ <span style={{ color: '#9ca3af' }}>{Math.round(d.gates.scalp.minConfidence * 100)}%</span></span>
+        <span>scalp ≥ <span style={{ color: '#9ca3af' }}>{Math.round(d.gates.scalp.minConfidence * 100)}%</span></span>
         <span>swing ≥ <span style={{ color: '#9ca3af' }}>{Math.round(d.gates.swing.minConfidence * 100)}%</span></span>
         <span>EV ≥ <span style={{ color: '#9ca3af' }}>{(d.gates.event.evThreshold * 100).toFixed(0)}%</span></span>
       </div>
 
-      {/* Training stats */}
       {t && (
         <div style={{ display: 'flex', gap: 10, marginTop: 4, fontSize: 9, color: '#4b5563' }}>
           <span>open <span style={{ color: '#f59e0b' }}>{t.open}</span></span>
@@ -70,15 +122,13 @@ export function EngineTelemetry() {
         </div>
       )}
 
-      {/* Why no trade — recent scan/rejection reasons */}
-      {d.recentScans.length > 0 && (
-        <div style={{ marginTop: 6 }}>
-          <div style={{ color: '#4b5563', fontSize: 8, letterSpacing: 0.6, marginBottom: 2 }}>WHY NO TRADE (recent)</div>
-          {d.recentScans.slice(0, 5).map((r, i) => (
-            <div key={i} style={{ color: '#6b7280', fontSize: 9, lineHeight: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {r.reason}
-            </div>
-          ))}
+      {/* Premium WHY NO TRADE — per-asset, teaches confluences */}
+      {assets.length > 0 && (
+        <div style={{ marginTop: 8 }}>
+          <div style={{ color: '#4b5563', fontSize: 8, letterSpacing: 0.6, marginBottom: 3 }}>
+            WHY NO TRADE · how Genesis thinks
+          </div>
+          {assets.map(a => <WhyNoTrade key={a.symbol} asset={a} />)}
         </div>
       )}
     </div>

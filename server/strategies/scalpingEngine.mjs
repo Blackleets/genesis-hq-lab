@@ -44,6 +44,38 @@ export function scalpConfig() {
   return { minConfidence: MIN_CONFIDENCE, tpPct: TP_PCT, slPct: SL_PCT, maxCapital: MAX_CAPITAL_PER_TRADE, timeoutHours: TIMEOUT_HOURS };
 }
 
+// ── Live scan snapshot (operator "why no trade" — reuses the 5s loop's work) ───
+// Populated every runScalpingCycle so the diagnostics endpoint can expose per-asset
+// status WITHOUT any extra Binance fetch or polling.
+let _lastScanSnapshot = { at: null, assets: [] };
+
+/** The four scalp confluences, in human terms, and the signal codes that satisfy each. */
+const CONFLUENCES = [
+  { label: 'EMA trend',              codes: ['EMA_BULL_CROSS', 'EMA_BEAR_CROSS'] },
+  { label: 'RSI momentum',           codes: ['RSI_BULL_MOMENTUM', 'RSI_BEAR_MOMENTUM', 'RSI_OVERBOUGHT', 'RSI_OVERSOLD'] },
+  { label: 'volume confirmation',    codes: ['VOLUME_SPIKE_BULL', 'VOLUME_SPIKE_BEAR'] },
+  { label: 'momentum continuation',  codes: ['TREND_CONTINUATION_BULL', 'TREND_CONTINUATION_BEAR'] },
+];
+
+/** Confluences that did NOT fire for this signal — what the operator is "waiting on". */
+function missingConfluences(signals) {
+  const fired = new Set(signals);
+  return CONFLUENCES.filter(c => !c.codes.some(code => fired.has(code))).map(c => c.label);
+}
+
+/** Coarse rejection reason from a signal evaluation + gate outcome. */
+function rejectReasonFor(signal, gatePass, positionOpen) {
+  if (positionOpen) return 'POSITION_OPEN';
+  if (signal.action === 'TRADE') return gatePass ? 'ACCEPTED' : 'LOW_CONFIDENCE';
+  if (signal.signals.includes('LOW_VOLATILITY'))         return 'LOW_VOLATILITY';
+  if (signal.signals.includes('HIGH_VOLATILITY_BLOCK'))  return 'HIGH_VOLATILITY';
+  return 'NO_EDGE';
+}
+
+export function getLastScanSnapshot() {
+  return _lastScanSnapshot;
+}
+
 const TRAINING_MODE = ['1', 'true', 'yes'].includes((process.env.TRAINING_MODE ?? '').toLowerCase());
 
 // ── Signal scoring ────────────────────────────────────────────────────────────
@@ -173,6 +205,7 @@ export async function runScalpingCycle() {
   }
 
   result.scanned = assets.length;
+  const snapshot = [];
 
   for (const asset of assets) {
     // Operator visibility: log what we're scanning
@@ -183,6 +216,23 @@ export async function runScalpingCycle() {
     }
 
     const signal = evaluateScalpSignal(asset);
+    const positionOpen = hasOpenPosition(asset.pair, TRADE_TYPE);
+    const gatePass = signal.action === 'TRADE' && signal.confidence >= MIN_CONFIDENCE;
+
+    // Per-asset snapshot for the operator "why no trade" explainer (no extra fetch)
+    snapshot.push({
+      symbol:     asset.symbol,
+      price:      Math.round(asset.price * 100) / 100,
+      rsi:        asset.rsi14,
+      action:     signal.action,
+      side:       signal.side,
+      confidence: Math.round(signal.confidence * 100),
+      gate:       Math.round(MIN_CONFIDENCE * 100),
+      score:      signal.score,
+      signals:    signal.signals,
+      missing:    missingConfluences(signal.signals),
+      reason:     rejectReasonFor(signal, gatePass, positionOpen),
+    });
 
     if (signal.action !== 'TRADE') {
       result.skipped++;
@@ -197,7 +247,7 @@ export async function runScalpingCycle() {
     }
 
     // Duplicate check
-    if (hasOpenPosition(asset.pair, TRADE_TYPE)) {
+    if (positionOpen) {
       logEvent({ category: CATEGORY.SCAN, severity: SEVERITY.INFO, subsystem: AGENT_ID,
         reason: `${asset.symbol}: SKIP — position already open` });
       result.skipped++;
@@ -230,5 +280,6 @@ export async function runScalpingCycle() {
     }
   }
 
+  _lastScanSnapshot = { at: new Date().toISOString(), assets: snapshot };
   return result;
 }

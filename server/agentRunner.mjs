@@ -273,28 +273,26 @@ try {
   // The reconciliationEngine will have persisted degraded state internally before throwing.
 }
 
-// Run immediately
-await tick();
-
+// ── Start the FAST paper-training engines + keep-awake FIRST ─────────────────
+// These must NOT wait behind the slow prediction-market tick (Polymarket/Kalshi +
+// Claude + reconciliation). On Render free tier a slow/cold first tick used to
+// delay the scheduler indefinitely, leaving capital static. Boot → trade now.
 if (!ONCE) {
-  // Then on interval
-  setInterval(tick, INTERVAL_MS);
-
-  // Marketing agent every 6 hours
-  setInterval(marketingTick, 6 * 60 * 60 * 1000);
-  setTimeout(marketingTick, 10000); // initial run after 10s
-
-  // Keep Render dyno awake — ping the public URL every 10 min to prevent sleep
+  // Keep Render dyno awake — self-ping the public URL every 10 min (< 15 min idle
+  // spin-down). Starting it here means a slow first tick can't let the dyno sleep.
   const _renderUrl = process.env.RENDER_EXTERNAL_URL;
   if (_renderUrl) {
     setInterval(() => { fetch(`${_renderUrl}/api/health`).catch(() => {}); }, 10 * 60 * 1000);
-    console.log('[agentRunner] Self-ping active → will keep Render awake every 10 min');
+    setTimeout(() => { fetch(`${_renderUrl}/api/health`).catch(() => {}); }, 5000); // early ping
+    console.log('[agentRunner] Self-ping active → keeping Render awake every 10 min');
   }
 
-  // Phase 6A — tiered execution scheduler (FAST 5s / MID 30s / SLOW 5min)
+  // Phase 6A — tiered execution scheduler (FAST 5s / MID 30s / SLOW 5min). Starts
+  // immediately so crypto paper training begins on boot, independent of the
+  // prediction-market cycle.
   startScheduler();
 
-  // Crypto scalping loop — every 1 minute
+  // Crypto scalping loop — every 1 minute (legacy path, also position management)
   setInterval(async () => {
     try {
       await manageCryptoPositions();
@@ -311,6 +309,18 @@ if (!ONCE) {
     }
   }, 60 * 1000);
   console.log('[agentRunner] Crypto scalping loop active — 1 min interval');
+}
+
+// Run the (slower) prediction-market tick. Training is already live above.
+await tick();
+
+if (!ONCE) {
+  // Then on interval
+  setInterval(tick, INTERVAL_MS);
+
+  // Marketing agent every 6 hours
+  setInterval(marketingTick, 6 * 60 * 60 * 1000);
+  setTimeout(marketingTick, 10000); // initial run after 10s
 
   console.log(`\n[agentRunner] Running. Next tick in ${INTERVAL_MS / 60000} min. Ctrl+C to stop.\n`);
 }
