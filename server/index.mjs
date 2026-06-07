@@ -73,7 +73,6 @@ import { fetchDepth }                                     from './crypto/liquidi
 import { getCommentary }                                  from './ai/commentaryEngine.mjs';
 import { getTradeStories }                                from './crypto/tradeHistory.mjs';
 import { analyzeTrade, assertTradeAllowed }               from './crypto/copilot.mjs';
-import { getSchedulerStatus }                             from './trading/executionScheduler.mjs';
 import { scalpConfig, getLastScanSnapshot }               from './strategies/scalpingEngine.mjs';
 import { swingConfig }                                    from './strategies/swingEngine.mjs';
 import { eventConfig }                                    from './strategies/eventAlphaEngine.mjs';
