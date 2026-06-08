@@ -85,6 +85,30 @@ export function trendContinuationSignal(ctx, params = {}) {
   return { action: 'SKIP', side: null, confidence: 0, score: 0, reasons: ['trend_not_aligned'] };
 }
 
+// Donchian breakout — the one trend family NOT covered by the EMA/momentum/RSI
+// signals above. Enters on a close that breaks the prior N-bar channel. Operates
+// directly on the trailing closes at the experiment interval (no resample): the
+// breakout structure is scale-agnostic.
+export function breakoutSignal(ctx, params = {}) {
+  const closes = Array.isArray(ctx?.closes) ? ctx.closes : [];
+  const period = params.breakoutPeriod ?? 20;
+  if (closes.length < period + 2) {
+    return { action: 'SKIP', side: null, confidence: 0, score: 0, reasons: ['insufficient_history'] };
+  }
+  const last = closes[closes.length - 1];
+  const window = closes.slice(closes.length - 1 - period, closes.length - 1); // prior N, excl. current
+  const hi = Math.max(...window);
+  const lo = Math.min(...window);
+  const buffer = params.breakoutBufferPct ?? 0;
+  if (last > hi * (1 + buffer)) {
+    return { action: 'TRADE', side: 'LONG', confidence: 0.75, score: 0.75, reasons: ['donchian_breakout_long'] };
+  }
+  if (last < lo * (1 - buffer)) {
+    return { action: 'TRADE', side: 'SHORT', confidence: 0.75, score: 0.75, reasons: ['donchian_breakout_short'] };
+  }
+  return { action: 'SKIP', side: null, confidence: 0, score: 0, reasons: ['inside_channel'] };
+}
+
 export function meanReversionSignal(ctx, params = {}) {
   const closes = Array.isArray(ctx?.closes) ? ctx.closes : [];
   const frame = params.reversionFrameMinutes ?? 60;
@@ -321,6 +345,32 @@ export function buildStrategyLabExperiments({ baselineParams = DEFAULTS } = {}) 
         reversionRsiOversold: 32,
         reversionRsiOverbought: 68,
       },
+      warmup: 120,
+      trainSplit: 0.7,
+      minTrades: LAB_THRESHOLDS.minTestTrades,
+    }))),
+    ),
+    ...[
+      ['1h', 365, 48, 20],
+      ['1h', 365, 48, 55],
+      ['4h', 730, 240, 20],
+      ['4h', 730, 240, 55],
+    ].flatMap(([interval, days, timeoutHours, breakoutPeriod]) => ([
+      [0.04, 0.02],
+      [0.06, 0.03],
+      [0.08, 0.03],
+      [0.10, 0.04],
+    ].map(([targetPct, stopPct]) => ({
+      id: `breakout-btc-${interval}-p${breakoutPeriod}-tp${Math.round(targetPct * 1000)}-sl${Math.round(stopPct * 1000)}`,
+      hypothesis: 'breakout',
+      pairSet: ['BTCUSDT'],
+      interval,
+      days,
+      targetPct,
+      stopPct,
+      timeoutHours,
+      signalFn: breakoutSignal,
+      signalParams: { breakoutPeriod },
       warmup: 120,
       trainSplit: 0.7,
       minTrades: LAB_THRESHOLDS.minTestTrades,

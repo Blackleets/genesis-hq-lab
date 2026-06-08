@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { bucketConcentration, evaluateExperimentResult, trendContinuationSignal, buildStrategyLabExperiments } from '../crypto/backtest/strategyLab.mjs';
+import { bucketConcentration, evaluateExperimentResult, trendContinuationSignal, breakoutSignal, buildStrategyLabExperiments } from '../crypto/backtest/strategyLab.mjs';
 
 describe('strategyLab helpers', () => {
   it('rejects a candidate with concentrated hour pnl', () => {
@@ -47,6 +47,36 @@ describe('strategyLab helpers', () => {
     assert.equal(experiments[2].hypothesis, 'single_pair');
     assert.equal(experiments[3].hypothesis, 'trend');
     assert.ok(experiments.some((experiment) => experiment.hypothesis === 'reversion'));
+  });
+
+  it('breakout signal goes LONG when the last close breaks the prior channel high', () => {
+    const closes = [...Array.from({ length: 25 }, () => 100), 105]; // flat channel, then a break up
+    const signal = breakoutSignal({ closes }, { breakoutPeriod: 20 });
+    assert.equal(signal.action, 'TRADE');
+    assert.equal(signal.side, 'LONG');
+    assert.deepEqual(signal.reasons, ['donchian_breakout_long']);
+  });
+
+  it('breakout signal goes SHORT when the last close breaks the prior channel low', () => {
+    const closes = [...Array.from({ length: 25 }, () => 100), 95]; // flat channel, then a break down
+    const signal = breakoutSignal({ closes }, { breakoutPeriod: 20 });
+    assert.equal(signal.action, 'TRADE');
+    assert.equal(signal.side, 'SHORT');
+    assert.deepEqual(signal.reasons, ['donchian_breakout_short']);
+  });
+
+  it('breakout signal SKIPs inside the channel', () => {
+    const closes = [...Array.from({ length: 24 }, (_, i) => 100 + (i % 2)), 100]; // oscillates 100-101, last inside
+    const signal = breakoutSignal({ closes }, { breakoutPeriod: 20 });
+    assert.equal(signal.action, 'SKIP');
+    assert.equal(signal.side, null);
+    assert.deepEqual(signal.reasons, ['inside_channel']);
+  });
+
+  it('breakout signal reports insufficient history below period + 2 closes', () => {
+    const signal = breakoutSignal({ closes: [100, 101, 102] }, { breakoutPeriod: 20 });
+    assert.equal(signal.action, 'SKIP');
+    assert.deepEqual(signal.reasons, ['insufficient_history']);
   });
 
   it('trend continuation signal produces a long trade on aligned data', () => {
