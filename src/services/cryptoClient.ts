@@ -390,12 +390,16 @@ export interface ExecutionDiagnostics {
   } | null;
   llm?: {
     provider: string;
+    usedByLiveScalp: boolean;
+    usedByLegacyCryptoLoop: boolean;
     configured: boolean;
     available: boolean | null;
-    fallbackActive: boolean;
+    fallbackActive: boolean | null;
+    verification: 'verified' | 'unverified';
     lastProviderError: string | null;
     checkedAt: string | null;
     lastModel?: string | null;
+    note?: string | null;
   };
 }
 

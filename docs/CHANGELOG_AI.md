@@ -1,5 +1,14 @@
 # CHANGELOG_AI
 
+## 2026-06-08 — Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Hardened crypto LLM truth reporting so diagnostics no longer imply Claude is active in the live scalp scheduler. `llm` now declares that the live scalp path is deterministic, marks Claude status as `unverified` until a real crypto debate call happens, and keeps the legacy debate-loop status separate. Added regression coverage for both the unverified and fallback-on-402 cases.
+- Files touched: `server/crypto/cryptoLlmStatus.mjs`, `server/tests/cryptoTruth.test.mjs`, `src/services/cryptoClient.ts`
+- Verification: `node --check server/crypto/cryptoLlmStatus.mjs` ok; `node --check server/tests/cryptoTruth.test.mjs` ok; `node --test server/tests/cryptoTruth.test.mjs` ok; `npm test` ok; `npm run build` ok
+
+---
+
 Append-only log of every AI session that touched this repo. Newest entries
 at the top. Use one block per session. Be honest about failures.
 

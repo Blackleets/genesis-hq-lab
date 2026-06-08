@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import db from '../db/database.mjs';
 import { getCryptoOverview } from '../crypto/cryptoAnalytics.mjs';
@@ -9,6 +12,9 @@ import { CRYPTO_TRADE_TYPES_SQL, getClosedCryptoMetrics } from '../crypto/crypto
 import { getCryptoLlmStatus } from '../crypto/cryptoLlmStatus.mjs';
 import { runCryptoDebate } from '../crypto/cryptoDebate.mjs';
 import { runRegimeBiasBacktest } from '../crypto/backtest/regimeBiasBacktest.mjs';
+
+const __dir = dirname(fileURLToPath(import.meta.url));
+const LLM_STATUS_FILE = join(__dir, '..', '..', 'data', 'crypto', 'llm_status.json');
 
 function utcMidnightIso(nowMs) {
   const d = new Date(nowMs);
@@ -125,6 +131,32 @@ describe('crypto truth consistency', () => {
 });
 
 describe('crypto debate llm status', () => {
+  it('defaults to unverified when Claude is configured but no debate call has been recorded', () => {
+    const originalKey = process.env.ANTHROPIC_API_KEY;
+    const originalFile = existsSync(LLM_STATUS_FILE) ? readFileSync(LLM_STATUS_FILE, 'utf8') : null;
+    process.env.ANTHROPIC_API_KEY = 'test-key';
+
+    try {
+      if (existsSync(LLM_STATUS_FILE)) unlinkSync(LLM_STATUS_FILE);
+      const status = getCryptoLlmStatus();
+      assert.equal(status.usedByLiveScalp, false);
+      assert.equal(status.usedByLegacyCryptoLoop, true);
+      assert.equal(status.configured, true);
+      assert.equal(status.available, null);
+      assert.equal(status.fallbackActive, null);
+      assert.equal(status.verification, 'unverified');
+      assert.match(status.note ?? '', /deterministic/i);
+    } finally {
+      if (originalFile == null) {
+        if (existsSync(LLM_STATUS_FILE)) unlinkSync(LLM_STATUS_FILE);
+      } else {
+        writeFileSync(LLM_STATUS_FILE, originalFile, 'utf8');
+      }
+      if (originalKey == null) delete process.env.ANTHROPIC_API_KEY;
+      else process.env.ANTHROPIC_API_KEY = originalKey;
+    }
+  });
+
   it('records fallbackActive and provider error when Anthropic returns 4xx', async () => {
     const originalFetch = global.fetch;
     const originalKey = process.env.ANTHROPIC_API_KEY;
@@ -151,9 +183,12 @@ describe('crypto debate llm status', () => {
 
       assert.equal(result.action, 'TRADE');
       const status = getCryptoLlmStatus();
+      assert.equal(status.usedByLiveScalp, false);
+      assert.equal(status.usedByLegacyCryptoLoop, true);
       assert.equal(status.configured, true);
       assert.equal(status.available, false);
       assert.equal(status.fallbackActive, true);
+      assert.equal(status.verification, 'verified');
       assert.match(status.lastProviderError ?? '', /credit balance too low/i);
     } finally {
       global.fetch = originalFetch;
