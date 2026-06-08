@@ -207,7 +207,10 @@ export function getAutopsyBreakdown() {
   return {
     byPair: rank(summarizeRowsBy(rows, (r) => r.pair ?? 'UNKNOWN', (r) => ({ pair: r.pair ?? 'UNKNOWN' }))),
     bySide: rank(summarizeRowsBy(rows, (r) => r.side ?? 'UNKNOWN', (r) => ({ side: r.side ?? 'UNKNOWN' }))),
-    byRegime: rank(summarizeRowsBy(rows, (r) => r.regime, (r) => ({ regime: r.regime }))),
+    byRegime: rank(summarizeRowsBy(rows, (r) => `${r.side ?? 'UNKNOWN'}|${r.regime}`, (r) => ({
+      side: r.side ?? 'UNKNOWN',
+      regime: r.regime,
+    }))),
     byHour: rank(summarizeRowsBy(rows, (r) => r.hour, (r) => ({ hour: r.hour }))),
     byConfidenceBand: rank(summarizeRowsBy(rows, (r) => r.confidenceBand, (r) => ({ confidenceBand: r.confidenceBand }))),
   };

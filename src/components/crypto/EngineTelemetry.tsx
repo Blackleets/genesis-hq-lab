@@ -190,7 +190,7 @@ export function EngineTelemetry({ diagnostics: ext }: Props) {
             TOXIC SEGMENTS · where pnl is leaking
           </div>
           {toxic.byPair[0] && <ToxicLine label={`pair ${toxic.byPair[0].pair}`} stat={toxic.byPair[0]} colorHint="#ef4444" />}
-          {toxic.byRegime[0] && <ToxicLine label={`regime ${toxic.byRegime[0].regime}`} stat={toxic.byRegime[0]} colorHint="#f97316" />}
+          {toxic.byRegime[0] && <ToxicLine label={`regime ${toxic.byRegime[0].side} ${toxic.byRegime[0].regime}`} stat={toxic.byRegime[0]} colorHint="#f97316" />}
           {toxic.byHour[0] && <ToxicLine label={`hour ${toxic.byHour[0].hour} UTC`} stat={toxic.byHour[0]} colorHint="#f59e0b" />}
           {toxic.byConfidenceBand[0] && <ToxicLine label={`conf ${toxic.byConfidenceBand[0].confidenceBand}`} stat={toxic.byConfidenceBand[0]} colorHint="#a855f7" />}
         </div>
