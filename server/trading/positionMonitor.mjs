@@ -21,7 +21,11 @@ import { analyzeClosedTrade } from '../memory/learningEngine.mjs';
 import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs';
 import { computeEma } from '../crypto/priceFeeder.mjs';
 
-const TRADE_TYPES = ['scalp_v2', 'swing_v1'];
+const TRADE_TYPES = ['scalp_v2', 'swing_v1', 'breakout_v1'];
+
+// Trade types whose edge depends on holding to TP/SL/timeout — exempt from the 1m
+// momentum-collapse check, which would close a multi-hour position on intrabar noise.
+const HOLD_TO_TARGET_TYPES = new Set(['breakout_v1']);
 
 // ── Check exit conditions for a single position ───────────────────────────────
 
@@ -138,8 +142,9 @@ export async function monitorPositions({ checkMomentum = false } = {}) {
 
     let { shouldExit, reason } = checkExitConditions(trade, currentPrice, riskBand);
 
-    // Momentum collapse check (only on mid/slow runs — network overhead)
-    if (!shouldExit && checkMomentum) {
+    // Momentum collapse check (only on mid/slow runs — network overhead). Exempt
+    // hold-to-target strategies (e.g. breakout_v1) — their edge needs the full hold.
+    if (!shouldExit && checkMomentum && !HOLD_TO_TARGET_TYPES.has(trade.trade_type)) {
       const collapsed = await checkMomentumCollapse(trade);
       if (collapsed) {
         shouldExit = true;

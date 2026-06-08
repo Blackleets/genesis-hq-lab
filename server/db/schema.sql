@@ -328,6 +328,7 @@ VALUES
   -- FOREIGN KEY fails and EVERY engine execution is silently rejected.
   ('scalping-engine-1', 'Scalping Engine',   'trader', 'crypto_scalping',    1, datetime('now')),
   ('swing-engine-1',    'Swing Engine',      'trader', 'crypto_scalping',    1, datetime('now')),
+  ('breakout-engine-1', 'Breakout Engine',   'trader', 'crypto_scalping',    1, datetime('now')),
   ('event-alpha-1',     'Event Alpha Engine','trader', 'prediction_markets', 1, datetime('now'));
 
 -- Seed initial operating rules from Constitution

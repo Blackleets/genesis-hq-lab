@@ -22,6 +22,7 @@
 
 import { runScalpingCycle } from '../strategies/scalpingEngine.mjs';
 import { runSwingCycle } from '../strategies/swingEngine.mjs';
+import { runBreakoutCycle } from '../strategies/breakoutEngine.mjs';
 import { runEventAlphaCycle } from '../strategies/eventAlphaEngine.mjs';
 import { monitorPositions, getTrainingMetrics } from './positionMonitor.mjs';
 import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs';
@@ -200,6 +201,14 @@ async function runSlow() {
     const result = await runSwingCycle();
     if (result.executed > 0) {
       console.log(`[scheduler] SLOW: swing executed=${result.executed}`);
+    }
+
+    // Regime-switch breakout (live paper) — validated edge, runs alongside swing.
+    try {
+      const bk = await runBreakoutCycle();
+      if (bk.executed > 0) console.log(`[scheduler] SLOW: breakout executed=${bk.executed}`);
+    } catch (err) {
+      console.error('[scheduler] breakout cycle error:', err.message);
     }
 
     if (TRAINING_MODE) {
