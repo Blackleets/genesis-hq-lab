@@ -132,8 +132,9 @@ export function evaluateShadowCandidateSnapshot({ candidate, contexts, openedAt 
 }
 
 function candidateFromEnv() {
-  const enabled = ['1', 'true', 'yes'].includes((process.env.SHADOW_CANDIDATE_ENABLED ?? '').toLowerCase());
-  if (!enabled) return null;
+  const raw = (process.env.SHADOW_CANDIDATE_ENABLED ?? 'true').toLowerCase();
+  const disabled = ['0', 'false', 'no', 'off'].includes(raw);
+  if (disabled) return null;
   const candidateId = (process.env.SHADOW_CANDIDATE_ID ?? 'btc_trend_1h_v1').trim();
   return CANDIDATES[candidateId] ?? null;
 }

@@ -3,6 +3,13 @@
 ## 2026-06-08 - Codex
 
 - Branch: `feat/genesis-life-os`
+- Summary: Active por defecto el candidato en sombra `btc_trend_1h_v1` en el backend, manteniendolo read-only y apagable solo via `SHADOW_CANDIDATE_ENABLED=false`. Esto evita depender del dashboard de Render para poblar el panel frontend ya desplegado.
+- Files touched: `server/crypto/shadowCandidate.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/shadowCandidate.mjs` ok; `npm test` ok
+
+## 2026-06-08 - Codex
+
+- Branch: `feat/genesis-life-os`
 - Summary: Añadi una superficie frontend minima para el sidecar de research crypto. `Crypto Lab` ahora muestra un panel `Shadow candidate` dentro de `DeskPanel > STATS`, leyendo `/api/crypto/shadow-candidate` sin tocar los paneles live ni el layout principal.
 - Files touched: `src/services/cryptoClient.ts`, `src/components/crypto/ShadowCandidatePanel.tsx`, `src/components/crypto/DeskPanel.tsx`, `src/workflows/CryptoLabView.tsx`, `docs/CHANGELOG_AI.md`
 - Verification: `npm run build` ok; `npm test` ok
