@@ -284,6 +284,33 @@ export default function CandleChart({
     return () => { cancelled = true; clearTimeout(init); clearInterval(poll); };
   }, [pair, tf]);
 
+  // ── Real-time tick: update the live candle + price every 8s (between full reloads),
+  //    so the chart feels alive without re-pulling the whole series. ───────────────
+  useEffect(() => {
+    let cancelled = false;
+    async function tick() {
+      if (!csRef.current) return;
+      try {
+        const r = await fetch(`${BINANCE}/klines?symbol=${pair}&interval=${tf}&limit=2`, { signal: AbortSignal.timeout(5000) });
+        if (!r.ok || cancelled) return;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const raw: any[] = await r.json();
+        if (cancelled || !raw?.length) return;
+        const k = raw[raw.length - 1];
+        const bar = {
+          time:  Math.floor(k[0] / 1000) as UTCTimestamp,
+          open:  parseFloat(k[1]), high: parseFloat(k[2]),
+          low:   parseFloat(k[3]), close: parseFloat(k[4]),
+        };
+        csRef.current.update(bar);                 // updates the live bar in place
+        volRef.current?.update({ time: bar.time, value: parseFloat(k[5]), color: bar.close >= bar.open ? C.up + '55' : C.down + '55' });
+        setPrice(bar.close);
+      } catch { /* transient — next tick retries */ }
+    }
+    const id = setInterval(() => void tick(), 8_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [pair, tf]);
+
   // ── Trade markers: recompute when trades/pair/selection/data change ──────────
   useEffect(() => {
     if (!markersRef.current) return;

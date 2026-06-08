@@ -26,6 +26,7 @@ import { isSafeMode } from '../memory/reconciliationEngine.mjs';
 import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs';
 import { isDeptActive } from '../command/orgState.mjs';
 import { classifyRegime, applyRegimeBias } from '../crypto/regime.mjs';
+import { isSetupVetoed, confidenceCap } from '../crypto/autoVeto.mjs';
 
 const AGENT_ID    = 'scalping-engine-1';
 const TRADE_TYPE  = 'scalp_v2';
@@ -69,6 +70,7 @@ function rejectReasonFor(signal, gate, gatePass, positionOpen) {
   if (positionOpen) return 'POSITION_OPEN';
   if (signal.action === 'TRADE') {
     if (gatePass) return 'ACCEPTED';
+    if (signal.vetoed) return 'SETUP_VETOED';
     // Did the regime bias push a would-be-valid signal below the gate?
     if ((signal.bias ?? 0) < 0 && (signal.rawConfidence ?? 0) >= gate) return 'REGIME_MISMATCH';
     return 'LOW_CONFIDENCE';
@@ -174,13 +176,23 @@ export function evaluateScalpSignal(ctx) {
 
   // Phase 6B.1: soft directional regime bias on the confidence (never hard-blocks).
   const adjusted = applyRegimeBias(rawConfidence, side, regime);
-  const confidence = adjusted.confidence;
+  let confidence = adjusted.confidence;
+
+  // Phase 6B.1A: confidence honesty — cap at the setup's historical win-rate band.
+  const cap = confidenceCap(side, regime);
+  const capped = cap < confidence;
+  if (capped) confidence = cap;
+
+  // Phase 6B.1A: adaptive auto-veto — a proven-losing setup is pushed below the gate.
+  // This is a CONFIDENCE gate only; risk/execution/safe-mode are untouched.
+  const vetoed = isSetupVetoed(side, regime);
+  if (vetoed) confidence = Math.min(confidence, 0.40);
 
   if (TRAINING_MODE) {
-    console.log(`[scalping][TRAINING] ${symbol}: ${side} score=${bestScore} regime=${regime} conf=${(rawConfidence*100).toFixed(0)}%${adjusted.bias ? `→${(confidence*100).toFixed(0)}% (${adjusted.bias > 0 ? '+' : ''}${adjusted.bias})` : ''} signals=[${signals.join(',')}]`);
+    console.log(`[scalping][TRAINING] ${symbol}: ${side} score=${bestScore} regime=${regime} conf=${(rawConfidence*100).toFixed(0)}%→${(confidence*100).toFixed(0)}%${vetoed ? ' [VETOED]' : capped ? ' [capped]' : ''} signals=[${signals.join(',')}]`);
   }
 
-  return { action: 'TRADE', side, confidence, signals, score: bestScore, regime, bias: adjusted.bias, rawConfidence };
+  return { action: 'TRADE', side, confidence, signals, score: bestScore, regime, bias: adjusted.bias, rawConfidence, capped, vetoed };
 }
 
 // ── Main cycle ────────────────────────────────────────────────────────────────
