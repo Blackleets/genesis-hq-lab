@@ -9,11 +9,17 @@ const POLL_MS = 10_000;
 
 const REASON_LABEL: Record<string, string> = {
   LOW_CONFIDENCE:  'Low confidence',
+  REGIME_MISMATCH: 'Regime mismatch',
   LOW_VOLATILITY:  'Market too quiet',
   HIGH_VOLATILITY: 'Too volatile (gap risk)',
   NO_EDGE:         'No confluence edge',
   POSITION_OPEN:   'Position already open',
   ACCEPTED:        'Accepted',
+};
+
+const REGIME_COLOR: Record<string, string> = {
+  STRONG_BULL: '#22c55e', BULL: '#4ade80', RANGE: '#6b7280',
+  BEAR: '#f87171', STRONG_BEAR: '#ef4444', HIGH_VOLATILITY: '#f59e0b',
 };
 
 function LoopRow({ label, s }: { label: string; s: LoopStatus }) {
@@ -48,10 +54,25 @@ function WhyNoTrade({ asset }: { asset: ScanAsset }) {
         {asset.side && !accepted && (
           <span style={{ color: '#4b5563', fontSize: 8 }}>({asset.side} candidate)</span>
         )}
+        {asset.regime && (
+          <span style={{ marginLeft: 'auto', color: REGIME_COLOR[asset.regime] ?? '#6b7280', fontSize: 7, fontWeight: 700 }}>
+            {asset.regime}
+          </span>
+        )}
       </div>
       <div style={{ color: '#9ca3af', fontSize: 9, marginTop: 2 }}>
-        Reason: <span style={{ color }}>{REASON_LABEL[asset.reason] ?? asset.reason}</span>
+        Reason: <span style={{ color }}>
+          {asset.reason === 'REGIME_MISMATCH'
+            ? `${asset.side === 'SHORT' ? 'bullish' : 'bearish'} regime mismatch`
+            : (REASON_LABEL[asset.reason] ?? asset.reason)}
+        </span>
       </div>
+      {asset.reason === 'REGIME_MISMATCH' && asset.regime && (
+        <div style={{ color: '#78716c', fontSize: 9 }}>
+          {asset.regime} · {asset.side?.toLowerCase()} penalty {asset.bias}
+          {asset.rawConfidence != null && ` (conf ${asset.rawConfidence} → ${asset.confidence})`}
+        </div>
+      )}
       {asset.reason === 'LOW_CONFIDENCE' && (
         <div style={{ color: '#78716c', fontSize: 9 }}>
           {asset.confidence} &lt; required {asset.gate}

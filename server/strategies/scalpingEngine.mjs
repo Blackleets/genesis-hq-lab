@@ -25,6 +25,7 @@ import { isGlobalSafeMode, getGlobalRiskDiagnostics } from '../risk/globalRiskEn
 import { isSafeMode } from '../memory/reconciliationEngine.mjs';
 import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs';
 import { isDeptActive } from '../command/orgState.mjs';
+import { classifyRegime, applyRegimeBias } from '../crypto/regime.mjs';
 
 const AGENT_ID    = 'scalping-engine-1';
 const TRADE_TYPE  = 'scalp_v2';
@@ -64,9 +65,14 @@ function missingConfluences(signals) {
 }
 
 /** Coarse rejection reason from a signal evaluation + gate outcome. */
-function rejectReasonFor(signal, gatePass, positionOpen) {
+function rejectReasonFor(signal, gate, gatePass, positionOpen) {
   if (positionOpen) return 'POSITION_OPEN';
-  if (signal.action === 'TRADE') return gatePass ? 'ACCEPTED' : 'LOW_CONFIDENCE';
+  if (signal.action === 'TRADE') {
+    if (gatePass) return 'ACCEPTED';
+    // Did the regime bias push a would-be-valid signal below the gate?
+    if ((signal.bias ?? 0) < 0 && (signal.rawConfidence ?? 0) >= gate) return 'REGIME_MISMATCH';
+    return 'LOW_CONFIDENCE';
+  }
   if (signal.signals.includes('LOW_VOLATILITY'))         return 'LOW_VOLATILITY';
   if (signal.signals.includes('HIGH_VOLATILITY_BLOCK'))  return 'HIGH_VOLATILITY';
   return 'NO_EDGE';
@@ -86,6 +92,10 @@ const TRAINING_MODE = ['1', 'true', 'yes'].includes((process.env.TRAINING_MODE ?
  */
 export function evaluateScalpSignal(ctx) {
   const { closes, ema9, ema21, rsi14, volume24h, change1h, symbol } = ctx;
+
+  // Phase 6B.1: regime is derived from the same ctx and attached to every return
+  // so the operator/snapshot always sees it (even on WAIT).
+  const regime = classifyRegime(ctx);
 
   const signals = [];
   let longScore  = 0;
@@ -143,11 +153,11 @@ export function evaluateScalpSignal(ctx) {
   const priceMove = Math.abs(change1h);
   if (priceMove < 0.05) {
     // Market too quiet for scalping
-    return { action: 'WAIT', side: null, confidence: 0, signals: [...signals, 'LOW_VOLATILITY'], score: 0 };
+    return { action: 'WAIT', side: null, confidence: 0, signals: [...signals, 'LOW_VOLATILITY'], score: 0, regime, bias: 0, rawConfidence: 0 };
   }
   if (priceMove > 3.0) {
     // Market too violent — gap risk
-    return { action: 'WAIT', side: null, confidence: 0, signals: [...signals, 'HIGH_VOLATILITY_BLOCK'], score: 0 };
+    return { action: 'WAIT', side: null, confidence: 0, signals: [...signals, 'HIGH_VOLATILITY_BLOCK'], score: 0, regime, bias: 0, rawConfidence: 0 };
   }
 
   const bestScore = Math.max(longScore, shortScore);
@@ -156,17 +166,21 @@ export function evaluateScalpSignal(ctx) {
   // Require minimum confluence: at least 2 signals + score > 45
   const signalCount = signals.filter(s => !s.includes('VOLUME') || s.includes('SPIKE')).length;
   if (bestScore < 45 || signalCount < 2) {
-    return { action: 'WAIT', side: null, confidence: 0, signals, score: bestScore };
+    return { action: 'WAIT', side: null, confidence: 0, signals, score: bestScore, regime, bias: 0, rawConfidence: 0 };
   }
 
   // Convert score to confidence (45-85 maps to 0.65-0.92)
-  const confidence = Math.min(0.92, 0.65 + (bestScore - 45) / 100);
+  const rawConfidence = Math.min(0.92, 0.65 + (bestScore - 45) / 100);
+
+  // Phase 6B.1: soft directional regime bias on the confidence (never hard-blocks).
+  const adjusted = applyRegimeBias(rawConfidence, side, regime);
+  const confidence = adjusted.confidence;
 
   if (TRAINING_MODE) {
-    console.log(`[scalping][TRAINING] ${symbol}: ${side} score=${bestScore} conf=${(confidence*100).toFixed(0)}% signals=[${signals.join(',')}]`);
+    console.log(`[scalping][TRAINING] ${symbol}: ${side} score=${bestScore} regime=${regime} conf=${(rawConfidence*100).toFixed(0)}%${adjusted.bias ? `→${(confidence*100).toFixed(0)}% (${adjusted.bias > 0 ? '+' : ''}${adjusted.bias})` : ''} signals=[${signals.join(',')}]`);
   }
 
-  return { action: 'TRADE', side, confidence, signals, score: bestScore };
+  return { action: 'TRADE', side, confidence, signals, score: bestScore, regime, bias: adjusted.bias, rawConfidence };
 }
 
 // ── Main cycle ────────────────────────────────────────────────────────────────
@@ -227,11 +241,14 @@ export async function runScalpingCycle() {
       action:     signal.action,
       side:       signal.side,
       confidence: Math.round(signal.confidence * 100),
+      rawConfidence: Math.round((signal.rawConfidence ?? signal.confidence) * 100),
       gate:       Math.round(MIN_CONFIDENCE * 100),
       score:      signal.score,
       signals:    signal.signals,
       missing:    missingConfluences(signal.signals),
-      reason:     rejectReasonFor(signal, gatePass, positionOpen),
+      regime:     signal.regime ?? 'RANGE',
+      bias:       signal.bias ?? 0,
+      reason:     rejectReasonFor(signal, MIN_CONFIDENCE, gatePass, positionOpen),
     });
 
     if (signal.action !== 'TRADE') {
@@ -265,8 +282,8 @@ export async function runScalpingCycle() {
       side: signal.side,
       confidence: signal.confidence,
       capitalUsed,
-      reason: `Scalp ${signal.side} on ${signal.signals.join('+')} | RSI ${asset.rsi14} | EMA sep ${((Math.abs(asset.ema9 - asset.ema21) / asset.ema21) * 100).toFixed(2)}%`,
-      evidence: signal.signals,
+      reason: `Scalp ${signal.side} on ${signal.signals.join('+')} | ${signal.regime} | RSI ${asset.rsi14} | EMA sep ${((Math.abs(asset.ema9 - asset.ema21) / asset.ema21) * 100).toFixed(2)}%`,
+      evidence: [...signal.signals, `REGIME:${signal.regime}`],
       agentId: AGENT_ID,
       tradeType: TRADE_TYPE,
       targetPct: TP_PCT,

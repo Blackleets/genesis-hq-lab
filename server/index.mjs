@@ -68,7 +68,7 @@ import {
 }                                                         from './research/alphaValidationEngine.mjs';
 import { getSchedulerStatus }                             from './trading/executionScheduler.mjs';
 import { getTrainingMetrics }                             from './trading/positionMonitor.mjs';
-import { getMarketIntelligence, getCryptoFeedEvents }     from './crypto/marketIntelligence.mjs';
+import { getMarketIntelligence, getCryptoFeedEvents, getRegimeBiasPerformance } from './crypto/marketIntelligence.mjs';
 import { fetchDepth }                                     from './crypto/liquidityMatrix.mjs';
 import { getCommentary }                                  from './ai/commentaryEngine.mjs';
 import { getTradeStories }                                from './crypto/tradeHistory.mjs';
@@ -613,6 +613,18 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // GET /api/crypto/regime-backtest — Phase 6B.1 before/after validation over closed trades
+  if (url.pathname === '/api/crypto/regime-backtest') {
+    try {
+      const { runRegimeBiasBacktest } = await import('./crypto/backtest/regimeBiasBacktest.mjs');
+      const res2 = await runRegimeBiasBacktest();
+      // Strip the heavy per-trade array from the HTTP response.
+      const { evaluated, ...summary } = res2;
+      sendJson(res, 200, { ok: true, ...summary });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
   // GET /api/crypto/diagnostics — execution telemetry (loop status + rejections + gates)
   if (url.pathname === '/api/crypto/diagnostics') {
     try {
@@ -673,6 +685,7 @@ const server = createServer(async (req, res) => {
         mode: sched.mode,
         recentScans: recent,
         scanSnapshot: (() => { try { return getLastScanSnapshot(); } catch { return { at: null, assets: [] }; } })(),
+        regimePerformance: (() => { try { return getRegimeBiasPerformance(); } catch { return []; } })(),
       });
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;

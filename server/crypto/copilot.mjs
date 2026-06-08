@@ -8,6 +8,7 @@
 // safe mode or risk systems — it informs, and execution is re-validated server-side.
 
 import { evaluateSignal, computeHtfTrend } from './signal.mjs';
+import { classifyRegime, BIAS } from './regime.mjs';
 import { getParams } from './strategyParams.mjs';
 import { buildAssetContext } from './priceFeeder.mjs';
 import { getMarketIntelligence } from './marketIntelligence.mjs';
@@ -187,7 +188,12 @@ export async function analyzeTrade({ pair, side }) {
 
   const engine    = evaluateSignal(ctx, params);
   const breakdown = buildSignalBreakdown(ctx, side, params);
-  const confidence = copilotConfidence(engine, side, breakdown);
+  const rawConfidence = copilotConfidence(engine, side, breakdown);
+
+  // Phase 6B.1: directional regime bias (same source of truth as the engines).
+  const directionalRegime = classifyRegime(ctx);
+  const regimeBias = (BIAS[directionalRegime]?.[side] ?? 0);
+  const confidence = Math.max(0, Math.min(92, rawConfidence + regimeBias));
 
   let risk = { score: 0, band: 'HEALTHY', safeMode: false };
   try {
@@ -223,6 +229,7 @@ export async function analyzeTrade({ pair, side }) {
     tpPct: Math.round(params.targetPct * 10000) / 100,
     slPct: Math.round(params.stopPct * 10000) / 100,
     regime, momentum, volatility,
+    directionalRegime, regimeBias, rawConfidence,
     evPct: Math.round(evPct * 10000) / 100,
     evUsd: Math.round(evUsd * 100) / 100,
     winProb: Math.round(pWin * 100),

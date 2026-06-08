@@ -239,12 +239,24 @@ export interface ScanAsset {
   rsi: number;
   action: 'TRADE' | 'WAIT';
   side: 'LONG' | 'SHORT' | null;
-  confidence: number;   // 0–100
-  gate: number;         // 0–100
+  confidence: number;     // 0–100 (after regime bias)
+  rawConfidence?: number; // 0–100 (before regime bias)
+  gate: number;           // 0–100
   score: number;
   signals: string[];
-  missing: string[];    // human-readable missing confluences
-  reason: string;       // ACCEPTED | LOW_CONFIDENCE | LOW_VOLATILITY | NO_EDGE | POSITION_OPEN | ...
+  missing: string[];      // human-readable missing confluences
+  regime?: string;        // STRONG_BULL | BULL | RANGE | BEAR | STRONG_BEAR | HIGH_VOLATILITY
+  bias?: number;          // confidence-point modifier applied (e.g. -20)
+  reason: string;         // ACCEPTED | LOW_CONFIDENCE | REGIME_MISMATCH | LOW_VOLATILITY | NO_EDGE | POSITION_OPEN | ...
+}
+
+export interface RegimePerf {
+  side: string;
+  regime: string;
+  trades: number;
+  wins: number;
+  pnl: number;
+  winRate: number | null;
 }
 
 export interface ExecutionDiagnostics {
@@ -261,6 +273,7 @@ export interface ExecutionDiagnostics {
   mode: string;
   recentScans: { ts: string; reason: string; subsystem: string }[];
   scanSnapshot: { at: string | null; assets: ScanAsset[] };
+  regimePerformance?: RegimePerf[];
 }
 
 export async function loadDiagnostics(): Promise<ExecutionDiagnostics | null> {

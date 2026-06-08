@@ -16,6 +16,7 @@ import { isGlobalSafeMode, getGlobalRiskDiagnostics } from '../risk/globalRiskEn
 import { isSafeMode } from '../memory/reconciliationEngine.mjs';
 import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs';
 import { isDeptActive } from '../command/orgState.mjs';
+import { classifyRegime, applyRegimeBias } from '../crypto/regime.mjs';
 
 const AGENT_ID   = 'swing-engine-1';
 const TRADE_TYPE = 'swing_v1';
@@ -111,13 +112,18 @@ export function evaluateSwingSignal(ctx) {
   if (side === 'SHORT' && rsi14 < 22) { score -= 20; signals.push('RSI_OVERSOLD_PENALTY'); }
 
   // Convert score to confidence (60-100 maps to 0.75-0.93)
-  const confidence = Math.min(0.93, 0.75 + (score - 60) / 200);
+  const rawConfidence = Math.min(0.93, 0.75 + (score - 60) / 200);
+
+  // Phase 6B.1: soft directional regime bias (same helper as scalping).
+  const regime = classifyRegime(ctx);
+  const adjusted = applyRegimeBias(rawConfidence, side, regime);
+  const confidence = adjusted.confidence;
 
   if (TRAINING_MODE) {
-    console.log(`[swing][TRAINING] ${symbol}: ${side} score=${score} conf=${(confidence*100).toFixed(0)}% TF_align bull=${bullVotes} bear=${bearVotes}`);
+    console.log(`[swing][TRAINING] ${symbol}: ${side} score=${score} regime=${regime} conf=${(rawConfidence*100).toFixed(0)}%${adjusted.bias ? `→${(confidence*100).toFixed(0)}%` : ''} TF_align bull=${bullVotes} bear=${bearVotes}`);
   }
 
-  return { action: 'TRADE', side, confidence, signals, score, tfAlignment: Math.max(bullVotes, bearVotes) };
+  return { action: 'TRADE', side, confidence, signals, score, tfAlignment: Math.max(bullVotes, bearVotes), regime, bias: adjusted.bias, rawConfidence };
 }
 
 // ── Main cycle ────────────────────────────────────────────────────────────────

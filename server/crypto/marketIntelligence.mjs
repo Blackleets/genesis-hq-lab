@@ -126,6 +126,45 @@ export function getMarketIntelligence() {
   };
 }
 
+// ── Regime bias performance (Phase 6B.1 learning observability) ─────────────────
+
+/**
+ * Win rate + pnl grouped by side × entry-regime, parsed from the REGIME: tag the
+ * scalping/swing engines write into each trade's evidence. Read-only — does not
+ * touch the existing learning writes; it lets Genesis observe whether the bias helps.
+ */
+export function getRegimeBiasPerformance() {
+  try {
+    const rows = db.prepare(`
+      SELECT outcome AS side, pnl, evidence
+      FROM trades
+      WHERE trade_type IN ('scalp_v2','swing_v1') AND status='closed'
+    `).all();
+
+    const groups = {};
+    for (const r of rows) {
+      let regime = 'UNTAGGED';
+      try {
+        const ev = JSON.parse(r.evidence ?? '[]');
+        const tag = (Array.isArray(ev) ? ev : []).find(s => typeof s === 'string' && s.startsWith('REGIME:'));
+        if (tag) regime = tag.slice('REGIME:'.length);
+      } catch { /* leave UNTAGGED */ }
+
+      const key = `${r.side}|${regime}`;
+      const g = groups[key] ?? (groups[key] = { side: r.side, regime, trades: 0, wins: 0, pnl: 0 });
+      g.trades++;
+      if ((r.pnl ?? 0) > 0) g.wins++;
+      g.pnl += r.pnl ?? 0;
+    }
+
+    return Object.values(groups)
+      .map(g => ({ ...g, winRate: g.trades > 0 ? Math.round((g.wins / g.trades) * 100) / 100 : null, pnl: Math.round(g.pnl * 100) / 100 }))
+      .sort((a, b) => b.trades - a.trades);
+  } catch {
+    return [];
+  }
+}
+
 // ── Crypto Feed Events ────────────────────────────────────────────────────────
 
 /**
