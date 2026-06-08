@@ -1,5 +1,12 @@
 # CHANGELOG_AI
 
+## 2026-06-08 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Volvi ejecutable el plan de recuperacion del scalp con un runner de decision live. `scripts/cryptoPhase1Check.mjs` ahora consolida verdad de metricas, disponibilidad del backtest, estado honesto del LLM y el `nextTrack` recomendado; ademas anadi `npm run crypto:phase1`.
+- Files touched: `package.json`, `scripts/cryptoPhase1Check.mjs`
+- Verification: `node scripts/cryptoPhase1Check.mjs` ok; `npm run crypto:phase1` ok; `npm test` ok; `npm run build` ok
+
 ## 2026-06-08 — Codex
 
 - Branch: `feat/genesis-life-os`
