@@ -425,6 +425,13 @@ at the top. Use one block per session. Be honest about failures.
 ## 2026-06-09 - Codex
 
 - Branch: `feat/genesis-life-os`
+- Summary: Removed persistent text labels from unselected chart trade markers so the live chart keeps TradingView-style visual clarity while preserving selected-trade labels and click-to-select behavior.
+- Files touched: `src/dashboard/charts/CandleChart.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run typecheck` ok; `npm run build` ok; `npm test` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
 - Summary: Tightened the Crypto Lab chart fidelity after live review by reducing trade-marker label clutter and hiding the volume series last-value label so the panel reads more like a real TradingView/DexScreener chart.
 - Files touched: `src/dashboard/charts/CandleChart.tsx`, `docs/CHANGELOG_AI.md`
 - Verification: `npm run typecheck` ok; `npm run build` ok; `npm test` ok; Playwright local render check ok with no console errors
