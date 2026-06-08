@@ -645,7 +645,9 @@ const server = createServer(async (req, res) => {
       const hb = readHeartbeat();
       const src = hb ?? sched;
       const now = Date.now();
-      const isLive = (iso) => iso ? (now - new Date(iso).getTime()) < 60_000 : false;
+      // A loop is "live" if it ticked within 2× its own interval (+15s buffer) — so the
+      // 5-min SLOW loop isn't flagged offline just because it's between ticks.
+      const isLive = (iso, expectedMs) => iso ? (now - new Date(iso).getTime()) < (expectedMs * 2 + 15_000) : false;
 
       // Recent rejection / scan reasons for operator "why no trade" visibility
       const recent = (() => {
@@ -687,9 +689,9 @@ const server = createServer(async (req, res) => {
       sendJson(res, 200, {
         ok: true,
         loops: {
-          scalping: { running: src.started && isLive(src.lastRun?.fast), ticks: src.ticks?.fast ?? 0, lastRun: src.lastRun?.fast ?? null, errors: src.errors?.fast ?? 0, expectedMs: src.intervals?.fastMs ?? 5000 },
-          event:    { running: src.started && isLive(src.lastRun?.mid),  ticks: src.ticks?.mid ?? 0,  lastRun: src.lastRun?.mid ?? null,  errors: src.errors?.mid ?? 0,  expectedMs: src.intervals?.midMs ?? 30000 },
-          swing:    { running: src.started && isLive(src.lastRun?.slow), ticks: src.ticks?.slow ?? 0, lastRun: src.lastRun?.slow ?? null, errors: src.errors?.slow ?? 0, expectedMs: src.intervals?.slowMs ?? 300000 },
+          scalping: { running: src.started && isLive(src.lastRun?.fast, src.intervals?.fastMs ?? 5000),  ticks: src.ticks?.fast ?? 0, lastRun: src.lastRun?.fast ?? null, errors: src.errors?.fast ?? 0, expectedMs: src.intervals?.fastMs ?? 5000 },
+          event:    { running: src.started && isLive(src.lastRun?.mid,  src.intervals?.midMs ?? 30000),  ticks: src.ticks?.mid ?? 0,  lastRun: src.lastRun?.mid ?? null,  errors: src.errors?.mid ?? 0,  expectedMs: src.intervals?.midMs ?? 30000 },
+          swing:    { running: src.started && isLive(src.lastRun?.slow, src.intervals?.slowMs ?? 300000), ticks: src.ticks?.slow ?? 0, lastRun: src.lastRun?.slow ?? null, errors: src.errors?.slow ?? 0, expectedMs: src.intervals?.slowMs ?? 300000 },
         },
         gates: {
           scalp: scalpConfig(),
