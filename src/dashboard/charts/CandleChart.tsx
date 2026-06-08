@@ -1,17 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
-import { createChart, CandlestickSeries, LineSeries, HistogramSeries, createSeriesMarkers } from 'lightweight-charts';
-import type { UTCTimestamp, ISeriesApi, SeriesType, SeriesMarker, Time, ISeriesMarkersPluginApi } from 'lightweight-charts';
+import { createChart, CandlestickSeries, LineSeries, HistogramSeries, createSeriesMarkers, LineStyle } from 'lightweight-charts';
+import type { UTCTimestamp, ISeriesApi, SeriesType, SeriesMarker, Time, ISeriesMarkersPluginApi, IPriceLine } from 'lightweight-charts';
 import type { TradeStory, CopilotAnalysis } from '@services/cryptoClient';
 import { analyzeCopilot } from '@services/cryptoClient';
+import { loadChartTicker, type ChartTickerStats } from '@services/chartTicker';
 import { TradeStoryCard } from '../../components/crypto/TradeStoryCard';
 import { CopilotPanel } from '../../components/crypto/CopilotPanel';
+import { ChartStatsHeader } from '../../components/crypto/ChartStatsHeader';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PAIRS     = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT'];
 // Binance API uses lowercase intervals: 1m 5m 15m 1h 4h 1d
 const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d'];
-const C = { up: '#00ff9c', down: '#ff4757', ema9: '#3da9fc', ema21: '#f59e0b' };
+// Pro palette (DexScreener-ish): crisp green/red, calm EMAs.
+const C = { up: '#16c784', down: '#ea3943', ema9: '#3b82f6', ema21: '#f59e0b' };
 
 // Binance public REST — CORS allowed from browser, no key needed
 const BINANCE = 'https://api.binance.com/api/v3';
@@ -52,12 +55,14 @@ function buildMarkers(trades: TradeStory[], pair: string, selectedId: string | n
     const exitT = toUnix(t.closed_at);
     if (exitT != null && t.exit_kind) {
       const col = EXIT_COLOR[t.exit_kind] ?? '#9ca3af';
+      const kind = t.exit_kind === 'TP' ? 'TP' : t.exit_kind === 'SL' ? 'SL' : 'EXIT';
+      const pnlTxt = t.pnl != null ? ` ${t.pnl >= 0 ? '+' : ''}$${Math.abs(t.pnl).toFixed(1)}` : '';
       markers.push({
         time: exitT as UTCTimestamp,
         position: 'aboveBar',
         shape: 'circle',
         color: sel ? '#ffffff' : col,
-        text: t.exit_kind === 'TP' ? 'TP' : t.exit_kind === 'SL' ? 'SL' : 'EXIT',
+        text: `${kind}${pnlTxt}`,
         size: sel ? 2 : 1,
       });
     }
@@ -113,6 +118,7 @@ export default function CandleChart({
   const e21Ref     = useRef<ISeriesApi<SeriesType> | null>(null);
   const volRef     = useRef<ISeriesApi<SeriesType> | null>(null);
   const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
+  const priceLinesRef = useRef<IPriceLine[]>([]);
 
   // Latest props/state for use inside the once-created click handler
   const tradesRef   = useRef<TradeStory[]>(tradeStories);
@@ -124,10 +130,12 @@ export default function CandleChart({
   const [pair, setPair]         = useState('BTCUSDT');
   const [tf, setTf]             = useState('1h');
   const [price, setPrice]       = useState<number | null>(null);
-  const [change, setChange]     = useState(0);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
   const [candlesLoadedAt, setCandlesLoadedAt] = useState(0);
+  const [stats, setStats]       = useState<ChartTickerStats | null>(null);
+  const [showEma9, setShowEma9] = useState(true);
+  const [showEma21, setShowEma21] = useState(true);
 
   // Co-pilot pre-trade state
   const [copilotSide, setCopilotSide]         = useState<'LONG' | 'SHORT' | null>(null);
@@ -148,21 +156,22 @@ export default function CandleChart({
     if (!wrapRef.current) return;
 
     const chart = createChart(wrapRef.current, {
-      layout:    { background: { color: '#0d0d0f' }, textColor: '#71717a' },
-      grid:      { vertLines: { color: '#1c1c22' }, horzLines: { color: '#1c1c22' } },
+      layout:    { background: { color: '#0b0e11' }, textColor: '#8b93a7', fontFamily: 'ui-monospace, monospace' },
+      grid:      { vertLines: { color: '#161a22' }, horzLines: { color: '#161a22' } },
       crosshair: { mode: 1 },
-      rightPriceScale: { borderColor: '#27272a' },
-      timeScale:       { borderColor: '#27272a', timeVisible: true },
+      rightPriceScale: { borderColor: '#222732', scaleMargins: { top: 0.08, bottom: 0.22 } },
+      timeScale:       { borderColor: '#222732', timeVisible: true },
       width:  wrapRef.current.clientWidth,
       height: wrapRef.current.clientHeight || 380,
     });
     chartRef.current = chart;
 
-    // Candlestick
+    // Candlestick — last-price line on for a pro terminal feel.
     csRef.current = chart.addSeries(CandlestickSeries, {
       upColor: C.up, downColor: C.down,
       borderUpColor: C.up, borderDownColor: C.down,
       wickUpColor: C.up, wickDownColor: C.down,
+      priceLineVisible: true, lastValueVisible: true,
     });
 
     // EMA 9
@@ -261,15 +270,9 @@ export default function CandleChart({
         chartRef.current!.timeScale().fitContent();
         setCandlesLoadedAt(Date.now());  // signals marker/replay effects to re-run
 
-        // Price = last close; % change = 24h (last 24 candles for 1h, else first vs last)
+        // Price = last close; multi-window changes come from chartTicker.
         const last = candles[candles.length - 1];
         setPrice(last.close);
-        const refIdx = tf === '1h' ? Math.max(0, candles.length - 24)
-                     : tf === '4h' ? Math.max(0, candles.length - 6)
-                     : tf === '1d' ? Math.max(0, candles.length - 1)
-                     : 0;
-        const ref24h = candles[refIdx].open;
-        setChange(((last.close - ref24h) / ref24h) * 100);
       } catch (e) {
         if (!cancelled) setError((e as Error).message);
       } finally {
@@ -316,6 +319,45 @@ export default function CandleChart({
     if (!markersRef.current) return;
     markersRef.current.setMarkers(buildMarkers(tradeStories, pair, selectedTradeId));
   }, [tradeStories, pair, selectedTradeId, candlesLoadedAt]);
+
+  useEffect(() => {
+    e9Ref.current?.applyOptions({ visible: showEma9 });
+  }, [showEma9]);
+
+  useEffect(() => {
+    e21Ref.current?.applyOptions({ visible: showEma21 });
+  }, [showEma21]);
+
+  // ── 24h ticker stats for the DexScreener-style header ────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    setStats(null);
+    const run = async () => {
+      const s = await loadChartTicker(pair);
+      if (!cancelled && s) setStats(s);
+    };
+    void run();
+    const id = setInterval(() => void run(), 30_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [pair]);
+
+  // ── Agent price lines: entry / TP / SL for OPEN positions on the current pair ─
+  useEffect(() => {
+    const cs = csRef.current;
+    if (!cs) return;
+    for (const pl of priceLinesRef.current) { try { cs.removePriceLine(pl); } catch { /* gone */ } }
+    priceLinesRef.current = [];
+    for (const pos of positions.filter(p => p.pair === pair)) {
+      const isLong = pos.side === 'LONG';
+      const add = (price: number, color: string, title: string, style: LineStyle, width: 1 | 2 = 1) => {
+        if (!Number.isFinite(price) || price <= 0) return;
+        priceLinesRef.current.push(cs.createPriceLine({ price, color, lineWidth: width, lineStyle: style, axisLabelVisible: true, title }));
+      };
+      add(pos.entry_price, isLong ? '#3b82f6' : '#a855f7', `ENTRY ${pos.side}`, LineStyle.Solid, 2);
+      add(pos.target_price, C.up, 'TP', LineStyle.Dashed);
+      add(pos.stop_price, C.down, 'SL', LineStyle.Dashed);
+    }
+  }, [positions, pair, candlesLoadedAt]);
 
   // ── When a trade on another pair is selected, switch the chart to its pair ───
   useEffect(() => {
@@ -364,64 +406,28 @@ export default function CandleChart({
 
   // ── Derived ────────────────────────────────────────────────────────────────
   const symbol   = pair.replace('USDT', '');
-  const isUp     = change >= 0;
   const myPos    = positions.filter(p => p.pair === pair);
 
   return (
     <div className="gx-card overflow-hidden h-full flex flex-col min-h-0">
 
-      {/* ── Top bar: pairs + price + timeframes ─────────────────────────── */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 flex-wrap">
-        {/* Pair tabs */}
-        <div className="flex gap-1">
-          {PAIRS.map(p => (
-            <button key={p} onClick={() => setPair(p)}
-              className={`font-mono text-[11px] px-2.5 py-1 rounded transition-colors
-                ${pair === p
-                  ? 'bg-zinc-700 text-zinc-100 font-bold'
-                  : 'text-zinc-500 hover:text-zinc-300'}`}>
-              {p.replace('USDT', '')}
-            </button>
-          ))}
-        </div>
-
-        {/* Live price */}
-        {price !== null && (
-          <div className="flex items-baseline gap-1.5 ml-3">
-            <span className="font-mono text-[18px] font-bold text-zinc-100 tabular-nums">
-              ${price.toLocaleString('en-US', { maximumFractionDigits: price < 10 ? 4 : 2 })}
-            </span>
-            <span className={`font-mono text-[11px] font-bold ${isUp ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {isUp ? '▲' : '▼'} {Math.abs(change).toFixed(2)}%
-            </span>
-          </div>
-        )}
-
-        {/* Timeframe selector */}
-        <div className="flex gap-1 ml-auto">
-          {INTERVALS.map(iv => (
-            <button key={iv} onClick={() => setTf(iv)}
-              className={`font-mono text-[10px] px-2 py-1 rounded transition-colors
-                ${tf === iv
-                  ? 'text-emerald-400 bg-emerald-400/10 border border-emerald-400/30'
-                  : 'text-zinc-600 hover:text-zinc-400'}`}>
-              {iv === '1d' ? '1D' : iv}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Indicator legend ────────────────────────────────────────────── */}
-      <div className="flex items-center gap-4 px-4 py-1.5 border-b border-zinc-800/60 text-[9px] font-mono">
-        <span style={{ color: C.ema9 }}>● EMA 9</span>
-        <span style={{ color: C.ema21 }}>● EMA 21</span>
-        <span className="text-zinc-700">▌ Vol</span>
-        <span className="ml-auto text-zinc-600 tabular-nums">
-          {loading
-            ? <span className="animate-pulse">Cargando {symbol}…</span>
-            : `${symbol}/USDT · ${tf === '1d' ? '1D' : tf}`}
-        </span>
-      </div>
+      {/* ── DexScreener-style stats header: pairs · price · changes · vol · TF ── */}
+      <ChartStatsHeader
+        pairs={PAIRS}
+        intervals={INTERVALS}
+        pair={pair}
+        tf={tf}
+        symbol={symbol}
+        livePrice={price}
+        stats={stats}
+        loading={loading}
+        showEma9={showEma9}
+        showEma21={showEma21}
+        onPair={setPair}
+        onTf={setTf}
+        onToggleEma9={() => setShowEma9(v => !v)}
+        onToggleEma21={() => setShowEma21(v => !v)}
+      />
 
       {/* ── Error state ─────────────────────────────────────────────────── */}
       {error && (
@@ -452,6 +458,11 @@ export default function CandleChart({
       {/* ── Chart canvas — flex-fills the remaining card height ─────────── */}
       <div className="relative w-full flex-1 min-h-0" style={{ minHeight: 200 }}>
         <div ref={wrapRef} className="absolute inset-0" />
+        <div className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center">
+          <div className="font-mono text-[72px] md:text-[96px] font-black tracking-[-0.08em] text-zinc-500/10 select-none">
+            {symbol}
+          </div>
+        </div>
         {selectedTrade && !copilotSide && (
           <TradeStoryCard trade={selectedTrade} onClose={() => onSelectTrade?.(null)} />
         )}

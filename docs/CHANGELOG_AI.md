@@ -422,9 +422,13 @@ at the top. Use one block per session. Be honest about failures.
 - Files touched: `server/crypto/proValidation.mjs`, `server/tests/proValidation.test.mjs`, `server/index.mjs`, `src/services/cryptoClient.ts`, `src/components/crypto/RightPanel.tsx`, `src/components/crypto/ProValidationPanel.tsx`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/crypto/proValidation.mjs` ok; `node --check server/index.mjs` ok; `npm test` ok; `npm run build` ok; local `GET /api/crypto/pro-validation?pair=BTCUSDT` returned `bias=LONG_BIAS`, `action=validate_longs_only`, `score=3`
 
-## 2026-06-08 — Codex
+## 2026-06-09 - Codex
 
 - Branch: `feat/genesis-life-os`
+- Summary: Finished the Crypto Lab chart panel polish with a DexScreener-style stats header, Binance 24h ticker stats, professional candle/volume styling, open-position price lines, improved trade markers, EMA toggles, and a subtle symbol watermark while preserving the existing lower layout and trading logic.
+- Files touched: `src/dashboard/charts/CandleChart.tsx`, `src/components/crypto/ChartStatsHeader.tsx`, `src/services/chartTicker.ts`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run typecheck` ok; `npm run build` ok; `npm test` ok; Playwright local render check ok with no console errors
+
 ## 2026-06-08 - Codex
 
 - Branch: `feat/genesis-life-os`
