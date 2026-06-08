@@ -74,6 +74,7 @@ import { getCommentary }                                  from './ai/commentaryE
 import { getTradeStories }                                from './crypto/tradeHistory.mjs';
 import { analyzeTrade, assertTradeAllowed }               from './crypto/copilot.mjs';
 import { scalpConfig, getLastScanSnapshot }               from './strategies/scalpingEngine.mjs';
+import { getDbHealth, startReplication }                  from './persistence/dbReplicator.mjs';
 import { swingConfig }                                    from './strategies/swingEngine.mjs';
 import { eventConfig }                                    from './strategies/eventAlphaEngine.mjs';
 
@@ -621,6 +622,14 @@ const server = createServer(async (req, res) => {
       // Strip the heavy per-trade array from the HTTP response.
       const { evaluated, ...summary } = res2;
       sendJson(res, 200, { ok: true, ...summary });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  // GET /api/db/health — hybrid persistence diagnostics (sqlite + postgres + replication)
+  if (url.pathname === '/api/db/health') {
+    try {
+      sendJson(res, 200, { ok: true, ...getDbHealth() });
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;
   }
@@ -1290,6 +1299,9 @@ server.on('upgrade', (req, socket, head) => {
 server.listen(PORT, HOST, () => {
   console.log(`[genesis-hq-lab-backend] listening on http://${HOST}:${PORT}`);
   kalshiStartWS();
+
+  // Hybrid persistence — async replication of SQLite → Supabase (no-op without DATABASE_URL).
+  startReplication();
 
   // Keep Render free tier awake — ping own /api/health every 4 min
   const renderUrl = process.env.RENDER_EXTERNAL_URL;

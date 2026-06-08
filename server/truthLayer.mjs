@@ -24,6 +24,7 @@ import { getLearningDiagnostics } from './learning/learningEngine.mjs';
 import { getGlobalRiskDiagnostics } from './risk/globalRiskEngine.mjs';
 import { getAlphaReport } from './research/alphaValidationEngine.mjs';
 import { getSchedulerStatus } from './trading/executionScheduler.mjs';
+import { getDbHealth } from './persistence/dbReplicator.mjs';
 import {
   getRecentEvents,
   countBlockedTrades,
@@ -54,6 +55,32 @@ function probeDatabase() {
   } catch (err) {
     _log.error('db', 'SQLite probe failed', err);
     return { ok: false, error: err.message };
+  }
+}
+
+// Durable persistence: warns (never errors) when hybrid mode can't reach Supabase.
+function probeDurablePersistence() {
+  try {
+    const h = getDbHealth();
+    if (h.mode === 'sqlite' || !h.enabled) {
+      return { ok: true, mode: h.mode, durable: false, note: 'SQLite-only (no durable replication)' };
+    }
+    const degraded = !h.postgres.connected || (h.replication.failedSyncs > 0 && h.replication.rowsSynced === 0);
+    return {
+      ok: !degraded,
+      mode: h.mode,
+      durable: true,
+      connected: h.postgres.connected,
+      rowsSynced: h.replication.rowsSynced,
+      failedSyncs: h.replication.failedSyncs,
+      lastSyncAt: h.replication.lastSyncAt,
+      syncLagMs: h.replication.syncLagMs,
+      queuePending: h.replication.queuePending,
+      // A degraded durable layer is a WARNING: trading continues on SQLite.
+      warning: degraded ? 'Supabase unreachable — trading continues on SQLite, durability paused' : null,
+    };
+  } catch (err) {
+    return { ok: true, durable: false, warning: `persistence probe failed: ${err.message}` };
   }
 }
 
@@ -426,6 +453,7 @@ export function getSystemTruth(wsClientCount = 0) {
 
   const checks = {
     database:             probeDatabase(),
+    durablePersistence:   probeDurablePersistence(),
     treasury:             probeTreasury(),
     agentRunner:          probeAgentRunner(),
     kalshi:               probeKalshi(),
