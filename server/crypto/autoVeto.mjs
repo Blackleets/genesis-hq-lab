@@ -8,7 +8,8 @@
 
 import db from '../db/database.mjs';
 
-const MIN_SAMPLES  = parseInt(process.env.VETO_MIN_SAMPLES ?? '20', 10);
+// Training-phase default: 12 gives statistical signal early (override with VETO_MIN_SAMPLES=20+ for production hardening)
+const MIN_SAMPLES  = parseInt(process.env.VETO_MIN_SAMPLES ?? '12', 10);
 const PF_THRESHOLD = parseFloat(process.env.VETO_PF ?? '0.9');
 const WINDOW_DAYS  = parseInt(process.env.VETO_WINDOW_DAYS ?? '7', 10);
 
