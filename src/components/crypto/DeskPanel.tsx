@@ -3,11 +3,12 @@
 // Replaces the old full-width data strip so the chart can be the hero.
 
 import { useState } from 'react';
-import type { CryptoOverview, TradeStory, ExecutionDiagnostics, ShadowCandidateDiagnostics } from '@services/cryptoClient';
+import type { CryptoOverview, TradeStory, ExecutionDiagnostics, ShadowCandidateDiagnostics, BreakoutShadowDiagnostics } from '@services/cryptoClient';
 import { ActivePositionsTerminal } from './ActivePositionsTerminal';
 import { TradeTimeline } from './TradeTimeline';
 import { EngineTelemetry } from './EngineTelemetry';
 import { ShadowCandidatePanel } from './ShadowCandidatePanel';
+import { BreakoutShadowPanel } from './BreakoutShadowPanel';
 
 const ACCENT = '#f7931a';
 
@@ -40,6 +41,7 @@ interface Props {
   onSelectTrade?: (id: string | null) => void;
   diagnostics?: ExecutionDiagnostics | null;
   shadowCandidate?: ShadowCandidateDiagnostics | null;
+  breakoutShadow?: BreakoutShadowDiagnostics | null;
 }
 
 export function DeskPanel({
@@ -47,6 +49,7 @@ export function DeskPanel({
   tradeStories = [], selectedTradeId = null, onSelectTrade,
   diagnostics,
   shadowCandidate,
+  breakoutShadow,
 }: Props) {
   const [tab, setTab] = useState<Tab>('POSITIONS');
 
@@ -97,6 +100,8 @@ export function DeskPanel({
 
             {/* Execution telemetry — loop status + why-no-trade */}
             <EngineTelemetry diagnostics={diagnostics} />
+
+            <BreakoutShadowPanel shadow={breakoutShadow ?? null} es={es} />
 
             <ShadowCandidatePanel shadow={shadowCandidate ?? null} es={es} />
 

@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useLanguage } from '@core/i18n/languageStore';
 import {
-  loadCryptoOverview, loadTradeStories, loadCommentary, loadDiagnostics, loadShadowCandidateDiagnostics,
-  type CryptoOverview, type TradeStory, type CommentaryItem, type ExecutionDiagnostics, type ShadowCandidateDiagnostics,
+  loadCryptoOverview, loadTradeStories, loadCommentary, loadDiagnostics, loadShadowCandidateDiagnostics, loadBreakoutShadow,
+  type CryptoOverview, type TradeStory, type CommentaryItem, type ExecutionDiagnostics, type ShadowCandidateDiagnostics, type BreakoutShadowDiagnostics,
 } from '@services/cryptoClient';
 import CandleChart from '@dashboard/charts/CandleChart';
 import { apiUrl } from '@services/apiBase';
@@ -30,6 +30,7 @@ export default function CryptoLabView() {
   const [commentary, setCommentary] = useState<CommentaryItem[]>([]);
   const [diagnostics, setDiagnostics] = useState<ExecutionDiagnostics | null>(null);
   const [shadowCandidate, setShadowCandidate] = useState<ShadowCandidateDiagnostics | null>(null);
+  const [breakoutShadow, setBreakoutShadow] = useState<BreakoutShadowDiagnostics | null>(null);
 
   const fetchOverview = useCallback(async () => {
     try {
@@ -54,16 +55,21 @@ export default function CryptoLabView() {
     const data = await loadShadowCandidateDiagnostics();
     if (data) setShadowCandidate(data);
   }, []);
+  const fetchBreakoutShadow = useCallback(async () => {
+    const data = await loadBreakoutShadow();
+    if (data) setBreakoutShadow(data);
+  }, []);
 
   useEffect(() => {
-    fetchOverview(); fetchTrades(); fetchCommentary(); fetchDiagnostics(); fetchShadowCandidate();
+    fetchOverview(); fetchTrades(); fetchCommentary(); fetchDiagnostics(); fetchShadowCandidate(); fetchBreakoutShadow();
     const id1 = setInterval(fetchOverview, 15_000);
     const id2 = setInterval(fetchTrades, 15_000);
     const id3 = setInterval(fetchCommentary, 5_000);
     const id4 = setInterval(fetchDiagnostics, 10_000);
     const id5 = setInterval(fetchShadowCandidate, 10_000);
-    return () => { clearInterval(id1); clearInterval(id2); clearInterval(id3); clearInterval(id4); clearInterval(id5); };
-  }, [fetchOverview, fetchTrades, fetchCommentary, fetchDiagnostics, fetchShadowCandidate]);
+    const id6 = setInterval(fetchBreakoutShadow, 60_000); // 4h strategy — 1 min refresh is plenty
+    return () => { clearInterval(id1); clearInterval(id2); clearInterval(id3); clearInterval(id4); clearInterval(id5); clearInterval(id6); };
+  }, [fetchOverview, fetchTrades, fetchCommentary, fetchDiagnostics, fetchShadowCandidate, fetchBreakoutShadow]);
 
   // Today's realized stats — computed from closed trades (real, no extra fetch)
   const today = useMemo(() => {
@@ -176,6 +182,7 @@ export default function CryptoLabView() {
             onSelectTrade={setSelectedTradeId}
             diagnostics={diagnostics}
             shadowCandidate={shadowCandidate}
+            breakoutShadow={breakoutShadow}
           />
         </div>
 

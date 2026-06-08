@@ -450,6 +450,72 @@ export async function loadShadowCandidateDiagnostics(): Promise<ShadowCandidateD
   } catch { return null; }
 }
 
+// ─── Regime-switch Breakout Shadow (validated 4h strategy, live observation) ───
+
+export interface BreakoutShadowMetrics {
+  trades: number;
+  winRate: number;
+  netPnl: number;
+  expectancy: number;
+  profitFactor: number | null;
+  maxDrawdown: number;
+}
+
+export interface BreakoutShadowPairStat {
+  pair: string;
+  trades: number;
+  netPnl: number;
+  winRate: number;
+  profitFactor: number | null;
+}
+
+export interface BreakoutShadowCurrent {
+  pair: string;
+  price: number | null;
+  sma: number | null;
+  regime: 'bull' | 'bear' | 'range' | 'unknown';
+  signalNow: 'LONG' | 'SHORT' | null;
+  lastBarTime: number | null;
+}
+
+export interface BreakoutShadowRecent {
+  pair: string;
+  side: 'LONG' | 'SHORT';
+  openTime: number;
+  entryPrice: number;
+  exitPrice: number;
+  pnl: number;
+  exitReason: string;
+}
+
+export interface BreakoutShadowDiagnostics {
+  candidateId: string;
+  mode: string;
+  config: {
+    pairs: string[]; interval: string; days: number;
+    breakoutPeriod: number; regimeSmaPeriod: number;
+    targetPct: number; stopPct: number; timeoutHours: number;
+  };
+  window: { from: string | null; to: string | null };
+  combined: BreakoutShadowMetrics;
+  short: BreakoutShadowMetrics;
+  long: BreakoutShadowMetrics;
+  byPair: BreakoutShadowPairStat[];
+  current: BreakoutShadowCurrent[];
+  recent: BreakoutShadowRecent[];
+  note: string;
+  evaluatedAt: string;
+}
+
+export async function loadBreakoutShadow(): Promise<BreakoutShadowDiagnostics | null> {
+  try {
+    const res = await fetch(apiUrl('/api/crypto/breakout-shadow'), { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    const data = await res.json() as { ok: boolean } & BreakoutShadowDiagnostics;
+    return data.ok ? data : null;
+  } catch { return null; }
+}
+
 export async function analyzeCopilot(pair: string, side: 'LONG' | 'SHORT'): Promise<CopilotAnalysis | null> {
   try {
     const res = await fetch(apiUrl('/api/crypto/copilot'), {
