@@ -426,3 +426,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Activated the next evidence-backed additive filter by default: the toxic `80-89` confidence band is now manually blocked as a confidence gate, with updated diagnostics and regression tests to keep the operator truth explicit.
 - Files touched: `server/crypto/autoVeto.mjs`, `server/tests/autoVeto.test.mjs`, `server/tests/cryptoTruth.test.mjs`, `server/tests/scalpingContextBlocks.test.mjs`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/crypto/autoVeto.mjs` ok; `npm test` ok; `npm run build` ok
+
+## 2026-06-08 — Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Escalated crypto diagnostics from generic change/pause advice to an explicit `pause_or_redesign_strategy` verdict once the system remains negative after 3 additive manual filters. Surfaced active filter count in operator status for a more decisionable desk view.
+- Files touched: `server/crypto/autoVeto.mjs`, `server/tests/cryptoTruth.test.mjs`, `src/services/cryptoClient.ts`, `src/components/crypto/OperatorStatusBar.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/autoVeto.mjs` ok; `npm test` ok; `npm run build` ok

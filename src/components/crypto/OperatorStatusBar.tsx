@@ -53,7 +53,20 @@ export function OperatorStatusBar({ diagnostics, openCount, today }: Props) {
   const t = diagnostics?.training;
   const loops = diagnostics?.loops;
   const recommendation = diagnostics?.autopsy?.recommendation ?? null;
+  const manualFiltersActive = diagnostics?.autopsy?.manualFiltersActive ?? 0;
   const wl = today.wins + today.losses;
+  const decisionColor = recommendation?.severity === 'critical'
+    ? '#dc2626'
+    : recommendation?.triggered
+      ? '#ef4444'
+      : recommendation?.severity === 'medium'
+        ? '#f59e0b'
+        : '#22c55e';
+  const decisionLabel = recommendation?.action === 'pause_or_redesign_strategy'
+    ? 'PAUSE NOW'
+    : recommendation?.triggered
+      ? 'CHANGE/PAUSE'
+      : 'TRAINING';
 
   return (
     <div style={{
@@ -104,12 +117,18 @@ export function OperatorStatusBar({ diagnostics, openCount, today }: Props) {
           <span title={recommendation.reason}>
             <span style={{ color: '#6b7280' }}>decision </span>
             <span style={{
-              color: recommendation.triggered ? '#ef4444' : recommendation.severity === 'medium' ? '#f59e0b' : '#22c55e',
+              color: decisionColor,
               fontWeight: 700,
             }}>
-              {recommendation.triggered ? 'CHANGE/PAUSE' : 'TRAINING'}
+              {decisionLabel}
             </span>
           </span>
+          {manualFiltersActive > 0 && (
+            <span title="Active additive filters already applied">
+              <span style={{ color: '#6b7280' }}>filters </span>
+              <span style={{ color: '#9ca3af', fontWeight: 700 }}>{manualFiltersActive}</span>
+            </span>
+          )}
         </>
       )}
 

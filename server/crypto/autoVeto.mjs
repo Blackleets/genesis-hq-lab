@@ -14,6 +14,7 @@ const MIN_SAMPLES  = parseInt(process.env.VETO_MIN_SAMPLES ?? '12', 10);
 const PF_THRESHOLD = parseFloat(process.env.VETO_PF ?? '0.9');
 const WINDOW_DAYS  = parseInt(process.env.VETO_WINDOW_DAYS ?? '7', 10);
 const KILL_RECOMMENDATION_MIN_TRADES = parseInt(process.env.KILL_RECOMMENDATION_MIN_TRADES ?? '40', 10);
+const HARD_PAUSE_MANUAL_FILTERS = parseInt(process.env.HARD_PAUSE_MANUAL_FILTERS ?? '3', 10);
 
 function parseList(value, normalize = (item) => item) {
   return (value ?? '')
@@ -302,10 +303,26 @@ export function getAutopsy() {
   const windowedSamples = setups.reduce((sum, s) => sum + (s.samples ?? 0), 0);
   const breakdown = getAutopsyBreakdown();
   const candidateActions = buildCandidateActions(breakdown);
+  const manualFilters = {
+    setups: MANUAL_BLOCKED_SETUPS,
+    hours: MANUAL_BLOCKED_HOURS,
+    confidenceBands: MANUAL_BLOCKED_CONFIDENCE_BANDS,
+    pairs: MANUAL_BLOCKED_PAIRS,
+  };
+  const manualFiltersActive = Object.values(manualFilters).reduce((sum, items) => sum + items.length, 0);
   const shouldChangeOrPause = totalSamples >= KILL_RECOMMENDATION_MIN_TRADES
     && (edge.expectancy ?? 0) < 0
     && (edge.profitFactor ?? 0) < 1;
-  const recommendation = shouldChangeOrPause
+  const shouldPauseNow = shouldChangeOrPause && manualFiltersActive >= HARD_PAUSE_MANUAL_FILTERS;
+  const recommendation = shouldPauseNow
+    ? {
+        action: 'pause_or_redesign_strategy',
+        severity: 'critical',
+        thresholdTrades: KILL_RECOMMENDATION_MIN_TRADES,
+        triggered: true,
+        reason: `${totalSamples} closed trades still show EV ${edge.expectancy} and PF ${edge.profitFactor} after ${manualFiltersActive} additive filters`,
+      }
+    : shouldChangeOrPause
     ? {
         action: 'change_or_pause_strategy',
         severity: 'high',
@@ -327,6 +344,8 @@ export function getAutopsy() {
     totalSamples,
     windowedSamples,
     vetoesActive: getActiveVetoes().length,
+    manualFilters,
+    manualFiltersActive,
     nonMatureSetups,
     edgeSummary: {
       trades: edge.trades,

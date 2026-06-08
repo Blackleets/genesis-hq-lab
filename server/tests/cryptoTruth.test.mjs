@@ -61,11 +61,12 @@ describe('crypto truth consistency', () => {
     }
   });
 
-  it('autopsy recommends change_or_pause_strategy after enough negative closed trades', () => {
+  it('autopsy recommends pause_or_redesign_strategy after enough negative closed trades and multiple manual filters', () => {
     const autopsy = getAutopsy();
     const metrics = getClosedCryptoMetrics();
     if (metrics.trades >= 40 && metrics.expectancy < 0 && metrics.profitFactor < 1) {
-      assert.equal(autopsy.recommendation.action, 'change_or_pause_strategy');
+      assert.ok(autopsy.manualFiltersActive >= 3);
+      assert.equal(autopsy.recommendation.action, 'pause_or_redesign_strategy');
       assert.equal(autopsy.recommendation.triggered, true);
     }
   });
@@ -97,6 +98,7 @@ describe('crypto truth consistency', () => {
     assert.ok(Array.isArray(autopsy.config.manualBlockedConfidenceBands));
     assert.ok(autopsy.config.manualBlockedConfidenceBands.includes('80-89'));
     assert.ok(Array.isArray(autopsy.config.manualBlockedPairs));
+    assert.equal(autopsy.manualFiltersActive, 3);
   });
 
   it('regime backtest BEFORE metrics use the canonical closed crypto trade universe', async () => {

@@ -352,6 +352,13 @@ export interface ExecutionDiagnostics {
     totalSamples: number;
     windowedSamples: number;
     vetoesActive: number;
+    manualFilters: {
+      setups: string[];
+      hours: string[];
+      confidenceBands: string[];
+      pairs: string[];
+    };
+    manualFiltersActive: number;
     edgeSummary: {
       trades: number;
       winRate: number | null;
@@ -361,8 +368,8 @@ export interface ExecutionDiagnostics {
       verdict: 'positive' | 'negative' | 'insufficient_data';
     };
     recommendation: {
-      action: 'change_or_pause_strategy' | 'continue_training';
-      severity: 'low' | 'medium' | 'high';
+      action: 'pause_or_redesign_strategy' | 'change_or_pause_strategy' | 'continue_training';
+      severity: 'low' | 'medium' | 'high' | 'critical';
       thresholdTrades: number;
       triggered: boolean;
       reason: string;
