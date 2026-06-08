@@ -51,10 +51,12 @@ interface Props {
   loading: boolean;
   showEma9: boolean;
   showEma21: boolean;
+  showTrades: boolean;
   onPair: (p: string) => void;
   onTf: (tf: string) => void;
   onToggleEma9: () => void;
   onToggleEma21: () => void;
+  onToggleTrades: () => void;
 }
 
 export function ChartStatsHeader({
@@ -68,10 +70,12 @@ export function ChartStatsHeader({
   loading,
   showEma9,
   showEma21,
+  showTrades,
   onPair,
   onTf,
   onToggleEma9,
   onToggleEma21,
+  onToggleTrades,
 }: Props) {
   const price = livePrice ?? stats?.price ?? null;
   const change24h = stats?.change24h ?? null;
@@ -178,6 +182,14 @@ export function ChartStatsHeader({
           EMA 21
         </button>
         <span className="text-zinc-700">Vol</span>
+        <button
+          type="button"
+          onClick={onToggleTrades}
+          className={`transition-opacity ${showTrades ? 'opacity-100 text-zinc-300' : 'opacity-35 text-zinc-500'}`}
+          aria-pressed={showTrades}
+        >
+          Trades
+        </button>
         <span className="ml-auto text-zinc-600 tabular-nums">
           {loading ? <span className="animate-pulse">Loading {symbol}...</span> : `${symbol}/USDT - ${tf === '1d' ? '1D' : tf}`}
         </span>

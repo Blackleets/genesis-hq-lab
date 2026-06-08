@@ -136,6 +136,7 @@ export default function CandleChart({
   const [stats, setStats]       = useState<ChartTickerStats | null>(null);
   const [showEma9, setShowEma9] = useState(true);
   const [showEma21, setShowEma21] = useState(true);
+  const [showTrades, setShowTrades] = useState(false);
 
   // Co-pilot pre-trade state
   const [copilotSide, setCopilotSide]         = useState<'LONG' | 'SHORT' | null>(null);
@@ -319,8 +320,11 @@ export default function CandleChart({
   // ── Trade markers: recompute when trades/pair/selection/data change ──────────
   useEffect(() => {
     if (!markersRef.current) return;
-    markersRef.current.setMarkers(buildMarkers(tradeStories, pair, selectedTradeId));
-  }, [tradeStories, pair, selectedTradeId, candlesLoadedAt]);
+    const visibleTrades = showTrades || selectedTradeId
+      ? tradeStories.filter(t => showTrades || t.id === selectedTradeId)
+      : [];
+    markersRef.current.setMarkers(buildMarkers(visibleTrades, pair, selectedTradeId));
+  }, [tradeStories, pair, selectedTradeId, showTrades, candlesLoadedAt]);
 
   useEffect(() => {
     e9Ref.current?.applyOptions({ visible: showEma9 });
@@ -425,10 +429,12 @@ export default function CandleChart({
         loading={loading}
         showEma9={showEma9}
         showEma21={showEma21}
+        showTrades={showTrades}
         onPair={setPair}
         onTf={setTf}
         onToggleEma9={() => setShowEma9(v => !v)}
         onToggleEma21={() => setShowEma21(v => !v)}
+        onToggleTrades={() => setShowTrades(v => !v)}
       />
 
       {/* ── Error state ─────────────────────────────────────────────────── */}
