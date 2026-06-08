@@ -1,20 +1,21 @@
-// RightPanel.tsx — Tab wrapper for the right zone of Crypto Lab.
-// Hosts INTEL (MarketIntelPanel) and DEPTH (LiquidityMatrix) tabs.
-// Default: INTEL tab. Owns tab state.
+// RightPanel.tsx - Tab wrapper for the right zone of Crypto Lab.
+// Hosts INTEL, DEPTH, and PRO validation tabs.
 
 import { useState } from 'react';
 import { MarketIntelPanel } from './MarketIntelPanel';
-import { LiquidityMatrix }  from './LiquidityMatrix';
+import { LiquidityMatrix } from './LiquidityMatrix';
+import { ProValidationPanel } from './ProValidationPanel';
 
-type Tab = 'INTEL' | 'DEPTH';
+type Tab = 'INTEL' | 'DEPTH' | 'PRO';
 
 const TAB_COLOR: Record<Tab, string> = {
   INTEL: '#f59e0b',
   DEPTH: '#a855f7',
+  PRO: '#3da9fc',
 };
 
 interface Props {
-  pair?:      string;
+  pair?: string;
   className?: string;
 }
 
@@ -23,36 +24,44 @@ export function RightPanel({ pair, className = '' }: Props) {
 
   return (
     <div className={className} style={{
-      display: 'flex', flexDirection: 'column', height: '100%',
-      background: '#060810', border: '1px solid #1e2a3a',
-      borderRadius: 8, overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100%',
+      background: '#060810',
+      border: '1px solid #1e2a3a',
+      borderRadius: 8,
+      overflow: 'hidden',
     }}>
-      {/* Tab bar */}
       <div style={{ display: 'flex', flexShrink: 0, borderBottom: '1px solid #1e2a3a' }}>
-        {(['INTEL', 'DEPTH'] as Tab[]).map(t => (
+        {(['INTEL', 'DEPTH', 'PRO'] as Tab[]).map((name) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
+            key={name}
+            onClick={() => setTab(name)}
             style={{
-              flex: 1, padding: '7px 4px',
-              fontSize: 9, letterSpacing: 1, fontWeight: 700,
-              textTransform: 'uppercase', fontFamily: 'monospace',
-              border: 'none', cursor: 'pointer', background: 'transparent',
-              color:        tab === t ? TAB_COLOR[t] : '#374151',
-              borderBottom: tab === t ? `2px solid ${TAB_COLOR[t]}` : '2px solid transparent',
+              flex: 1,
+              padding: '7px 4px',
+              fontSize: 9,
+              letterSpacing: 1,
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              fontFamily: 'monospace',
+              border: 'none',
+              cursor: 'pointer',
+              background: 'transparent',
+              color: tab === name ? TAB_COLOR[name] : '#374151',
+              borderBottom: tab === name ? `2px solid ${TAB_COLOR[name]}` : '2px solid transparent',
               transition: 'color 0.15s, border-color 0.15s',
             }}
           >
-            {t}
+            {name}
           </button>
         ))}
       </div>
 
-      {/* Content — each child fills the remaining height */}
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        {tab === 'INTEL'
-          ? <MarketIntelPanel />
-          : <LiquidityMatrix pair={pair} noBorder />}
+        {tab === 'INTEL' && <MarketIntelPanel />}
+        {tab === 'DEPTH' && <LiquidityMatrix pair={pair} noBorder />}
+        {tab === 'PRO' && <ProValidationPanel />}
       </div>
     </div>
   );

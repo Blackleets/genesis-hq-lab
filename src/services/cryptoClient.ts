@@ -174,6 +174,44 @@ export async function loadDepth(pair = 'BTCUSDT', levels = 20): Promise<DepthDat
   } catch { return null; }
 }
 
+export interface ProValidationTf {
+  label: '15m' | '1h' | '4h' | string;
+  trend: 'bullish' | 'bearish' | 'neutral' | 'unknown';
+  verdict: 'confirm_long' | 'confirm_short' | 'mixed' | 'insufficient';
+  ema9: number | null;
+  ema21: number | null;
+  rsi14: number | null;
+  macdHistogram: number | null;
+  price: number | null;
+  changePct: number | null;
+  score: number;
+  notes: string[];
+}
+
+export interface ProValidation {
+  pair: string;
+  bias: 'LONG_BIAS' | 'SHORT_BIAS' | 'MIXED';
+  action: 'validate_longs_only' | 'validate_shorts_only' | 'stand_aside';
+  score: number;
+  timeframes: ProValidationTf[];
+  note: string;
+  fetchedAt: string;
+}
+
+export async function loadProValidation(pair = 'BTCUSDT'): Promise<ProValidation | null> {
+  try {
+    const res = await fetch(
+      apiUrl(`/api/crypto/pro-validation?pair=${pair}`),
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (!res.ok) return null;
+    const data = await res.json() as { ok: boolean } & ProValidation;
+    if (!data.ok) return null;
+    const { ok: _ok, ...validation } = data;
+    return validation as ProValidation;
+  } catch { return null; }
+}
+
 // ─── Trade Stories (chart storytelling overlay) ───────────────────────────────
 
 export interface TradeStory {
@@ -272,6 +310,28 @@ export interface SetupStat {
   reason?: string;
 }
 
+export interface BreakdownStat {
+  key: string;
+  samples: number;
+  wins: number;
+  totalPnl: number;
+  winRate: number | null;
+  expectancy: number;
+  profitFactor: number | null;
+  pair?: string;
+  side?: string;
+  regime?: string;
+  hour?: string;
+  confidenceBand?: string;
+}
+
+export interface CandidateAction {
+  type: 'gate_side_regime' | 'gate_hour_bucket' | 'raise_confidence_floor' | 'gate_pair';
+  priority: number;
+  target: string;
+  reason: string;
+}
+
 export interface ExecutionDiagnostics {
   loops: { scalping: LoopStatus; event: LoopStatus; swing: LoopStatus };
   gates: {
@@ -300,6 +360,21 @@ export interface ExecutionDiagnostics {
       totalPnl: number;
       verdict: 'positive' | 'negative' | 'insufficient_data';
     };
+    recommendation: {
+      action: 'change_or_pause_strategy' | 'continue_training';
+      severity: 'low' | 'medium' | 'high';
+      thresholdTrades: number;
+      triggered: boolean;
+      reason: string;
+    };
+    breakdown: {
+      byPair: BreakdownStat[];
+      bySide: BreakdownStat[];
+      byRegime: BreakdownStat[];
+      byHour: BreakdownStat[];
+      byConfidenceBand: BreakdownStat[];
+    };
+    candidateActions: CandidateAction[];
     setups: SetupStat[];
     topLosers: SetupStat[];
     topWinners: SetupStat[];

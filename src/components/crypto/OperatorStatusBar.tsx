@@ -52,6 +52,7 @@ export function OperatorStatusBar({ diagnostics, openCount, today }: Props) {
 
   const t = diagnostics?.training;
   const loops = diagnostics?.loops;
+  const recommendation = diagnostics?.autopsy?.recommendation ?? null;
   const wl = today.wins + today.losses;
 
   return (
@@ -97,6 +98,20 @@ export function OperatorStatusBar({ diagnostics, openCount, today }: Props) {
           {t?.confidenceAccuracy != null ? `${t.confidenceAccuracy}%` : '—'}
         </span>
       </span>
+      {recommendation && (
+        <>
+          <span style={{ color: '#262d3d' }}>│</span>
+          <span title={recommendation.reason}>
+            <span style={{ color: '#6b7280' }}>decision </span>
+            <span style={{
+              color: recommendation.triggered ? '#ef4444' : recommendation.severity === 'medium' ? '#f59e0b' : '#22c55e',
+              fontWeight: 700,
+            }}>
+              {recommendation.triggered ? 'CHANGE/PAUSE' : 'TRAINING'}
+            </span>
+          </span>
+        </>
+      )}
 
       {/* Heartbeat */}
       <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 10, flexWrap: 'wrap' }}>

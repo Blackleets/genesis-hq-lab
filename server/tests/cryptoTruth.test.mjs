@@ -8,6 +8,7 @@ import { dailyCryptoRealizedPnl, lastClosedCryptoTrade } from '../crypto/cryptoR
 import { CRYPTO_TRADE_TYPES_SQL, getClosedCryptoMetrics } from '../crypto/cryptoTradeUniverse.mjs';
 import { getCryptoLlmStatus } from '../crypto/cryptoLlmStatus.mjs';
 import { runCryptoDebate } from '../crypto/cryptoDebate.mjs';
+import { runRegimeBiasBacktest } from '../crypto/backtest/regimeBiasBacktest.mjs';
 
 function utcMidnightIso(nowMs) {
   const d = new Date(nowMs);
@@ -57,6 +58,55 @@ describe('crypto truth consistency', () => {
     const metrics = getClosedCryptoMetrics();
     if (metrics.expectancy < 0 && metrics.profitFactor < 1) {
       assert.equal(autopsy.edgeSummary.verdict, 'negative');
+    }
+  });
+
+  it('autopsy recommends change_or_pause_strategy after enough negative closed trades', () => {
+    const autopsy = getAutopsy();
+    const metrics = getClosedCryptoMetrics();
+    if (metrics.trades >= 40 && metrics.expectancy < 0 && metrics.profitFactor < 1) {
+      assert.equal(autopsy.recommendation.action, 'change_or_pause_strategy');
+      assert.equal(autopsy.recommendation.triggered, true);
+    }
+  });
+
+  it('autopsy exposes breakdown slices for toxic segments', () => {
+    const autopsy = getAutopsy();
+    assert.ok(autopsy.breakdown);
+    assert.ok(Array.isArray(autopsy.breakdown.byPair));
+    assert.ok(Array.isArray(autopsy.breakdown.bySide));
+    assert.ok(Array.isArray(autopsy.breakdown.byRegime));
+    assert.ok(Array.isArray(autopsy.breakdown.byHour));
+    assert.ok(Array.isArray(autopsy.breakdown.byConfidenceBand));
+  });
+
+  it('autopsy exposes candidateActions as an ordered plan', () => {
+    const autopsy = getAutopsy();
+    assert.ok(Array.isArray(autopsy.candidateActions));
+    for (let i = 1; i < autopsy.candidateActions.length; i++) {
+      assert.ok(autopsy.candidateActions[i - 1].priority <= autopsy.candidateActions[i].priority);
+    }
+  });
+
+  it('regime backtest BEFORE metrics use the canonical closed crypto trade universe', async () => {
+    const canonical = getClosedCryptoMetrics();
+    const originalFetch = global.fetch;
+    global.fetch = async () => ({
+      ok: true,
+      json: async () => Array.from({ length: 360 }, (_, i) => {
+        const price = 100 + i * 0.1;
+        return [Date.now() - ((360 - i) * 60_000), `${price}`, `${price}`, `${price}`, `${price}`, '1'];
+      }),
+    });
+
+    try {
+      const backtest = await runRegimeBiasBacktest();
+      assert.equal(backtest.before.trades, canonical.trades);
+      assert.equal(backtest.before.expectancy, canonical.expectancy);
+      assert.equal(backtest.before.profitFactor, canonical.profitFactor);
+      assert.equal(backtest.before.winRate, Math.round((canonical.winRate ?? 0) * 1000) / 10);
+    } finally {
+      global.fetch = originalFetch;
     }
   });
 });

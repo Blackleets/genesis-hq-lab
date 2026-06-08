@@ -377,3 +377,31 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Unified the canonical crypto trade universe across analytics, diagnostics, risk reads, regime backtest, and PnL filters. Added autopsy sample counts + edge summary and persisted crypto Claude/fallback status so diagnostics can distinguish real LLM reasoning from deterministic fallback.
 - Files touched: `server/crypto/cryptoTradeUniverse.mjs`, `server/crypto/cryptoLlmStatus.mjs`, `server/crypto/cryptoAnalytics.mjs`, `server/crypto/autoVeto.mjs`, `server/crypto/backtest/regimeBiasBacktest.mjs`, `server/crypto/cryptoRisk.mjs`, `server/crypto/marketIntelligence.mjs`, `server/crypto/copilot.mjs`, `server/crypto/cryptoDebate.mjs`, `server/memory/pnlEngine.mjs`, `server/index.mjs`, `server/tests/cryptoTruth.test.mjs`, `src/services/cryptoClient.ts`
 - Verification: `npm run build` ok; `npm test` ok; `node --check` ok for touched server modules
+
+## 2026-06-08 — Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added a read-only `PRO` validation lane for Crypto Lab using Binance-derived multi-timeframe EMA/RSI/MACD checks. Exposed `/api/crypto/pro-validation`, added frontend client types, and surfaced the operator-only panel without wiring anything into execution or risk.
+- Files touched: `server/crypto/proValidation.mjs`, `server/tests/proValidation.test.mjs`, `server/index.mjs`, `src/services/cryptoClient.ts`, `src/components/crypto/RightPanel.tsx`, `src/components/crypto/ProValidationPanel.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/proValidation.mjs` ok; `node --check server/index.mjs` ok; `npm test` ok; `npm run build` ok; local `GET /api/crypto/pro-validation?pair=BTCUSDT` returned `bias=LONG_BIAS`, `action=validate_longs_only`, `score=3`
+
+## 2026-06-08 — Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Hardened crypto truth consistency with a regression test that forces `/api/crypto/regime-backtest` BEFORE metrics to match the canonical closed-crypto trade universe used by overview and autopsy.
+- Files touched: `server/tests/cryptoTruth.test.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/tests/cryptoTruth.test.mjs` ok; `npm test` ok; `npm run build` ok; live checks on `overview`, `diagnostics`, and `regime-backtest` all reflected `99` closed crypto trades
+
+## 2026-06-08 — Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added a structured kill recommendation to crypto diagnostics/autopsy and surfaced it in the operator status bar so the system can explicitly say when to change or pause the strategy instead of continuing blind.
+- Files touched: `server/crypto/autoVeto.mjs`, `server/tests/cryptoTruth.test.mjs`, `src/services/cryptoClient.ts`, `src/components/crypto/OperatorStatusBar.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/autoVeto.mjs` ok; `node --check server/tests/cryptoTruth.test.mjs` ok; `npm test` ok; `npm run build` ok; local `/api/crypto/diagnostics` returned recommendation payload successfully
+
+## 2026-06-08 — Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Extended crypto autopsy with toxic-segment breakdowns by pair, side, regime, UTC hour, and confidence band, and surfaced the worst slices in execution telemetry to guide additive gating/filtering decisions.
+- Files touched: `server/crypto/autoVeto.mjs`, `server/tests/cryptoTruth.test.mjs`, `src/services/cryptoClient.ts`, `src/components/crypto/EngineTelemetry.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/autoVeto.mjs` ok; `npm test` ok; `npm run build` ok; local `/api/crypto/diagnostics` returned the new breakdown shape

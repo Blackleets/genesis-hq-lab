@@ -70,6 +70,7 @@ import { getSchedulerStatus }                             from './trading/execut
 import { getTrainingMetrics }                             from './trading/positionMonitor.mjs';
 import { getMarketIntelligence, getCryptoFeedEvents, getRegimeBiasPerformance } from './crypto/marketIntelligence.mjs';
 import { fetchDepth }                                     from './crypto/liquidityMatrix.mjs';
+import { getProValidation }                              from './crypto/proValidation.mjs';
 import { getCommentary }                                  from './ai/commentaryEngine.mjs';
 import { getTradeStories }                                from './crypto/tradeHistory.mjs';
 import { analyzeTrade, assertTradeAllowed }               from './crypto/copilot.mjs';
@@ -599,6 +600,16 @@ const server = createServer(async (req, res) => {
       const levels = Math.min(50, Math.max(5, parseInt(url.searchParams.get('levels') ?? '20', 10)));
       const data   = await fetchDepth(pair, levels);
       sendJson(res, 200, { ok: true, ...data });
+    } catch (e) { sendJson(res, 502, { ok: false, error: e.message }); }
+    return;
+  }
+
+  // GET /api/crypto/pro-validation?pair=BTCUSDT
+  if (url.pathname === '/api/crypto/pro-validation') {
+    try {
+      const pair = (url.searchParams.get('pair') ?? 'BTCUSDT').toUpperCase();
+      const validation = await getProValidation(pair);
+      sendJson(res, 200, { ok: true, ...validation });
     } catch (e) { sendJson(res, 502, { ok: false, error: e.message }); }
     return;
   }

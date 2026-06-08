@@ -3,7 +3,7 @@
 // Accepts diagnostics from a parent (no double-poll); falls back to self-poll.
 
 import { useEffect, useState, useCallback } from 'react';
-import { loadDiagnostics, type ExecutionDiagnostics, type LoopStatus, type ScanAsset } from '@services/cryptoClient';
+import { loadDiagnostics, type BreakdownStat, type CandidateAction, type ExecutionDiagnostics, type LoopStatus, type ScanAsset } from '@services/cryptoClient';
 
 const POLL_MS = 10_000;
 
@@ -92,6 +92,46 @@ function WhyNoTrade({ asset }: { asset: ScanAsset }) {
   );
 }
 
+function ToxicLine({ label, stat, colorHint }: { label: string; stat: BreakdownStat; colorHint: string }) {
+  return (
+    <div style={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      gap: 8,
+      fontSize: 9,
+      padding: '3px 0',
+      borderBottom: '1px solid #111827',
+    }}>
+      <span style={{ color: '#9ca3af' }}>
+        {label} <span style={{ color: '#6b7280' }}>({stat.samples}t)</span>
+      </span>
+      <span style={{ color: colorHint, fontWeight: 700 }}>
+        EV ${stat.expectancy} · PF {stat.profitFactor === null ? 'N/A' : stat.profitFactor}
+      </span>
+    </div>
+  );
+}
+
+function CandidateActionLine({ action }: { action: CandidateAction }) {
+  return (
+    <div style={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      gap: 8,
+      fontSize: 9,
+      padding: '3px 0',
+      borderBottom: '1px solid #111827',
+    }}>
+      <span style={{ color: '#9ca3af' }}>
+        {action.type}
+      </span>
+      <span style={{ color: '#60a5fa', fontWeight: 700, textAlign: 'right' }}>
+        {action.target}
+      </span>
+    </div>
+  );
+}
+
 interface Props {
   diagnostics?: ExecutionDiagnostics | null;
 }
@@ -117,6 +157,7 @@ export function EngineTelemetry({ diagnostics: ext }: Props) {
 
   const t = d.training;
   const assets = d.scanSnapshot?.assets ?? [];
+  const toxic = d.autopsy?.breakdown;
 
   return (
     <div style={{ fontFamily: 'monospace' }}>
@@ -140,6 +181,29 @@ export function EngineTelemetry({ diagnostics: ext }: Props) {
           <span>closed <span style={{ color: '#9ca3af' }}>{t.closed}</span></span>
           <span>win <span style={{ color: '#9ca3af' }}>{t.winRate != null ? `${Math.round(t.winRate * 100)}%` : '—'}</span></span>
           <span>pnl <span style={{ color: t.totalPnl >= 0 ? '#22c55e' : '#ef4444' }}>${t.totalPnl.toFixed(2)}</span></span>
+        </div>
+      )}
+
+      {toxic && (
+        <div style={{ marginTop: 8 }}>
+          <div style={{ color: '#4b5563', fontSize: 8, letterSpacing: 0.6, marginBottom: 4 }}>
+            TOXIC SEGMENTS · where pnl is leaking
+          </div>
+          {toxic.byPair[0] && <ToxicLine label={`pair ${toxic.byPair[0].pair}`} stat={toxic.byPair[0]} colorHint="#ef4444" />}
+          {toxic.byRegime[0] && <ToxicLine label={`regime ${toxic.byRegime[0].regime}`} stat={toxic.byRegime[0]} colorHint="#f97316" />}
+          {toxic.byHour[0] && <ToxicLine label={`hour ${toxic.byHour[0].hour} UTC`} stat={toxic.byHour[0]} colorHint="#f59e0b" />}
+          {toxic.byConfidenceBand[0] && <ToxicLine label={`conf ${toxic.byConfidenceBand[0].confidenceBand}`} stat={toxic.byConfidenceBand[0]} colorHint="#a855f7" />}
+        </div>
+      )}
+
+      {(d.autopsy?.candidateActions?.length ?? 0) > 0 && (
+        <div style={{ marginTop: 8 }}>
+          <div style={{ color: '#4b5563', fontSize: 8, letterSpacing: 0.6, marginBottom: 4 }}>
+            NEXT FILTERS · apply additively
+          </div>
+          {d.autopsy?.candidateActions.slice(0, 3).map((action) => (
+            <CandidateActionLine key={`${action.type}-${action.target}`} action={action} />
+          ))}
         </div>
       )}
 
