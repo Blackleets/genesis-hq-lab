@@ -56,7 +56,11 @@ export function useAgentData(): AgentData {
     const health = await agentClient.getHealth();
     if (!health?.ok) {
       failureCountRef.current += 1;
-      setData((prev) => ({ ...prev, online: false }));
+      // Tolerate transient misses (Render free-tier cold start ~50s): only show offline
+      // after 2+ consecutive failures, and keep the last successful data meanwhile.
+      if (failureCountRef.current >= 2) {
+        setData((prev) => ({ ...prev, online: false }));
+      }
       scheduleNext(failureCountRef.current);
       return;
     }

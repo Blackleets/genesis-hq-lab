@@ -25,6 +25,8 @@ import { runSwingCycle } from '../strategies/swingEngine.mjs';
 import { runEventAlphaCycle } from '../strategies/eventAlphaEngine.mjs';
 import { monitorPositions, getTrainingMetrics } from './positionMonitor.mjs';
 import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs';
+import { writeHeartbeat } from './schedulerHeartbeat.mjs';
+import { getLastScanSnapshot } from '../strategies/scalpingEngine.mjs';
 import db from '../db/database.mjs';
 
 const FAST_INTERVAL_MS  =  5 * 1000;   // 5 seconds
@@ -140,7 +142,26 @@ async function runFast() {
     logEvent({ category: CATEGORY.EXECUTION, severity: SEVERITY.HIGH, subsystem: 'scheduler', reason: `FAST loop error: ${err.message}` });
   } finally {
     _running.fast = false;
+    // Cross-process heartbeat: lets the SERVER process's diagnostics see the real
+    // loop state (this scheduler runs in the AGENT process).
+    persistHeartbeat();
   }
+}
+
+// Lightweight heartbeat payload (loop status + scan snapshot) written to shared SQLite
+// every fast tick. The diagnostics route reads this so the UI heartbeat shows LIVE.
+function persistHeartbeat() {
+  try {
+    writeHeartbeat({
+      started: _started,
+      mode: TRAINING_MODE ? 'training' : 'paper',
+      ticks:    { fast: _stats.fastTicks, mid: _stats.midTicks, slow: _stats.slowTicks },
+      lastRun:  { fast: _stats.lastFastAt, mid: _stats.lastMidAt, slow: _stats.lastSlowAt },
+      errors:   { ..._stats.errors },
+      intervals: { fastMs: FAST_INTERVAL_MS, midMs: MID_INTERVAL_MS, slowMs: SLOW_INTERVAL_MS },
+      scanSnapshot: getLastScanSnapshot(),
+    });
+  } catch { /* best effort */ }
 }
 
 async function runMid() {
@@ -205,6 +226,7 @@ export function startScheduler() {
   if (_started) return;
   _started = true;
   _stats.startedAt = new Date().toISOString();
+  persistHeartbeat();   // write an initial row so diagnostics sees 'started' immediately
 
   // Run FAST immediately, then on interval
   runFast();

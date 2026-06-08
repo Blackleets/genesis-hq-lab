@@ -75,6 +75,7 @@ import { getTradeStories }                                from './crypto/tradeHi
 import { analyzeTrade, assertTradeAllowed }               from './crypto/copilot.mjs';
 import { scalpConfig, getLastScanSnapshot }               from './strategies/scalpingEngine.mjs';
 import { getDbHealth, startReplication }                  from './persistence/dbReplicator.mjs';
+import { readHeartbeat }                                  from './trading/schedulerHeartbeat.mjs';
 import { swingConfig }                                    from './strategies/swingEngine.mjs';
 import { eventConfig }                                    from './strategies/eventAlphaEngine.mjs';
 
@@ -638,6 +639,11 @@ const server = createServer(async (req, res) => {
   if (url.pathname === '/api/crypto/diagnostics') {
     try {
       const sched = getSchedulerStatus();
+      // Loop status comes from the shared-SQLite heartbeat the scheduler writes from the
+      // AGENT process (this route runs in the SERVER process). Fall back to in-memory for
+      // single-process/local dev.
+      const hb = readHeartbeat();
+      const src = hb ?? sched;
       const now = Date.now();
       const isLive = (iso) => iso ? (now - new Date(iso).getTime()) < 60_000 : false;
 
@@ -681,9 +687,9 @@ const server = createServer(async (req, res) => {
       sendJson(res, 200, {
         ok: true,
         loops: {
-          scalping: { running: sched.started && isLive(sched.lastRun?.fast), ticks: sched.ticks?.fast ?? 0, lastRun: sched.lastRun?.fast ?? null, errors: sched.errors?.fast ?? 0, expectedMs: sched.intervals?.fastMs ?? 5000 },
-          event:    { running: sched.started && isLive(sched.lastRun?.mid),  ticks: sched.ticks?.mid ?? 0,  lastRun: sched.lastRun?.mid ?? null,  errors: sched.errors?.mid ?? 0,  expectedMs: sched.intervals?.midMs ?? 30000 },
-          swing:    { running: sched.started && isLive(sched.lastRun?.slow), ticks: sched.ticks?.slow ?? 0, lastRun: sched.lastRun?.slow ?? null, errors: sched.errors?.slow ?? 0, expectedMs: sched.intervals?.slowMs ?? 300000 },
+          scalping: { running: src.started && isLive(src.lastRun?.fast), ticks: src.ticks?.fast ?? 0, lastRun: src.lastRun?.fast ?? null, errors: src.errors?.fast ?? 0, expectedMs: src.intervals?.fastMs ?? 5000 },
+          event:    { running: src.started && isLive(src.lastRun?.mid),  ticks: src.ticks?.mid ?? 0,  lastRun: src.lastRun?.mid ?? null,  errors: src.errors?.mid ?? 0,  expectedMs: src.intervals?.midMs ?? 30000 },
+          swing:    { running: src.started && isLive(src.lastRun?.slow), ticks: src.ticks?.slow ?? 0, lastRun: src.lastRun?.slow ?? null, errors: src.errors?.slow ?? 0, expectedMs: src.intervals?.slowMs ?? 300000 },
         },
         gates: {
           scalp: scalpConfig(),
@@ -693,7 +699,7 @@ const server = createServer(async (req, res) => {
         training: sched.training ? { ...sched.training, ...trainingExtras } : trainingExtras,
         mode: sched.mode,
         recentScans: recent,
-        scanSnapshot: (() => { try { return getLastScanSnapshot(); } catch { return { at: null, assets: [] }; } })(),
+        scanSnapshot: hb?.scanSnapshot ?? (() => { try { return getLastScanSnapshot(); } catch { return { at: null, assets: [] }; } })(),
         regimePerformance: (() => { try { return getRegimeBiasPerformance(); } catch { return []; } })(),
       });
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
