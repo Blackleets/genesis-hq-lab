@@ -33,12 +33,12 @@ export function getCryptoPnlSummary() {
       MIN(pnl)                                AS worst_trade,
       AVG(pnl)                                AS avg_pnl,
       COALESCE(SUM(capital_used), 0)          AS total_risked
-    FROM trades WHERE trade_type = 'crypto_scalp' AND status = 'closed'
+    FROM trades WHERE trade_type IN ('crypto_scalp','scalp_v2','swing_v1') AND status = 'closed'
   `).get();
 
   const open = db.prepare(`
     SELECT COUNT(*) AS cnt, COALESCE(SUM(capital_used), 0) AS at_risk
-    FROM trades WHERE trade_type = 'crypto_scalp' AND status = 'open'
+    FROM trades WHERE trade_type IN ('crypto_scalp','scalp_v2','swing_v1') AND status = 'open'
   `).get();
 
   const byAsset = db.prepare(`
@@ -46,7 +46,7 @@ export function getCryptoPnlSummary() {
            COUNT(*)   AS trades,
            COALESCE(SUM(pnl), 0) AS pnl,
            SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) AS wins
-    FROM trades WHERE trade_type = 'crypto_scalp' AND status = 'closed'
+    FROM trades WHERE trade_type IN ('crypto_scalp','scalp_v2','swing_v1') AND status = 'closed'
     GROUP BY asset_pair ORDER BY pnl DESC
   `).all();
 
@@ -73,7 +73,7 @@ export function getOpenCryptoPositions() {
   return db.prepare(`
     SELECT id, asset_pair AS pair, outcome AS side, entry_price, target_price, stop_price,
            capital_used, confidence, opened_at
-    FROM trades WHERE trade_type = 'crypto_scalp' AND status = 'open'
+    FROM trades WHERE trade_type IN ('crypto_scalp','scalp_v2','swing_v1') AND status = 'open'
     ORDER BY opened_at DESC
   `).all();
 }
@@ -82,7 +82,7 @@ export function getRecentCryptoTrades(limit = 25) {
   return db.prepare(`
     SELECT id, asset_pair AS pair, outcome AS side, entry_price, exit_price, pnl,
            exit_reason, confidence, opened_at, closed_at
-    FROM trades WHERE trade_type = 'crypto_scalp' AND status = 'closed'
+    FROM trades WHERE trade_type IN ('crypto_scalp','scalp_v2','swing_v1') AND status = 'closed'
     ORDER BY closed_at DESC LIMIT ?
   `).all(limit);
 }
