@@ -65,13 +65,41 @@ const _stats = {
 
 // ── Lazy pg pool ──────────────────────────────────────────────────────────────
 
+// Parse a postgres connection string into discrete fields WITHOUT new URL(), so
+// passwords containing special characters (#, $, &, etc. — common in Supabase) don't
+// break URL parsing ("Invalid URL"). Splits creds on the LAST '@'.
+export function parseDbUrl(url) {
+  if (!url) return null;
+  const noProto = url.replace(/^postgres(?:ql)?:\/\//i, '');
+  const at = noProto.lastIndexOf('@');
+  if (at < 0) return null;
+  const creds = noProto.slice(0, at);
+  const hostPart = noProto.slice(at + 1);
+  const colon = creds.indexOf(':');
+  const user = colon >= 0 ? creds.slice(0, colon) : creds;
+  const password = colon >= 0 ? creds.slice(colon + 1) : '';
+  const slash = hostPart.indexOf('/');
+  const hostPort = slash >= 0 ? hostPart.slice(0, slash) : hostPart;
+  const database = (slash >= 0 ? hostPart.slice(slash + 1) : 'postgres').split('?')[0] || 'postgres';
+  const [host, portStr] = hostPort.split(':');
+  return {
+    host,
+    port: portStr ? parseInt(portStr, 10) : 5432,
+    user: decodeURIComponent(user),
+    password,                       // used as-is (no URL decoding) → special chars safe
+    database,
+  };
+}
+
 let _pool = null;
 async function getPool() {
   if (!isReplicationEnabled()) return null;
   if (_pool) return _pool;
   const { default: pg } = await import('pg');
+  const parsed = parseDbUrl(getDatabaseUrl());
+  if (!parsed || !parsed.host) { _stats.lastError = 'could not parse DATABASE_URL'; return null; }
   _pool = new pg.Pool({
-    connectionString: getDatabaseUrl(),
+    ...parsed,
     ssl: { rejectUnauthorized: false },   // Supabase requires SSL
     max: 3,
     idleTimeoutMillis: 30_000,

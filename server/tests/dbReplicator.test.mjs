@@ -2,8 +2,29 @@ import assert from 'node:assert/strict';
 import { describe, it, before, after } from 'node:test';
 
 const {
-  getDbMode, isReplicationEnabled, replicateOnce, restoreFromPg, getDbHealth, _internal,
+  getDbMode, isReplicationEnabled, replicateOnce, restoreFromPg, getDbHealth, parseDbUrl, _internal,
 } = await import('../persistence/dbReplicator.mjs');
+
+describe('parseDbUrl (special chars in password must not break)', () => {
+  it('parses a Supabase transaction-pooler URL', () => {
+    const p = parseDbUrl('postgresql://postgres.abc:secret123@aws-0-eu-west-1.pooler.supabase.com:6543/postgres');
+    assert.equal(p.host, 'aws-0-eu-west-1.pooler.supabase.com');
+    assert.equal(p.port, 6543);
+    assert.equal(p.user, 'postgres.abc');
+    assert.equal(p.password, 'secret123');
+    assert.equal(p.database, 'postgres');
+  });
+  it('keeps a password with special chars intact (no URL parsing)', () => {
+    const p = parseDbUrl('postgresql://user:p#a$s@w/rd@host.com:5432/db');
+    assert.equal(p.host, 'host.com');
+    assert.equal(p.password, 'p#a$s@w/rd'); // last '@' separates creds from host
+    assert.equal(p.database, 'db');
+  });
+  it('returns null on garbage', () => {
+    assert.equal(parseDbUrl(''), null);
+    assert.equal(parseDbUrl('not-a-url'), null);
+  });
+});
 
 // Ensure a clean env for deterministic assertions.
 const savedMode = process.env.DB_MODE;
