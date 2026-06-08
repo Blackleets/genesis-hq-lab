@@ -428,7 +428,7 @@ at the top. Use one block per session. Be honest about failures.
 ## 2026-06-08 - Codex
 
 - Branch: `feat/genesis-life-os`
-- Summary: Enforced the existing negative-edge recommendation as a cached scalp entry pause, so `scalp_v2` stops opening new trades once enough closed trades show negative EV/PF after additive filters while leaving execution, risk sizing, TP/SL, and paper management unchanged.
+- Summary: Enforced the existing negative-edge recommendation as a cached scalp entry pause, so `scalp_v2` stops opening new trades once enough closed trades show negative EV/PF after additive filters while leaving execution, risk sizing, TP/SL, and paper management unchanged. Added throttled pause logging to keep operator events useful without 5-second spam.
 - Files touched: `server/crypto/autoVeto.mjs`, `server/strategies/scalpingEngine.mjs`, `server/tests/autoVeto.test.mjs`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/crypto/autoVeto.mjs` ok; `node --check server/strategies/scalpingEngine.mjs` ok; `node --check server/tests/autoVeto.test.mjs` ok; `npm test` ok
 

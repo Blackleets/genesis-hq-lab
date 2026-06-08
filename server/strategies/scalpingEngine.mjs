@@ -51,6 +51,8 @@ const MIN_CONFIDENCE = parseFloat(process.env.SCALP_MIN_CONF ?? '0.65');
 const MAX_CAPITAL_PER_TRADE = parseFloat(process.env.SCALP_MAX_CAPITAL ?? '200'); // $200 max per scalp
 const TIMEOUT_HOURS = parseFloat(process.env.SCALP_TIMEOUT_H ?? '2');
 const EDGE_PAUSE_ENFORCED = !['0', 'false', 'no', 'off'].includes((process.env.SCALP_ENFORCE_EDGE_PAUSE ?? 'true').toLowerCase());
+const EDGE_PAUSE_LOG_MS = parseInt(process.env.SCALP_EDGE_PAUSE_LOG_MS ?? '300000', 10);
+let _lastEdgePauseLogAt = 0;
 
 /** Effective scalp engine config (used by diagnostics + tuning tests). */
 export function scalpConfig() {
@@ -274,13 +276,17 @@ export async function runScalpingCycle() {
   if (EDGE_PAUSE_ENFORCED) {
     const edgePause = shouldPauseScalpEntriesForNegativeEdge();
     if (edgePause.pause) {
-      logEvent({
-        category: CATEGORY.RISK,
-        severity: SEVERITY.WARNING,
-        subsystem: AGENT_ID,
-        reason: 'SCALPING PAUSED - negative edge recommendation',
-        metadata: edgePause,
-      });
+      const now = Date.now();
+      if (now - _lastEdgePauseLogAt >= EDGE_PAUSE_LOG_MS) {
+        _lastEdgePauseLogAt = now;
+        logEvent({
+          category: CATEGORY.RISK,
+          severity: SEVERITY.WARNING,
+          subsystem: AGENT_ID,
+          reason: 'SCALPING PAUSED - negative edge recommendation',
+          metadata: edgePause,
+        });
+      }
       result.blocked = true;
       return result;
     }
