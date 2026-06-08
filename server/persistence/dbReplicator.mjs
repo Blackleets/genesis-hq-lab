@@ -95,6 +95,8 @@ function resetBackoff() { _backoffMs = 0; _backoffUntil = 0; }
 // break URL parsing ("Invalid URL"). Splits creds on the LAST '@'.
 export function parseDbUrl(url) {
   if (!url) return null;
+  url = String(url).trim();   // strip stray whitespace/newlines from the env var (a pasted
+  if (!url) return null;      // value often has a trailing \n → 'postgres\n' database error)
   const noProto = url.replace(/^postgres(?:ql)?:\/\//i, '');
   const at = noProto.lastIndexOf('@');
   if (at < 0) return null;
@@ -105,7 +107,7 @@ export function parseDbUrl(url) {
   const password = colon >= 0 ? creds.slice(colon + 1) : '';
   const slash = hostPart.indexOf('/');
   const hostPort = slash >= 0 ? hostPart.slice(0, slash) : hostPart;
-  const database = (slash >= 0 ? hostPart.slice(slash + 1) : 'postgres').split('?')[0] || 'postgres';
+  const database = ((slash >= 0 ? hostPart.slice(slash + 1) : 'postgres').split('?')[0] || 'postgres').trim();
   const [host, portStr] = hostPort.split(':');
   return {
     host,
