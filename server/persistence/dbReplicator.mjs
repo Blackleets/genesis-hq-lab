@@ -34,8 +34,21 @@ export function getDbMode() {
   return ['sqlite', 'hybrid', 'postgres'].includes(m) ? m : 'hybrid';
 }
 
+// Accept the common Supabase/Render Postgres connection-string env var names so the
+// integration works regardless of which one the platform injected.
+export function getDatabaseUrl() {
+  return (
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL ||
+    process.env.POSTGRES_PRISMA_URL ||
+    process.env.SUPABASE_DB_URL ||
+    process.env.SUPABASE_DATABASE_URL ||
+    ''
+  );
+}
+
 export function isReplicationEnabled() {
-  return getDbMode() !== 'sqlite' && !!process.env.DATABASE_URL;
+  return getDbMode() !== 'sqlite' && !!getDatabaseUrl();
 }
 
 // ── Health stats (in-memory) ──────────────────────────────────────────────────
@@ -58,7 +71,7 @@ async function getPool() {
   if (_pool) return _pool;
   const { default: pg } = await import('pg');
   _pool = new pg.Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: getDatabaseUrl(),
     ssl: { rejectUnauthorized: false },   // Supabase requires SSL
     max: 3,
     idleTimeoutMillis: 30_000,
@@ -284,7 +297,7 @@ export function getDbHealth() {
     enabled,
     sqlite,
     postgres: {
-      configured: !!process.env.DATABASE_URL,
+      configured: !!getDatabaseUrl(),
       connected: _stats.pgConnected,
       schemaReady: _stats.schemaReady,
     },

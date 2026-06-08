@@ -22,6 +22,12 @@ services:
         value: 10000
       - key: ANTHROPIC_API_KEY
         sync: false
+      # Hybrid persistence — Supabase Postgres durable memory. Set the value in the
+      # Render dashboard (Environment). sync:false keeps the Blueprint from clobbering it.
+      - key: DATABASE_URL
+        sync: false
+      - key: DB_MODE
+        value: hybrid
       # Optimizer footprint tuned for the 512MB free tier (smaller window, less often).
       - key: OPTIMIZER_DAYS
         value: "14"
