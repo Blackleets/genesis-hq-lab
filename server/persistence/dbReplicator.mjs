@@ -63,6 +63,31 @@ const _stats = {
   schemaReady: false,
 };
 
+// Auth-failure backoff: a bad/missing credential must NOT hammer Supabase every 5s
+// (that trips its connection circuit-breaker). On auth-type errors we back off
+// exponentially (cap 10 min) and reset the pool so a corrected credential reconnects.
+let _backoffUntil = 0;
+let _backoffMs = 0;
+const _BACKOFF_MAX = 10 * 60_000;
+
+function isAuthError(msg = '') {
+  const m = msg.toLowerCase();
+  return m.includes('auth') || m.includes('password') || m.includes('circuitbreaker') || m.includes('circuit breaker');
+}
+
+async function applyAuthBackoff(msg) {
+  _backoffMs = _backoffMs === 0 ? 30_000 : Math.min(_BACKOFF_MAX, _backoffMs * 2);
+  _backoffUntil = Date.now() + _backoffMs;
+  _stats.pgConnected = false;
+  // Drop the pool so the next (post-backoff) attempt reconnects with fresh config.
+  try { if (_pool) await _pool.end(); } catch { /* ignore */ }
+  _pool = null;
+  _stats.schemaReady = false;
+  console.warn(`[dbReplicator] auth failure — backing off ${_backoffMs / 1000}s. Check DATABASE_URL. (${msg})`);
+}
+
+function resetBackoff() { _backoffMs = 0; _backoffUntil = 0; }
+
 // ── Lazy pg pool ──────────────────────────────────────────────────────────────
 
 // Parse a postgres connection string into discrete fields WITHOUT new URL(), so
@@ -216,23 +241,35 @@ async function replicateTable(pool, cfg) {
 
 export async function replicateOnce() {
   if (!isReplicationEnabled()) return { ok: false, reason: 'disabled' };
-  const pool = await getPool();
+  if (Date.now() < _backoffUntil) return { ok: false, reason: 'auth_backoff' };
+  let pool;
+  try {
+    pool = await getPool();
+  } catch (e) {
+    if (isAuthError(e.message)) await applyAuthBackoff(e.message);
+    _stats.failedSyncs++; _stats.lastError = e.message;
+    return { ok: false, reason: e.message };
+  }
   if (!pool) return { ok: false, reason: 'no_pool' };
   try {
     if (!_stats.schemaReady) await ensurePgSchema();
     let total = 0;
+    let authErr = null;
     for (const cfg of DURABLE) {
       try { total += await replicateTable(pool, cfg); }
-      catch (e) { _stats.failedSyncs++; _stats.lastError = `${cfg.table}: ${e.message}`; }
+      catch (e) { _stats.failedSyncs++; _stats.lastError = `${cfg.table}: ${e.message}`; if (isAuthError(e.message)) authErr = e.message; }
     }
+    if (authErr) { await applyAuthBackoff(authErr); return { ok: false, reason: authErr }; }
     _stats.rowsSynced += total;
     _stats.lastSyncAt = new Date().toISOString();
     _stats.pgConnected = true;
+    resetBackoff();
     return { ok: true, synced: total };
   } catch (e) {
     _stats.failedSyncs++;
     _stats.lastError = e.message;
     _stats.pgConnected = false;
+    if (isAuthError(e.message)) await applyAuthBackoff(e.message);
     return { ok: false, reason: e.message };
   }
 }
@@ -337,6 +374,8 @@ export function getDbHealth() {
       queuePending: estimatePending(),
       perTable: { ..._stats.perTable },
       lastError: _stats.lastError,
+      authBackoff: Date.now() < _backoffUntil,
+      nextAttemptInMs: Math.max(0, _backoffUntil - Date.now()),
     },
   };
 }
