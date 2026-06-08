@@ -456,3 +456,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Rewrote the next-session prompt and Codex handoff so future sessions start from the real live state: negative edge, three additive filters active, and recovery-plan-first instead of Phase 4 feature work.
 - Files touched: `docs/next-session-prompt.md`, `docs/codex-handoff.md`, `docs/CHANGELOG_AI.md`
 - Verification: documentation update only; no runtime code changed
+
+## 2026-06-08 — Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added a Phase 1 decision runbook with exact live checks, consistency rules, and the binary go/no-go criteria for shutting down or redesigning the current crypto scalp.
+- Files touched: `docs/CRYPTO_PHASE1_DECISION_RUNBOOK.md`, `docs/CHANGELOG_AI.md`
+- Verification: documentation update only; no runtime code changed
