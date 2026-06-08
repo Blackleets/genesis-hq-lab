@@ -376,6 +376,31 @@ export function buildStrategyLabExperiments({ baselineParams = DEFAULTS } = {}) 
       minTrades: LAB_THRESHOLDS.minTestTrades,
     }))),
     ),
+    // Multi-pair breakout 4h — the BTC-only 4h breakout showed positive expectancy on
+    // BOTH splits but failed the strict gates on sample size (<200 train trades) and
+    // single-side concentration. Pooling BTC+ETH+SOL triples the sample (clears the 200
+    // gate) and diversifies the directional mix without adding a slice-removing filter.
+    ...[20, 55].flatMap((breakoutPeriod) => ([
+      [0.04, 0.02],
+      [0.06, 0.03],
+      [0.08, 0.03],
+      [0.10, 0.04],
+    ].map(([targetPct, stopPct]) => ({
+      id: `breakout-multi-4h-p${breakoutPeriod}-tp${Math.round(targetPct * 1000)}-sl${Math.round(stopPct * 1000)}`,
+      hypothesis: 'breakout',
+      pairSet: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'],
+      interval: '4h',
+      days: 730,
+      targetPct,
+      stopPct,
+      timeoutHours: 240,
+      signalFn: breakoutSignal,
+      signalParams: { breakoutPeriod },
+      warmup: 120,
+      trainSplit: 0.7,
+      minTrades: LAB_THRESHOLDS.minTestTrades,
+    }))),
+    ),
   ].map((experiment) => ({
     ...experiment,
     signalFn: experiment.signalFn ?? evaluateSignal,
