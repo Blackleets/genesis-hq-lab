@@ -433,3 +433,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Escalated crypto diagnostics from generic change/pause advice to an explicit `pause_or_redesign_strategy` verdict once the system remains negative after 3 additive manual filters. Surfaced active filter count in operator status for a more decisionable desk view.
 - Files touched: `server/crypto/autoVeto.mjs`, `server/tests/cryptoTruth.test.mjs`, `src/services/cryptoClient.ts`, `src/components/crypto/OperatorStatusBar.tsx`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/crypto/autoVeto.mjs` ok; `npm test` ok; `npm run build` ok
+
+## 2026-06-08 — Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added a repo-grounded crypto core recovery plan with freeze, redesign, relaunch, and go/no-go criteria tied to the real live metrics already verified in production.
+- Files touched: `docs/CRYPTO_CORE_RECOVERY_PLAN.md`, `docs/CHANGELOG_AI.md`
+- Verification: documentation update only; no runtime code changed
