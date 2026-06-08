@@ -35,7 +35,7 @@ function normalizeHourValue(value) {
 
 const MANUAL_BLOCKED_SETUPS = parseList(process.env.CRYPTO_BLOCK_SETUPS ?? 'SHORT_BEAR');
 const MANUAL_BLOCKED_HOURS = parseList(process.env.CRYPTO_BLOCK_HOURS ?? '16', normalizeHourValue);
-const MANUAL_BLOCKED_CONFIDENCE_BANDS = parseList(process.env.CRYPTO_BLOCK_CONFIDENCE_BANDS ?? '');
+const MANUAL_BLOCKED_CONFIDENCE_BANDS = parseList(process.env.CRYPTO_BLOCK_CONFIDENCE_BANDS ?? '80-89');
 const MANUAL_BLOCKED_PAIRS = parseList(process.env.CRYPTO_BLOCK_PAIRS ?? '', (item) => item.toUpperCase());
 
 export function vetoConfig() {

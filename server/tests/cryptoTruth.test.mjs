@@ -95,6 +95,7 @@ describe('crypto truth consistency', () => {
     assert.ok(Array.isArray(autopsy.config.manualBlockedHours));
     assert.ok(autopsy.config.manualBlockedHours.includes('16'));
     assert.ok(Array.isArray(autopsy.config.manualBlockedConfidenceBands));
+    assert.ok(autopsy.config.manualBlockedConfidenceBands.includes('80-89'));
     assert.ok(Array.isArray(autopsy.config.manualBlockedPairs));
   });
 

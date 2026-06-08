@@ -419,3 +419,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Added additive manual context blockers for the next toxic slice in training: blocked hour buckets, blocked confidence bands, and blocked pairs now lower scalp confidence below the gate without touching execution, sizing, or TP/SL. Extended diagnostics config, scan snapshot visibility, and regression tests around the new gates.
 - Files touched: `server/crypto/autoVeto.mjs`, `server/strategies/scalpingEngine.mjs`, `server/tests/autoVeto.test.mjs`, `server/tests/cryptoTruth.test.mjs`, `server/tests/scalpingContextBlocks.test.mjs`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/crypto/autoVeto.mjs` ok; `node --check server/strategies/scalpingEngine.mjs` ok; `npm test` ok; `npm run build` ok
+
+## 2026-06-08 — Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Activated the next evidence-backed additive filter by default: the toxic `80-89` confidence band is now manually blocked as a confidence gate, with updated diagnostics and regression tests to keep the operator truth explicit.
+- Files touched: `server/crypto/autoVeto.mjs`, `server/tests/autoVeto.test.mjs`, `server/tests/cryptoTruth.test.mjs`, `server/tests/scalpingContextBlocks.test.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/autoVeto.mjs` ok; `npm test` ok; `npm run build` ok

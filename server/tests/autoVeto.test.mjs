@@ -70,7 +70,7 @@ describe('DB-backed accessors are safe on the live DB', () => {
   it('manual context blockers are safe and deterministic', () => {
     assert.equal(isHourBlocked('2026-06-08T16:30:00Z'), true);
     assert.equal(isHourBlocked('2026-06-08T12:30:00Z'), false);
-    assert.equal(isConfidenceBandBlocked(0.85), false);
+    assert.equal(isConfidenceBandBlocked(0.85), true);
     assert.equal(isPairBlocked('BTCUSDT'), false);
   });
   it('setupKey composes side_regime', () => {
