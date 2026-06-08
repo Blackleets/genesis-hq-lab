@@ -72,6 +72,7 @@ import { getMarketIntelligence, getCryptoFeedEvents, getRegimeBiasPerformance } 
 import { fetchDepth }                                     from './crypto/liquidityMatrix.mjs';
 import { getProValidation }                              from './crypto/proValidation.mjs';
 import { getShadowCandidateDiagnostics }                from './crypto/shadowCandidate.mjs';
+import { getBreakoutShadowDiagnostics }                 from './crypto/breakoutShadow.mjs';
 import { getCommentary }                                  from './ai/commentaryEngine.mjs';
 import { getTradeStories }                                from './crypto/tradeHistory.mjs';
 import { analyzeTrade, assertTradeAllowed }               from './crypto/copilot.mjs';
@@ -652,6 +653,15 @@ const server = createServer(async (req, res) => {
   if (url.pathname === '/api/crypto/shadow-candidate') {
     try {
       const shadow = await getShadowCandidateDiagnostics();
+      sendJson(res, 200, { ok: true, ...shadow });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  // GET /api/crypto/breakout-shadow — read-only 4h regime-switch breakout shadow (never executes)
+  if (url.pathname === '/api/crypto/breakout-shadow') {
+    try {
+      const shadow = await getBreakoutShadowDiagnostics();
       sendJson(res, 200, { ok: true, ...shadow });
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;
