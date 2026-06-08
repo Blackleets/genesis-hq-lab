@@ -27,6 +27,7 @@ import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs
 import { isDeptActive } from '../command/orgState.mjs';
 import { classifyRegime, applyRegimeBias } from '../crypto/regime.mjs';
 import { isSetupVetoed, confidenceCap } from '../crypto/autoVeto.mjs';
+import { getFatigueState, applyFatigueToConfidence } from '../intelligence/setupFatigue.mjs';
 
 const AGENT_ID    = 'scalping-engine-1';
 const TRADE_TYPE  = 'scalp_v2';
@@ -188,11 +189,18 @@ export function evaluateScalpSignal(ctx) {
   const vetoed = isSetupVetoed(side, regime);
   if (vetoed) confidence = Math.min(confidence, 0.40);
 
+  // Phase 6B.1B: setup fatigue — modulate confidence by rolling health score.
+  // Only applied when not already vetoed (veto is the harder gate).
+  const fatigueState = getFatigueState(symbol, side, regime);
+  if (!vetoed) confidence = applyFatigueToConfidence(confidence, fatigueState);
+
   if (TRAINING_MODE) {
-    console.log(`[scalping][TRAINING] ${symbol}: ${side} score=${bestScore} regime=${regime} conf=${(rawConfidence*100).toFixed(0)}%→${(confidence*100).toFixed(0)}%${vetoed ? ' [VETOED]' : capped ? ' [capped]' : ''} signals=[${signals.join(',')}]`);
+    const fatBand = fatigueState.band !== 'NEUTRAL' ? ` [${fatigueState.band} ×${fatigueState.confidenceMultiplier}]` : '';
+    console.log(`[scalping][TRAINING] ${symbol}: ${side} score=${bestScore} regime=${regime} conf=${(rawConfidence*100).toFixed(0)}%→${(confidence*100).toFixed(0)}%${vetoed ? ' [VETOED]' : capped ? ' [capped]' : ''}${fatBand} signals=[${signals.join(',')}]`);
   }
 
-  return { action: 'TRADE', side, confidence, signals, score: bestScore, regime, bias: adjusted.bias, rawConfidence, capped, vetoed };
+  const fatigue = { band: fatigueState.band, healthScore: fatigueState.healthScore, confidenceMultiplier: fatigueState.confidenceMultiplier, consecutiveLosses: fatigueState.consecutiveLosses };
+  return { action: 'TRADE', side, confidence, signals, score: bestScore, regime, bias: adjusted.bias, rawConfidence, capped, vetoed, fatigue };
 }
 
 // ── Main cycle ────────────────────────────────────────────────────────────────

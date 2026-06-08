@@ -17,6 +17,7 @@ import { isSafeMode } from '../memory/reconciliationEngine.mjs';
 import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs';
 import { isDeptActive } from '../command/orgState.mjs';
 import { classifyRegime, applyRegimeBias } from '../crypto/regime.mjs';
+import { getFatigueState, applyFatigueToConfidence } from '../intelligence/setupFatigue.mjs';
 
 const AGENT_ID   = 'swing-engine-1';
 const TRADE_TYPE = 'swing_v1';
@@ -117,13 +118,19 @@ export function evaluateSwingSignal(ctx) {
   // Phase 6B.1: soft directional regime bias (same helper as scalping).
   const regime = classifyRegime(ctx);
   const adjusted = applyRegimeBias(rawConfidence, side, regime);
-  const confidence = adjusted.confidence;
+  let confidence = adjusted.confidence;
+
+  // Phase 6B.1B: setup fatigue — modulate confidence by rolling health score.
+  const fatigueState = getFatigueState(symbol, side, regime);
+  confidence = applyFatigueToConfidence(confidence, fatigueState);
 
   if (TRAINING_MODE) {
-    console.log(`[swing][TRAINING] ${symbol}: ${side} score=${score} regime=${regime} conf=${(rawConfidence*100).toFixed(0)}%${adjusted.bias ? `→${(confidence*100).toFixed(0)}%` : ''} TF_align bull=${bullVotes} bear=${bearVotes}`);
+    const fatBand = fatigueState.band !== 'NEUTRAL' ? ` [${fatigueState.band} ×${fatigueState.confidenceMultiplier}]` : '';
+    console.log(`[swing][TRAINING] ${symbol}: ${side} score=${score} regime=${regime} conf=${(rawConfidence*100).toFixed(0)}%${adjusted.bias ? `→${(confidence*100).toFixed(0)}%` : ''}${fatBand} TF_align bull=${bullVotes} bear=${bearVotes}`);
   }
 
-  return { action: 'TRADE', side, confidence, signals, score, tfAlignment: Math.max(bullVotes, bearVotes), regime, bias: adjusted.bias, rawConfidence };
+  const fatigue = { band: fatigueState.band, healthScore: fatigueState.healthScore, confidenceMultiplier: fatigueState.confidenceMultiplier, consecutiveLosses: fatigueState.consecutiveLosses };
+  return { action: 'TRADE', side, confidence, signals, score, tfAlignment: Math.max(bullVotes, bearVotes), regime, bias: adjusted.bias, rawConfidence, fatigue };
 }
 
 // ── Main cycle ────────────────────────────────────────────────────────────────

@@ -75,6 +75,7 @@ import { getTradeStories }                                from './crypto/tradeHi
 import { analyzeTrade, assertTradeAllowed }               from './crypto/copilot.mjs';
 import { scalpConfig, getLastScanSnapshot }               from './strategies/scalpingEngine.mjs';
 import { getAutopsy }                                     from './crypto/autoVeto.mjs';
+import { getFatigueIntelligenceSummary }                  from './intelligence/setupFatigue.mjs';
 import { getDbHealth, startReplication }                  from './persistence/dbReplicator.mjs';
 import { readHeartbeat }                                  from './trading/schedulerHeartbeat.mjs';
 import { swingConfig }                                    from './strategies/swingEngine.mjs';
@@ -705,6 +706,7 @@ const server = createServer(async (req, res) => {
         scanSnapshot: hb?.scanSnapshot ?? (() => { try { return getLastScanSnapshot(); } catch { return { at: null, assets: [] }; } })(),
         regimePerformance: (() => { try { return getRegimeBiasPerformance(); } catch { return []; } })(),
         autopsy: (() => { try { return getAutopsy(); } catch { return null; } })(),
+        fatigueIntelligence: (() => { try { return getFatigueIntelligenceSummary(); } catch { return null; } })(),
       });
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;
