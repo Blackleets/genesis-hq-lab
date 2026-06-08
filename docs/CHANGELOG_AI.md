@@ -440,3 +440,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Added a repo-grounded crypto core recovery plan with freeze, redesign, relaunch, and go/no-go criteria tied to the real live metrics already verified in production.
 - Files touched: `docs/CRYPTO_CORE_RECOVERY_PLAN.md`, `docs/CHANGELOG_AI.md`
 - Verification: documentation update only; no runtime code changed
+
+## 2026-06-08 — Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Rewrote the next-session prompt and Codex handoff so future sessions start from the real live state: negative edge, three additive filters active, and recovery-plan-first instead of Phase 4 feature work.
+- Files touched: `docs/next-session-prompt.md`, `docs/codex-handoff.md`, `docs/CHANGELOG_AI.md`
+- Verification: documentation update only; no runtime code changed

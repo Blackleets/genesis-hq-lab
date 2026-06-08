@@ -1,83 +1,114 @@
-# Codex Handoff — Genesis HQ remaining work
+# Codex Handoff - Genesis HQ current reality
 
-Context for a collaborating coding agent (Codex). The backend for Phase 3 (auto-veto /
-convergence) is **done and deployed**; what remains is mostly UI surfacing + Phase 4 (autonomous
-agent delegation). Everything below is additive and must NOT touch: execution engine, risk engine,
-safe mode, daily caps, Kelly sizing, paper-trading, or the synchronous better-sqlite3 hot path.
+Context for a collaborating coding agent.
 
-## What already exists (do not rebuild)
+## Current truth
 
-- **Durable persistence (live):** `server/persistence/dbReplicator.mjs` replicates SQLite → Supabase
-  every 5s; `GET /api/db/health` shows status. `DB_MODE=hybrid`, `DATABASE_URL` set in Render.
-- **Regime bias (Phase 6B.1):** `server/crypto/regime.mjs` (`classifyRegime`, `applyRegimeBias`).
-  Trades are tagged `REGIME:<regime>` in their `evidence` JSON at entry.
-- **Auto-veto + confidence honesty (Phase 6B.1A backend):** `server/crypto/autoVeto.mjs`
-  - `getAutopsy()` → `{ config, setups[], topLosers[], topWinners[], vetoes[] }`, exposed at
-    `GET /api/crypto/diagnostics` under `autopsy`.
-  - `isSetupVetoed(side, regime)` + `confidenceCap(side, regime)` are already wired into
-    `scalpingEngine.evaluateScalpSignal` (confidence gate only). A vetoed candidate gets reason
-    `SETUP_VETOED` in the scan snapshot.
-- **Execution telemetry:** `GET /api/crypto/diagnostics` (loops, gates, scanSnapshot w/ regime,
-  regimePerformance, autopsy). Heartbeat is cross-process via `server/trading/schedulerHeartbeat.mjs`.
-- **Client types:** `src/services/cryptoClient.ts` — extend interfaces here (don't invent new clients).
+The crypto core is auditable now. The main reporting, autopsy, fallback truth, and additive gating
+work is already done and deployed.
 
-## Task A — Phase 3 UI: Autopsy / vetoes panel (frontend)
+Live state verified on 2026-06-08:
 
-Surface `diagnostics.autopsy` so the operator sees what Genesis stopped trading.
+- `closedTrades`: 103
+- `wins`: 19
+- `winRate`: 18.4%
+- `totalPnl`: -68.58
+- `expectancy`: -0.67
+- `profitFactor`: 0.10
+- `recommendation`: `pause_or_redesign_strategy`
 
-- Extend `ExecutionDiagnostics` in `src/services/cryptoClient.ts` with:
-  `autopsy?: { config:{minSamples:number;pfThreshold:number;windowDays:number};
-   setups: SetupStat[]; topLosers: SetupStat[]; topWinners: SetupStat[]; vetoes: SetupStat[] }`
-  where `SetupStat = { key; side; regime; samples; winRate:number|null; expectancy:number;
-   profitFactor:number; pnl:number; avgConfidence:number|null; reason?:string }`.
-- Add a `LEARNING` tab (or a section in `DeskPanel` STATS) rendering:
-  - **TOP WINNERS** (green) and **TOP LOSERS** (red): `key · n=samples · WR · EV · PF`.
-  - **ACTIVE VETOES** (amber): each veto row with its `reason` (e.g. `SHORT_STRONG_BULL · 24 trades
-    · EV $-0.41 · PF 0.34 · WR 19%`) and a "disabled — adaptive, re-evaluates from data" note.
-  - Empty state until setups reach `config.minSamples` (20). Poll = the existing diagnostics 10s.
-- `EngineTelemetry.tsx` why-no-trade already renders `SETUP_VETOED` reason; add a clear label
-  ("setup vetoed — proven negative") + show the veto stats from `autopsy.vetoes` matched by key.
+Active additive manual filters:
 
-## Task B — Chart polish (frontend, `src/dashboard/charts/CandleChart.tsx`)
+- `SHORT_BEAR`
+- hour `16`
+- confidence band `80-89`
 
-Real-time price tick (8s) is already added. Remaining polish from operator feedback ("entries
-clearer, more alive, professional, organized"):
+Conclusion: the scalp is still losing after 3 additive filters. Do not treat autonomous agents,
+extra UI, or more AI layers as the next priority.
 
-- **Marker de-clutter:** when several trade markers fall on adjacent candles they overlap on the
-  right edge. Group/space markers (e.g. only label the most recent N; show older ones as small
-  dots; or offset text). `buildMarkers()` is the place. Keep the selected trade prominent.
-- **Live candle emphasis:** subtle pulse/last-price line for the live bar (lightweight-charts
-  `createPriceLine` on the candlestick series, updated by the 8s tick).
-- **Entry/exit legend:** a tiny legend (▲ LONG / ▼ SHORT / ● TP / ● SL) so the markers read clearly.
-- Keep performance: markers recompute only on `[tradeStories, pair, tf, selectedTradeId]`.
+## What is already done
 
-## Task C — Phase 4: autonomous multi-agent delegation (backend + thin UI)
+- Canonical crypto trade universe shared across:
+  - `server/crypto/cryptoTradeUniverse.mjs`
+  - `server/crypto/cryptoAnalytics.mjs`
+  - `server/crypto/autoVeto.mjs`
+  - `server/crypto/backtest/regimeBiasBacktest.mjs`
+  - `server/crypto/cryptoRisk.mjs`
+- Diagnostics exposes:
+  - `autopsy.totalSamples`
+  - `autopsy.edgeSummary`
+  - `autopsy.breakdown`
+  - `autopsy.candidateActions`
+  - `autopsy.manualFilters`
+  - `autopsy.manualFiltersActive`
+  - `autopsy.recommendation`
+- Claude fallback truth is exposed via live diagnostics.
+- Operator status escalates to `PAUSE NOW` once the system stays negative after 3 additive filters.
+- Recovery plan exists in:
+  - `docs/CRYPTO_CORE_RECOVERY_PLAN.md`
 
-Make the 5 real agents run autonomously and feed learning (see the approved plan
-`~/.claude/plans/...` and `docs/superpowers/specs/`). New file
-`server/agents/delegationOrchestrator.mjs`:
+## Immediate priority
 
-- A scheduled loop (mirror `server/trading/executionScheduler.mjs`’s structure: locks, try/catch,
-  interval) on a LOW cadence (5–10 min), started from `server/agentRunner.mjs`, gated by
-  `isDeptActive('research')`.
-- Delegate recurring duties via the existing `server/agents/agentEngine.mjs` + `providerRouter.mjs`:
-  ATLAS=market+web scan, NOVA=signal synthesis → `signals` table, SENTINEL=risk audit (read-only),
-  CURATOR=lesson extraction (existing learning loop), ARBITER=decision log.
-- **Social/network scan:** wire `server/research/*` (newsFeed, hackerNews, reddit) as autonomous
-  inputs; persist extracted signals + accuracy to the `signals` table (already a durable table).
-- Persist a heartbeat (reuse the `schedulerHeartbeat.mjs` pattern) and emit `operator_events` so the
-  commentary feed shows agent activity. Expose `GET /api/agents/delegation` (loop status + last run
-  per agent). Thin UI: a delegation status strip reusing `EngineTelemetry` patterns.
-- Claude is optional: `providerRouter` already falls back to rule-based when no API key.
+Follow `docs/CRYPTO_CORE_RECOVERY_PLAN.md`.
 
-## Conventions (follow these — the codebase is consistent)
+The next real objective is not feature work. It is decision work:
 
-- Server: ES modules `.mjs`, synchronous `db.prepare().run/.get/.all` (better-sqlite3). Never make
-  the hot path async. New durable tables → add to `dbReplicator.mjs` `DURABLE`.
-- `logEvent({ category, severity, subsystem, reason, metadata })` (object form — never positional).
-- Tests: `node --test` in `server/tests/*.test.mjs`; `serverSyntax.test.mjs` runs `node --check` on
-  every server module (a duplicate import or syntax error fails CI).
-- Validate: `npm run build` (tsc + vite) + `npm test` must stay green. Deploy: push `feat/genesis-life-os`
-  and fast-forward `main`; Render auto-deploys the backend, Vercel the frontend.
-- All new behavior is additive + dormant-safe (env-gated / data-gated) so it never destabilizes live
-  paper trading.
+1. Run the remaining Fase 1 observation window.
+2. Decide whether `scalp_v2` should be paused as the primary strategy.
+3. If it remains negative, move to redesign.
+
+## If one last additive filter is explicitly requested
+
+Only one slice is still a reasonable candidate:
+
+- pair `BNBUSDT`
+  - `EV -0.77`
+  - `PF 0.04`
+
+Do not stack multiple new filters without taking the pause/redesign decision.
+
+## If redesign starts
+
+Only test one hypothesis at a time:
+
+1. pure trend continuation
+2. pure mean reversion
+3. single-pair specialization
+
+Not allowed as a redesign answer:
+
+- more agents
+- more model layers
+- more heuristics mixed together
+- more UI before edge recovery
+
+## Things not to touch
+
+- execution engine
+- risk engine
+- safe mode
+- daily caps
+- Kelly sizing
+- TP/SL
+- paper-trading
+- synchronous better-sqlite3 hot path
+
+## Validation contract
+
+Every meaningful change must keep these green:
+
+- `node --check` for touched server files
+- `npm test`
+- `npm run build` if frontend changes
+
+Every deploy must be verified live with:
+
+- `/api/db/health`
+- `/api/crypto/overview`
+- `/api/crypto/diagnostics`
+- `/api/crypto/regime-backtest`
+
+## Handoff rule
+
+If the system still shows `EV < 0` and `PF < 1`, say so directly and recommend pause or redesign.
+Do not resume Phase 4 work while the core remains a losing strategy.
