@@ -14,9 +14,18 @@ const MIN_SAMPLES  = parseInt(process.env.VETO_MIN_SAMPLES ?? '12', 10);
 const PF_THRESHOLD = parseFloat(process.env.VETO_PF ?? '0.9');
 const WINDOW_DAYS  = parseInt(process.env.VETO_WINDOW_DAYS ?? '7', 10);
 const KILL_RECOMMENDATION_MIN_TRADES = parseInt(process.env.KILL_RECOMMENDATION_MIN_TRADES ?? '40', 10);
+const MANUAL_BLOCKED_SETUPS = (process.env.CRYPTO_BLOCK_SETUPS ?? 'SHORT_BEAR')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 export function vetoConfig() {
-  return { minSamples: MIN_SAMPLES, pfThreshold: PF_THRESHOLD, windowDays: WINDOW_DAYS };
+  return {
+    minSamples: MIN_SAMPLES,
+    pfThreshold: PF_THRESHOLD,
+    windowDays: WINDOW_DAYS,
+    manualBlockedSetups: MANUAL_BLOCKED_SETUPS,
+  };
 }
 
 export function setupKey(side, regime) { return `${side}_${regime}`; }
@@ -237,7 +246,8 @@ function refresh() {
 
 /** Is this candidate setup currently vetoed? (used as a confidence gate only) */
 export function isSetupVetoed(side, regime) {
-  return refresh().vetoes.has(setupKey(side, regime));
+  const key = setupKey(side, regime);
+  return MANUAL_BLOCKED_SETUPS.includes(key) || refresh().vetoes.has(key);
 }
 
 /** Confidence ceiling for this setup (1 = no cap). */

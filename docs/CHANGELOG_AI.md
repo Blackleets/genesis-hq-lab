@@ -405,3 +405,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Extended crypto autopsy with toxic-segment breakdowns by pair, side, regime, UTC hour, and confidence band, and surfaced the worst slices in execution telemetry to guide additive gating/filtering decisions.
 - Files touched: `server/crypto/autoVeto.mjs`, `server/tests/cryptoTruth.test.mjs`, `src/services/cryptoClient.ts`, `src/components/crypto/EngineTelemetry.tsx`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/crypto/autoVeto.mjs` ok; `npm test` ok; `npm run build` ok; local `/api/crypto/diagnostics` returned the new breakdown shape
+
+## 2026-06-08 — Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added an explicit additive manual block for the toxic `SHORT_BEAR` setup so veto gating can shut it off immediately during training, and extended truth tests to expose the block in diagnostics config.
+- Files touched: `server/crypto/autoVeto.mjs`, `server/tests/cryptoTruth.test.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/autoVeto.mjs` ok; `npm test` ok; `npm run build` ok

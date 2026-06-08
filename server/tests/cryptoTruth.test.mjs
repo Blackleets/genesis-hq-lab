@@ -88,6 +88,12 @@ describe('crypto truth consistency', () => {
     }
   });
 
+  it('manual blocked setups are exposed in config and SHORT_BEAR is blocked', () => {
+    const autopsy = getAutopsy();
+    assert.ok(Array.isArray(autopsy.config.manualBlockedSetups));
+    assert.ok(autopsy.config.manualBlockedSetups.includes('SHORT_BEAR'));
+  });
+
   it('regime backtest BEFORE metrics use the canonical closed crypto trade universe', async () => {
     const canonical = getClosedCryptoMetrics();
     const originalFetch = global.fetch;
