@@ -80,6 +80,13 @@ import { getDbHealth, startReplication }                  from './persistence/db
 import { readHeartbeat }                                  from './trading/schedulerHeartbeat.mjs';
 import { swingConfig }                                    from './strategies/swingEngine.mjs';
 import { eventConfig }                                    from './strategies/eventAlphaEngine.mjs';
+import {
+  getClosedCryptoConfidenceRows,
+  getClosedCryptoMetrics,
+  getCryptoTradeCounts,
+  getPredictionOnlyWhere,
+}                                                         from './crypto/cryptoTradeUniverse.mjs';
+import { getCryptoLlmStatus }                             from './crypto/cryptoLlmStatus.mjs';
 
 // In-memory SkillOpt job state (single concurrent job)
 const skilloptJob = { running: false, lastResult: null, startedAt: null, agent: null };
@@ -348,7 +355,7 @@ const server = createServer(async (req, res) => {
 
       const allTwenty = db.prepare(`
         SELECT pnl FROM trades
-        WHERE status = 'closed' AND COALESCE(trade_type,'prediction') <> 'crypto_scalp'
+        WHERE status = 'closed' AND ${getPredictionOnlyWhere()}
         ORDER BY closed_at DESC LIMIT 20
       `).all();
       const recentTen = allTwenty.slice(0, 10);
@@ -663,6 +670,8 @@ const server = createServer(async (req, res) => {
       // ── Training progress extras (computed from existing SQL — no extra polling) ──
       const trainingExtras = (() => {
         try {
+          const canonical = getClosedCryptoMetrics();
+          const counts = getCryptoTradeCounts();
           const t = sched.training;
           // Best engine: highest win rate among engines with ≥3 closed trades
           let bestEngine = null, bestRate = -1;
@@ -676,15 +685,21 @@ const server = createServer(async (req, res) => {
             ? Math.min(30, Math.max(1, Math.ceil((Date.now() - new Date(first).getTime()) / 86_400_000)))
             : 1;
           // Confidence accuracy: calibration = 1 - avg(|confidence - won|) over closed crypto trades
-          const cal = db.prepare(`
-            SELECT confidence, CASE WHEN pnl > 0 THEN 1 ELSE 0 END won
-            FROM trades WHERE trade_type IN ('scalp_v2','swing_v1') AND status='closed' AND confidence IS NOT NULL
-            ORDER BY closed_at DESC LIMIT 50
-          `).all();
+          const cal = getClosedCryptoConfidenceRows(50);
           const confidenceAccuracy = cal.length >= 5
             ? Math.round((1 - cal.reduce((s, r) => s + Math.abs((r.confidence ?? 0) - r.won), 0) / cal.length) * 100)
             : null;
-          return { bestEngine, trainingDay, confidenceAccuracy };
+          return {
+            total: counts.total,
+            open: counts.open,
+            closed: counts.closed,
+            wins: canonical.wins,
+            winRate: canonical.winRate != null ? Math.round(canonical.winRate * 100) / 100 : null,
+            totalPnl: canonical.totalPnl,
+            bestEngine,
+            trainingDay,
+            confidenceAccuracy,
+          };
         } catch { return { bestEngine: null, trainingDay: 1, confidenceAccuracy: null }; }
       })();
 
@@ -707,6 +722,7 @@ const server = createServer(async (req, res) => {
         regimePerformance: (() => { try { return getRegimeBiasPerformance(); } catch { return []; } })(),
         autopsy: (() => { try { return getAutopsy(); } catch { return null; } })(),
         fatigueIntelligence: (() => { try { return getFatigueIntelligenceSummary(); } catch { return null; } })(),
+        llm: getCryptoLlmStatus(),
       });
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;

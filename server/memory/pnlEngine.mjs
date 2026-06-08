@@ -7,11 +7,12 @@
 // Null means "no data" — never default to 0 for a metric that has no basis.
 
 import db from '../db/database.mjs';
+import { CRYPTO_TRADE_TYPES_SQL, PREDICTION_ONLY_SQL } from '../crypto/cryptoTradeUniverse.mjs';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-const PREDICTION_ONLY = `COALESCE(trade_type, 'prediction') <> 'crypto_scalp'`;
-const CRYPTO_ONLY = `trade_type = 'crypto_scalp'`;
+const PREDICTION_ONLY = PREDICTION_ONLY_SQL;
+const CRYPTO_ONLY = `trade_type IN ${CRYPTO_TRADE_TYPES_SQL}`;
 
 function isoDay(offsetDays = 0) {
   const d = new Date();

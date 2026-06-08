@@ -17,6 +17,7 @@ import {
   getCryptoRiskConfig, exceedsDailyCap, isAssetInCooldown, dailyCryptoRealizedPnl,
 } from './cryptoRisk.mjs';
 import db from '../db/database.mjs';
+import { CRYPTO_TRADE_TYPES_SQL } from './cryptoTradeUniverse.mjs';
 
 const BINANCE = process.env.BINANCE_BASE || 'https://data-api.binance.vision/api/v3';
 const NOTIONAL = 100;  // paper position size used for EV in dollars
@@ -152,7 +153,7 @@ export function assertTradeAllowed({ pair }) {
     if (pair) {
       const last = db.prepare(`
         SELECT pnl, closed_at FROM trades
-        WHERE trade_type='crypto_scalp' AND status='closed' AND asset_pair=?
+        WHERE trade_type IN ${CRYPTO_TRADE_TYPES_SQL} AND status='closed' AND asset_pair=?
         ORDER BY closed_at DESC LIMIT 1
       `).get(pair);
       if (isAssetInCooldown(last, Date.now(), cfg.cooldownMin)) {

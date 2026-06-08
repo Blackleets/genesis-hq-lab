@@ -6,6 +6,7 @@
 // wrappers query closed crypto_scalp trades.
 
 import db from '../db/database.mjs';
+import { CRYPTO_TRADE_TYPES_SQL } from './cryptoTradeUniverse.mjs';
 
 function num(v, def) {
   const n = parseFloat(v ?? '');
@@ -46,7 +47,7 @@ export function dailyCryptoRealizedPnl(nowMs = Date.now()) {
   const row = db.prepare(`
     SELECT COALESCE(SUM(pnl), 0) AS s
     FROM trades
-    WHERE trade_type = 'crypto_scalp' AND status = 'closed' AND closed_at >= ?
+    WHERE trade_type IN ${CRYPTO_TRADE_TYPES_SQL} AND status = 'closed' AND closed_at >= ?
   `).get(utcMidnightIso(nowMs));
   return row?.s ?? 0;
 }
@@ -55,7 +56,7 @@ export function lastClosedCryptoTrade(pair) {
   return db.prepare(`
     SELECT pnl, closed_at
     FROM trades
-    WHERE trade_type = 'crypto_scalp' AND status = 'closed' AND asset_pair = ?
+    WHERE trade_type IN ${CRYPTO_TRADE_TYPES_SQL} AND status = 'closed' AND asset_pair = ?
     ORDER BY closed_at DESC LIMIT 1
   `).get(pair);
 }

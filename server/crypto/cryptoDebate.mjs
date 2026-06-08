@@ -2,6 +2,8 @@
 // Mirrors debateRoom.mjs but for LONG/SHORT decisions on BTC/ETH/SOL/BNB.
 // Same output shape as runDebate() so the rest of the pipeline is reusable.
 
+import { saveCryptoLlmStatus } from './cryptoLlmStatus.mjs';
+
 const CLAUDE_API = 'https://api.anthropic.com/v1/messages';
 
 const CRYPTO_DEBATE_SYSTEM = `You are Genesis HQ's crypto scalping debate facilitator.
@@ -39,7 +41,15 @@ function fallbackCryptoDebate(asset, proposedSide) {
 
 export async function runCryptoDebate(asset, contextLessons = [], proposedSide = null) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return fallbackCryptoDebate(asset, proposedSide);
+  if (!apiKey) {
+    saveCryptoLlmStatus({
+      configured: false,
+      available: false,
+      fallbackActive: true,
+      lastProviderError: 'ANTHROPIC_API_KEY not configured',
+    });
+    return fallbackCryptoDebate(asset, proposedSide);
+  }
 
   const lessonsCtx = contextLessons.length > 0
     ? `\nPrevious crypto lessons:\n${contextLessons.slice(0, 3).map(l => `- ${l.lesson_text || l.lesson}`).join('\n')}`
@@ -107,11 +117,25 @@ Generate the full debate and decision. Respond with:
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('No JSON in response');
     const debate = JSON.parse(match[0]);
+    saveCryptoLlmStatus({
+      configured: true,
+      available: true,
+      fallbackActive: false,
+      lastProviderError: null,
+      lastModel: 'claude-haiku-4-5-20251001',
+    });
 
     return enforceRules(debate, asset, proposedSide);
 
   } catch (err) {
     console.warn(`[cryptoDebate] Error for ${asset.symbol}:`, err.message);
+    saveCryptoLlmStatus({
+      configured: true,
+      available: false,
+      fallbackActive: true,
+      lastProviderError: err.message,
+      lastModel: 'claude-haiku-4-5-20251001',
+    });
     return fallbackCryptoDebate(asset, proposedSide);
   }
 }

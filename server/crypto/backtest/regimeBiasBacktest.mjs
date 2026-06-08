@@ -12,6 +12,7 @@ import db from '../../db/database.mjs';
 import { computeEma, computeRsi } from '../priceFeeder.mjs';
 import { classifyRegime, applyRegimeBias } from '../regime.mjs';
 import { scalpConfig } from '../../strategies/scalpingEngine.mjs';
+import { CRYPTO_TRADE_TYPES_SQL } from '../cryptoTradeUniverse.mjs';
 
 const BINANCE = process.env.BINANCE_BASE || 'https://data-api.binance.vision/api/v3';
 const GATE = scalpConfig().minConfidence; // 0.65
@@ -57,7 +58,7 @@ export async function runRegimeBiasBacktest() {
   const rows = db.prepare(`
     SELECT id, asset_pair AS pair, outcome AS side, pnl, confidence, opened_at
     FROM trades
-    WHERE trade_type IN ('scalp_v2','swing_v1') AND status='closed' AND pnl IS NOT NULL
+    WHERE trade_type IN ${CRYPTO_TRADE_TYPES_SQL} AND status='closed' AND pnl IS NOT NULL
     ORDER BY opened_at ASC
   `).all();
 

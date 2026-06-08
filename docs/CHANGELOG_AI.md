@@ -370,3 +370,10 @@ at the top. Use one block per session. Be honest about failures.
 - **Verification:** `npm run build` — see most recent run.
 - **Notes for the next AI:** No real Genesis HQ port yet. Start at
   `docs/AI_HANDOFF.md`.
+
+## 2026-06-08 — Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Unified the canonical crypto trade universe across analytics, diagnostics, risk reads, regime backtest, and PnL filters. Added autopsy sample counts + edge summary and persisted crypto Claude/fallback status so diagnostics can distinguish real LLM reasoning from deterministic fallback.
+- Files touched: `server/crypto/cryptoTradeUniverse.mjs`, `server/crypto/cryptoLlmStatus.mjs`, `server/crypto/cryptoAnalytics.mjs`, `server/crypto/autoVeto.mjs`, `server/crypto/backtest/regimeBiasBacktest.mjs`, `server/crypto/cryptoRisk.mjs`, `server/crypto/marketIntelligence.mjs`, `server/crypto/copilot.mjs`, `server/crypto/cryptoDebate.mjs`, `server/memory/pnlEngine.mjs`, `server/index.mjs`, `server/tests/cryptoTruth.test.mjs`, `src/services/cryptoClient.ts`
+- Verification: `npm run build` ok; `npm test` ok; `node --check` ok for touched server modules

@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getParams, getParamsMeta } from './strategyParams.mjs';
+import { CRYPTO_TRADE_TYPES_SQL, getClosedCryptoMetrics } from './cryptoTradeUniverse.mjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const RUNS_LOG = join(__dir, '..', '..', 'data', 'strategy', 'optimizer_runs.json');
@@ -23,22 +24,11 @@ export function getOptimizerHeartbeat() {
 }
 
 export function getCryptoPnlSummary() {
-  const closed = db.prepare(`
-    SELECT
-      COUNT(*)                                AS total,
-      SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) AS wins,
-      SUM(CASE WHEN pnl < 0 THEN 1 ELSE 0 END) AS losses,
-      COALESCE(SUM(pnl), 0)                   AS total_pnl,
-      MAX(pnl)                                AS best_trade,
-      MIN(pnl)                                AS worst_trade,
-      AVG(pnl)                                AS avg_pnl,
-      COALESCE(SUM(capital_used), 0)          AS total_risked
-    FROM trades WHERE trade_type IN ('crypto_scalp','scalp_v2','swing_v1') AND status = 'closed'
-  `).get();
+  const closed = getClosedCryptoMetrics();
 
   const open = db.prepare(`
     SELECT COUNT(*) AS cnt, COALESCE(SUM(capital_used), 0) AS at_risk
-    FROM trades WHERE trade_type IN ('crypto_scalp','scalp_v2','swing_v1') AND status = 'open'
+    FROM trades WHERE trade_type IN ${CRYPTO_TRADE_TYPES_SQL} AND status = 'open'
   `).get();
 
   const byAsset = db.prepare(`
@@ -46,23 +36,23 @@ export function getCryptoPnlSummary() {
            COUNT(*)   AS trades,
            COALESCE(SUM(pnl), 0) AS pnl,
            SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) AS wins
-    FROM trades WHERE trade_type IN ('crypto_scalp','scalp_v2','swing_v1') AND status = 'closed'
+    FROM trades WHERE trade_type IN ${CRYPTO_TRADE_TYPES_SQL} AND status = 'closed'
     GROUP BY asset_pair ORDER BY pnl DESC
   `).all();
 
-  const total = closed?.total ?? 0;
+  const total = closed?.trades ?? 0;
   return {
     closed: {
       total,
       wins: closed?.wins ?? 0,
       losses: closed?.losses ?? 0,
-      winRate: total > 0 ? (closed.wins ?? 0) / total : 0,
-      totalPnl: closed?.total_pnl ?? 0,
-      bestTrade: closed?.best_trade ?? 0,
-      worstTrade: closed?.worst_trade ?? 0,
-      avgPnl: closed?.avg_pnl ?? 0,
-      totalRisked: closed?.total_risked ?? 0,
-      roi: closed?.total_risked > 0 ? (closed.total_pnl / closed.total_risked) : 0,
+      winRate: closed?.winRate ?? 0,
+      totalPnl: closed?.totalPnl ?? 0,
+      bestTrade: closed?.bestTrade ?? 0,
+      worstTrade: closed?.worstTrade ?? 0,
+      avgPnl: closed?.avgPnl ?? 0,
+      totalRisked: closed?.totalRisked ?? 0,
+      roi: closed?.roi ?? 0,
     },
     open: { count: open?.cnt ?? 0, atRisk: open?.at_risk ?? 0 },
     byAsset: byAsset.map(a => ({ ...a, winRate: a.trades > 0 ? a.wins / a.trades : 0 })),
@@ -73,7 +63,7 @@ export function getOpenCryptoPositions() {
   return db.prepare(`
     SELECT id, asset_pair AS pair, outcome AS side, entry_price, target_price, stop_price,
            capital_used, confidence, opened_at
-    FROM trades WHERE trade_type IN ('crypto_scalp','scalp_v2','swing_v1') AND status = 'open'
+    FROM trades WHERE trade_type IN ${CRYPTO_TRADE_TYPES_SQL} AND status = 'open'
     ORDER BY opened_at DESC
   `).all();
 }
@@ -82,7 +72,7 @@ export function getRecentCryptoTrades(limit = 25) {
   return db.prepare(`
     SELECT id, asset_pair AS pair, outcome AS side, entry_price, exit_price, pnl,
            exit_reason, confidence, opened_at, closed_at
-    FROM trades WHERE trade_type IN ('crypto_scalp','scalp_v2','swing_v1') AND status = 'closed'
+    FROM trades WHERE trade_type IN ${CRYPTO_TRADE_TYPES_SQL} AND status = 'closed'
     ORDER BY closed_at DESC LIMIT ?
   `).all(limit);
 }

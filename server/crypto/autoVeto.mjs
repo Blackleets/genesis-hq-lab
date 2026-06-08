@@ -7,6 +7,7 @@
 // from data every cycle, so a setup un-vetoes itself as losers age out or winners arrive.
 
 import db from '../db/database.mjs';
+import { CRYPTO_TRADE_TYPES_SQL, computeEdgeVerdict, getClosedCryptoMetrics } from './cryptoTradeUniverse.mjs';
 
 // Training-phase default: 12 gives statistical signal early (override with VETO_MIN_SAMPLES=20+ for production hardening)
 const MIN_SAMPLES  = parseInt(process.env.VETO_MIN_SAMPLES ?? '12', 10);
@@ -69,7 +70,7 @@ export function getSetupPerformance() {
     rows = db.prepare(`
       SELECT outcome AS side, pnl, confidence, evidence
       FROM trades
-      WHERE trade_type IN ('scalp_v2','swing_v1') AND status='closed' AND pnl IS NOT NULL
+      WHERE trade_type IN ${CRYPTO_TRADE_TYPES_SQL} AND status='closed' AND pnl IS NOT NULL
         AND closed_at > datetime('now', ?)
     `).all(`-${WINDOW_DAYS} days`);
   } catch { return []; }
@@ -109,8 +110,24 @@ export function confidenceCap(side, regime) {
 export function getAutopsy() {
   const setups = getSetupPerformance();
   const sorted = [...setups].sort((a, b) => a.expectancy - b.expectancy);
+  const edge = getClosedCryptoMetrics();
+  const nonMatureSetups = setups.filter(s => s.samples < MIN_SAMPLES);
+  const totalSamples = edge.trades;
+  const windowedSamples = setups.reduce((sum, s) => sum + (s.samples ?? 0), 0);
   return {
     config: vetoConfig(),
+    totalSamples,
+    windowedSamples,
+    vetoesActive: getActiveVetoes().length,
+    nonMatureSetups,
+    edgeSummary: {
+      trades: edge.trades,
+      winRate: edge.winRate,
+      expectancy: edge.expectancy,
+      profitFactor: edge.profitFactor,
+      totalPnl: edge.totalPnl,
+      verdict: computeEdgeVerdict(edge),
+    },
     setups,
     topLosers: sorted.filter(s => s.samples >= 3).slice(0, 5),
     topWinners: [...sorted].reverse().filter(s => s.samples >= 3).slice(0, 5),

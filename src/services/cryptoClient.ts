@@ -259,6 +259,19 @@ export interface RegimePerf {
   winRate: number | null;
 }
 
+export interface SetupStat {
+  key: string;
+  side: string;
+  regime: string;
+  samples: number;
+  winRate: number | null;
+  expectancy: number;
+  profitFactor: number | null;
+  pnl: number;
+  avgConfidence: number | null;
+  reason?: string;
+}
+
 export interface ExecutionDiagnostics {
   loops: { scalping: LoopStatus; event: LoopStatus; swing: LoopStatus };
   gates: {
@@ -267,13 +280,41 @@ export interface ExecutionDiagnostics {
     event: { evThreshold: number; minConfidence: number };
   };
   training: {
-    total: number; open: number; closed: number; winRate: number | null; totalPnl: number;
+    total: number; open: number; closed: number; wins?: number; winRate: number | null; totalPnl: number;
     bestEngine?: string | null; trainingDay?: number; confidenceAccuracy?: number | null;
   } | null;
   mode: string;
   recentScans: { ts: string; reason: string; subsystem: string }[];
   scanSnapshot: { at: string | null; assets: ScanAsset[] };
   regimePerformance?: RegimePerf[];
+  autopsy?: {
+    config: { minSamples: number; pfThreshold: number; windowDays: number };
+    totalSamples: number;
+    windowedSamples: number;
+    vetoesActive: number;
+    edgeSummary: {
+      trades: number;
+      winRate: number | null;
+      expectancy: number;
+      profitFactor: number | null;
+      totalPnl: number;
+      verdict: 'positive' | 'negative' | 'insufficient_data';
+    };
+    setups: SetupStat[];
+    topLosers: SetupStat[];
+    topWinners: SetupStat[];
+    vetoes: SetupStat[];
+    nonMatureSetups: SetupStat[];
+  } | null;
+  llm?: {
+    provider: string;
+    configured: boolean;
+    available: boolean | null;
+    fallbackActive: boolean;
+    lastProviderError: string | null;
+    checkedAt: string | null;
+    lastModel?: string | null;
+  };
 }
 
 export async function loadDiagnostics(): Promise<ExecutionDiagnostics | null> {
