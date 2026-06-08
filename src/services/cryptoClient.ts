@@ -412,6 +412,44 @@ export async function loadDiagnostics(): Promise<ExecutionDiagnostics | null> {
   } catch { return null; }
 }
 
+export interface ShadowBucketStat {
+  pair?: string;
+  hour?: string;
+  signalsSeen: number;
+  wouldTradeCount: number;
+  blockedCount: number;
+}
+
+export interface ShadowRecentSignal {
+  ts: string;
+  pair: string;
+  side: 'LONG' | 'SHORT' | null;
+  blocked: boolean;
+  confidence: number | null;
+  reasons: string[];
+}
+
+export interface ShadowCandidateDiagnostics {
+  candidateId: string | null;
+  running: boolean;
+  pairSet: string[];
+  signalsSeen: number;
+  wouldTradeCount: number;
+  blockedCount: number;
+  byPair: ShadowBucketStat[];
+  byHour: ShadowBucketStat[];
+  recent: ShadowRecentSignal[];
+}
+
+export async function loadShadowCandidateDiagnostics(): Promise<ShadowCandidateDiagnostics | null> {
+  try {
+    const res = await fetch(apiUrl('/api/crypto/shadow-candidate'), { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return null;
+    const data = await res.json() as { ok: boolean } & ShadowCandidateDiagnostics;
+    return data.ok ? data : null;
+  } catch { return null; }
+}
+
 export async function analyzeCopilot(pair: string, side: 'LONG' | 'SHORT'): Promise<CopilotAnalysis | null> {
   try {
     const res = await fetch(apiUrl('/api/crypto/copilot'), {

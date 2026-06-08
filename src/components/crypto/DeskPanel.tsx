@@ -3,10 +3,11 @@
 // Replaces the old full-width data strip so the chart can be the hero.
 
 import { useState } from 'react';
-import type { CryptoOverview, TradeStory, ExecutionDiagnostics } from '@services/cryptoClient';
+import type { CryptoOverview, TradeStory, ExecutionDiagnostics, ShadowCandidateDiagnostics } from '@services/cryptoClient';
 import { ActivePositionsTerminal } from './ActivePositionsTerminal';
 import { TradeTimeline } from './TradeTimeline';
 import { EngineTelemetry } from './EngineTelemetry';
+import { ShadowCandidatePanel } from './ShadowCandidatePanel';
 
 const ACCENT = '#f7931a';
 
@@ -38,12 +39,14 @@ interface Props {
   selectedTradeId?: string | null;
   onSelectTrade?: (id: string | null) => void;
   diagnostics?: ExecutionDiagnostics | null;
+  shadowCandidate?: ShadowCandidateDiagnostics | null;
 }
 
 export function DeskPanel({
   data, es, className = '',
   tradeStories = [], selectedTradeId = null, onSelectTrade,
   diagnostics,
+  shadowCandidate,
 }: Props) {
   const [tab, setTab] = useState<Tab>('POSITIONS');
 
@@ -94,6 +97,8 @@ export function DeskPanel({
 
             {/* Execution telemetry — loop status + why-no-trade */}
             <EngineTelemetry diagnostics={diagnostics} />
+
+            <ShadowCandidatePanel shadow={shadowCandidate ?? null} es={es} />
 
             {/* PnL by asset */}
             <div>

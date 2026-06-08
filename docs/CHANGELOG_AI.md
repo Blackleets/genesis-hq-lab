@@ -3,6 +3,13 @@
 ## 2026-06-08 - Codex
 
 - Branch: `feat/genesis-life-os`
+- Summary: Añadi una superficie frontend minima para el sidecar de research crypto. `Crypto Lab` ahora muestra un panel `Shadow candidate` dentro de `DeskPanel > STATS`, leyendo `/api/crypto/shadow-candidate` sin tocar los paneles live ni el layout principal.
+- Files touched: `src/services/cryptoClient.ts`, `src/components/crypto/ShadowCandidatePanel.tsx`, `src/components/crypto/DeskPanel.tsx`, `src/workflows/CryptoLabView.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run build` ok; `npm test` ok
+
+## 2026-06-08 - Codex
+
+- Branch: `feat/genesis-life-os`
 - Summary: Implemente el sidecar estricto de research crypto sin tocar la ruta live. Anadi `strategyLab` con experimentos canonicos BTC-only (baseline, trend, mean reversion), el runner `crypto:lab`, y un endpoint read-only `/api/crypto/shadow-candidate` para evaluar candidatos en sombra sin abrir trades.
 - Files touched: `server/crypto/backtest/strategyLab.mjs`, `server/crypto/shadowCandidate.mjs`, `server/index.mjs`, `scripts/runCryptoStrategyLab.mjs`, `server/tests/strategyLab.test.mjs`, `server/tests/shadowCandidate.test.mjs`, `package.json`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/crypto/backtest/strategyLab.mjs` ok; `node --check server/crypto/shadowCandidate.mjs` ok; `node --check server/index.mjs` ok; `node scripts/runCryptoStrategyLab.mjs` ok; `npm test` ok; `npm run build` ok

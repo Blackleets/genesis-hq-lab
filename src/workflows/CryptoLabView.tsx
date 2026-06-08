@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useLanguage } from '@core/i18n/languageStore';
 import {
-  loadCryptoOverview, loadTradeStories, loadCommentary, loadDiagnostics,
-  type CryptoOverview, type TradeStory, type CommentaryItem, type ExecutionDiagnostics,
+  loadCryptoOverview, loadTradeStories, loadCommentary, loadDiagnostics, loadShadowCandidateDiagnostics,
+  type CryptoOverview, type TradeStory, type CommentaryItem, type ExecutionDiagnostics, type ShadowCandidateDiagnostics,
 } from '@services/cryptoClient';
 import CandleChart from '@dashboard/charts/CandleChart';
 import { apiUrl } from '@services/apiBase';
@@ -29,6 +29,7 @@ export default function CryptoLabView() {
   const [selectedTradeId, setSelectedTradeId] = useState<string | null>(null);
   const [commentary, setCommentary] = useState<CommentaryItem[]>([]);
   const [diagnostics, setDiagnostics] = useState<ExecutionDiagnostics | null>(null);
+  const [shadowCandidate, setShadowCandidate] = useState<ShadowCandidateDiagnostics | null>(null);
 
   const fetchOverview = useCallback(async () => {
     try {
@@ -49,15 +50,20 @@ export default function CryptoLabView() {
     const d = await loadDiagnostics();
     if (d) setDiagnostics(d);
   }, []);
+  const fetchShadowCandidate = useCallback(async () => {
+    const data = await loadShadowCandidateDiagnostics();
+    if (data) setShadowCandidate(data);
+  }, []);
 
   useEffect(() => {
-    fetchOverview(); fetchTrades(); fetchCommentary(); fetchDiagnostics();
+    fetchOverview(); fetchTrades(); fetchCommentary(); fetchDiagnostics(); fetchShadowCandidate();
     const id1 = setInterval(fetchOverview, 15_000);
     const id2 = setInterval(fetchTrades, 15_000);
     const id3 = setInterval(fetchCommentary, 5_000);
     const id4 = setInterval(fetchDiagnostics, 10_000);
-    return () => { clearInterval(id1); clearInterval(id2); clearInterval(id3); clearInterval(id4); };
-  }, [fetchOverview, fetchTrades, fetchCommentary, fetchDiagnostics]);
+    const id5 = setInterval(fetchShadowCandidate, 10_000);
+    return () => { clearInterval(id1); clearInterval(id2); clearInterval(id3); clearInterval(id4); clearInterval(id5); };
+  }, [fetchOverview, fetchTrades, fetchCommentary, fetchDiagnostics, fetchShadowCandidate]);
 
   // Today's realized stats — computed from closed trades (real, no extra fetch)
   const today = useMemo(() => {
@@ -169,6 +175,7 @@ export default function CryptoLabView() {
             selectedTradeId={selectedTradeId}
             onSelectTrade={setSelectedTradeId}
             diagnostics={diagnostics}
+            shadowCandidate={shadowCandidate}
           />
         </div>
 
