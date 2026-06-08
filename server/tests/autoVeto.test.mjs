@@ -5,6 +5,7 @@ const {
   computeSetupStats, isVetoSetup, capFromWinRate, setupKey,
   getAutopsy, isSetupVetoed, confidenceCap,
   isHourBlocked, isConfidenceBandBlocked, isPairBlocked,
+  buildEdgePauseDecision,
 } = await import('../crypto/autoVeto.mjs');
 
 function rows(side, regime, results /* array of pnl */) {
@@ -75,5 +76,37 @@ describe('DB-backed accessors are safe on the live DB', () => {
   });
   it('setupKey composes side_regime', () => {
     assert.equal(setupKey('SHORT', 'STRONG_BULL'), 'SHORT_STRONG_BULL');
+  });
+});
+
+describe('buildEdgePauseDecision', () => {
+  it('pauses scalp entries after enough negative closed trades and additive filters', () => {
+    const decision = buildEdgePauseDecision(
+      { trades: 103, winRate: 0.184, expectancy: -0.67, profitFactor: 0.10, totalPnl: -68.58 },
+      { manualFiltersActive: 3 },
+    );
+
+    assert.equal(decision.pause, true);
+    assert.equal(decision.action, 'pause_or_redesign_strategy');
+    assert.equal(decision.thresholdTrades, 40);
+    assert.equal(decision.thresholdManualFilters, 3);
+  });
+
+  it('does not pause before the hard trade threshold is reached', () => {
+    const decision = buildEdgePauseDecision(
+      { trades: 12, winRate: 0.2, expectancy: -0.7, profitFactor: 0.2, totalPnl: -8.4 },
+      { manualFiltersActive: 3 },
+    );
+
+    assert.equal(decision.pause, false);
+  });
+
+  it('does not pause when the edge is positive', () => {
+    const decision = buildEdgePauseDecision(
+      { trades: 80, winRate: 0.48, expectancy: 0.12, profitFactor: 1.2, totalPnl: 9.6 },
+      { manualFiltersActive: 3 },
+    );
+
+    assert.equal(decision.pause, false);
   });
 });

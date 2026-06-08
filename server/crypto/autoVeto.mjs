@@ -15,6 +15,7 @@ const PF_THRESHOLD = parseFloat(process.env.VETO_PF ?? '0.9');
 const WINDOW_DAYS  = parseInt(process.env.VETO_WINDOW_DAYS ?? '7', 10);
 const KILL_RECOMMENDATION_MIN_TRADES = parseInt(process.env.KILL_RECOMMENDATION_MIN_TRADES ?? '40', 10);
 const HARD_PAUSE_MANUAL_FILTERS = parseInt(process.env.HARD_PAUSE_MANUAL_FILTERS ?? '3', 10);
+const EDGE_PAUSE_CACHE_MS = parseInt(process.env.SCALP_EDGE_PAUSE_CACHE_MS ?? '30000', 10);
 
 function parseList(value, normalize = (item) => item) {
   return (value ?? '')
@@ -78,6 +79,51 @@ export function confidenceBand(confidence) {
   if (pct >= 70) return '70-79';
   if (pct >= 60) return '60-69';
   return '<60';
+}
+
+function manualFilters() {
+  return {
+    setups: MANUAL_BLOCKED_SETUPS,
+    hours: MANUAL_BLOCKED_HOURS,
+    confidenceBands: MANUAL_BLOCKED_CONFIDENCE_BANDS,
+    pairs: MANUAL_BLOCKED_PAIRS,
+  };
+}
+
+function manualFiltersActiveCount(filters = manualFilters()) {
+  return Object.values(filters).reduce((sum, items) => sum + items.length, 0);
+}
+
+export function buildEdgePauseDecision(edge, options = {}) {
+  const trades = Number(edge?.trades ?? 0);
+  const expectancy = Number(edge?.expectancy ?? 0);
+  const profitFactor = Number(edge?.profitFactor ?? 0);
+  const totalPnl = Number(edge?.totalPnl ?? 0);
+  const winRate = Number(edge?.winRate ?? 0);
+  const manualFiltersActive = Number(options.manualFiltersActive ?? manualFiltersActiveCount());
+  const enoughTrades = trades >= KILL_RECOMMENDATION_MIN_TRADES;
+  const negativeEdge = expectancy < 0 && profitFactor < 1;
+  const enoughFilters = manualFiltersActive >= HARD_PAUSE_MANUAL_FILTERS;
+  const pause = enoughTrades && negativeEdge && enoughFilters;
+
+  return {
+    pause,
+    action: pause ? 'pause_or_redesign_strategy' : 'continue_or_observe',
+    triggered: pause,
+    trades,
+    winRate,
+    expectancy,
+    profitFactor,
+    totalPnl,
+    manualFiltersActive,
+    thresholdTrades: KILL_RECOMMENDATION_MIN_TRADES,
+    thresholdManualFilters: HARD_PAUSE_MANUAL_FILTERS,
+    reason: pause
+      ? `${trades} closed trades still show EV ${expectancy} and PF ${profitFactor} after ${manualFiltersActive} additive filters`
+      : enoughTrades
+        ? `No hard scalp pause: negativeEdge=${negativeEdge}, manualFiltersActive=${manualFiltersActive}/${HARD_PAUSE_MANUAL_FILTERS}`
+        : `Need ${Math.max(0, KILL_RECOMMENDATION_MIN_TRADES - trades)} more closed trades before hard scalp pause`,
+  };
 }
 
 function summarizeRowsBy(rows, makeKey, makeMeta) {
@@ -256,6 +302,7 @@ export function getActiveVetoes() {
 
 // 30s cache so the hot scalp loop doesn't re-query every 5s.
 let _cache = { at: 0, vetoes: new Set(), caps: {} };
+let _edgePauseCache = { at: 0, decision: null };
 function refresh() {
   const now = Date.now();
   if (now - _cache.at < 30_000 && _cache.at) return _cache;
@@ -265,6 +312,15 @@ function refresh() {
   for (const s of perf) if (s.samples >= MIN_SAMPLES) caps[s.key] = capFromWinRate(s.winRate);
   _cache = { at: now, vetoes, caps };
   return _cache;
+}
+
+export function shouldPauseScalpEntriesForNegativeEdge(now = Date.now()) {
+  if (_edgePauseCache.decision && now - _edgePauseCache.at < EDGE_PAUSE_CACHE_MS) {
+    return _edgePauseCache.decision;
+  }
+  const decision = buildEdgePauseDecision(getClosedCryptoMetrics());
+  _edgePauseCache = { at: now, decision };
+  return decision;
 }
 
 /** Is this candidate setup currently vetoed? (used as a confidence gate only) */
@@ -303,17 +359,13 @@ export function getAutopsy() {
   const windowedSamples = setups.reduce((sum, s) => sum + (s.samples ?? 0), 0);
   const breakdown = getAutopsyBreakdown();
   const candidateActions = buildCandidateActions(breakdown);
-  const manualFilters = {
-    setups: MANUAL_BLOCKED_SETUPS,
-    hours: MANUAL_BLOCKED_HOURS,
-    confidenceBands: MANUAL_BLOCKED_CONFIDENCE_BANDS,
-    pairs: MANUAL_BLOCKED_PAIRS,
-  };
-  const manualFiltersActive = Object.values(manualFilters).reduce((sum, items) => sum + items.length, 0);
+  const filters = manualFilters();
+  const manualFiltersActive = manualFiltersActiveCount(filters);
+  const edgePauseDecision = buildEdgePauseDecision(edge, { manualFiltersActive });
   const shouldChangeOrPause = totalSamples >= KILL_RECOMMENDATION_MIN_TRADES
     && (edge.expectancy ?? 0) < 0
     && (edge.profitFactor ?? 0) < 1;
-  const shouldPauseNow = shouldChangeOrPause && manualFiltersActive >= HARD_PAUSE_MANUAL_FILTERS;
+  const shouldPauseNow = edgePauseDecision.pause;
   const recommendation = shouldPauseNow
     ? {
         action: 'pause_or_redesign_strategy',
@@ -344,8 +396,9 @@ export function getAutopsy() {
     totalSamples,
     windowedSamples,
     vetoesActive: getActiveVetoes().length,
-    manualFilters,
+    manualFilters: filters,
     manualFiltersActive,
+    edgePauseDecision,
     nonMatureSetups,
     edgeSummary: {
       trades: edge.trades,

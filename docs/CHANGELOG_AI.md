@@ -425,6 +425,13 @@ at the top. Use one block per session. Be honest about failures.
 ## 2026-06-08 — Codex
 
 - Branch: `feat/genesis-life-os`
+## 2026-06-08 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Enforced the existing negative-edge recommendation as a cached scalp entry pause, so `scalp_v2` stops opening new trades once enough closed trades show negative EV/PF after additive filters while leaving execution, risk sizing, TP/SL, and paper management unchanged.
+- Files touched: `server/crypto/autoVeto.mjs`, `server/strategies/scalpingEngine.mjs`, `server/tests/autoVeto.test.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/autoVeto.mjs` ok; `node --check server/strategies/scalpingEngine.mjs` ok; `node --check server/tests/autoVeto.test.mjs` ok; `npm test` ok
+
 - Summary: Hardened crypto truth consistency with a regression test that forces `/api/crypto/regime-backtest` BEFORE metrics to match the canonical closed-crypto trade universe used by overview and autopsy.
 - Files touched: `server/tests/cryptoTruth.test.mjs`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/tests/cryptoTruth.test.mjs` ok; `npm test` ok; `npm run build` ok; live checks on `overview`, `diagnostics`, and `regime-backtest` all reflected `99` closed crypto trades

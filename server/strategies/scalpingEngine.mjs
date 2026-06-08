@@ -34,6 +34,7 @@ import {
   isPairBlocked,
   hourBucket,
   confidenceBand,
+  shouldPauseScalpEntriesForNegativeEdge,
 } from '../crypto/autoVeto.mjs';
 import { getFatigueState, applyFatigueToConfidence } from '../intelligence/setupFatigue.mjs';
 
@@ -49,10 +50,18 @@ const SL_PCT = parseFloat(process.env.SCALP_SL_PCT ?? '0.002');   // 0.2% defaul
 const MIN_CONFIDENCE = parseFloat(process.env.SCALP_MIN_CONF ?? '0.65');
 const MAX_CAPITAL_PER_TRADE = parseFloat(process.env.SCALP_MAX_CAPITAL ?? '200'); // $200 max per scalp
 const TIMEOUT_HOURS = parseFloat(process.env.SCALP_TIMEOUT_H ?? '2');
+const EDGE_PAUSE_ENFORCED = !['0', 'false', 'no', 'off'].includes((process.env.SCALP_ENFORCE_EDGE_PAUSE ?? 'true').toLowerCase());
 
 /** Effective scalp engine config (used by diagnostics + tuning tests). */
 export function scalpConfig() {
-  return { minConfidence: MIN_CONFIDENCE, tpPct: TP_PCT, slPct: SL_PCT, maxCapital: MAX_CAPITAL_PER_TRADE, timeoutHours: TIMEOUT_HOURS };
+  return {
+    minConfidence: MIN_CONFIDENCE,
+    tpPct: TP_PCT,
+    slPct: SL_PCT,
+    maxCapital: MAX_CAPITAL_PER_TRADE,
+    timeoutHours: TIMEOUT_HOURS,
+    edgePauseEnforced: EDGE_PAUSE_ENFORCED,
+  };
 }
 
 // ── Live scan snapshot (operator "why no trade" — reuses the 5s loop's work) ───
@@ -260,6 +269,21 @@ export async function runScalpingCycle() {
 
   if (!isDeptActive('crypto_scalping')) {
     return result;
+  }
+
+  if (EDGE_PAUSE_ENFORCED) {
+    const edgePause = shouldPauseScalpEntriesForNegativeEdge();
+    if (edgePause.pause) {
+      logEvent({
+        category: CATEGORY.RISK,
+        severity: SEVERITY.WARNING,
+        subsystem: AGENT_ID,
+        reason: 'SCALPING PAUSED - negative edge recommendation',
+        metadata: edgePause,
+      });
+      result.blocked = true;
+      return result;
+    }
   }
 
   // Risk gate: skip if system risk is CRITICAL
