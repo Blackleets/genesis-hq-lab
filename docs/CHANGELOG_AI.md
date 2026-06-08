@@ -425,6 +425,13 @@ at the top. Use one block per session. Be honest about failures.
 ## 2026-06-09 - Codex
 
 - Branch: `feat/genesis-life-os`
+- Summary: Tightened the Crypto Lab chart fidelity after live review by reducing trade-marker label clutter and hiding the volume series last-value label so the panel reads more like a real TradingView/DexScreener chart.
+- Files touched: `src/dashboard/charts/CandleChart.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run typecheck` ok; `npm run build` ok; `npm test` ok; Playwright local render check ok with no console errors
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
 - Summary: Finished the Crypto Lab chart panel polish with a DexScreener-style stats header, Binance 24h ticker stats, professional candle/volume styling, open-position price lines, improved trade markers, EMA toggles, and a subtle symbol watermark while preserving the existing lower layout and trading logic.
 - Files touched: `src/dashboard/charts/CandleChart.tsx`, `src/components/crypto/ChartStatsHeader.tsx`, `src/services/chartTicker.ts`, `docs/CHANGELOG_AI.md`
 - Verification: `npm run typecheck` ok; `npm run build` ok; `npm test` ok; Playwright local render check ok with no console errors

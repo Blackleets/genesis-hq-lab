@@ -37,9 +37,21 @@ function toUnix(iso: string | null): number | null {
 // Build entry + exit markers for the trades on the current pair.
 function buildMarkers(trades: TradeStory[], pair: string, selectedId: string | null): SeriesMarker<Time>[] {
   const markers: SeriesMarker<Time>[] = [];
+  const visibleLabelIds = new Set(
+    trades
+      .filter(t => t.pair === pair)
+      .toSorted((a, b) => {
+        const at = Date.parse(a.closed_at ?? a.opened_at ?? '') || 0;
+        const bt = Date.parse(b.closed_at ?? b.opened_at ?? '') || 0;
+        return bt - at;
+      })
+      .slice(0, 8)
+      .map(t => t.id)
+  );
   for (const t of trades) {
     if (t.pair !== pair) continue;
     const sel = t.id === selectedId;
+    const label = sel || visibleLabelIds.has(t.id);
     const entryT = toUnix(t.opened_at);
     if (entryT != null) {
       const isLong = t.side === 'LONG';
@@ -48,7 +60,7 @@ function buildMarkers(trades: TradeStory[], pair: string, selectedId: string | n
         position: isLong ? 'belowBar' : 'aboveBar',
         shape: isLong ? 'arrowUp' : 'arrowDown',
         color: sel ? (isLong ? '#4ade80' : '#c084fc') : (isLong ? '#22c55e' : '#a855f7'),
-        text: t.side,
+        text: label ? t.side : '',
         size: sel ? 2 : 1,
       });
     }
@@ -62,7 +74,7 @@ function buildMarkers(trades: TradeStory[], pair: string, selectedId: string | n
         position: 'aboveBar',
         shape: 'circle',
         color: sel ? '#ffffff' : col,
-        text: `${kind}${pnlTxt}`,
+        text: label ? `${kind}${pnlTxt}` : '',
         size: sel ? 2 : 1,
       });
     }
@@ -188,6 +200,8 @@ export default function CandleChart({
     volRef.current = chart.addSeries(HistogramSeries, {
       priceFormat: { type: 'volume' },
       priceScaleId: 'vol',
+      priceLineVisible: false,
+      lastValueVisible: false,
     });
     chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.85, bottom: 0 } });
 
