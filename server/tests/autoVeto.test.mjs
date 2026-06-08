@@ -58,7 +58,9 @@ describe('DB-backed accessors are safe on the live DB', () => {
   it('getAutopsy returns a well-formed object', () => {
     const a = getAutopsy();
     assert.ok(a.config && Array.isArray(a.setups) && Array.isArray(a.vetoes));
-    assert.ok(a.config.minSamples === 20);
+    // minSamples is env-tunable (VETO_MIN_SAMPLES) — assert it's a sane positive number,
+    // not a hardcoded value, so tuning the default doesn't break this test.
+    assert.ok(typeof a.config.minSamples === 'number' && a.config.minSamples > 0);
   });
   it('isSetupVetoed / confidenceCap never throw', () => {
     assert.equal(typeof isSetupVetoed('LONG', 'BULL'), 'boolean');
