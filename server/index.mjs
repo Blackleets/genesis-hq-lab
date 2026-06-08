@@ -71,6 +71,7 @@ import { getTrainingMetrics }                             from './trading/positi
 import { getMarketIntelligence, getCryptoFeedEvents, getRegimeBiasPerformance } from './crypto/marketIntelligence.mjs';
 import { fetchDepth }                                     from './crypto/liquidityMatrix.mjs';
 import { getProValidation }                              from './crypto/proValidation.mjs';
+import { getShadowCandidateDiagnostics }                from './crypto/shadowCandidate.mjs';
 import { getCommentary }                                  from './ai/commentaryEngine.mjs';
 import { getTradeStories }                                from './crypto/tradeHistory.mjs';
 import { analyzeTrade, assertTradeAllowed }               from './crypto/copilot.mjs';
@@ -643,6 +644,15 @@ const server = createServer(async (req, res) => {
       // Strip the heavy per-trade array from the HTTP response.
       const { evaluated, ...summary } = res2;
       sendJson(res, 200, { ok: true, ...summary });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  // GET /api/crypto/shadow-candidate — read-only candidate diagnostics
+  if (url.pathname === '/api/crypto/shadow-candidate') {
+    try {
+      const shadow = await getShadowCandidateDiagnostics();
+      sendJson(res, 200, { ok: true, ...shadow });
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;
   }

@@ -3,6 +3,13 @@
 ## 2026-06-08 - Codex
 
 - Branch: `feat/genesis-life-os`
+- Summary: Implemente el sidecar estricto de research crypto sin tocar la ruta live. Anadi `strategyLab` con experimentos canonicos BTC-only (baseline, trend, mean reversion), el runner `crypto:lab`, y un endpoint read-only `/api/crypto/shadow-candidate` para evaluar candidatos en sombra sin abrir trades.
+- Files touched: `server/crypto/backtest/strategyLab.mjs`, `server/crypto/shadowCandidate.mjs`, `server/index.mjs`, `scripts/runCryptoStrategyLab.mjs`, `server/tests/strategyLab.test.mjs`, `server/tests/shadowCandidate.test.mjs`, `package.json`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/backtest/strategyLab.mjs` ok; `node --check server/crypto/shadowCandidate.mjs` ok; `node --check server/index.mjs` ok; `node scripts/runCryptoStrategyLab.mjs` ok; `npm test` ok; `npm run build` ok
+
+## 2026-06-08 - Codex
+
+- Branch: `feat/genesis-life-os`
 - Summary: Volvi ejecutable el plan de recuperacion del scalp con un runner de decision live. `scripts/cryptoPhase1Check.mjs` ahora consolida verdad de metricas, disponibilidad del backtest, estado honesto del LLM y el `nextTrack` recomendado; ademas anadi `npm run crypto:phase1`.
 - Files touched: `package.json`, `scripts/cryptoPhase1Check.mjs`
 - Verification: `node scripts/cryptoPhase1Check.mjs` ok; `npm run crypto:phase1` ok; `npm test` ok; `npm run build` ok
