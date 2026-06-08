@@ -133,6 +133,39 @@ export function trendGatedBreakoutSignal(ctx, params = {}) {
   return { ...base, reasons: [...base.reasons, 'trend_aligned'] };
 }
 
+function simpleSma(values, period) {
+  if (!Array.isArray(values) || period <= 0 || values.length < period) return null;
+  let sum = 0;
+  for (let i = values.length - period; i < values.length; i++) sum += values[i];
+  return sum / period;
+}
+
+// Regime-switch breakout — the walk-forward's actual prescription. Plain breakout has a
+// real but regime-CONDITIONAL edge (LONG wins in bull, SHORT in bear). The fast EMA gate
+// was redundant with the breakout itself. This uses a SLOW, causal regime filter — price
+// vs a long SMA (default 100 bars) — to pick the side: only LONG breakouts while price is
+// structurally above the SMA (bull), only SHORT breakouts while below it (bear), skip near
+// the SMA (no regime). Trades both sides, each in its own regime — the deployable form of
+// the edge if it survives multi-window walk-forward.
+export function regimeSwitchBreakoutSignal(ctx, params = {}) {
+  const base = breakoutSignal(ctx, params);
+  if (base.action !== 'TRADE') return base;
+  const closes = Array.isArray(ctx?.closes) ? ctx.closes : [];
+  const sma = simpleSma(closes, params.regimeSmaPeriod ?? 100);
+  if (sma == null || sma <= 0) {
+    return { action: 'SKIP', side: null, confidence: 0, score: 0, reasons: ['regime_unknown'] };
+  }
+  const price = closes[closes.length - 1];
+  const band = params.regimeBandPct ?? 0;
+  const bull = price > sma * (1 + band);
+  const bear = price < sma * (1 - band);
+  const aligned = (base.side === 'LONG' && bull) || (base.side === 'SHORT' && bear);
+  if (!aligned) {
+    return { action: 'SKIP', side: null, confidence: 0, score: 0, reasons: [`breakout_${base.side}_vs_regime`] };
+  }
+  return { ...base, reasons: [...base.reasons, `regime_${bull ? 'bull' : 'bear'}`] };
+}
+
 export function meanReversionSignal(ctx, params = {}) {
   const closes = Array.isArray(ctx?.closes) ? ctx.closes : [];
   const frame = params.reversionFrameMinutes ?? 60;
@@ -445,6 +478,29 @@ export function buildStrategyLabExperiments({ baselineParams = DEFAULTS } = {}) 
       signalFn: trendGatedBreakoutSignal,
       signalParams: { breakoutPeriod },
       warmup: 120,
+      trainSplit: 0.7,
+      minTrades: LAB_THRESHOLDS.minTestTrades,
+    }))),
+    ),
+    // Regime-switch breakout (multi-pair 4h) — slow SMA regime filter picks the side.
+    // Breakout period fixed at 55 (the stronger one); sweep SMA regime length × geometry.
+    ...[50, 100, 200].flatMap((regimeSmaPeriod) => ([
+      [0.06, 0.03],
+      [0.08, 0.03],
+      [0.04, 0.02],
+      [0.10, 0.04],
+    ].map(([targetPct, stopPct]) => ({
+      id: `rsbreakout-multi-4h-sma${regimeSmaPeriod}-tp${Math.round(targetPct * 1000)}-sl${Math.round(stopPct * 1000)}`,
+      hypothesis: 'breakout_regime_switch',
+      pairSet: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'],
+      interval: '4h',
+      days: 730,
+      targetPct,
+      stopPct,
+      timeoutHours: 240,
+      signalFn: regimeSwitchBreakoutSignal,
+      signalParams: { breakoutPeriod: 55, regimeSmaPeriod },
+      warmup: 220,
       trainSplit: 0.7,
       minTrades: LAB_THRESHOLDS.minTestTrades,
     }))),

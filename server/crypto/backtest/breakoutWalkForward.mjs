@@ -19,13 +19,18 @@
 import { fetchKlines } from './historicalData.mjs';
 import { runBacktest } from './backtestEngine.mjs';
 import { computeMetrics } from './metrics.mjs';
-import { breakoutSignal } from './strategyLab.mjs';
+import { breakoutSignal, regimeSwitchBreakoutSignal } from './strategyLab.mjs';
 
 const PAIRS = (process.env.WF_PAIRS ?? 'BTCUSDT,ETHUSDT,SOLUSDT').split(',');
 const WINDOWS = parseInt(process.env.WF_WINDOWS ?? '6', 10);
 const MIN_WINDOW_TRADES = parseInt(process.env.WF_MIN_TRADES ?? '8', 10); // per side, per window, to be trustworthy
 
-// The winning candidate from strategyLab.
+// WF_SIGNAL=regime swaps the plain breakout for the regime-switch variant (both sides,
+// each gated by a slow SMA). The regime variant needs SMA warmup, so bump it.
+const REGIME = (process.env.WF_SIGNAL ?? 'breakout') === 'regime';
+const REGIME_SMA = parseInt(process.env.WF_SMA ?? '100', 10);
+
+// The candidate from strategyLab.
 const CONFIG = Object.freeze({
   interval: '4h',
   days: parseInt(process.env.WF_DAYS ?? '730', 10),
@@ -33,7 +38,10 @@ const CONFIG = Object.freeze({
   targetPct: parseFloat(process.env.WF_TP ?? '0.06'),
   stopPct: parseFloat(process.env.WF_SL ?? '0.03'),
   timeoutHours: parseInt(process.env.WF_TIMEOUT_H ?? '240', 10),
-  warmup: 120,
+  warmup: REGIME ? Math.max(120, REGIME_SMA + 20) : 120,
+  signalFn: REGIME ? regimeSwitchBreakoutSignal : breakoutSignal,
+  regimeSmaPeriod: REGIME_SMA,
+  mode: REGIME ? 'regime-switch' : 'breakout',
 });
 
 /**
@@ -69,14 +77,15 @@ function sideMetrics(trades, side) {
 
 export async function runBreakoutWalkForward({ pairs = PAIRS, windows = WINDOWS, config = CONFIG } = {}) {
   const params = { targetPct: config.targetPct, stopPct: config.stopPct, timeoutHours: config.timeoutHours };
-  const signalParams = { breakoutPeriod: config.breakoutPeriod };
+  const signalParams = { breakoutPeriod: config.breakoutPeriod, regimeSmaPeriod: config.regimeSmaPeriod };
+  const signalFn = config.signalFn ?? breakoutSignal;
 
   // 1. One full-history backtest per pair → pooled trades (each keeps full warmup context).
   const allTrades = [];
   for (const pair of pairs) {
     const klines = await fetchKlines(pair, { days: config.days, interval: config.interval });
     const { trades } = runBacktest(klines, { ...params, ...signalParams }, {
-      signalFn: (ctx) => breakoutSignal(ctx, signalParams),
+      signalFn: (ctx) => signalFn(ctx, signalParams),
       warmup: config.warmup,
     });
     for (const t of trades) allTrades.push({ ...t, pair });
@@ -103,43 +112,57 @@ export async function runBreakoutWalkForward({ pairs = PAIRS, windows = WINDOWS,
   const robustShort = judged.length >= Math.ceil(windows * 0.6) &&
     shortPositive.length >= Math.ceil(judged.length * 0.7);
 
+  // For a two-sided strategy (regime-switch) the deployable test is COMBINED positive in
+  // EVERY window with enough trades — the edge must hold in every regime, not on average.
+  const combinedJudged = windowReports.filter((w) => w.combined.trades >= MIN_WINDOW_TRADES);
+  const combinedPositive = combinedJudged.filter((w) => w.combined.expectancy > 0 && (w.combined.profitFactor ?? 0) > 1);
+  const robustCombined = combinedJudged.length >= Math.ceil(windows * 0.8) &&
+    combinedPositive.length === combinedJudged.length;
+
   return {
     config, pairs, windows,
     totalTrades: allTrades.length,
     shortAll: sideMetrics(allTrades, 'SHORT'),
     longAll: sideMetrics(allTrades, 'LONG'),
+    combinedAll: computeMetrics(allTrades),
     windowReports,
     summary: {
       shortJudgedWindows: judged.length,
       shortPositiveWindows: shortPositive.length,
       longJudgedWindows: longJudged.length,
       longPositiveWindows: longPositive.length,
+      combinedJudgedWindows: combinedJudged.length,
+      combinedPositiveWindows: combinedPositive.length,
       robustShort,
+      robustCombined,
     },
   };
 }
 
 // ── CLI ──────────────────────────────────────────────────────────────────────
 if (process.argv[1]?.endsWith('breakoutWalkForward.mjs')) {
-  console.log(`[breakoutWF] ${CONFIG.interval} p${CONFIG.breakoutPeriod} TP${CONFIG.targetPct*100}%/SL${CONFIG.stopPct*100}% over ${CONFIG.days}d, ${WINDOWS} windows, pairs=${PAIRS.join(',')}`);
+  const tag = CONFIG.mode === 'regime-switch' ? `regime-switch SMA${CONFIG.regimeSmaPeriod}` : 'plain';
+  console.log(`[breakoutWF] ${tag} | ${CONFIG.interval} p${CONFIG.breakoutPeriod} TP${CONFIG.targetPct*100}%/SL${CONFIG.stopPct*100}% over ${CONFIG.days}d, ${WINDOWS} windows, pairs=${PAIRS.join(',')}`);
   const res = await runBreakoutWalkForward();
   const pf = (x) => x == null ? '—' : x.toFixed(2);
   const line = (m) => `n=${String(m.trades).padStart(3)}  WR=${(m.winRate*100).toFixed(0).padStart(3)}%  EV=$${m.expectancy.toFixed(3).padStart(7)}  PF=${pf(m.profitFactor).padStart(5)}`;
+  const flag = (m) => m.trades >= 8 ? (m.expectancy > 0 && (m.profitFactor ?? 0) > 1 ? ' ✅' : ' ❌') : ' ··';
 
-  console.log(`\n════════ BREAKOUT WALK-FORWARD — ${res.totalTrades} trades pooled ════════`);
-  console.log(`\nALL-HISTORY  SHORT: ${line(res.shortAll)}`);
-  console.log(`ALL-HISTORY  LONG : ${line(res.longAll)}`);
+  console.log(`\n════════ BREAKOUT WALK-FORWARD (${CONFIG.mode}) — ${res.totalTrades} trades pooled ════════`);
+  console.log(`\nALL-HISTORY  COMBINED: ${line(res.combinedAll)}`);
+  console.log(`ALL-HISTORY  SHORT   : ${line(res.shortAll)}`);
+  console.log(`ALL-HISTORY  LONG    : ${line(res.longAll)}`);
   console.log('\n— Per consecutive time window —');
   for (const w of res.windowReports) {
-    const flagS = w.short.trades >= 8 ? (w.short.expectancy > 0 && (w.short.profitFactor ?? 0) > 1 ? ' ✅' : ' ❌') : ' ··';
     console.log(`\nW${w.index} ${w.from}→${w.to}`);
-    console.log(`  SHORT ${line(w.short)}${flagS}`);
-    console.log(`  LONG  ${line(w.long)}`);
+    console.log(`  COMBINED ${line(w.combined)}${flag(w.combined)}`);
+    console.log(`  SHORT    ${line(w.short)}`);
+    console.log(`  LONG     ${line(w.long)}`);
   }
   console.log('\n════════ VERDICT ════════');
-  console.log(`  SHORT positive (EV>0 & PF>1) in ${res.summary.shortPositiveWindows}/${res.summary.shortJudgedWindows} judged windows`);
-  console.log(`  LONG  positive in ${res.summary.longPositiveWindows}/${res.summary.longJudgedWindows} judged windows`);
-  console.log(`  ROBUST SHORT EDGE: ${res.summary.robustShort ? 'YES — holds across time' : 'NO — not consistent across windows'}`);
+  console.log(`  COMBINED positive (EV>0 & PF>1) in ${res.summary.combinedPositiveWindows}/${res.summary.combinedJudgedWindows} judged windows`);
+  console.log(`  SHORT positive in ${res.summary.shortPositiveWindows}/${res.summary.shortJudgedWindows} | LONG positive in ${res.summary.longPositiveWindows}/${res.summary.longJudgedWindows}`);
+  console.log(`  DEPLOYABLE (positive in EVERY window): ${res.summary.robustCombined ? 'YES' : 'NO'}`);
   console.log('═══════════════════════════════════════════════════════\n');
   process.exit(0);
 }

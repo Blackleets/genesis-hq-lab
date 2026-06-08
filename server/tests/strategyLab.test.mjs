@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { bucketConcentration, evaluateExperimentResult, trendContinuationSignal, breakoutSignal, trendGatedBreakoutSignal, buildStrategyLabExperiments } from '../crypto/backtest/strategyLab.mjs';
+import { bucketConcentration, evaluateExperimentResult, trendContinuationSignal, breakoutSignal, trendGatedBreakoutSignal, regimeSwitchBreakoutSignal, buildStrategyLabExperiments } from '../crypto/backtest/strategyLab.mjs';
 
 describe('strategyLab helpers', () => {
   it('rejects a candidate with concentrated hour pnl', () => {
@@ -93,6 +93,32 @@ describe('strategyLab helpers', () => {
     assert.equal(signal.action, 'TRADE');
     assert.equal(signal.side, 'LONG');
     assert.ok(signal.reasons.includes('trend_aligned'));
+  });
+
+  it('regime-switch breakout takes a LONG breakout only when price is above the SMA (bull)', () => {
+    // 24 closes climbing 80→103 (SMA below price), then a break to 130 → LONG breakout in a bull regime.
+    const closes = [...Array.from({ length: 24 }, (_, i) => 80 + i), 130];
+    const signal = regimeSwitchBreakoutSignal({ closes }, { breakoutPeriod: 20, regimeSmaPeriod: 20 });
+    assert.equal(signal.action, 'TRADE');
+    assert.equal(signal.side, 'LONG');
+    assert.ok(signal.reasons.includes('regime_bull'));
+  });
+
+  it('regime-switch breakout SKIPs a LONG breakout when price is below the SMA (counter-regime)', () => {
+    // A short-period local high inside a larger downtrend: 20 bars at 200, 19 at 100, last 101.
+    // breakoutPeriod 5 → 101 breaks the recent (100) high = LONG breakout. regimeSmaPeriod 40 →
+    // SMA ≈ 150, price 101 is below it = bear regime → counter-regime LONG must be skipped.
+    const closes = [...Array.from({ length: 20 }, () => 200), ...Array.from({ length: 19 }, () => 100), 101];
+    const signal = regimeSwitchBreakoutSignal({ closes }, { breakoutPeriod: 5, regimeSmaPeriod: 40 });
+    assert.equal(signal.action, 'SKIP');
+    assert.equal(signal.reasons[0], 'breakout_LONG_vs_regime');
+  });
+
+  it('regime-switch breakout reports regime_unknown without enough closes for the SMA', () => {
+    const closes = [...Array.from({ length: 24 }, () => 100), 105]; // breaks high, but only 25 closes < sma200
+    const signal = regimeSwitchBreakoutSignal({ closes }, { breakoutPeriod: 20, regimeSmaPeriod: 200 });
+    assert.equal(signal.action, 'SKIP');
+    assert.deepEqual(signal.reasons, ['regime_unknown']);
   });
 
   it('trend continuation signal produces a long trade on aligned data', () => {
