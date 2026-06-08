@@ -53,6 +53,21 @@ Cerrar Fase 1 cuando ocurra lo primero:
 
 ## Comandos de verificacion
 
+Chequeo resumido automatizado:
+
+```powershell
+node scripts/cryptoPhase1Check.mjs
+```
+
+Ese script consulta prod y devuelve:
+
+- consistencia entre endpoints
+- metricas clave
+- filtros activos
+- recomendacion live
+- veredicto binario de Fase 1
+- siguiente paso sugerido
+
 ### Salud
 
 ```powershell

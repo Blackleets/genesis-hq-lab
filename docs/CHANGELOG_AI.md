@@ -463,3 +463,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Added a Phase 1 decision runbook with exact live checks, consistency rules, and the binary go/no-go criteria for shutting down or redesigning the current crypto scalp.
 - Files touched: `docs/CRYPTO_PHASE1_DECISION_RUNBOOK.md`, `docs/CHANGELOG_AI.md`
 - Verification: documentation update only; no runtime code changed
+
+## 2026-06-08 — Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added a lightweight production checker script for Crypto Phase 1 so the operator can query live metrics and get a direct freeze vs pause/redesign verdict from the same canonical endpoints.
+- Files touched: `scripts/cryptoPhase1Check.mjs`, `docs/CRYPTO_PHASE1_DECISION_RUNBOOK.md`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check scripts/cryptoPhase1Check.mjs` ok; `node scripts/cryptoPhase1Check.mjs` returned live production metrics
