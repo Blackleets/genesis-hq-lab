@@ -109,6 +109,30 @@ export function breakoutSignal(ctx, params = {}) {
   return { action: 'SKIP', side: null, confidence: 0, score: 0, reasons: ['inside_channel'] };
 }
 
+// Trend-gated breakout — the walk-forward (breakoutWalkForward.mjs) proved plain
+// breakout is directional by regime: LONG breakouts win in uptrends, SHORT in
+// downtrends, and counter-trend breakouts bleed. This gates each breakout by
+// EMA9/EMA21 alignment on the SAME timeframe — a scale-correct trend proxy. (The
+// live classifyRegime keys off a 1h change that is mis-scaled on resampled backtest
+// ctx, so we use EMA alignment directly here.) Trades BOTH sides, each only with the
+// trend — which should dissolve the single-side concentration that blocked plain
+// multi-pair breakout.
+export function trendGatedBreakoutSignal(ctx, params = {}) {
+  const base = breakoutSignal(ctx, params);
+  if (base.action !== 'TRADE') return base;
+  const ema9 = ctx?.ema9;
+  const ema21 = ctx?.ema21;
+  if (!Number.isFinite(ema9) || !Number.isFinite(ema21) || ema21 <= 0) return base; // no EMAs → no gate
+  const margin = params.trendGateMarginPct ?? 0;
+  const up = ema9 > ema21 * (1 + margin);
+  const down = ema9 < ema21 * (1 - margin);
+  const aligned = (base.side === 'LONG' && up) || (base.side === 'SHORT' && down);
+  if (!aligned) {
+    return { action: 'SKIP', side: null, confidence: 0, score: 0, reasons: [`breakout_${base.side}_counter_trend`] };
+  }
+  return { ...base, reasons: [...base.reasons, 'trend_aligned'] };
+}
+
 export function meanReversionSignal(ctx, params = {}) {
   const closes = Array.isArray(ctx?.closes) ? ctx.closes : [];
   const frame = params.reversionFrameMinutes ?? 60;
@@ -395,6 +419,30 @@ export function buildStrategyLabExperiments({ baselineParams = DEFAULTS } = {}) 
       stopPct,
       timeoutHours: 240,
       signalFn: breakoutSignal,
+      signalParams: { breakoutPeriod },
+      warmup: 120,
+      trainSplit: 0.7,
+      minTrades: LAB_THRESHOLDS.minTestTrades,
+    }))),
+    ),
+    // Trend-gated breakout (multi-pair 4h) — the walk-forward's prescription: trade
+    // each breakout only WITH the EMA trend, both sides. Should remove the single-side
+    // concentration that was plain breakout's last blocker.
+    ...[20, 55].flatMap((breakoutPeriod) => ([
+      [0.04, 0.02],
+      [0.06, 0.03],
+      [0.08, 0.03],
+      [0.10, 0.04],
+    ].map(([targetPct, stopPct]) => ({
+      id: `tgbreakout-multi-4h-p${breakoutPeriod}-tp${Math.round(targetPct * 1000)}-sl${Math.round(stopPct * 1000)}`,
+      hypothesis: 'breakout_trend_gated',
+      pairSet: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'],
+      interval: '4h',
+      days: 730,
+      targetPct,
+      stopPct,
+      timeoutHours: 240,
+      signalFn: trendGatedBreakoutSignal,
       signalParams: { breakoutPeriod },
       warmup: 120,
       trainSplit: 0.7,

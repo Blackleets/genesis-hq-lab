@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { bucketConcentration, evaluateExperimentResult, trendContinuationSignal, breakoutSignal, buildStrategyLabExperiments } from '../crypto/backtest/strategyLab.mjs';
+import { bucketConcentration, evaluateExperimentResult, trendContinuationSignal, breakoutSignal, trendGatedBreakoutSignal, buildStrategyLabExperiments } from '../crypto/backtest/strategyLab.mjs';
 
 describe('strategyLab helpers', () => {
   it('rejects a candidate with concentrated hour pnl', () => {
@@ -77,6 +77,22 @@ describe('strategyLab helpers', () => {
     const signal = breakoutSignal({ closes: [100, 101, 102] }, { breakoutPeriod: 20 });
     assert.equal(signal.action, 'SKIP');
     assert.deepEqual(signal.reasons, ['insufficient_history']);
+  });
+
+  it('trend-gated breakout SKIPs a LONG breakout when EMA trend is down (counter-trend)', () => {
+    const closes = [...Array.from({ length: 25 }, () => 100), 105]; // breaks the high → LONG breakout
+    // ema9 < ema21 → downtrend, so a LONG breakout is counter-trend and must be skipped.
+    const signal = trendGatedBreakoutSignal({ closes, ema9: 99, ema21: 100 }, { breakoutPeriod: 20 });
+    assert.equal(signal.action, 'SKIP');
+    assert.deepEqual(signal.reasons, ['breakout_LONG_counter_trend']);
+  });
+
+  it('trend-gated breakout TRADEs a LONG breakout when EMA trend is up (aligned)', () => {
+    const closes = [...Array.from({ length: 25 }, () => 100), 105];
+    const signal = trendGatedBreakoutSignal({ closes, ema9: 101, ema21: 100 }, { breakoutPeriod: 20 });
+    assert.equal(signal.action, 'TRADE');
+    assert.equal(signal.side, 'LONG');
+    assert.ok(signal.reasons.includes('trend_aligned'));
   });
 
   it('trend continuation signal produces a long trade on aligned data', () => {
