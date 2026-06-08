@@ -26,7 +26,15 @@ import { isSafeMode } from '../memory/reconciliationEngine.mjs';
 import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs';
 import { isDeptActive } from '../command/orgState.mjs';
 import { classifyRegime, applyRegimeBias } from '../crypto/regime.mjs';
-import { isSetupVetoed, confidenceCap } from '../crypto/autoVeto.mjs';
+import {
+  isSetupVetoed,
+  confidenceCap,
+  isHourBlocked,
+  isConfidenceBandBlocked,
+  isPairBlocked,
+  hourBucket,
+  confidenceBand,
+} from '../crypto/autoVeto.mjs';
 import { getFatigueState, applyFatigueToConfidence } from '../intelligence/setupFatigue.mjs';
 
 const AGENT_ID    = 'scalping-engine-1';
@@ -71,6 +79,9 @@ function rejectReasonFor(signal, gate, gatePass, positionOpen) {
   if (positionOpen) return 'POSITION_OPEN';
   if (signal.action === 'TRADE') {
     if (gatePass) return 'ACCEPTED';
+    if (signal.blockedByHour) return 'HOUR_VETOED';
+    if (signal.blockedByPair) return 'PAIR_VETOED';
+    if (signal.blockedByConfidenceBand) return 'CONFIDENCE_BAND_VETOED';
     if (signal.vetoed) return 'SETUP_VETOED';
     // Did the regime bias push a would-be-valid signal below the gate?
     if ((signal.bias ?? 0) < 0 && (signal.rawConfidence ?? 0) >= gate) return 'REGIME_MISMATCH';
@@ -83,6 +94,34 @@ function rejectReasonFor(signal, gate, gatePass, positionOpen) {
 
 export function getLastScanSnapshot() {
   return _lastScanSnapshot;
+}
+
+export function applyManualContextBlocks(signal, asset, openedAt = new Date().toISOString()) {
+  if (signal.action !== 'TRADE') return signal;
+  const preBlockConfidence = signal.confidence;
+  const blockedByHour = isHourBlocked(openedAt);
+  const blockedByPair = isPairBlocked(asset?.pair);
+  const blockedByConfidenceBand = isConfidenceBandBlocked(preBlockConfidence);
+  if (!blockedByHour && !blockedByPair && !blockedByConfidenceBand) {
+    return {
+      ...signal,
+      blockedByHour,
+      blockedByPair,
+      blockedByConfidenceBand,
+      hour: hourBucket(openedAt),
+      confidenceBand: confidenceBand(preBlockConfidence),
+    };
+  }
+  return {
+    ...signal,
+    confidence: Math.min(preBlockConfidence, 0.40),
+    vetoed: true,
+    blockedByHour,
+    blockedByPair,
+    blockedByConfidenceBand,
+    hour: hourBucket(openedAt),
+    confidenceBand: confidenceBand(preBlockConfidence),
+  };
 }
 
 const TRAINING_MODE = ['1', 'true', 'yes'].includes((process.env.TRAINING_MODE ?? '').toLowerCase());
@@ -249,7 +288,8 @@ export async function runScalpingCycle() {
         metadata: { symbol: asset.symbol, price: asset.price, rsi: asset.rsi14 } });
     }
 
-    const signal = evaluateScalpSignal(asset);
+    const openedAt = new Date().toISOString();
+    const signal = applyManualContextBlocks(evaluateScalpSignal(asset), asset, openedAt);
     const positionOpen = hasOpenPosition(asset.pair, TRADE_TYPE);
     const gatePass = signal.action === 'TRADE' && signal.confidence >= MIN_CONFIDENCE;
 
@@ -268,6 +308,11 @@ export async function runScalpingCycle() {
       missing:    missingConfluences(signal.signals),
       regime:     signal.regime ?? 'RANGE',
       bias:       signal.bias ?? 0,
+      hour:       signal.hour ?? hourBucket(openedAt),
+      confidenceBand: signal.confidenceBand ?? confidenceBand(signal.rawConfidence ?? signal.confidence),
+      blockedByHour: signal.blockedByHour ?? false,
+      blockedByPair: signal.blockedByPair ?? false,
+      blockedByConfidenceBand: signal.blockedByConfidenceBand ?? false,
       reason:     rejectReasonFor(signal, MIN_CONFIDENCE, gatePass, positionOpen),
     });
 

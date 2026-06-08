@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 const {
   computeSetupStats, isVetoSetup, capFromWinRate, setupKey,
   getAutopsy, isSetupVetoed, confidenceCap,
+  isHourBlocked, isConfidenceBandBlocked, isPairBlocked,
 } = await import('../crypto/autoVeto.mjs');
 
 function rows(side, regime, results /* array of pnl */) {
@@ -65,6 +66,12 @@ describe('DB-backed accessors are safe on the live DB', () => {
   it('isSetupVetoed / confidenceCap never throw', () => {
     assert.equal(typeof isSetupVetoed('LONG', 'BULL'), 'boolean');
     assert.ok(confidenceCap('LONG', 'BULL') <= 1);
+  });
+  it('manual context blockers are safe and deterministic', () => {
+    assert.equal(isHourBlocked('2026-06-08T16:30:00Z'), true);
+    assert.equal(isHourBlocked('2026-06-08T12:30:00Z'), false);
+    assert.equal(isConfidenceBandBlocked(0.85), false);
+    assert.equal(isPairBlocked('BTCUSDT'), false);
   });
   it('setupKey composes side_regime', () => {
     assert.equal(setupKey('SHORT', 'STRONG_BULL'), 'SHORT_STRONG_BULL');

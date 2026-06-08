@@ -92,6 +92,10 @@ describe('crypto truth consistency', () => {
     const autopsy = getAutopsy();
     assert.ok(Array.isArray(autopsy.config.manualBlockedSetups));
     assert.ok(autopsy.config.manualBlockedSetups.includes('SHORT_BEAR'));
+    assert.ok(Array.isArray(autopsy.config.manualBlockedHours));
+    assert.ok(autopsy.config.manualBlockedHours.includes('16'));
+    assert.ok(Array.isArray(autopsy.config.manualBlockedConfidenceBands));
+    assert.ok(Array.isArray(autopsy.config.manualBlockedPairs));
   });
 
   it('regime backtest BEFORE metrics use the canonical closed crypto trade universe', async () => {

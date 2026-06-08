@@ -412,3 +412,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Added an explicit additive manual block for the toxic `SHORT_BEAR` setup so veto gating can shut it off immediately during training, and extended truth tests to expose the block in diagnostics config.
 - Files touched: `server/crypto/autoVeto.mjs`, `server/tests/cryptoTruth.test.mjs`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/crypto/autoVeto.mjs` ok; `npm test` ok; `npm run build` ok
+
+## 2026-06-08 — Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added additive manual context blockers for the next toxic slice in training: blocked hour buckets, blocked confidence bands, and blocked pairs now lower scalp confidence below the gate without touching execution, sizing, or TP/SL. Extended diagnostics config, scan snapshot visibility, and regression tests around the new gates.
+- Files touched: `server/crypto/autoVeto.mjs`, `server/strategies/scalpingEngine.mjs`, `server/tests/autoVeto.test.mjs`, `server/tests/cryptoTruth.test.mjs`, `server/tests/scalpingContextBlocks.test.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/autoVeto.mjs` ok; `node --check server/strategies/scalpingEngine.mjs` ok; `npm test` ok; `npm run build` ok

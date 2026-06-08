@@ -14,10 +14,29 @@ const MIN_SAMPLES  = parseInt(process.env.VETO_MIN_SAMPLES ?? '12', 10);
 const PF_THRESHOLD = parseFloat(process.env.VETO_PF ?? '0.9');
 const WINDOW_DAYS  = parseInt(process.env.VETO_WINDOW_DAYS ?? '7', 10);
 const KILL_RECOMMENDATION_MIN_TRADES = parseInt(process.env.KILL_RECOMMENDATION_MIN_TRADES ?? '40', 10);
-const MANUAL_BLOCKED_SETUPS = (process.env.CRYPTO_BLOCK_SETUPS ?? 'SHORT_BEAR')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean);
+
+function parseList(value, normalize = (item) => item) {
+  return (value ?? '')
+    .split(',')
+    .map((item) => normalize(item.trim()))
+    .filter(Boolean);
+}
+
+function normalizeHourValue(value) {
+  if (value == null) return null;
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value).padStart(2, '0');
+  const text = String(value).trim();
+  if (!text) return null;
+  if (/^\d{1,2}$/.test(text)) return text.padStart(2, '0');
+  const ms = Date.parse(text);
+  if (Number.isFinite(ms)) return hourBucket(text);
+  return null;
+}
+
+const MANUAL_BLOCKED_SETUPS = parseList(process.env.CRYPTO_BLOCK_SETUPS ?? 'SHORT_BEAR');
+const MANUAL_BLOCKED_HOURS = parseList(process.env.CRYPTO_BLOCK_HOURS ?? '16', normalizeHourValue);
+const MANUAL_BLOCKED_CONFIDENCE_BANDS = parseList(process.env.CRYPTO_BLOCK_CONFIDENCE_BANDS ?? '');
+const MANUAL_BLOCKED_PAIRS = parseList(process.env.CRYPTO_BLOCK_PAIRS ?? '', (item) => item.toUpperCase());
 
 export function vetoConfig() {
   return {
@@ -25,6 +44,9 @@ export function vetoConfig() {
     pfThreshold: PF_THRESHOLD,
     windowDays: WINDOW_DAYS,
     manualBlockedSetups: MANUAL_BLOCKED_SETUPS,
+    manualBlockedHours: MANUAL_BLOCKED_HOURS,
+    manualBlockedConfidenceBands: MANUAL_BLOCKED_CONFIDENCE_BANDS,
+    manualBlockedPairs: MANUAL_BLOCKED_PAIRS,
   };
 }
 
@@ -42,13 +64,13 @@ function regimeFromEvidence(evJson) {
   } catch { return 'UNTAGGED'; }
 }
 
-function hourBucket(openedAt) {
+export function hourBucket(openedAt) {
   const ms = Date.parse(openedAt ?? '');
   if (!Number.isFinite(ms)) return 'unknown';
   return String(new Date(ms).getUTCHours()).padStart(2, '0');
 }
 
-function confidenceBand(confidence) {
+export function confidenceBand(confidence) {
   const pct = Math.round((confidence ?? 0) * 100);
   if (pct >= 90) return '90-100';
   if (pct >= 80) return '80-89';
@@ -248,6 +270,21 @@ function refresh() {
 export function isSetupVetoed(side, regime) {
   const key = setupKey(side, regime);
   return MANUAL_BLOCKED_SETUPS.includes(key) || refresh().vetoes.has(key);
+}
+
+export function isHourBlocked(value) {
+  const hour = normalizeHourValue(value);
+  return hour != null && MANUAL_BLOCKED_HOURS.includes(hour);
+}
+
+export function isConfidenceBandBlocked(value) {
+  const band = typeof value === 'string' && value.includes('-') ? value : confidenceBand(value);
+  return MANUAL_BLOCKED_CONFIDENCE_BANDS.includes(band);
+}
+
+export function isPairBlocked(pair) {
+  const normalized = String(pair ?? '').trim().toUpperCase();
+  return normalized !== '' && MANUAL_BLOCKED_PAIRS.includes(normalized);
 }
 
 /** Confidence ceiling for this setup (1 = no cap). */
