@@ -21,11 +21,11 @@ import { analyzeClosedTrade } from '../memory/learningEngine.mjs';
 import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs';
 import { computeEma } from '../crypto/priceFeeder.mjs';
 
-const TRADE_TYPES = ['scalp_v2', 'swing_v1', 'breakout_v1'];
+const TRADE_TYPES = ['scalp_v2', 'swing_v1', 'breakout_v1', 'crypto_futures_breakout_short_micro', 'crypto_futures_breakout_short', 'crypto_futures_breakout_short_alt', 'crypto_futures_breakout_long'];
 
 // Trade types whose edge depends on holding to TP/SL/timeout — exempt from the 1m
 // momentum-collapse check, which would close a multi-hour position on intrabar noise.
-const HOLD_TO_TARGET_TYPES = new Set(['breakout_v1']);
+const HOLD_TO_TARGET_TYPES = new Set(['breakout_v1', 'crypto_futures_breakout_short_micro', 'crypto_futures_breakout_short', 'crypto_futures_breakout_short_alt', 'crypto_futures_breakout_long']);
 
 // ── Check exit conditions for a single position ───────────────────────────────
 

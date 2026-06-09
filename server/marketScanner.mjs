@@ -66,7 +66,7 @@ async function fetchPolymarket(limit = 15) {
 
         markets.push({
           source:       'polymarket',
-          id:           market.conditionId ?? market.id,
+          id:           market.id ?? market.conditionId,
           question:     market.question ?? event.title,
           category:     event.tags?.[0]?.label ?? 'general',
           yesPrice,

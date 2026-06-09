@@ -28,7 +28,7 @@ import { refreshGlobalRiskScore, getGlobalRiskDiagnostics } from './risk/globalR
 import { getDashboardMetrics } from './trading/analytics.mjs';
 import { getOrgState, processExpiredSchedules, getRiskSettings, isDeptActive } from './command/orgState.mjs';
 import { runCryptoTradingCycle, manageCryptoPositions } from './crypto/cryptoWorkflow.mjs';
-import { startScheduler } from './trading/executionScheduler.mjs';
+import { startScheduler, triggerSlow } from './trading/executionScheduler.mjs';
 import { appendFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join as pathJoin, dirname as pathDirname } from 'node:path';
 import { fileURLToPath as pathFromUrl } from 'node:url';
@@ -81,6 +81,9 @@ const INTERVAL_MS = 5 * 60 * 1000;  // 5 minutes
 const AGENT_ID = 'market-agent-1';
 const ONCE = process.argv.includes('--once');
 const VERBOSE = process.argv.includes('--verbose') || process.argv.includes('-v');
+const FUTURES_ONLY_MODE = ['1', 'true', 'yes', 'on'].includes((process.env.FUTURES_ONLY_MODE ?? '').toLowerCase());
+const PREDICTION_AGENT_ENABLED = !FUTURES_ONLY_MODE && !['0', 'false', 'no', 'off'].includes((process.env.PREDICTION_AGENT_ENABLED ?? 'true').toLowerCase());
+const LEGACY_CRYPTO_LOOP_ENABLED = !FUTURES_ONLY_MODE && !['0', 'false', 'no', 'off'].includes((process.env.LEGACY_CRYPTO_LOOP_ENABLED ?? 'true').toLowerCase());
 
 let tickCount = 0;
 
@@ -137,6 +140,11 @@ async function tick() {
     }
 
     // ── Trading cycle — only if dept is active ──
+    if (!PREDICTION_AGENT_ENABLED) {
+      console.log('[agentRunner] Prediction-market tick disabled by config');
+      return summarize(start);
+    }
+
     if (!isDeptActive('prediction_markets')) {
       console.log('[agentRunner] Prediction markets paused by founder order');
       return summarize(start);
@@ -248,6 +256,9 @@ console.log('║          GÉNESIS HQ — AGENT RUNNER                        �
 console.log(`║  ${REAL_TRADING_MODE ? 'Real trading' : 'Paper trading'} · Polymarket + Kalshi · Learning loop`.padEnd(62) + '║');
 console.log(`║  Mode: ${ONCE ? 'SINGLE RUN' : `CONTINUOUS (every ${INTERVAL_MS / 60000} min)`}`.padEnd(62) + '║');
 console.log('╚════════════════════════════════════════════════════════════╝');
+if (FUTURES_ONLY_MODE) {
+  console.log('[agentRunner] FUTURES_ONLY_MODE active — prediction tick and legacy crypto loop disabled');
+}
 
 if (!process.env.ANTHROPIC_API_KEY) {
   console.warn('⚠️  ANTHROPIC_API_KEY not set in .env — decision engine disabled');
@@ -293,30 +304,43 @@ if (!ONCE) {
   startScheduler();
 
   // Crypto scalping loop — every 1 minute (legacy path, also position management)
-  setInterval(async () => {
-    try {
-      await manageCryptoPositions();
-      if (isDeptActive('crypto_scalping')) {
-        const result = await runCryptoTradingCycle();
-        if (result.executed) {
-          console.log(`[cryptoScalper] ✓ Trade | scanned=${result.scanned} qualified=${result.qualified}`);
-        } else if (result.qualified > 0) {
-          console.log(`[cryptoScalper] No trade | scanned=${result.scanned} qualified=${result.qualified} debated=${result.debated}`);
+  if (LEGACY_CRYPTO_LOOP_ENABLED) {
+    setInterval(async () => {
+      try {
+        await manageCryptoPositions();
+        if (isDeptActive('crypto_scalping')) {
+          const result = await runCryptoTradingCycle();
+          if (result.executed) {
+            console.log(`[cryptoScalper] ✓ Trade | scanned=${result.scanned} qualified=${result.qualified}`);
+          } else if (result.qualified > 0) {
+            console.log(`[cryptoScalper] No trade | scanned=${result.scanned} qualified=${result.qualified} debated=${result.debated}`);
+          }
         }
+      } catch (err) {
+        console.error('[cryptoScalper] Loop error:', err.message);
       }
-    } catch (err) {
-      console.error('[cryptoScalper] Loop error:', err.message);
-    }
-  }, 60 * 1000);
-  console.log('[agentRunner] Crypto scalping loop active — 1 min interval');
+    }, 60 * 1000);
+    console.log('[agentRunner] Crypto scalping loop active — 1 min interval');
+  } else {
+    console.log('[agentRunner] Legacy crypto loop disabled by config');
+  }
 }
 
 // Run the (slower) prediction-market tick. Training is already live above.
-await tick();
+if (FUTURES_ONLY_MODE && ONCE) {
+  console.log('[agentRunner] Running one-shot futures scheduler tick');
+  await triggerSlow();
+} else if (PREDICTION_AGENT_ENABLED) {
+  await tick();
+} else {
+  console.log('[agentRunner] Skipping prediction-market boot tick');
+}
 
 if (!ONCE) {
   // Then on interval
-  setInterval(tick, INTERVAL_MS);
+  if (PREDICTION_AGENT_ENABLED) {
+    setInterval(tick, INTERVAL_MS);
+  }
 
   // Marketing agent every 6 hours
   setInterval(marketingTick, 6 * 60 * 60 * 1000);

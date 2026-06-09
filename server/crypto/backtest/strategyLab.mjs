@@ -166,6 +166,47 @@ export function regimeSwitchBreakoutSignal(ctx, params = {}) {
   return { ...base, reasons: [...base.reasons, `regime_${bull ? 'bull' : 'bear'}`] };
 }
 
+// Regime-gated scalp — the LIVE scalp signal (evaluateSignal, momentum/mean-rev on short
+// TF) but only taken WITH the slow SMA regime: longs only above the SMA, shorts only below.
+// This is the one lever that rescued the breakout. It tests whether trading the scalp only
+// with the structural trend flips its edge, or whether the short-TF cost/move ratio kills it
+// regardless of direction. Reuses the exact live signal so a pass is directly promotable.
+export function regimeGatedScalpSignal(ctx, params = {}) {
+  const base = evaluateSignal(ctx, params);
+  if (base.action !== 'TRADE') return base;
+  const closes = Array.isArray(ctx?.closes) ? ctx.closes : [];
+  const sma = simpleSma(closes, params.regimeSmaPeriod ?? 200);
+  if (sma == null || sma <= 0) return { action: 'SKIP', side: null, confidence: 0, score: 0, reasons: ['regime_unknown'] };
+  const price = closes[closes.length - 1];
+  const bull = price > sma;
+  const bear = price < sma;
+  const aligned = (base.side === 'LONG' && bull) || (base.side === 'SHORT' && bear);
+  if (!aligned) return { action: 'SKIP', side: null, confidence: 0, score: 0, reasons: [`scalp_${base.side}_vs_regime`] };
+  return { ...base, reasons: [...(base.reasons ?? base.signals ?? []), `regime_${bull ? 'bull' : 'bear'}`] };
+}
+
+export function shortOnlySignal(signalFn, rejectReason = 'long_filtered') {
+  return (ctx, params = {}) => {
+    const base = signalFn(ctx, params);
+    if (base.action !== 'TRADE') return base;
+    if (base.side !== 'SHORT') return { action: 'SKIP', side: null, confidence: 0, score: 0, reasons: [rejectReason] };
+    return base;
+  };
+}
+
+export const shortOnlyRegimeSwitchBreakoutSignal = shortOnlySignal(regimeSwitchBreakoutSignal, 'regime_long_filtered');
+
+export function longOnlySignal(signalFn, rejectReason = 'short_filtered') {
+  return (ctx, params = {}) => {
+    const base = signalFn(ctx, params);
+    if (base.action !== 'TRADE') return base;
+    if (base.side !== 'LONG') return { action: 'SKIP', side: null, confidence: 0, score: 0, reasons: [rejectReason] };
+    return base;
+  };
+}
+
+export const longOnlyRegimeSwitchBreakoutSignal = longOnlySignal(regimeSwitchBreakoutSignal, 'regime_short_filtered');
+
 export function meanReversionSignal(ctx, params = {}) {
   const closes = Array.isArray(ctx?.closes) ? ctx.closes : [];
   const frame = params.reversionFrameMinutes ?? 60;
@@ -226,6 +267,7 @@ export function evaluateExperimentResult(result, thresholds = LAB_THRESHOLDS) {
   const testPf = result.test.profitFactor ?? 0;
   const hourConcentration = result.concentration?.hour ?? { share: 0, bucket: null };
   const sideConcentration = result.concentration?.side ?? { share: 0, bucket: null };
+  const requireTwoSided = thresholds.requireTwoSided !== false;
 
   if (result.test.expectancy <= 0) return { passed: false, rejectReason: `test expectancy ${result.test.expectancy} <= 0` };
   if (testPf <= 1) return { passed: false, rejectReason: `test profit factor ${testPf} <= 1` };
@@ -238,7 +280,7 @@ export function evaluateExperimentResult(result, thresholds = LAB_THRESHOLDS) {
   if (hourConcentration.share > thresholds.maxBucketShare) {
     return { passed: false, rejectReason: `hour bucket ${hourConcentration.bucket} contributes ${(hourConcentration.share * 100).toFixed(1)}% of test net pnl` };
   }
-  if (sideConcentration.share > thresholds.maxBucketShare) {
+  if (requireTwoSided && sideConcentration.share > thresholds.maxBucketShare) {
     return { passed: false, rejectReason: `side slice ${sideConcentration.bucket} contributes ${(sideConcentration.share * 100).toFixed(1)}% of test net pnl` };
   }
   return { passed: true, rejectReason: null };
@@ -301,7 +343,7 @@ export async function runStrategyExperiment(experiment, deps = {}) {
       side: bucketConcentration(testSlice.trades, (trade) => trade.side ?? 'UNKNOWN'),
     },
   };
-  const verdict = evaluateExperimentResult(result);
+  const verdict = evaluateExperimentResult(result, { ...LAB_THRESHOLDS, ...(experiment.thresholds ?? {}) });
   return { ...result, ...verdict };
 }
 
@@ -505,6 +547,65 @@ export function buildStrategyLabExperiments({ baselineParams = DEFAULTS } = {}) 
       minTrades: LAB_THRESHOLDS.minTestTrades,
     }))),
     ),
+    // Regime-gated SCALP — the live scalp signal but only with the slow-SMA trend. Tests
+    // whether the regime lever that fixed the breakout can also rescue the short-TF scalp.
+    // BTC only; native 1m plus 5m/15m (better cost/move ratio) × a few geometries.
+    ...[
+      ['1m', 45, 4],
+      ['5m', 120, 8],
+      ['15m', 180, 12],
+    ].flatMap(([interval, days, timeoutHours]) => ([
+      [liveParams.targetPct, liveParams.stopPct],
+      [0.006, 0.003],
+      [0.010, 0.005],
+    ].map(([targetPct, stopPct]) => ({
+      id: `scalpreg-btc-${interval}-tp${Math.round(targetPct * 1000)}-sl${Math.round(stopPct * 1000)}`,
+      hypothesis: 'scalp_regime_gated',
+      pairSet: ['BTCUSDT'],
+      interval,
+      days,
+      targetPct,
+      stopPct,
+      timeoutHours,
+      signalFn: regimeGatedScalpSignal,
+      signalParams: { ...liveParams, regimeSmaPeriod: 200, timeoutHours },
+      warmup: 320,
+      trainSplit: 0.7,
+      minTrades: LAB_THRESHOLDS.minTestTrades,
+    }))),
+    ),
+    {
+      id: 'rsbreakout-ethsol-short-4h-sma200-tp80-sl30',
+      hypothesis: 'breakout_regime_switch_short_focus',
+      pairSet: ['ETHUSDT', 'SOLUSDT'],
+      interval: '4h',
+      days: 730,
+      targetPct: 0.08,
+      stopPct: 0.03,
+      timeoutHours: 240,
+      signalFn: shortOnlyRegimeSwitchBreakoutSignal,
+      signalParams: { breakoutPeriod: 55, regimeSmaPeriod: 200 },
+      warmup: 220,
+      trainSplit: 0.7,
+      thresholds: { minTrainTrades: 80, minTestTrades: 40, requireTwoSided: false },
+      minTrades: LAB_THRESHOLDS.minTestTrades,
+    },
+    {
+      id: 'rsbreakout-ethsol-long-4h-sma200-tp80-sl30',
+      hypothesis: 'breakout_regime_switch_long_probe',
+      pairSet: ['ETHUSDT', 'SOLUSDT'],
+      interval: '4h',
+      days: 730,
+      targetPct: 0.08,
+      stopPct: 0.03,
+      timeoutHours: 240,
+      signalFn: longOnlyRegimeSwitchBreakoutSignal,
+      signalParams: { breakoutPeriod: 55, regimeSmaPeriod: 200 },
+      warmup: 220,
+      trainSplit: 0.7,
+      thresholds: { minTrainTrades: 80, minTestTrades: 40, requireTwoSided: false },
+      minTrades: LAB_THRESHOLDS.minTestTrades,
+    },
   ].map((experiment) => ({
     ...experiment,
     signalFn: experiment.signalFn ?? evaluateSignal,

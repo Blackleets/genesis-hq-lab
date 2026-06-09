@@ -176,21 +176,7 @@ export async function runStartupReconciliation(
 
     // Case A: exchange confirms still open → recover active state
     if (!marketStatus || marketStatus.status === 'open' || marketStatus.status === 'active') {
-      const ageHours = (Date.now() - new Date(trade.opened_at).getTime()) / 3_600_000;
-      if (ageHours > 48) {
-        orphans++;
-        reconciliationLog.orphanDetected({ id: trade.id, source: trade.market_source, ageHours: Math.round(ageHours) });
-        issues.push({
-          type: 'orphan_detected',
-          tradeId: trade.id,
-          marketId: trade.market_id,
-          source: trade.market_source,
-          ageHours: Math.round(ageHours),
-          message: `Position open for ${Math.round(ageHours)}h — still active on exchange but age exceeds threshold`,
-        });
-      } else {
-        console.log(`[reconciliation] ACTIVE: Trade ${trade.id} confirmed open on ${trade.market_source}`);
-      }
+      console.log(`[reconciliation] ACTIVE: Trade ${trade.id} confirmed open on ${trade.market_source}`);
       unresolved++;
       unresolvedCapital += trade.capital_used ?? 0;
       continue;

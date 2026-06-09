@@ -3,7 +3,13 @@
 
 import db, { tx } from '../db/database.mjs';
 import { nanoid } from '../utils.mjs';
-import { cryptoNetPnl, cryptoSlippagePct } from '../trading/costs.mjs';
+import {
+  cryptoNetPnl,
+  cryptoSlippagePct,
+  cryptoFuturesNetPnl,
+  cryptoFuturesSlippagePct,
+  estimateFundingFeeUsd,
+} from '../trading/costs.mjs';
 import { computeCryptoTargets, computeCryptoPnl } from './cryptoMath.mjs';
 
 // Re-exported so existing importers (and tests) keep working.
@@ -54,28 +60,46 @@ export function executeCryptoPaperTrade({ asset, side, entryPrice, capitalUsed, 
 export function closeCryptoTrade(tradeId, exitPrice, exitReason) {
   const trade = db.prepare('SELECT * FROM trades WHERE id = ?').get(tradeId);
   if (!trade) return null;
-
-  // Net PnL: gross move minus taker fees (both sides) and slippage on both fills.
-  // Same cost model the backtest uses, so live and validated results are comparable.
-  const slippagePct = cryptoSlippagePct(trade.capital_used, trade.entry_volume24h ?? 0);
-  const pnl = cryptoNetPnl({
-    side: trade.outcome,
-    entryPrice: trade.entry_price,
-    exitPrice,
-    shares: trade.shares,
-    slippagePct,
-  });
   const closedAt = new Date().toISOString();
+  const openedMs = new Date(trade.opened_at).getTime();
+  const closedMs = new Date(closedAt).getTime();
+  const holdingHours = Number.isFinite(openedMs) && Number.isFinite(closedMs)
+    ? Math.max(0, (closedMs - openedMs) / 3_600_000)
+    : 0;
+  const instrumentType = trade.instrument_type ?? 'spot';
+  const notionalUsd = trade.notional_usd ?? Math.round((trade.entry_price ?? 0) * (trade.shares ?? 0) * 100) / 100;
+  const slippagePct = instrumentType === 'futures'
+    ? cryptoFuturesSlippagePct(notionalUsd, trade.entry_volume24h ?? 0)
+    : cryptoSlippagePct(trade.capital_used, trade.entry_volume24h ?? 0);
+  const fundingPaid = instrumentType === 'futures'
+    ? estimateFundingFeeUsd({ notionalUsd, fundingRate: trade.funding_rate ?? undefined, holdingHours })
+    : 0;
+  const pnl = instrumentType === 'futures'
+    ? cryptoFuturesNetPnl({
+      side: trade.outcome,
+      entryPrice: trade.entry_price,
+      exitPrice,
+      shares: trade.shares,
+      slippagePct,
+      fundingFeeUsd: fundingPaid,
+    })
+    : cryptoNetPnl({
+      side: trade.outcome,
+      entryPrice: trade.entry_price,
+      exitPrice,
+      shares: trade.shares,
+      slippagePct,
+    });
 
   tx(() => {
     db.prepare(`
       UPDATE trades
       SET status = 'closed', exit_price = ?, pnl = ?, closed_at = ?,
-          resolved_outcome = ?, exit_reason = ?
+          resolved_outcome = ?, exit_reason = ?, funding_paid = ?
       WHERE id = ?
-    `).run(exitPrice, pnl, closedAt, pnl >= 0 ? 'WIN' : 'LOSS', exitReason, tradeId);
+    `).run(exitPrice, pnl, closedAt, pnl >= 0 ? 'WIN' : 'LOSS', exitReason, fundingPaid, tradeId);
   });
 
   console.log(`[cryptoExecution] Closed ${trade.outcome} ${trade.asset_pair ?? ''} @ $${exitPrice} | reason: ${exitReason} | PnL: $${pnl.toFixed(2)}`);
-  return { ...trade, exitPrice, pnl, closedAt, exitReason };
+  return { ...trade, exitPrice, pnl, closedAt, exitReason, fundingPaid };
 }

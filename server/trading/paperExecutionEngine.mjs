@@ -12,7 +12,13 @@ import { isSafeMode } from '../memory/reconciliationEngine.mjs';
 import { reserveCapital, settleTradeCapital } from './treasury.mjs';
 import { closeCryptoTrade } from '../crypto/cryptoExecution.mjs';
 import { computeCryptoTargets } from '../crypto/cryptoMath.mjs';
-import { cryptoSlippagePct, getCryptoFeePct, applyCryptoEntrySlippage } from './costs.mjs';
+import {
+  cryptoSlippagePct,
+  cryptoFuturesSlippagePct,
+  applyCryptoEntrySlippage,
+  estimateFuturesLiquidationPrice,
+  estimateFuturesMaintenanceMarginUsd,
+} from './costs.mjs';
 import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs';
 
 const TRAINING_MODE = ['1', 'true', 'yes'].includes((process.env.TRAINING_MODE ?? '').toLowerCase());
@@ -50,6 +56,11 @@ function applyPartialFill(capitalUsed) {
  *   targetPct?: number,          // TP % from entry, e.g. 0.004 = 0.4%
  *   stopPct?: number,            // SL % from entry, e.g. 0.002 = 0.2%
  *   timeoutHours?: number,       // max hold time
+ *   instrumentType?: 'spot'|'futures',
+ *   exchange?: string,
+ *   marginMode?: 'cash'|'isolated'|'cross',
+ *   leverage?: number,
+ *   fundingRate?: number,
  * }} opts
  */
 export async function openCryptoPosition(opts) {
@@ -59,6 +70,11 @@ export async function openCryptoPosition(opts) {
     agentId, tradeType = 'fast_scalp',
     targetPct, stopPct,
     timeoutHours = 4,
+    instrumentType = 'spot',
+    exchange = instrumentType === 'futures' ? 'binance_futures' : 'binance',
+    marginMode = instrumentType === 'futures' ? 'isolated' : 'cash',
+    leverage = instrumentType === 'futures' ? 3 : 1,
+    fundingRate = instrumentType === 'futures' ? 0.0001 : 0,
   } = opts;
 
   // ── Safety gates — NEVER bypass ──
@@ -86,10 +102,23 @@ export async function openCryptoPosition(opts) {
   }
 
   // ── Realistic fill price with slippage ──
-  const slippagePct = cryptoSlippagePct(filledCapital, asset.volume24h ?? 0);
+  const effectiveLeverage = instrumentType === 'futures' ? Math.max(1, leverage) : 1;
+  const notionalRequested = instrumentType === 'futures' ? filledCapital * effectiveLeverage : filledCapital;
+  const slippagePct = instrumentType === 'futures'
+    ? cryptoFuturesSlippagePct(notionalRequested, asset.volume24h ?? 0)
+    : cryptoSlippagePct(filledCapital, asset.volume24h ?? 0);
   const effectiveEntryPrice = applyCryptoEntrySlippage(side, asset.price, slippagePct);
-  const shares = Math.floor((filledCapital / effectiveEntryPrice) * 10000) / 10000;
-  const effectiveCapital = Math.round(shares * effectiveEntryPrice * 100) / 100;
+  const shares = Math.floor((notionalRequested / effectiveEntryPrice) * 10000) / 10000;
+  const notionalUsd = Math.round(shares * effectiveEntryPrice * 100) / 100;
+  const effectiveCapital = instrumentType === 'futures'
+    ? Math.round((notionalUsd / effectiveLeverage) * 100) / 100
+    : notionalUsd;
+  const maintenanceMargin = instrumentType === 'futures'
+    ? estimateFuturesMaintenanceMarginUsd(notionalUsd)
+    : 0;
+  const liquidationPrice = instrumentType === 'futures'
+    ? estimateFuturesLiquidationPrice({ side, entryPrice: effectiveEntryPrice, leverage: effectiveLeverage })
+    : null;
 
   // ── TP / SL prices ──
   let tp, sl;
@@ -117,12 +146,14 @@ export async function openCryptoPosition(opts) {
         (id, agent_id, market_id, market_source, market_question, market_category,
          outcome, entry_price, shares, capital_used, confidence, reason, evidence,
          status, opened_at, asset_pair, trade_type, target_price, stop_price,
-         entry_volume24h, days_to_close)
+         entry_volume24h, days_to_close, instrument_type, exchange, margin_mode,
+         leverage, notional_usd, funding_rate, funding_paid, liquidation_price, maintenance_margin)
       VALUES
         (@id, @agent_id, @market_id, @market_source, @market_question, @market_category,
          @outcome, @entry_price, @shares, @capital_used, @confidence, @reason, @evidence,
          'open', @opened_at, @asset_pair, @trade_type, @target_price, @stop_price,
-         @entry_volume24h, @days_to_close)
+         @entry_volume24h, @days_to_close, @instrument_type, @exchange, @margin_mode,
+         @leverage, @notional_usd, @funding_rate, @funding_paid, @liquidation_price, @maintenance_margin)
     `).run({
       id,
       agent_id:        agentId,
@@ -144,6 +175,15 @@ export async function openCryptoPosition(opts) {
       stop_price:      sl,
       entry_volume24h: asset.volume24h ?? null,
       days_to_close:   daysToClose,
+      instrument_type: instrumentType,
+      exchange,
+      margin_mode: marginMode,
+      leverage: effectiveLeverage,
+      notional_usd: notionalUsd,
+      funding_rate: fundingRate,
+      funding_paid: 0,
+      liquidation_price: liquidationPrice,
+      maintenance_margin: maintenanceMargin,
     });
   });
 
@@ -161,7 +201,23 @@ export async function openCryptoPosition(opts) {
     targetPrice: tp, stopPrice: sl,
     shares, capitalUsed: effectiveCapital,
     slippagePct,
+    instrumentType,
+    leverage: effectiveLeverage,
+    notionalUsd,
+    liquidationPrice,
   };
+}
+
+export async function openCryptoFuturesPosition(opts) {
+  return openCryptoPosition({
+    ...opts,
+    instrumentType: 'futures',
+    tradeType: opts.tradeType ?? 'crypto_futures_breakout',
+    exchange: opts.exchange ?? 'binance_futures',
+    marginMode: opts.marginMode ?? 'isolated',
+    leverage: opts.leverage ?? 3,
+    fundingRate: opts.fundingRate ?? 0.0001,
+  });
 }
 
 // ── Close a crypto paper position ─────────────────────────────────────────────

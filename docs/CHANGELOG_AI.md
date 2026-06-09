@@ -3,6 +3,55 @@
 ## 2026-06-09 - Codex
 
 - Branch: `feat/genesis-life-os`
+- Summary: Corregi la reconciliacion para que mercados de prediccion confirmados como `open` ya no se marquen falsamente como `orphans` solo por antiguedad. Tambien arregle el origen del bug en Polymarket: los nuevos trades guardaran el `market.id` de Gamma en vez de priorizar `conditionId`.
+- Files touched: `server/memory/reconciliationEngine.mjs`, `server/marketScanner.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/memory/reconciliationEngine.mjs` ok; `node --check server/marketScanner.mjs` ok; `node --test server/tests/reconciliation.test.mjs` ok; `npm run agent:futures:once` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Cerre el `scalp_v2` huerfano de ETH con el monitor real usando precio live y deje un arranque `futures-only` reutilizable. El runner ahora puede operar solo el scheduler de futures sin tick de prediction markets ni loop crypto legacy, incluyendo `npm run agent:futures:once` para disparar una pasada real del worker.
+- Files touched: `server/agentRunner.mjs`, `scripts/runFuturesOnlyAgent.mjs`, `package.json`, `.env.example`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/agentRunner.mjs` ok; `node --check scripts/runFuturesOnlyAgent.mjs` ok; `npm run agent:futures:once` ok; `npm run futures:status` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Prepare el stack para operacion `futures-first` sin ruido de scalp/swing/event. Agregue switches reales por engine, documente las flags, y cree `npm run futures:status` / `npm run futures:once` para disparar el worker de futures breakout y leer posiciones/PnL reales desde SQLite + precios live.
+- Files touched: `.env.example`, `package.json`, `scripts/futuresDesk.mjs`, `server/strategies/scalpingEngine.mjs`, `server/strategies/swingEngine.mjs`, `server/strategies/eventAlphaEngine.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check scripts/futuresDesk.mjs` ok; `npm test` ok; `npm run build` ok; `npm run futures:once` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Unifique la observabilidad y las metricas del stack crypto para que los agentes `breakout` y `crypto_futures_breakout_*` no queden invisibles. Ahora dashboard, trade history, copilot, fatigue e inteligencia de mercado cuentan todo el universo crypto real y el scheduler puede mostrar actividad coherente de los workers nuevos.
+- Files touched: `server/crypto/cryptoTradeUniverse.mjs`, `server/crypto/copilot.mjs`, `server/crypto/tradeHistory.mjs`, `server/intelligence/setupFatigue.mjs`, `server/crypto/marketIntelligence.mjs`, `server/index.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `npm test` ok; `npm run build` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Conecte agentes reales para el track de futures breakout. Añadi un worker `short_core` en futures paper y un `long_probe` separado para comparacion, ambos integrados al scheduler SLOW. Tambien deje la comparativa en el lab: `ETH+SOL short-only 4h` pasa (`PF test 1.70`, `EV test 1.27`) y `long-only` falla OOS, asi que el edge actual sigue siendo bajista y estrecho.
+- Files touched: `server/crypto/backtest/strategyLab.mjs`, `server/strategies/futuresBreakoutEngine.mjs`, `server/trading/executionScheduler.mjs`, `server/trading/positionMonitor.mjs`, `server/crypto/cryptoTradeUniverse.mjs`, `server/tests/strategyLab.test.mjs`, `server/tests/futuresBreakoutEngine.test.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/strategies/futuresBreakoutEngine.mjs` ok; `node --check server/trading/executionScheduler.mjs` ok; `npm test` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Endureci la base de research y ejecucion crypto para la siguiente fase. Agregue una hipotesis explicita `ETH+SOL short-only 4h` que ya pasa el lab, corregi el evaluador para estrategias narrow one-sided, y separe la infraestructura `futures paper` con metadatos, coste, funding y liquidacion sin contaminar el stack spot actual.
+- Files touched: `server/trading/costs.mjs`, `server/crypto/cryptoExecution.mjs`, `server/trading/paperExecutionEngine.mjs`, `server/trading/positionMonitor.mjs`, `server/crypto/cryptoTradeUniverse.mjs`, `server/crypto/backtest/strategyLab.mjs`, `server/db/schema.sql`, `server/db/database.mjs`, `server/tests/costsCrypto.test.mjs`, `server/tests/strategyLab.test.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/trading/costs.mjs` ok; `node --check server/crypto/cryptoExecution.mjs` ok; `node --check server/trading/paperExecutionEngine.mjs` ok; `node --check server/crypto/backtest/strategyLab.mjs` ok; `npm test` ok; `npm run build` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Cerre el research de rediseño crypto que habia quedado a medias: integre el experimento `scalp_regime_gated` al lab con tests directos del gating por regimen y deje `trendSearch` accesible via `npm run crypto:trend-search` para evaluar edge HTF sin tocar la ruta live.
+- Files touched: `server/crypto/backtest/strategyLab.mjs`, `server/crypto/backtest/trendSearch.mjs`, `server/tests/strategyLab.test.mjs`, `package.json`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/backtest/strategyLab.mjs` ok; `node --check server/crypto/backtest/trendSearch.mjs` ok; `npm test` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
 - Summary: Pulí el sidebar principal para reducir ruido visual: active state más sobrio, navegación más compacta, headers de sección más limpios, chrome carbon consistente y scrollbar integrado. No se tocó lógica de navegación ni módulos.
 - Files touched: `src/ui/GenesisSidebar.tsx`, `docs/CHANGELOG_AI.md`
 - Verification: `npm run typecheck` ok; `npm run build` ok; `npm test` ok; Playwright local preview ok con backend local offline esperado
@@ -551,3 +600,66 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Added a concrete redesign hypothesis plan for the crypto core, with experiment order, minimum pass metrics, and abort criteria so recovery can proceed one thesis at a time instead of adding more filters or features.
 - Files touched: `docs/CRYPTO_REDESIGN_HYPOTHESES.md`, `docs/CHANGELOG_AI.md`
 - Verification: documentation update only; no runtime code changed
+
+## 2026-06-09 â€” Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Exposed the real futures desk as shared backend snapshot logic plus `/api/crypto/futures-desk`, and surfaced it inside Crypto Lab so the operator can monitor live futures profiles, treasury, open positions, and closed PnL without simulated data.
+- Files touched: `server/crypto/futuresDesk.mjs`, `scripts/futuresDesk.mjs`, `server/index.mjs`, `src/services/cryptoClient.ts`, `src/workflows/CryptoLabView.tsx`, `src/components/crypto/DeskPanel.tsx`, `src/components/crypto/FuturesDeskPanel.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/futuresDesk.mjs` ok; `node --check scripts/futuresDesk.mjs` ok; `node --check server/index.mjs` ok; `npm run futures:status` returned live snapshot; `npm run build` ok
+
+## 2026-06-09 â€” Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Upgraded the futures desk into an operable console: the worker now records real per-pair cycle outcomes, the last cycle persists to `data/futures-last-cycle.json`, the UI can trigger a real futures cycle manually, and the default liquid futures universe expands to BTC/ETH/SOL/BNB with long probe isolated.
+- Files touched: `.env.example`, `server/strategies/futuresBreakoutEngine.mjs`, `server/crypto/futuresDesk.mjs`, `server/index.mjs`, `src/services/cryptoClient.ts`, `src/workflows/CryptoLabView.tsx`, `src/components/crypto/DeskPanel.tsx`, `src/components/crypto/FuturesDeskPanel.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/strategies/futuresBreakoutEngine.mjs` ok; `node --check server/crypto/futuresDesk.mjs` ok; `node scripts/futuresDesk.mjs` returned persisted last-cycle diagnostics; `npm run build` ok
+
+## 2026-06-09 â€” Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added futures-only realized equity and lifecycle alert feeds to the desk, sourced directly from SQLite futures trades so opens/closes and cumulative PnL render in the same panel once real futures activity begins.
+- Files touched: `server/crypto/futuresDesk.mjs`, `src/services/cryptoClient.ts`, `src/components/crypto/FuturesDeskPanel.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/futuresDesk.mjs` ok; `node scripts/futuresDesk.mjs` returned `equityCurve` and `recentLifecycle` fields; `npm run build` ok
+
+## 2026-06-09 â€” Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Split the futures short engine into isolated `short_core` and `short_alt` profiles so Tier 1 and Tier 2 pairs no longer share the same futures short bucket. Added XRP/DOGE as alt-liquid pairs, updated training/desk aggregates, and verified the live cycle now scans 4 core pairs and 2 alt pairs independently.
+- Files touched: `.env.example`, `server/strategies/futuresBreakoutEngine.mjs`, `server/crypto/cryptoTradeUniverse.mjs`, `server/trading/positionMonitor.mjs`, `server/crypto/futuresDesk.mjs`, `server/index.mjs`, `server/crypto/marketIntelligence.mjs`, `src/services/cryptoClient.ts`, `src/components/crypto/FuturesDeskPanel.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/strategies/futuresBreakoutEngine.mjs` ok; `node --check server/crypto/futuresDesk.mjs` ok; real cycle showed `short_core` scanning BTC/ETH/SOL/BNB and `short_alt` scanning XRP/DOGE separately; `npm run build` ok
+
+## 2026-06-09 â€” Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Removed Claude as a hard dependency for learning by adding deterministic trade-lesson fallback logic, and added a data-driven futures governor that can keep profiles in learning mode or later degrade/pause them based on real closed-trade results.
+- Files touched: `server/memory/learningEngine.mjs`, `server/crypto/futuresGovernor.mjs`, `server/strategies/futuresBreakoutEngine.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/memory/learningEngine.mjs` ok; `node --check server/crypto/futuresGovernor.mjs` ok; real futures snapshot now includes governor state for `short_core`, `short_alt`, and `long_probe`; `npm run build` ok
+
+## 2026-06-09 â€” Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added a persistent futures governor journal stored in `org_state`, exposed it through the futures desk snapshot, and rendered it in the desk so every profile state transition (`learning`, `degraded`, `paused`, `active`) is traceable with timestamp and performance context.
+- Files touched: `server/crypto/futuresGovernor.mjs`, `server/strategies/futuresBreakoutEngine.mjs`, `server/crypto/futuresDesk.mjs`, `src/services/cryptoClient.ts`, `src/components/crypto/FuturesDeskPanel.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/futuresGovernor.mjs` ok; `node --check server/crypto/futuresDesk.mjs` ok; real desk snapshot returned `governorJournal` entries; `npm run build` ok
+
+## 2026-06-09 â€” Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Activated `long_probe` in runtime, upgraded the futures governor with ranking metrics (`expectancy`, `profit factor`, `max drawdown`, `rank score`), and surfaced that ranking in the desk so the operator can compare `core`, `alt`, and `probe` on one board while the governor controls sizing and kill states.
+- Files touched: `.env`, `.env.example`, `server/crypto/futuresGovernor.mjs`, `server/strategies/futuresBreakoutEngine.mjs`, `src/services/cryptoClient.ts`, `src/components/crypto/FuturesDeskPanel.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: real futures cycle showed `long_probe` enabled and scanning `BTCUSDT`/`ETHUSDT`; `short_core` scanned 4 pairs, `short_alt` scanned 2 pairs, `long_probe` scanned 2 pairs; `npm run build` ok
+
+## 2026-06-09 Ã¢â‚¬â€ Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added a non-destructive futures PnL baseline reset, introduced the `short_micro` 5m profile, completed the `5m/15m/1h/4h` multi-timeframe futures wiring across backend and UI, and surfaced per-profile timeframe and baseline state in the futures desk.
+- Files touched: `.env.example`, `package.json`, `scripts/resetFuturesPnlBaseline.mjs`, `server/crypto/futuresGovernor.mjs`, `server/crypto/marketIntelligence.mjs`, `server/index.mjs`, `src/services/cryptoClient.ts`, `src/components/crypto/FuturesDeskPanel.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/strategies/futuresBreakoutEngine.mjs` ok; `node --check server/crypto/futuresDesk.mjs` ok; `node --check server/crypto/futuresGovernor.mjs` ok; `node --check server/index.mjs` ok; `node --check scripts/resetFuturesPnlBaseline.mjs` ok; `npm run build` ok; `npm run futures:reset` wrote baseline `2026-06-09T14:59:54.924Z`; `npm run futures:once` scanned `short_micro` 2 pairs, `short_core` 4, `short_alt` 2, `long_probe` 2 with live `inside_channel` no-entry reasons
+
+## 2026-06-09 Ã¢â‚¬â€ Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added a real per-profile futures supervisor with cooldown triggers, persisted recent futures cycle history into SQLite-backed `org_state`, and surfaced a live "today" block plus compact profile scoreboard/history in the futures desk.
+- Files touched: `server/crypto/futuresGovernor.mjs`, `server/strategies/futuresBreakoutEngine.mjs`, `server/crypto/futuresDesk.mjs`, `src/services/cryptoClient.ts`, `src/components/crypto/FuturesDeskPanel.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/futuresGovernor.mjs` ok; `node --check server/strategies/futuresBreakoutEngine.mjs` ok; `node --check server/crypto/futuresDesk.mjs` ok; `npm run build` ok; `npm run futures:once` ok; live snapshot at `2026-06-09T15:19:32.092Z` showed all 4 profiles active in `learning`, supervisor `live`, zero daily PnL since baseline, and cycle history persisted with `10` scans and `0` executions

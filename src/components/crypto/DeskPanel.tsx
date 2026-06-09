@@ -3,12 +3,13 @@
 // Replaces the old full-width data strip so the chart can be the hero.
 
 import { useState } from 'react';
-import type { CryptoOverview, TradeStory, ExecutionDiagnostics, ShadowCandidateDiagnostics, BreakoutShadowDiagnostics } from '@services/cryptoClient';
+import type { CryptoOverview, TradeStory, ExecutionDiagnostics, ShadowCandidateDiagnostics, BreakoutShadowDiagnostics, FuturesDeskSnapshot } from '@services/cryptoClient';
 import { ActivePositionsTerminal } from './ActivePositionsTerminal';
 import { TradeTimeline } from './TradeTimeline';
 import { EngineTelemetry } from './EngineTelemetry';
 import { ShadowCandidatePanel } from './ShadowCandidatePanel';
 import { BreakoutShadowPanel } from './BreakoutShadowPanel';
+import { FuturesDeskPanel } from './FuturesDeskPanel';
 
 const ACCENT = '#f7931a';
 
@@ -42,6 +43,10 @@ interface Props {
   diagnostics?: ExecutionDiagnostics | null;
   shadowCandidate?: ShadowCandidateDiagnostics | null;
   breakoutShadow?: BreakoutShadowDiagnostics | null;
+  futuresDesk?: FuturesDeskSnapshot | null;
+  onRunFuturesCycle?: () => void;
+  futuresCycleBusy?: boolean;
+  futuresCycleStatus?: string | null;
 }
 
 export function DeskPanel({
@@ -50,8 +55,12 @@ export function DeskPanel({
   diagnostics,
   shadowCandidate,
   breakoutShadow,
+  futuresDesk,
+  onRunFuturesCycle,
+  futuresCycleBusy = false,
+  futuresCycleStatus = null,
 }: Props) {
-  const [tab, setTab] = useState<Tab>('POSITIONS');
+  const [tab, setTab] = useState<Tab>('STATS');
 
   const p = data?.params;
   const pnl = data?.pnl;
@@ -102,6 +111,14 @@ export function DeskPanel({
             <EngineTelemetry diagnostics={diagnostics} />
 
             <BreakoutShadowPanel shadow={breakoutShadow ?? null} es={es} />
+
+            <FuturesDeskPanel
+              futuresDesk={futuresDesk ?? null}
+              es={es}
+              onRunCycle={onRunFuturesCycle}
+              runBusy={futuresCycleBusy}
+              runStatus={futuresCycleStatus}
+            />
 
             <ShadowCandidatePanel shadow={shadowCandidate ?? null} es={es} />
 

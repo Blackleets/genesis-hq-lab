@@ -1,7 +1,18 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { bucketConcentration, evaluateExperimentResult, trendContinuationSignal, breakoutSignal, trendGatedBreakoutSignal, regimeSwitchBreakoutSignal, buildStrategyLabExperiments } from '../crypto/backtest/strategyLab.mjs';
+import {
+  bucketConcentration,
+  evaluateExperimentResult,
+  trendContinuationSignal,
+  breakoutSignal,
+  trendGatedBreakoutSignal,
+  regimeSwitchBreakoutSignal,
+  regimeGatedScalpSignal,
+  shortOnlyRegimeSwitchBreakoutSignal,
+  longOnlyRegimeSwitchBreakoutSignal,
+  buildStrategyLabExperiments,
+} from '../crypto/backtest/strategyLab.mjs';
 
 describe('strategyLab helpers', () => {
   it('rejects a candidate with concentrated hour pnl', () => {
@@ -30,6 +41,18 @@ describe('strategyLab helpers', () => {
     assert.equal(verdict.rejectReason, null);
   });
 
+  it('allows intentional one-sided strategies when requireTwoSided is disabled', () => {
+    const verdict = evaluateExperimentResult({
+      train: { expectancy: 0.30, profitFactor: 1.2, trades: 90 },
+      test: { expectancy: 0.25, profitFactor: 1.3, trades: 45 },
+      concentration: {
+        hour: { share: 0.45, bucket: '12' },
+        side: { share: 1, bucket: 'SHORT' },
+      },
+    }, { minTrainTrades: 80, minTestTrades: 40, minProfitFactor: 1.1, maxBucketShare: 0.5, requireTwoSided: false });
+    assert.equal(verdict.passed, true);
+  });
+
   it('computes bucket concentration from trades', () => {
     const summary = bucketConcentration([
       { pnl: 8, openTime: Date.UTC(2026, 0, 1, 8), side: 'LONG' },
@@ -47,6 +70,9 @@ describe('strategyLab helpers', () => {
     assert.equal(experiments[2].hypothesis, 'single_pair');
     assert.equal(experiments[3].hypothesis, 'trend');
     assert.ok(experiments.some((experiment) => experiment.hypothesis === 'reversion'));
+    assert.ok(experiments.some((experiment) => experiment.hypothesis === 'scalp_regime_gated'));
+    assert.ok(experiments.some((experiment) => experiment.hypothesis === 'breakout_regime_switch_short_focus'));
+    assert.ok(experiments.some((experiment) => experiment.hypothesis === 'breakout_regime_switch_long_probe'));
   });
 
   it('breakout signal goes LONG when the last close breaks the prior channel high', () => {
@@ -119,6 +145,74 @@ describe('strategyLab helpers', () => {
     const signal = regimeSwitchBreakoutSignal({ closes }, { breakoutPeriod: 20, regimeSmaPeriod: 200 });
     assert.equal(signal.action, 'SKIP');
     assert.deepEqual(signal.reasons, ['regime_unknown']);
+  });
+
+  it('short-only regime-switch breakout filters out aligned LONG trades', () => {
+    const closes = [...Array.from({ length: 24 }, (_, i) => 80 + i), 130];
+    const signal = shortOnlyRegimeSwitchBreakoutSignal({ closes }, { breakoutPeriod: 20, regimeSmaPeriod: 20 });
+    assert.equal(signal.action, 'SKIP');
+    assert.deepEqual(signal.reasons, ['regime_long_filtered']);
+  });
+
+  it('long-only regime-switch breakout filters out aligned SHORT trades', () => {
+    const closes = [...Array.from({ length: 25 }, () => 100), 95];
+    const signal = longOnlyRegimeSwitchBreakoutSignal({ closes }, { breakoutPeriod: 20, regimeSmaPeriod: 20 });
+    assert.equal(signal.action, 'SKIP');
+    assert.deepEqual(signal.reasons, ['regime_short_filtered']);
+  });
+
+  it('regime-gated scalp blocks a local LONG when the slow regime is still bearish', () => {
+    const closes = [
+      ...Array.from({ length: 200 }, () => 200),
+      ...Array.from({ length: 30 }, (_, index) => 100 + index * 0.15),
+    ];
+    const signal = regimeGatedScalpSignal({
+      closes,
+      price: 104.35,
+      ema9: 104,
+      ema21: 103.5,
+      rsi14: 56,
+      change1h: 0.5,
+      volume24h: 2_000_000,
+    }, {
+      useHtfFilter: 0,
+      regimeSmaPeriod: 200,
+      minVolume24h: 1_000_000,
+      momentumPct: 0.2,
+      emaMarginPct: 0.001,
+      rsiLongMin: 45,
+      rsiLongMax: 68,
+      rsiShortMin: 32,
+      rsiShortMax: 55,
+    });
+    assert.equal(signal.action, 'SKIP');
+    assert.deepEqual(signal.reasons, ['scalp_LONG_vs_regime']);
+  });
+
+  it('regime-gated scalp keeps a LONG when the live scalp signal agrees with the bull regime', () => {
+    const closes = Array.from({ length: 240 }, (_, index) => 100 + index * 0.2);
+    const signal = regimeGatedScalpSignal({
+      closes,
+      price: closes.at(-1),
+      ema9: 147.9,
+      ema21: 146.2,
+      rsi14: 58,
+      change1h: 0.6,
+      volume24h: 2_000_000,
+    }, {
+      useHtfFilter: 0,
+      regimeSmaPeriod: 200,
+      minVolume24h: 1_000_000,
+      momentumPct: 0.2,
+      emaMarginPct: 0.001,
+      rsiLongMin: 45,
+      rsiLongMax: 68,
+      rsiShortMin: 32,
+      rsiShortMax: 55,
+    });
+    assert.equal(signal.action, 'TRADE');
+    assert.equal(signal.side, 'LONG');
+    assert.ok(signal.reasons.includes('regime_bull'));
   });
 
   it('trend continuation signal produces a long trade on aligned data', () => {

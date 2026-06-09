@@ -89,11 +89,18 @@ export function computePaperFillCosts(proposal) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const DEFAULT_CRYPTO_FEE = 0.001; // 0.1% taker per side
+const DEFAULT_CRYPTO_FUTURES_FEE = 0.0004; // 0.04% taker per side
+const DEFAULT_FUNDING_RATE = 0.0001; // 0.01% per 8h
 
 /** Taker fee fraction per side, overridable via env CRYPTO_FEE_PCT. */
 export function getCryptoFeePct() {
   const v = parseFloat(process.env.CRYPTO_FEE_PCT ?? '');
   return Number.isFinite(v) && v >= 0 ? v : DEFAULT_CRYPTO_FEE;
+}
+
+export function getCryptoFuturesFeePct() {
+  const v = parseFloat(process.env.CRYPTO_FUTURES_FEE_PCT ?? '');
+  return Number.isFinite(v) && v >= 0 ? v : DEFAULT_CRYPTO_FUTURES_FEE;
 }
 
 /** Slippage fraction for a spot order — small on liquid pairs, size-tiered. */
@@ -104,6 +111,15 @@ export function cryptoSlippagePct(orderSizeUsd, volume24hUsd) {
   if (ratio < 0.0005) return 0.0002;     // tiny order: 0.02%
   if (ratio < 0.005)  return 0.0005;     // medium order: 0.05%
   return 0.001;                          // large order: 0.1%
+}
+
+export function cryptoFuturesSlippagePct(orderSizeUsd, volume24hUsd) {
+  if (orderSizeUsd <= 0) return 0;
+  if (volume24hUsd <= 0) return 0.0008;
+  const ratio = orderSizeUsd / volume24hUsd;
+  if (ratio < 0.0005) return 0.0001;
+  if (ratio < 0.005) return 0.0003;
+  return 0.0008;
 }
 
 /** Effective entry fill price: buying LONG pays up, opening SHORT sells down. */
@@ -130,4 +146,44 @@ export function cryptoNetPnl({ side, entryPrice, exitPrice, shares, feePct = get
     : (effEntry - effExit) * shares;
   const fees = feePct * (effEntry * shares + effExit * shares);
   return Math.round((gross - fees) * 1000) / 1000;
+}
+
+export function estimateFuturesMaintenanceMarginUsd(notionalUsd, maintenanceMarginRate = 0.005) {
+  if (!Number.isFinite(notionalUsd) || notionalUsd <= 0) return 0;
+  return Math.round(notionalUsd * Math.max(0, maintenanceMarginRate) * 1000) / 1000;
+}
+
+export function estimateFuturesLiquidationPrice({ side, entryPrice, leverage = 1, maintenanceMarginRate = 0.005 }) {
+  if (!Number.isFinite(entryPrice) || entryPrice <= 0) return null;
+  if (!Number.isFinite(leverage) || leverage <= 1) return null;
+  const move = Math.max(0, 1 / leverage - maintenanceMarginRate);
+  const liq = side === 'LONG'
+    ? entryPrice * (1 - move)
+    : entryPrice * (1 + move);
+  return Math.round(liq * 100000) / 100000;
+}
+
+export function estimateFundingFeeUsd({ notionalUsd, fundingRate = DEFAULT_FUNDING_RATE, holdingHours = 0 }) {
+  if (!Number.isFinite(notionalUsd) || notionalUsd <= 0) return 0;
+  if (!Number.isFinite(fundingRate) || fundingRate === 0) return 0;
+  if (!Number.isFinite(holdingHours) || holdingHours <= 0) return 0;
+  return Math.round(notionalUsd * fundingRate * (holdingHours / 8) * 1000) / 1000;
+}
+
+export function cryptoFuturesNetPnl({
+  side,
+  entryPrice,
+  exitPrice,
+  shares,
+  feePct = getCryptoFuturesFeePct(),
+  slippagePct = 0,
+  fundingFeeUsd = 0,
+}) {
+  const effEntry = applyCryptoEntrySlippage(side, entryPrice, slippagePct);
+  const effExit = applyCryptoExitSlippage(side, exitPrice, slippagePct);
+  const gross = side === 'LONG'
+    ? (effExit - effEntry) * shares
+    : (effEntry - effExit) * shares;
+  const fees = feePct * (effEntry * shares + effExit * shares);
+  return Math.round((gross - fees - Math.max(0, fundingFeeUsd)) * 1000) / 1000;
 }

@@ -2,6 +2,7 @@
 // Returns full per-trade fields already persisted in the trades table. Read-only.
 
 import db from '../db/database.mjs';
+import { ALL_CRYPTO_TRADE_TYPES_SQL } from './cryptoTradeUniverse.mjs';
 
 // exit_reason → a coarse "kind" used by the client to pick marker color/text.
 export function exitKind(exitReason) {
@@ -37,7 +38,7 @@ export function getTradeStories({ limit = 40, pair = null } = {}) {
     SELECT id, asset_pair, outcome, entry_price, exit_price, target_price, stop_price,
            pnl, confidence, reason, evidence, exit_reason, opened_at, closed_at, status
     FROM trades
-    WHERE trade_type IN ('crypto_scalp','scalp_v2','swing_v1')`;
+    WHERE trade_type IN ${ALL_CRYPTO_TRADE_TYPES_SQL}`;
   const args = [];
   if (pair) { sql += ` AND asset_pair = ?`; args.push(pair); }
   sql += ` ORDER BY COALESCE(closed_at, opened_at) DESC LIMIT ?`;
