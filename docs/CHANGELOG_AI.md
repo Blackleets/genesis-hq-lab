@@ -733,3 +733,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Hardened the futures desk path so partial backend failures no longer crash the whole endpoint: the snapshot builder now captures per-section errors into warnings with safe fallbacks, the HTTP handler returns a degraded payload instead of 500, and the frontend renders that degraded state visibly instead of pretending there is no response.
 - Files touched: `server/crypto/futuresDesk.mjs`, `server/index.mjs`, `src/components/crypto/FuturesDeskPanel.tsx`, `src/services/cryptoClient.ts`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/crypto/futuresDesk.mjs` ok; `node --check server/index.mjs` ok; `npm run build` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Split the futures desk capital view from the global treasury so the panel reports futures-only reserved margin, available capital, equity, and PnL instead of inheriting stale legacy reservations from unrelated open trades. Kept the global treasury visible as secondary context so mismatches are explicit instead of silent.
+- Files touched: `server/crypto/futuresDesk.mjs`, `server/index.mjs`, `src/components/crypto/FuturesDeskPanel.tsx`, `src/services/cryptoClient.ts`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/futuresDesk.mjs` ok; `node --check server/index.mjs` ok; `npm run build` ok

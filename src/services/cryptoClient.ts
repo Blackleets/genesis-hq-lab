@@ -146,6 +146,17 @@ export interface FuturesDeskTreasury {
   isPaused: boolean;
 }
 
+export interface FuturesDeskCapital {
+  startCapital: number | null;
+  reservedMargin: number | null;
+  realizedPnl: number | null;
+  unrealizedPnl: number | null;
+  netPnl: number | null;
+  equity: number | null;
+  available: number | null;
+  openPositions: number;
+}
+
 export interface FuturesDeskPosition {
   id: string;
   tradeType: string;
@@ -327,6 +338,7 @@ export interface FuturesDeskSnapshot {
   governorJournal: FuturesGovernorJournalEntry[];
   baseline: FuturesDeskBaseline | null;
   treasury: FuturesDeskTreasury;
+  futuresCapital: FuturesDeskCapital;
   openPositions: FuturesDeskPosition[];
   closedSummary: FuturesDeskSummaryRow[];
   equityCurve: FuturesDeskEquityPoint[];

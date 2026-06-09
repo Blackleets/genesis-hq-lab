@@ -12,6 +12,7 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const FUTURES_CYCLE_PATH = join(__dir, '..', '..', 'data', 'futures-last-cycle.json');
 const FUTURES_BASELINE_KEY = 'futures_pnl_baseline';
 const FUTURES_CYCLE_HISTORY_KEY = 'futures_cycle_history';
+const FUTURES_DESK_START_CAPITAL = parseFloat(process.env.FUTURES_DESK_START_CAPITAL ?? '10000');
 
 function round2(value) {
   return value == null ? null : Math.round(value * 100) / 100;
@@ -138,6 +139,25 @@ async function buildOpenPositions() {
       liquidationPrice: round2(row.liquidation_price),
     };
   }));
+}
+
+function buildFuturesCapital(openPositions, closedSummary) {
+  const reservedMargin = round2(openPositions.reduce((sum, row) => sum + (row.capitalUsed ?? 0), 0)) ?? 0;
+  const unrealizedPnl = round2(openPositions.reduce((sum, row) => sum + (row.grossMarkPnlApproxUsd ?? 0), 0)) ?? 0;
+  const realizedPnl = round2(closedSummary.reduce((sum, row) => sum + (row.totalPnl ?? 0), 0)) ?? 0;
+  const netPnl = round2(realizedPnl + unrealizedPnl) ?? 0;
+  const equity = round2(FUTURES_DESK_START_CAPITAL + netPnl) ?? FUTURES_DESK_START_CAPITAL;
+  const available = round2(equity - reservedMargin) ?? 0;
+  return {
+    startCapital: round2(FUTURES_DESK_START_CAPITAL),
+    reservedMargin,
+    realizedPnl,
+    unrealizedPnl,
+    netPnl,
+    equity,
+    available,
+    openPositions: openPositions.length,
+  };
 }
 
 function buildClosedSummary(baseline) {
@@ -377,6 +397,16 @@ export async function getFuturesDeskSnapshot({ runCycle = false } = {}) {
   }, () => getTreasuryAsync());
   const openPositions = await captureSectionAsync(warnings, 'openPositions', [], () => buildOpenPositions());
   const closedSummary = captureSection(warnings, 'closedSummary', [], () => buildClosedSummary(baseline));
+  const futuresCapital = captureSection(warnings, 'futuresCapital', {
+    startCapital: round2(FUTURES_DESK_START_CAPITAL),
+    reservedMargin: 0,
+    realizedPnl: 0,
+    unrealizedPnl: 0,
+    netPnl: 0,
+    equity: round2(FUTURES_DESK_START_CAPITAL),
+    available: round2(FUTURES_DESK_START_CAPITAL),
+    openPositions: 0,
+  }, () => buildFuturesCapital(openPositions, closedSummary));
   const equityCurve = captureSection(warnings, 'equityCurve', [], () => buildEquityCurve(baseline));
   const recentLifecycle = captureSection(warnings, 'recentLifecycle', [], () => buildRecentLifecycle(baseline));
   const today = captureSection(warnings, 'today', {
@@ -411,6 +441,7 @@ export async function getFuturesDeskSnapshot({ runCycle = false } = {}) {
       drawdownPct: round2(treasury.drawdownPct),
       isPaused: treasury.isPaused,
     },
+    futuresCapital,
     openPositions,
     closedSummary,
     equityCurve,

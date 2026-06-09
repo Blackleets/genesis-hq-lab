@@ -89,11 +89,11 @@ export function FuturesDeskPanel({
     );
   }
 
-  const { treasury, config, openPositions, closedSummary } = futuresDesk;
+  const { treasury, futuresCapital, config, openPositions, closedSummary } = futuresDesk;
   const allPairs = Array.from(new Set(config.profiles.flatMap((profile) => profile.pairs)));
   const realizedEquity = futuresDesk.equityCurve;
-  const realizedPnl = closedSummary.reduce((sum, row) => sum + (row.totalPnl ?? 0), 0);
-  const netPnl = realizedPnl + (treasury.unrealizedPnl ?? 0);
+  const realizedPnl = futuresCapital.realizedPnl ?? closedSummary.reduce((sum, row) => sum + (row.totalPnl ?? 0), 0);
+  const netPnl = futuresCapital.netPnl ?? (realizedPnl + (futuresCapital.unrealizedPnl ?? 0));
   const lifecycle = futuresDesk.recentLifecycle;
   const profileMeta = new Map(config.profiles.map((profile) => [profile.id, profile]));
   const governorJournal = futuresDesk.governorJournal ?? [];
@@ -102,7 +102,7 @@ export function FuturesDeskPanel({
   const today = futuresDesk.today;
   const cycleHistory = futuresDesk.cycleHistory ?? [];
   const profileScoreboard = futuresDesk.profileScoreboard ?? [];
-  const startingCapital = treasury.total - realizedPnl;
+  const startingCapital = futuresCapital.startCapital ?? 10000;
   const warnings = futuresDesk.warnings ?? [];
 
   return (
@@ -189,7 +189,7 @@ export function FuturesDeskPanel({
           </div>
           <div className="rounded bg-[#151206] px-2 py-1.5">
             <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'no realizado' : 'unrealized'}</div>
-            <div className="font-mono text-[11px] font-bold" style={{ color: tone(treasury.unrealizedPnl) }}>{usd(treasury.unrealizedPnl)}</div>
+            <div className="font-mono text-[11px] font-bold" style={{ color: tone(futuresCapital.unrealizedPnl ?? 0) }}>{usd(futuresCapital.unrealizedPnl)}</div>
           </div>
           <div className="rounded bg-[#151206] px-2 py-1.5">
             <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'neto base' : 'net since base'}</div>
@@ -209,15 +209,15 @@ export function FuturesDeskPanel({
           </div>
           <div className="rounded bg-[#151206] px-2 py-1.5">
             <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'reservado' : 'reserved'}</div>
-            <div className="font-mono text-[11px] font-bold text-amber-300">{usd(treasury.inTrades)}</div>
+            <div className="font-mono text-[11px] font-bold text-amber-300">{usd(futuresCapital.reservedMargin)}</div>
           </div>
           <div className="rounded bg-[#151206] px-2 py-1.5">
             <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'libre' : 'free'}</div>
-            <div className="font-mono text-[11px] font-bold text-zinc-100">{usd(treasury.available)}</div>
+            <div className="font-mono text-[11px] font-bold text-zinc-100">{usd(futuresCapital.available)}</div>
           </div>
           <div className="rounded bg-[#151206] px-2 py-1.5">
             <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'neto vivo' : 'live net'}</div>
-            <div className="font-mono text-[11px] font-bold" style={{ color: tone(netPnl) }}>{usd(treasury.netWorth)}</div>
+            <div className="font-mono text-[11px] font-bold" style={{ color: tone(netPnl) }}>{usd(futuresCapital.equity)}</div>
           </div>
         </div>
       </div>
@@ -233,22 +233,28 @@ export function FuturesDeskPanel({
         </div>
         <div className="rounded bg-[#151206] px-2 py-1.5">
           <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">net worth</div>
-          <div className="font-mono text-[11px] font-bold text-zinc-100">{usd(treasury.netWorth)}</div>
+          <div className="font-mono text-[11px] font-bold text-zinc-100">{usd(futuresCapital.equity)}</div>
         </div>
         <div className="rounded bg-[#151206] px-2 py-1.5">
           <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'disponible' : 'available'}</div>
-          <div className="font-mono text-[11px] font-bold text-zinc-100">{usd(treasury.available)}</div>
+          <div className="font-mono text-[11px] font-bold text-zinc-100">{usd(futuresCapital.available)}</div>
         </div>
         <div className="rounded bg-[#151206] px-2 py-1.5">
           <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">uPnL</div>
-          <div className="font-mono text-[11px] font-bold" style={{ color: tone(treasury.unrealizedPnl) }}>
-            {usd(treasury.unrealizedPnl)}
+          <div className="font-mono text-[11px] font-bold" style={{ color: tone(futuresCapital.unrealizedPnl ?? 0) }}>
+            {usd(futuresCapital.unrealizedPnl)}
           </div>
         </div>
         <div className="rounded bg-[#151206] px-2 py-1.5">
           <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">drawdown</div>
           <div className="font-mono text-[11px] font-bold text-zinc-100">{pct(treasury.drawdownPct)}</div>
         </div>
+      </div>
+
+      <div className="mt-2 font-mono text-[9px] text-zinc-600">
+        {es
+          ? `Tesoro global: libre ${usd(treasury.available)} / reservado ${usd(treasury.inTrades)}`
+          : `Global treasury: free ${usd(treasury.available)} / reserved ${usd(treasury.inTrades)}`}
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2">
