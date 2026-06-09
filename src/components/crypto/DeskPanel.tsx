@@ -45,7 +45,9 @@ interface Props {
   breakoutShadow?: BreakoutShadowDiagnostics | null;
   futuresDesk?: FuturesDeskSnapshot | null;
   onRunFuturesCycle?: () => void;
+  onResetFuturesBaseline?: () => void;
   futuresCycleBusy?: boolean;
+  futuresBaselineBusy?: boolean;
   futuresCycleStatus?: string | null;
 }
 
@@ -57,7 +59,9 @@ export function DeskPanel({
   breakoutShadow,
   futuresDesk,
   onRunFuturesCycle,
+  onResetFuturesBaseline,
   futuresCycleBusy = false,
+  futuresBaselineBusy = false,
   futuresCycleStatus = null,
 }: Props) {
   const [tab, setTab] = useState<Tab>('STATS');
@@ -111,7 +115,9 @@ export function DeskPanel({
               futuresDesk={futuresDesk ?? null}
               es={es}
               onRunCycle={onRunFuturesCycle}
+              onResetBaseline={onResetFuturesBaseline}
               runBusy={futuresCycleBusy}
+              baselineBusy={futuresBaselineBusy}
               runStatus={futuresCycleStatus}
             />
 

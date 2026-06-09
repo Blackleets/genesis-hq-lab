@@ -328,6 +328,22 @@ export async function loadFuturesDesk(runCycle = false, timeoutMs = runCycle ? 3
   } catch { return null; }
 }
 
+export async function resetFuturesDeskBaseline(note = 'Manual futures PnL baseline reset'): Promise<FuturesDeskBaseline | null> {
+  try {
+    const res = await fetch(apiUrl('/api/crypto/futures-baseline/reset'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ resetBy: 'operator', note }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json() as { ok: boolean; baseline?: FuturesDeskBaseline };
+    return data.ok ? (data.baseline ?? null) : null;
+  } catch {
+    return null;
+  }
+}
+
 // ─── AI Commentary ────────────────────────────────────────────────────────────
 
 export interface CommentaryItem {

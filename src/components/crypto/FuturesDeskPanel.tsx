@@ -47,17 +47,33 @@ function fmtEvent(iso?: string | null) {
   return `${String(d.getUTCMonth() + 1).padStart(2, '0')}/${String(d.getUTCDate()).padStart(2, '0')} ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}z`;
 }
 
+function snapshotAgeLabel(iso?: string | null) {
+  if (!iso) return '-';
+  const deltaMs = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(deltaMs)) return '-';
+  const seconds = Math.max(0, Math.floor(deltaMs / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h`;
+}
+
 export function FuturesDeskPanel({
   futuresDesk,
   es,
   onRunCycle,
+  onResetBaseline,
   runBusy = false,
+  baselineBusy = false,
   runStatus = null,
 }: {
   futuresDesk: FuturesDeskSnapshot | null;
   es: boolean;
   onRunCycle?: () => void;
+  onResetBaseline?: () => void;
   runBusy?: boolean;
+  baselineBusy?: boolean;
   runStatus?: string | null;
 }) {
   if (!futuresDesk) {
@@ -76,6 +92,8 @@ export function FuturesDeskPanel({
   const { treasury, config, openPositions, closedSummary } = futuresDesk;
   const allPairs = Array.from(new Set(config.profiles.flatMap((profile) => profile.pairs)));
   const realizedEquity = futuresDesk.equityCurve;
+  const realizedPnl = closedSummary.reduce((sum, row) => sum + (row.totalPnl ?? 0), 0);
+  const netPnl = realizedPnl + (treasury.unrealizedPnl ?? 0);
   const lifecycle = futuresDesk.recentLifecycle;
   const profileMeta = new Map(config.profiles.map((profile) => [profile.id, profile]));
   const governorJournal = futuresDesk.governorJournal ?? [];
@@ -108,24 +126,65 @@ export function FuturesDeskPanel({
         </span>
       </div>
 
+      <div className="mt-2 flex items-center justify-between gap-3 font-mono text-[9px] text-zinc-500">
+        <span>{es ? `snapshot ${snapshotAgeLabel(futuresDesk.generatedAt)} atras` : `snapshot ${snapshotAgeLabel(futuresDesk.generatedAt)} ago`}</span>
+        <span>{fmtEvent(futuresDesk.generatedAt)}</span>
+      </div>
+
       <div className="mt-3 flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onRunCycle}
-          disabled={!onRunCycle || runBusy}
-          className="rounded border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em]"
-          style={{
-            color: runBusy ? '#a1a1aa' : '#fbbf24',
-            borderColor: runBusy ? '#3f3f46' : '#78350f',
-            background: runBusy ? '#111827' : '#1c1917',
-            cursor: !onRunCycle || runBusy ? 'not-allowed' : 'pointer',
-          }}
-        >
-          {runBusy ? (es ? 'corriendo...' : 'running...') : 'run cycle now'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onRunCycle}
+            disabled={!onRunCycle || runBusy}
+            className="rounded border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em]"
+            style={{
+              color: runBusy ? '#a1a1aa' : '#fbbf24',
+              borderColor: runBusy ? '#3f3f46' : '#78350f',
+              background: runBusy ? '#111827' : '#1c1917',
+              cursor: !onRunCycle || runBusy ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {runBusy ? (es ? 'corriendo...' : 'running...') : 'run cycle now'}
+          </button>
+          <button
+            type="button"
+            onClick={onResetBaseline}
+            disabled={!onResetBaseline || baselineBusy}
+            className="rounded border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em]"
+            style={{
+              color: baselineBusy ? '#a1a1aa' : '#22c55e',
+              borderColor: baselineBusy ? '#3f3f46' : '#14532d',
+              background: baselineBusy ? '#111827' : '#052e16',
+              cursor: !onResetBaseline || baselineBusy ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {baselineBusy ? (es ? 'reseteando...' : 'resetting...') : (es ? 'reset pnl base' : 'reset pnl base')}
+          </button>
+        </div>
         <span className="font-mono text-[9px] text-zinc-500">
           {runStatus ?? (es ? 'Disparo manual sobre el motor real.' : 'Manual trigger on the real engine.')}
         </span>
+      </div>
+
+      <div className="mt-3">
+        <div className="mb-1 font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">
+          {es ? 'PnL de futuros' : 'Futures PnL'}
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded bg-[#151206] px-2 py-1.5">
+            <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'realizado' : 'realized'}</div>
+            <div className="font-mono text-[11px] font-bold" style={{ color: tone(realizedPnl) }}>{usd(realizedPnl)}</div>
+          </div>
+          <div className="rounded bg-[#151206] px-2 py-1.5">
+            <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'no realizado' : 'unrealized'}</div>
+            <div className="font-mono text-[11px] font-bold" style={{ color: tone(treasury.unrealizedPnl) }}>{usd(treasury.unrealizedPnl)}</div>
+          </div>
+          <div className="rounded bg-[#151206] px-2 py-1.5">
+            <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'neto base' : 'net since base'}</div>
+            <div className="font-mono text-[11px] font-bold" style={{ color: tone(netPnl) }}>{usd(netPnl)}</div>
+          </div>
+        </div>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2">

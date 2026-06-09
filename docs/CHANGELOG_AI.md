@@ -677,3 +677,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Hardened the futures desk manual cycle flow so `RUN CYCLE NOW` waits longer for the real backend cycle, keeps the last valid snapshot if refresh lags, and stops showing the false "backend did not return snapshot" state during slow live runs.
 - Files touched: `src/services/cryptoClient.ts`, `src/workflows/CryptoLabView.tsx`, `docs/CHANGELOG_AI.md`
 - Verification: `npm run build` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added a dedicated futures PnL block with realized/unrealized/net-since-baseline values, exposed snapshot age in the desk, and wired a non-destructive baseline reset endpoint plus UI control so the operator can start futures reporting from zero without deleting historical losing trades.
+- Files touched: `server/crypto/futuresDesk.mjs`, `server/index.mjs`, `src/services/cryptoClient.ts`, `src/workflows/CryptoLabView.tsx`, `src/components/crypto/DeskPanel.tsx`, `src/components/crypto/FuturesDeskPanel.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/index.mjs` ok; `node --check server/crypto/futuresDesk.mjs` ok; `npm run build` ok

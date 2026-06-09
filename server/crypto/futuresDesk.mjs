@@ -47,6 +47,21 @@ function readBaseline() {
   }
 }
 
+export function resetFuturesPnlBaseline({ resetBy = 'operator', note = 'Futures PnL reporting baseline reset' } = {}) {
+  const baseline = {
+    baselineAt: new Date().toISOString(),
+    resetBy,
+    note,
+  };
+
+  db.prepare(`
+    INSERT OR REPLACE INTO org_state (key, value, updated_at)
+    VALUES (?, ?, datetime('now'))
+  `).run(FUTURES_BASELINE_KEY, JSON.stringify(baseline));
+
+  return baseline;
+}
+
 function buildClosedAtClause(baseline) {
   return baseline?.baselineAt ? ` AND closed_at >= '${baseline.baselineAt}'` : '';
 }

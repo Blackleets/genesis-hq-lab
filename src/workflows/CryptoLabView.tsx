@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useLanguage } from '@core/i18n/languageStore';
 import {
-  loadCryptoOverview, loadTradeStories, loadCommentary, loadDiagnostics, loadShadowCandidateDiagnostics, loadBreakoutShadow, loadFuturesDesk,
+  loadCryptoOverview, loadTradeStories, loadCommentary, loadDiagnostics, loadShadowCandidateDiagnostics, loadBreakoutShadow, loadFuturesDesk, resetFuturesDeskBaseline,
   type CryptoOverview, type TradeStory, type CommentaryItem, type ExecutionDiagnostics, type ShadowCandidateDiagnostics, type BreakoutShadowDiagnostics, type FuturesDeskSnapshot,
 } from '@services/cryptoClient';
 import CandleChart from '@dashboard/charts/CandleChart';
@@ -34,6 +34,7 @@ export default function CryptoLabView() {
   const [futuresDesk, setFuturesDesk] = useState<FuturesDeskSnapshot | null>(null);
   const [futuresCycleBusy, setFuturesCycleBusy] = useState(false);
   const [futuresCycleStatus, setFuturesCycleStatus] = useState<string | null>(null);
+  const [futuresBaselineBusy, setFuturesBaselineBusy] = useState(false);
 
   const fetchOverview = useCallback(async () => {
     try {
@@ -110,6 +111,30 @@ export default function CryptoLabView() {
       setFuturesCycleStatus(es ? 'Fallo el ciclo manual de futuros.' : 'Manual futures cycle failed.');
     } finally {
       setFuturesCycleBusy(false);
+    }
+  }, [es, fetchDiagnostics, fetchOverview, fetchTrades]);
+
+  const handleResetFuturesBaseline = useCallback(async () => {
+    setFuturesBaselineBusy(true);
+    setFuturesCycleStatus(es ? 'Reiniciando baseline de PnL de futuros...' : 'Resetting futures PnL baseline...');
+    try {
+      const baseline = await resetFuturesDeskBaseline();
+      if (baseline) {
+        const latestDesk = await loadFuturesDesk(false, 10_000);
+        if (latestDesk) setFuturesDesk(latestDesk);
+        await Promise.all([fetchOverview(), fetchTrades(), fetchDiagnostics()]);
+        setFuturesCycleStatus(
+          es
+            ? `Baseline reiniciado en ${baseline.baselineAt}. El historial queda intacto.`
+            : `Baseline reset at ${baseline.baselineAt}. Historical trades remain intact.`
+        );
+      } else {
+        setFuturesCycleStatus(es ? 'No se pudo reiniciar el baseline de futuros.' : 'Could not reset the futures baseline.');
+      }
+    } catch {
+      setFuturesCycleStatus(es ? 'Fallo el reinicio del baseline de futuros.' : 'Futures baseline reset failed.');
+    } finally {
+      setFuturesBaselineBusy(false);
     }
   }, [es, fetchDiagnostics, fetchOverview, fetchTrades]);
 
@@ -239,7 +264,9 @@ export default function CryptoLabView() {
             breakoutShadow={breakoutShadow}
             futuresDesk={futuresDesk}
             onRunFuturesCycle={handleRunFuturesCycle}
+            onResetFuturesBaseline={handleResetFuturesBaseline}
             futuresCycleBusy={futuresCycleBusy}
+            futuresBaselineBusy={futuresBaselineBusy}
             futuresCycleStatus={futuresCycleStatus}
           />
         </div>

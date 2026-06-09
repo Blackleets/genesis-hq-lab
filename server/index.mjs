@@ -76,7 +76,7 @@ import { getBreakoutShadowDiagnostics }                 from './crypto/breakoutS
 import { getCommentary }                                  from './ai/commentaryEngine.mjs';
 import { getTradeStories }                                from './crypto/tradeHistory.mjs';
 import { analyzeTrade, assertTradeAllowed }               from './crypto/copilot.mjs';
-import { getFuturesDeskSnapshot }                         from './crypto/futuresDesk.mjs';
+import { getFuturesDeskSnapshot, resetFuturesPnlBaseline } from './crypto/futuresDesk.mjs';
 import { scalpConfig, getLastScanSnapshot }               from './strategies/scalpingEngine.mjs';
 import { getAutopsy }                                     from './crypto/autoVeto.mjs';
 import { getFatigueIntelligenceSummary }                  from './intelligence/setupFatigue.mjs';
@@ -224,6 +224,24 @@ const server = createServer(async (req, res) => {
           error: isKeyMissing ? 'api_key_missing' : 'plan_failed',
           message,
         });
+      }
+    });
+    return;
+  }
+
+  if (url.pathname === '/api/crypto/futures-baseline/reset' && req.method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const parsed = body ? JSON.parse(body) : {};
+        const baseline = resetFuturesPnlBaseline({
+          resetBy: typeof parsed.resetBy === 'string' && parsed.resetBy.trim() ? parsed.resetBy.trim().slice(0, 80) : 'operator',
+          note: typeof parsed.note === 'string' && parsed.note.trim() ? parsed.note.trim().slice(0, 200) : 'Manual futures PnL baseline reset',
+        });
+        sendJson(res, 200, { ok: true, baseline });
+      } catch (error) {
+        sendJson(res, 500, { ok: false, error: error instanceof Error ? error.message : 'baseline_reset_failed' });
       }
     });
     return;
