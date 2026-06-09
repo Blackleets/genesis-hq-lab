@@ -243,6 +243,8 @@ function buildTodaySummary(baseline) {
 }
 
 function buildProfileScoreboard(baseline) {
+  const governor = getFuturesGovernorSnapshot();
+  const governorByTradeType = new Map(governor.profiles.map((profile) => [profile.tradeType, profile]));
   const rows = db.prepare(`
     SELECT
       trade_type AS tradeType,
@@ -284,6 +286,7 @@ function buildProfileScoreboard(baseline) {
   }
 
   return Array.from(byProfile.entries()).map(([tradeType, pairs]) => {
+    const governorProfile = governorByTradeType.get(tradeType);
     const summary = pairs.reduce((acc, pair) => ({
       closedTrades: acc.closedTrades + pair.closedTrades,
       wins: acc.wins + pair.wins,
@@ -298,6 +301,13 @@ function buildProfileScoreboard(baseline) {
       losses: summary.losses,
       winRate: summary.closedTrades > 0 ? round2(summary.wins / summary.closedTrades) : null,
       totalPnl: round2(summary.totalPnl),
+      expectancy: governorProfile?.expectancy ?? null,
+      profitFactor: governorProfile?.profitFactor ?? null,
+      maxDrawdown: governorProfile?.maxDrawdown ?? null,
+      rankScore: governorProfile?.rankScore ?? null,
+      mode: governorProfile?.mode ?? 'learning',
+      capitalMultiplier: governorProfile?.capitalMultiplier ?? 1,
+      leverageMultiplier: governorProfile?.leverageMultiplier ?? 1,
       pairs,
     };
   }).sort((a, b) => (b.totalPnl ?? 0) - (a.totalPnl ?? 0));

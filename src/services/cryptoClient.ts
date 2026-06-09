@@ -76,6 +76,8 @@ export interface FuturesDeskConfig {
   regimeSmaPeriod: number;
   tpPct: number;
   slPct: number;
+  minExpectedNetUsd: number;
+  minRewardRisk: number;
   timeoutHours: number;
   maxMargin: number;
   leverage: number;
@@ -227,6 +229,18 @@ export interface FuturesDeskCycleResult {
       detail: string;
       side?: 'LONG' | 'SHORT';
       price?: number;
+      economics?: {
+        notionalUsd: number;
+        slippagePct: number;
+        feePct: number;
+        fundingFeeUsd: number;
+        expectedHoldingHours: number;
+        targetPrice: number;
+        stopPrice: number;
+        tpNetUsd: number;
+        slNetUsd: number;
+        rewardRisk: number | null;
+      };
     }>;
   }>;
 }
@@ -280,6 +294,13 @@ export interface FuturesDeskProfileScore {
   losses: number;
   winRate: number | null;
   totalPnl: number;
+  expectancy: number | null;
+  profitFactor: number | null;
+  maxDrawdown: number | null;
+  rankScore: number | null;
+  mode: 'learning' | 'degraded' | 'paused' | 'active';
+  capitalMultiplier: number;
+  leverageMultiplier: number;
   pairs: FuturesDeskPairScore[];
 }
 

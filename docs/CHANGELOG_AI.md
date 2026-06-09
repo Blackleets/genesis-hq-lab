@@ -712,3 +712,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Hardened durable production boot by making the Supabase replicator add missing Postgres columns on startup instead of assuming a fresh schema, which fixes the live `trades.instrument_type` replication failure. Also pinned the Render blueprint env to futures-only mode with explicit TP/SL so production stops drifting back into mixed legacy crypto behavior.
 - Files touched: `server/persistence/dbReplicator.mjs`, `render.yaml`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/persistence/dbReplicator.mjs` ok; `npm run build` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added an economics gate to the futures breakout engine so setups are rejected when estimated net TP after fees/funding is too small or reward/risk is too weak, and upgraded the futures governor to promote strong profiles with more capital/leverage while keeping weaker ones constrained. Exposed the new desk thresholds and richer profile scoreboard metrics to the UI contract.
+- Files touched: `.env.example`, `server/crypto/futuresGovernor.mjs`, `server/crypto/futuresDesk.mjs`, `server/strategies/futuresBreakoutEngine.mjs`, `src/components/crypto/FuturesDeskPanel.tsx`, `src/services/cryptoClient.ts`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/futuresGovernor.mjs` ok; `node --check server/strategies/futuresBreakoutEngine.mjs` ok; `npm run build` ok

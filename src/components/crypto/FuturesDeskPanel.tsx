@@ -214,6 +214,14 @@ export function FuturesDeskPanel({
 
       <div className="mt-3 grid grid-cols-2 gap-2">
         <div className="rounded bg-[#151206] px-2 py-1.5">
+          <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'tp neto min' : 'min net tp'}</div>
+          <div className="font-mono text-[11px] font-bold text-zinc-100">{usd(config.minExpectedNetUsd)}</div>
+        </div>
+        <div className="rounded bg-[#151206] px-2 py-1.5">
+          <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'rr minimo' : 'min rr'}</div>
+          <div className="font-mono text-[11px] font-bold text-zinc-100">{config.minRewardRisk.toFixed(2)}x</div>
+        </div>
+        <div className="rounded bg-[#151206] px-2 py-1.5">
           <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">net worth</div>
           <div className="font-mono text-[11px] font-bold text-zinc-100">{usd(treasury.netWorth)}</div>
         </div>

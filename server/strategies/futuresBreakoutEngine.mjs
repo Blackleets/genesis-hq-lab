@@ -21,6 +21,12 @@ import { isGlobalSafeMode, getGlobalRiskDiagnostics } from '../risk/globalRiskEn
 import { isSafeMode } from '../memory/reconciliationEngine.mjs';
 import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs';
 import { getFuturesGovernorSnapshot, syncFuturesGovernorJournal } from '../crypto/futuresGovernor.mjs';
+import {
+  cryptoFuturesNetPnl,
+  cryptoFuturesSlippagePct,
+  estimateFundingFeeUsd,
+  getCryptoFuturesFeePct,
+} from '../trading/costs.mjs';
 
 const DAYS = parseInt(process.env.FUTURES_BREAKOUT_DAYS ?? '90', 10);
 const BREAKOUT_PERIOD = parseInt(process.env.FUTURES_BREAKOUT_PERIOD ?? '55', 10);
@@ -38,6 +44,9 @@ const SHORT_MICRO_LEVERAGE = parseFloat(process.env.FUTURES_BREAKOUT_SHORT_MICRO
 const SHORT_CORE_LEVERAGE = parseFloat(process.env.FUTURES_BREAKOUT_SHORT_CORE_LEVERAGE ?? '4');
 const SHORT_ALT_LEVERAGE = parseFloat(process.env.FUTURES_BREAKOUT_SHORT_ALT_LEVERAGE ?? '3');
 const LONG_PROBE_LEVERAGE = parseFloat(process.env.FUTURES_BREAKOUT_LONG_PROBE_LEVERAGE ?? String(DEFAULT_LEVERAGE));
+const MIN_EXPECTED_NET_USD = parseFloat(process.env.FUTURES_BREAKOUT_MIN_EXPECTED_NET_USD ?? '18');
+const MIN_REWARD_RISK = parseFloat(process.env.FUTURES_BREAKOUT_MIN_REWARD_RISK ?? '1.8');
+const FUNDING_HOURS_CAP = parseInt(process.env.FUTURES_BREAKOUT_FUNDING_HOURS_CAP ?? '24', 10);
 
 const SHORT_ENABLED = !['0', 'false', 'no', 'off'].includes((process.env.FUTURES_BREAKOUT_SHORT_ENABLED ?? 'true').toLowerCase());
 const SHORT_ALT_ENABLED = !['0', 'false', 'no', 'off'].includes((process.env.FUTURES_BREAKOUT_SHORT_ALT_ENABLED ?? 'true').toLowerCase());
@@ -115,6 +124,62 @@ function quoteVolume24h(klines) {
   return klines.slice(-6).reduce((sum, kline) => sum + (parseFloat(kline[7]) || 0), 0);
 }
 
+function estimateSetupEconomics({ side, price, volume24h, capitalUsed, leverage, targetPct, stopPct, timeoutHours, fundingRate }) {
+  const notionalUsd = Math.max(0, capitalUsed) * Math.max(1, leverage);
+  const slippagePct = cryptoFuturesSlippagePct(notionalUsd, volume24h ?? 0);
+  const feePct = getCryptoFuturesFeePct();
+  const effectiveEntry = side === 'LONG'
+    ? price * (1 + slippagePct)
+    : price * (1 - slippagePct);
+  const shares = effectiveEntry > 0
+    ? Math.floor((notionalUsd / effectiveEntry) * 10000) / 10000
+    : 0;
+  const targetPrice = side === 'LONG'
+    ? effectiveEntry * (1 + targetPct)
+    : effectiveEntry * (1 - targetPct);
+  const stopPrice = side === 'LONG'
+    ? effectiveEntry * (1 - stopPct)
+    : effectiveEntry * (1 + stopPct);
+  const expectedHoldingHours = Math.max(1, Math.min(timeoutHours, FUNDING_HOURS_CAP));
+  const fundingFeeUsd = estimateFundingFeeUsd({
+    notionalUsd,
+    fundingRate: fundingRate ?? 0.0001,
+    holdingHours: expectedHoldingHours,
+  });
+  const tpNetUsd = cryptoFuturesNetPnl({
+    side,
+    entryPrice: effectiveEntry,
+    exitPrice: targetPrice,
+    shares,
+    feePct,
+    slippagePct,
+    fundingFeeUsd,
+  });
+  const slNetUsd = cryptoFuturesNetPnl({
+    side,
+    entryPrice: effectiveEntry,
+    exitPrice: stopPrice,
+    shares,
+    feePct,
+    slippagePct,
+    fundingFeeUsd: 0,
+  });
+  const rewardRisk = slNetUsd < 0 ? tpNetUsd / Math.abs(slNetUsd) : null;
+  return {
+    notionalUsd: Math.round(notionalUsd * 100) / 100,
+    slippagePct,
+    feePct,
+    fundingFeeUsd,
+    expectedHoldingHours,
+    targetPrice: Math.round(targetPrice * 100000) / 100000,
+    stopPrice: Math.round(stopPrice * 100000) / 100000,
+    tpNetUsd: Math.round(tpNetUsd * 100) / 100,
+    slNetUsd: Math.round(slNetUsd * 100) / 100,
+    rewardRisk: rewardRisk == null ? null : Math.round(rewardRisk * 100) / 100,
+    shares,
+  };
+}
+
 export function futuresBreakoutEngineConfig() {
   const governor = getFuturesGovernorSnapshot();
   return {
@@ -122,6 +187,8 @@ export function futuresBreakoutEngineConfig() {
     regimeSmaPeriod: REGIME_SMA,
     tpPct: TP_PCT,
     slPct: SL_PCT,
+    minExpectedNetUsd: MIN_EXPECTED_NET_USD,
+    minRewardRisk: MIN_REWARD_RISK,
     timeoutHours: TIMEOUT_HOURS,
     maxMargin: MAX_MARGIN,
     leverage: DEFAULT_LEVERAGE,
@@ -345,6 +412,55 @@ async function runProfile(profile, governorProfile) {
     const leverageMultiplier = governorProfile?.leverageMultiplier ?? 1;
     const leverage = Math.max(1, Math.round((profile.leverage * leverageMultiplier) * 100) / 100);
     const capitalUsed = Math.round(((profile.maxMargin ?? MAX_MARGIN) * capitalMultiplier) * 100) / 100;
+    const economics = estimateSetupEconomics({
+      side: signal.side,
+      price,
+      volume24h: asset.volume24h,
+      capitalUsed,
+      leverage,
+      targetPct: TP_PCT,
+      stopPct: SL_PCT,
+      timeoutHours: profile.timeoutHours ?? TIMEOUT_HOURS,
+      fundingRate: 0.0001,
+    });
+    if (economics.shares <= 0) {
+      result.skipped++;
+      result.pairResults.push({
+        pair,
+        status: 'skipped',
+        reason: 'size_too_small',
+        detail: `capital $${capitalUsed.toFixed(2)} produced zero size after costs`,
+        side: signal.side,
+        price,
+      });
+      continue;
+    }
+    if (economics.tpNetUsd < MIN_EXPECTED_NET_USD) {
+      result.skipped++;
+      result.pairResults.push({
+        pair,
+        status: 'skipped',
+        reason: 'expected_net_too_low',
+        detail: `tpNet $${economics.tpNetUsd.toFixed(2)} < min $${MIN_EXPECTED_NET_USD.toFixed(2)} after fees`,
+        side: signal.side,
+        price,
+        economics,
+      });
+      continue;
+    }
+    if ((economics.rewardRisk ?? 0) < MIN_REWARD_RISK) {
+      result.skipped++;
+      result.pairResults.push({
+        pair,
+        status: 'skipped',
+        reason: 'reward_risk_too_low',
+        detail: `RR ${economics.rewardRisk?.toFixed?.(2) ?? '-'} < min ${MIN_REWARD_RISK.toFixed(2)}`,
+        side: signal.side,
+        price,
+        economics,
+      });
+      continue;
+    }
     const execution = await openCryptoFuturesPosition({
       asset,
       side: signal.side,
@@ -371,6 +487,7 @@ async function runProfile(profile, governorProfile) {
         side: signal.side,
         price,
         governorMode: governorProfile?.mode ?? 'active',
+        economics,
       });
       console.log(`[futuresBreakout] ${profile.id} ${signal.side} ${pair} @ $${price.toFixed(2)} | tf ${profile.interval} | lev ${leverage}x | cap $${capitalUsed.toFixed(2)} | TP ${(TP_PCT * 100).toFixed(0)}% / SL ${(SL_PCT * 100).toFixed(0)}%`);
     } else {
@@ -382,6 +499,7 @@ async function runProfile(profile, governorProfile) {
         detail: 'paper execution engine rejected the setup',
         side: signal.side,
         price,
+        economics,
       });
     }
   }
