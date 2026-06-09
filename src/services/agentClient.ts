@@ -158,11 +158,23 @@ export interface HealthStatus {
   ok: boolean;
   service?: string;
   now?: string;
+  futuresMode?: boolean;
+  futuresCapital?: {
+    startCapital: number;
+    reservedMargin: number;
+    realizedPnl: number;
+    unrealizedPnl: number;
+    netPnl: number;
+    equity: number;
+    available: number;
+    openPositions: number;
+  } | null;
   agent?: {
     capital: number;
     isPaused: boolean;
     openTrades: number;
     lastTickAt?: string;
+    agentAlive?: boolean;
     totalCycles?: number;
     claudeEnabled?: boolean;
   };

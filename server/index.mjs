@@ -77,6 +77,7 @@ import { getCommentary }                                  from './ai/commentaryE
 import { getTradeStories }                                from './crypto/tradeHistory.mjs';
 import { analyzeTrade, assertTradeAllowed }               from './crypto/copilot.mjs';
 import { getFuturesDeskSnapshot, resetFuturesPnlBaseline } from './crypto/futuresDesk.mjs';
+import { getFuturesCapitalState }                         from './crypto/futuresCapital.mjs';
 import { scalpConfig, getLastScanSnapshot }               from './strategies/scalpingEngine.mjs';
 import { getAutopsy }                                     from './crypto/autoVeto.mjs';
 import { getFatigueIntelligenceSummary }                  from './intelligence/setupFatigue.mjs';
@@ -128,6 +129,7 @@ startMarketAnalyst(broadcast);
 
 const HOST = process.env.HOST || '127.0.0.1';
 const PORT = Number(process.env.PORT || 8787);
+const FUTURES_ONLY_MODE = !['0', 'false', 'no', 'off'].includes((process.env.FUTURES_ONLY_MODE ?? 'true').toLowerCase());
 
 function applyCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -1301,7 +1303,10 @@ const server = createServer(async (req, res) => {
   if (url.pathname === '/api/health') {
     try {
       const treasury = getTreasury();
-      const openTrades = getRecentTrades(500).filter((t) => t.status === 'open').length;
+      const openTrades = FUTURES_ONLY_MODE
+        ? (db.prepare(`SELECT COUNT(*) AS n FROM trades WHERE status = 'open' AND trade_type LIKE 'crypto_futures_%'`).get()?.n ?? 0)
+        : getRecentTrades(500).filter((t) => t.status === 'open').length;
+      const futuresCapital = FUTURES_ONLY_MODE ? getFuturesCapitalState() : null;
       const schedulerHeartbeat = readHeartbeat();
       let heartbeat = null;
       try {
@@ -1330,7 +1335,7 @@ const server = createServer(async (req, res) => {
         service: 'genesis-hq-lab-backend',
         now: new Date().toISOString(),
         agent: {
-          capital: treasury.total,
+          capital: FUTURES_ONLY_MODE ? (futuresCapital?.equity ?? treasury.total) : treasury.total,
           isPaused: treasury.isPaused ?? false,
           openTrades,
           lastTickAt,
@@ -1341,6 +1346,17 @@ const server = createServer(async (req, res) => {
             ?? 0,
           claudeEnabled: heartbeat?.claudeEnabled ?? !!process.env.ANTHROPIC_API_KEY,
         },
+        futuresMode: FUTURES_ONLY_MODE,
+        futuresCapital: futuresCapital ? {
+          startCapital: futuresCapital.startCapital,
+          reservedMargin: futuresCapital.reservedMargin,
+          realizedPnl: futuresCapital.realizedPnl,
+          unrealizedPnl: futuresCapital.unrealizedPnl,
+          netPnl: futuresCapital.netPnl,
+          equity: futuresCapital.equity,
+          available: futuresCapital.available,
+          openPositions: futuresCapital.openPositions,
+        } : null,
         optimizer: getOptimizerHeartbeat(),
       });
     } catch {

@@ -768,3 +768,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Decoupled paper futures execution from the legacy treasury by introducing a dedicated futures capital ledger derived from futures trades only, and seeded the futures agent profiles so futures entries no longer fail on `agent_profiles` foreign keys.
 - Files touched: `server/crypto/futuresCapital.mjs`, `server/crypto/futuresDesk.mjs`, `server/trading/paperExecutionEngine.mjs`, `server/db/schema.sql`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/crypto/futuresCapital.mjs` ok; `node --check server/crypto/futuresDesk.mjs` ok; `node --check server/trading/paperExecutionEngine.mjs` ok; `npm run build` ok; local paper futures open/close validation succeeded with `crypto_futures_breakout_short_micro-02d5b1c6`
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Made the visible status layer futures-first in production: `/api/health` now reports futures open-count and futures capital in `FUTURES_ONLY_MODE`, `useLiveTrading` switches to the futures desk as the source of visible capital/margin/open metrics, and the top/tech status bars now label and render those values accordingly instead of mixing in the legacy treasury view.
+- Files touched: `server/index.mjs`, `src/services/agentClient.ts`, `src/dashboard/hooks/useLiveTrading.ts`, `src/ui/TopBar.tsx`, `src/ui/TechView.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/index.mjs` ok; `npm run build` ok

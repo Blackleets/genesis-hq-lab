@@ -24,6 +24,10 @@ export default function TopBar() {
   const capitalPnl = live.netWorth - live.startingCapital;
   const pnlColor = capitalPnl >= 0 ? '#00ff9c' : '#ff4757';
   const capitalColor = live.online && live.netWorth >= live.startingCapital ? '#00ff9c' : live.online ? '#ff4757' : '#71717a';
+  const capitalLabel = live.futuresMode ? (lang === 'es' ? 'Equidad fut' : 'Fut equity') : (lang === 'es' ? 'Neto' : 'Net');
+  const pnlLabel = live.futuresMode ? 'P&L fut' : 'P&L cap';
+  const marginLabel = live.futuresMode ? (lang === 'es' ? 'Margen fut' : 'Fut margin') : (lang === 'es' ? 'Margen' : 'Margin');
+  const openLabel = live.futuresMode ? (lang === 'es' ? 'Fut abiertas' : 'Fut open') : (lang === 'es' ? 'Abiertas' : 'Open');
 
   return (
     <div className="shrink-0 h-8 bg-carbon-200 border-b border-trim flex items-center px-4 gap-4 font-mono text-[10px] uppercase tracking-wider overflow-hidden">
@@ -32,14 +36,14 @@ export default function TopBar() {
       {live.online ? (
         <>
           <span className="text-zinc-500 shrink-0">
-            {lang === 'es' ? 'Neto' : 'Net'}:{' '}
+            {capitalLabel}:{' '}
             <span style={{ color: capitalColor }}>
               ${live.netWorth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </span>
           <span className="text-zinc-700">|</span>
           <span className="text-zinc-500 shrink-0">
-            P&L cap:{' '}
+            {pnlLabel}:{' '}
             <span style={{ color: pnlColor }}>
               {capitalPnl >= 0 ? '+' : ''}${capitalPnl.toFixed(2)}
             </span>
@@ -51,12 +55,12 @@ export default function TopBar() {
           </span>
           <span className="text-zinc-700">|</span>
           <span className="text-zinc-500 shrink-0">
-            {lang === 'es' ? 'Margen' : 'Margin'}:{' '}
+            {marginLabel}:{' '}
             <span className="text-amber-300">${live.inTrades.toFixed(2)}</span>
           </span>
           <span className="text-zinc-700">|</span>
           <span className="text-zinc-500 shrink-0">
-            {lang === 'es' ? 'Abiertas' : 'Open'}:{' '}
+            {openLabel}:{' '}
             <span className="text-zinc-200">{live.openTrades.length}</span>
           </span>
         </>
