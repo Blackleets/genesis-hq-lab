@@ -670,3 +670,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Moved the futures desk card to the top of the Crypto Lab `STATS` column so the production URL surfaces the futures controls first instead of burying them below telemetry and breakout diagnostics.
 - Files touched: `src/components/crypto/DeskPanel.tsx`, `docs/CHANGELOG_AI.md`
 - Verification: `npm run build` ok; browser verification on `https://genesis-hq-lab.vercel.app/` confirmed `DESK DE FUTUROS` is present inside `Crypto Lab -> STATS`
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Hardened the futures desk manual cycle flow so `RUN CYCLE NOW` waits longer for the real backend cycle, keeps the last valid snapshot if refresh lags, and stops showing the false "backend did not return snapshot" state during slow live runs.
+- Files touched: `src/services/cryptoClient.ts`, `src/workflows/CryptoLabView.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run build` ok

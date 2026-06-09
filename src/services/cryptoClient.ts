@@ -315,11 +315,11 @@ export interface FuturesDeskSnapshot {
   recentEntries: FuturesDeskEntry[];
 }
 
-export async function loadFuturesDesk(runCycle = false): Promise<FuturesDeskSnapshot | null> {
+export async function loadFuturesDesk(runCycle = false, timeoutMs = runCycle ? 35_000 : 5_000): Promise<FuturesDeskSnapshot | null> {
   try {
     const query = runCycle ? '?run=1' : '';
     const res = await fetch(apiUrl(`/api/crypto/futures-desk${query}`), {
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(timeoutMs),
       headers: { accept: 'application/json' },
     });
     if (!res.ok) return null;

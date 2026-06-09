@@ -64,14 +64,21 @@ export default function CryptoLabView() {
   }, []);
   const fetchFuturesDesk = useCallback(async () => {
     const desk = await loadFuturesDesk();
-    if (desk) setFuturesDesk(desk);
+    if (desk) {
+      setFuturesDesk(desk);
+      setFuturesCycleStatus((prev) =>
+        prev && /backend no devolvio|backend did not return|no se pudo refrescar|could not refresh/i.test(prev)
+          ? null
+          : prev
+      );
+    }
   }, []);
 
   const handleRunFuturesCycle = useCallback(async () => {
     setFuturesCycleBusy(true);
     setFuturesCycleStatus(es ? 'Ejecutando ciclo real de futuros...' : 'Running real futures cycle...');
     try {
-      const desk = await loadFuturesDesk(true);
+      const desk = await loadFuturesDesk(true, 35_000);
       if (desk) {
         setFuturesDesk(desk);
         await Promise.all([fetchOverview(), fetchTrades(), fetchDiagnostics()]);
@@ -83,7 +90,21 @@ export default function CryptoLabView() {
             : `Cycle completed: ${executed} entries, ${qualified} qualified setups`
         );
       } else {
-        setFuturesCycleStatus(es ? 'El backend no devolvio snapshot de futuros.' : 'Backend did not return futures snapshot.');
+        const latestDesk = await loadFuturesDesk(false, 10_000);
+        if (latestDesk) {
+          setFuturesDesk(latestDesk);
+          setFuturesCycleStatus(
+            es
+              ? 'Ciclo lanzado, pero el snapshot tardo mas de lo esperado. Manteniendo el ultimo estado valido.'
+              : 'Cycle launched, but the snapshot took longer than expected. Keeping the last valid state.'
+          );
+        } else {
+          setFuturesCycleStatus(
+            es
+              ? 'No se pudo refrescar el snapshot de futuros. El desk sigue vivo, pero sin confirmacion nueva.'
+              : 'Could not refresh the futures snapshot. The desk is still live, but without a fresh confirmation.'
+          );
+        }
       }
     } catch {
       setFuturesCycleStatus(es ? 'Fallo el ciclo manual de futuros.' : 'Manual futures cycle failed.');
