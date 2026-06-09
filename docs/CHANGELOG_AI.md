@@ -782,3 +782,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Removed the remaining global-treasury line from the futures desk UI and added a futures break-even stop ratchet in the position monitor, so open futures trades can lock risk back to entry-plus-buffer once they have covered enough of the path toward TP.
 - Files touched: `src/components/crypto/FuturesDeskPanel.tsx`, `server/trading/positionMonitor.mjs`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/trading/positionMonitor.mjs` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Unified `/api/health` with the live futures mark-to-market path so the production status layer now reports the same real futures equity, unrealized PnL, and available capital as the futures desk instead of a stale zero-PnL snapshot.
+- Files touched: `server/crypto/futuresDesk.mjs`, `server/index.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/futuresDesk.mjs` ok; `node --check server/index.mjs` ok; `npm run build` ok

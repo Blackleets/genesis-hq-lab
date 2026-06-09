@@ -147,6 +147,11 @@ function buildFuturesCapital(openPositions) {
   return getFuturesCapitalState({ unrealizedPnl });
 }
 
+export async function getLiveFuturesCapitalSnapshot() {
+  const openPositions = await buildOpenPositions();
+  return buildFuturesCapital(openPositions);
+}
+
 function buildClosedSummary(baseline) {
   return db.prepare(`
     SELECT trade_type AS tradeType,

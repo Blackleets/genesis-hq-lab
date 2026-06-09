@@ -76,8 +76,7 @@ import { getBreakoutShadowDiagnostics }                 from './crypto/breakoutS
 import { getCommentary }                                  from './ai/commentaryEngine.mjs';
 import { getTradeStories }                                from './crypto/tradeHistory.mjs';
 import { analyzeTrade, assertTradeAllowed }               from './crypto/copilot.mjs';
-import { getFuturesDeskSnapshot, resetFuturesPnlBaseline } from './crypto/futuresDesk.mjs';
-import { getFuturesCapitalState }                         from './crypto/futuresCapital.mjs';
+import { getFuturesDeskSnapshot, getLiveFuturesCapitalSnapshot, resetFuturesPnlBaseline } from './crypto/futuresDesk.mjs';
 import { scalpConfig, getLastScanSnapshot }               from './strategies/scalpingEngine.mjs';
 import { getAutopsy }                                     from './crypto/autoVeto.mjs';
 import { getFatigueIntelligenceSummary }                  from './intelligence/setupFatigue.mjs';
@@ -1306,7 +1305,7 @@ const server = createServer(async (req, res) => {
       const openTrades = FUTURES_ONLY_MODE
         ? (db.prepare(`SELECT COUNT(*) AS n FROM trades WHERE status = 'open' AND trade_type LIKE 'crypto_futures_%'`).get()?.n ?? 0)
         : getRecentTrades(500).filter((t) => t.status === 'open').length;
-      const futuresCapital = FUTURES_ONLY_MODE ? getFuturesCapitalState() : null;
+      const futuresCapital = FUTURES_ONLY_MODE ? await getLiveFuturesCapitalSnapshot() : null;
       const schedulerHeartbeat = readHeartbeat();
       let heartbeat = null;
       try {
