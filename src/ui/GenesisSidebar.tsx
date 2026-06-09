@@ -83,14 +83,14 @@ export default function GenesisSidebar({ currentModule, onSelect }: Props) {
   const lang = useLanguage();
 
   return (
-    <aside className="w-[196px] shrink-0 bg-carbon-200 border-r border-trim flex flex-col">
+    <aside className="w-[196px] shrink-0 bg-[#0b0e14] border-r border-[#242b3a] flex flex-col">
       {/* Company identity */}
-      <div className="px-3.5 py-3 border-b border-trim">
+      <div className="px-3.5 py-3 border-b border-[#242b3a] bg-[#0f131c]">
         <GenesisLockup size="sm" markSize={26} showTagline />
       </div>
 
       {/* Grouped nav */}
-      <nav className="flex-1 overflow-y-auto py-2 space-y-4">
+      <nav className="gx-scroll flex-1 overflow-y-auto px-2 py-2.5 space-y-3.5">
         {SIDEBAR_GROUPS.map((group) => {
           const groupModules = group.modules.map((id) => MODULE_MAP[id]).filter(Boolean);
           if (groupModules.length === 0) return null;
@@ -99,14 +99,14 @@ export default function GenesisSidebar({ currentModule, onSelect }: Props) {
             <div key={group.labelEn}>
               {/* Section label */}
               <div
-                className="px-4 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] select-none"
-                style={{ color: group.color, opacity: 0.7 }}
+                className="px-2.5 pb-1.5 text-[9px] font-bold uppercase tracking-[0.18em] select-none"
+                style={{ color: group.color, opacity: 0.82 }}
               >
                 {lang === 'es' ? group.labelEs : group.labelEn}
               </div>
 
               {/* Items */}
-              <div>
+              <div className="space-y-0.5">
                 {groupModules.map((m) => {
                   const Icon = ICONS[m.id];
                   const active = m.id === currentModule;
@@ -115,28 +115,33 @@ export default function GenesisSidebar({ currentModule, onSelect }: Props) {
                       key={m.id}
                       type="button"
                       onClick={() => onSelect(m.id)}
-                      className="relative w-full flex items-center gap-3 px-4 py-2 text-[13px] text-left transition-all duration-150"
+                      className="group relative w-full flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[12px] text-left transition-all duration-150"
                       style={{
-                        color: active ? '#f4f4f5' : '#71717a',
+                        color: active ? '#f4f4f5' : '#7b8190',
                         background: active
-                          ? `linear-gradient(90deg, ${group.color}1f, transparent 70%)`
+                          ? `linear-gradient(90deg, ${group.color}24, rgba(255,255,255,0.035))`
                           : 'transparent',
-                        borderLeft: active ? `2px solid ${group.color}` : '2px solid transparent',
-                        boxShadow: active ? `inset 6px 0 12px -8px ${group.color}` : undefined,
+                        boxShadow: active ? `inset 0 0 0 1px ${group.color}2e` : undefined,
                       }}
-                      onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLElement).style.color = '#d4d4d8'; }}
-                      onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLElement).style.color = '#71717a'; }}
+                      onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLElement).style.color = '#c8ced8'; }}
+                      onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLElement).style.color = '#7b8190'; }}
                     >
+                      {active && (
+                        <span
+                          className="absolute left-0 top-1/2 h-4 w-px -translate-y-1/2 rounded-full"
+                          style={{ background: group.color }}
+                        />
+                      )}
                       <Icon
                         className="shrink-0 transition-colors"
                         style={{
-                          width: 15,
-                          height: 15,
+                          width: 14,
+                          height: 14,
                           color: active ? group.color : 'currentColor',
-                          opacity: active ? 1 : 0.7,
+                          opacity: active ? 1 : 0.58,
                         }}
                       />
-                      <span className="flex-1 truncate font-medium leading-none">
+                      <span className="flex-1 truncate font-semibold leading-none tracking-[-0.01em]">
                         {t(m.navKey as TKey)}
                       </span>
                     </button>
@@ -148,7 +153,7 @@ export default function GenesisSidebar({ currentModule, onSelect }: Props) {
         })}
       </nav>
 
-      <footer className="px-4 py-2.5 border-t border-trim text-[10px] text-zinc-700 leading-snug">
+      <footer className="px-3.5 py-2.5 border-t border-[#242b3a] text-[9px] text-zinc-700 leading-snug bg-[#0f131c]">
         {t('sidebar.footer')}
       </footer>
     </aside>

@@ -3,6 +3,13 @@
 ## 2026-06-09 - Codex
 
 - Branch: `feat/genesis-life-os`
+- Summary: Pulí el sidebar principal para reducir ruido visual: active state más sobrio, navegación más compacta, headers de sección más limpios, chrome carbon consistente y scrollbar integrado. No se tocó lógica de navegación ni módulos.
+- Files touched: `src/ui/GenesisSidebar.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run typecheck` ok; `npm run build` ok; `npm test` ok; Playwright local preview ok con backend local offline esperado
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
 - Summary: Agrande el chart principal de Crypto Lab reorganizando el grid: el grafico toma el espacio restante como foco principal y los paneles inferiores quedan compactos. Tambien compacte el panel de orden manual y volvi el toggle `Trades` mas legible sin activarlo por defecto.
 - Files touched: `src/index.css`, `src/dashboard/charts/CandleChart.tsx`, `src/components/crypto/ChartStatsHeader.tsx`, `docs/CHANGELOG_AI.md`
 - Verification: `npm run typecheck` ok; `npm run build` ok; `npm test` ok; Playwright local preview ok con backend local offline esperado
