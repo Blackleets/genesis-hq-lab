@@ -107,11 +107,6 @@ export function DeskPanel({
         ) : (
           <div className="gx-scroll" style={{ height: '100%', overflowY: 'auto', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-            {/* Execution telemetry — loop status + why-no-trade */}
-            <EngineTelemetry diagnostics={diagnostics} />
-
-            <BreakoutShadowPanel shadow={breakoutShadow ?? null} es={es} />
-
             <FuturesDeskPanel
               futuresDesk={futuresDesk ?? null}
               es={es}
@@ -119,6 +114,11 @@ export function DeskPanel({
               runBusy={futuresCycleBusy}
               runStatus={futuresCycleStatus}
             />
+
+            {/* Execution telemetry — loop status + why-no-trade */}
+            <EngineTelemetry diagnostics={diagnostics} />
+
+            <BreakoutShadowPanel shadow={breakoutShadow ?? null} es={es} />
 
             <ShadowCandidatePanel shadow={shadowCandidate ?? null} es={es} />
 

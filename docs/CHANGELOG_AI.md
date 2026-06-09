@@ -663,3 +663,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Added a real per-profile futures supervisor with cooldown triggers, persisted recent futures cycle history into SQLite-backed `org_state`, and surfaced a live "today" block plus compact profile scoreboard/history in the futures desk.
 - Files touched: `server/crypto/futuresGovernor.mjs`, `server/strategies/futuresBreakoutEngine.mjs`, `server/crypto/futuresDesk.mjs`, `src/services/cryptoClient.ts`, `src/components/crypto/FuturesDeskPanel.tsx`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/crypto/futuresGovernor.mjs` ok; `node --check server/strategies/futuresBreakoutEngine.mjs` ok; `node --check server/crypto/futuresDesk.mjs` ok; `npm run build` ok; `npm run futures:once` ok; live snapshot at `2026-06-09T15:19:32.092Z` showed all 4 profiles active in `learning`, supervisor `live`, zero daily PnL since baseline, and cycle history persisted with `10` scans and `0` executions
+
+## 2026-06-09 Ã¢â‚¬â€ Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Moved the futures desk card to the top of the Crypto Lab `STATS` column so the production URL surfaces the futures controls first instead of burying them below telemetry and breakout diagnostics.
+- Files touched: `src/components/crypto/DeskPanel.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run build` ok; browser verification on `https://genesis-hq-lab.vercel.app/` confirmed `DESK DE FUTUROS` is present inside `Crypto Lab -> STATS`
