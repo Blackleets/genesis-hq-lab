@@ -28,6 +28,16 @@ services:
         sync: false
       - key: DB_MODE
         value: hybrid
+      - key: FUTURES_ONLY_MODE
+        value: "true"
+      - key: LEGACY_CRYPTO_LOOP_ENABLED
+        value: "false"
+      - key: SCALP_ENGINE_ENABLED
+        value: "false"
+      - key: FUTURES_BREAKOUT_TP_PCT
+        value: "0.12"
+      - key: FUTURES_BREAKOUT_SL_PCT
+        value: "0.03"
       # Optimizer footprint tuned for the 512MB free tier (smaller window, less often).
       - key: OPTIMIZER_DAYS
         value: "14"

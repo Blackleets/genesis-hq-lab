@@ -705,3 +705,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Made `Crypto Lab` futures-first end-to-end: the desk now hides legacy scalp telemetry panels when futures profiles are active, strips `SCALPING PAUSED` commentary from the live ticker/feed, and sets backend defaults toward futures-only operation with fee-aware futures breakout targets.
 - Files touched: `.env.example`, `server/agentRunner.mjs`, `src/components/crypto/DeskPanel.tsx`, `src/workflows/CryptoLabView.tsx`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/agentRunner.mjs` ok; `npm run build` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Hardened durable production boot by making the Supabase replicator add missing Postgres columns on startup instead of assuming a fresh schema, which fixes the live `trades.instrument_type` replication failure. Also pinned the Render blueprint env to futures-only mode with explicit TP/SL so production stops drifting back into mixed legacy crypto behavior.
+- Files touched: `server/persistence/dbReplicator.mjs`, `render.yaml`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/persistence/dbReplicator.mjs` ok; `npm run build` ok
