@@ -775,3 +775,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Made the visible status layer futures-first in production: `/api/health` now reports futures open-count and futures capital in `FUTURES_ONLY_MODE`, `useLiveTrading` switches to the futures desk as the source of visible capital/margin/open metrics, and the top/tech status bars now label and render those values accordingly instead of mixing in the legacy treasury view.
 - Files touched: `server/index.mjs`, `src/services/agentClient.ts`, `src/dashboard/hooks/useLiveTrading.ts`, `src/ui/TopBar.tsx`, `src/ui/TechView.tsx`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/index.mjs` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Removed the remaining global-treasury line from the futures desk UI and added a futures break-even stop ratchet in the position monitor, so open futures trades can lock risk back to entry-plus-buffer once they have covered enough of the path toward TP.
+- Files touched: `src/components/crypto/FuturesDeskPanel.tsx`, `server/trading/positionMonitor.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/trading/positionMonitor.mjs` ok; `npm run build` ok

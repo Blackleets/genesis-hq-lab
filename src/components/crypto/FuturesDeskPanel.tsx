@@ -251,12 +251,6 @@ export function FuturesDeskPanel({
         </div>
       </div>
 
-      <div className="mt-2 font-mono text-[9px] text-zinc-600">
-        {es
-          ? `Tesoro global: libre ${usd(treasury.available)} / reservado ${usd(treasury.inTrades)}`
-          : `Global treasury: free ${usd(treasury.available)} / reserved ${usd(treasury.inTrades)}`}
-      </div>
-
       <div className="mt-3 grid grid-cols-2 gap-2">
         <div className="rounded bg-[#151206] px-2 py-1.5">
           <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'pnl hoy' : 'today pnl'}</div>

@@ -22,10 +22,50 @@ import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs
 import { computeEma } from '../crypto/priceFeeder.mjs';
 
 const TRADE_TYPES = ['scalp_v2', 'swing_v1', 'breakout_v1', 'crypto_futures_breakout_short_micro', 'crypto_futures_breakout_short', 'crypto_futures_breakout_short_alt', 'crypto_futures_breakout_long'];
+const FUTURES_BREAK_EVEN_TRIGGER_PCT = parseFloat(process.env.FUTURES_BREAK_EVEN_TRIGGER_PCT ?? '0.35');
+const FUTURES_BREAK_EVEN_LOCK_PCT = parseFloat(process.env.FUTURES_BREAK_EVEN_LOCK_PCT ?? '0.001');
 
 // Trade types whose edge depends on holding to TP/SL/timeout — exempt from the 1m
 // momentum-collapse check, which would close a multi-hour position on intrabar noise.
 const HOLD_TO_TARGET_TYPES = new Set(['breakout_v1', 'crypto_futures_breakout_short_micro', 'crypto_futures_breakout_short', 'crypto_futures_breakout_short_alt', 'crypto_futures_breakout_long']);
+
+function maybeTightenFuturesStop(trade, currentPrice) {
+  if (trade.instrument_type !== 'futures') return false;
+  if (trade.entry_price == null || trade.target_price == null || trade.stop_price == null) return false;
+
+  const isLong = trade.outcome === 'LONG';
+  const entry = Number(trade.entry_price);
+  const target = Number(trade.target_price);
+  const stop = Number(trade.stop_price);
+  const targetDistance = Math.abs(target - entry);
+  if (!Number.isFinite(targetDistance) || targetDistance <= 0) return false;
+
+  const favorableMove = isLong ? (currentPrice - entry) : (entry - currentPrice);
+  const progressToTarget = favorableMove / targetDistance;
+  if (!Number.isFinite(progressToTarget) || progressToTarget < FUTURES_BREAK_EVEN_TRIGGER_PCT) return false;
+
+  const breakEvenStop = isLong
+    ? entry * (1 + FUTURES_BREAK_EVEN_LOCK_PCT)
+    : entry * (1 - FUTURES_BREAK_EVEN_LOCK_PCT);
+  const shouldTighten = isLong ? breakEvenStop > stop : breakEvenStop < stop;
+  if (!shouldTighten) return false;
+
+  db.prepare(`UPDATE trades SET stop_price = ? WHERE id = ?`).run(breakEvenStop, trade.id);
+  logEvent({
+    category: CATEGORY.RISK,
+    severity: SEVERITY.INFO,
+    subsystem: trade.agent_id ?? 'position-monitor',
+    reason: `BREAK-EVEN LOCK: ${trade.asset_pair} ${trade.outcome} stop moved to ${breakEvenStop.toFixed(5)}`,
+    metadata: {
+      tradeId: trade.id,
+      fromStop: stop,
+      toStop: breakEvenStop,
+      progressToTarget: Math.round(progressToTarget * 1000) / 1000,
+    },
+  });
+  trade.stop_price = breakEvenStop;
+  return true;
+}
 
 // ── Check exit conditions for a single position ───────────────────────────────
 
@@ -139,6 +179,7 @@ export async function monitorPositions({ checkMomentum = false } = {}) {
   for (const trade of allOpen) {
     const currentPrice = priceMap[trade.asset_pair];
     if (!currentPrice) continue;
+    maybeTightenFuturesStop(trade, currentPrice);
 
     let { shouldExit, reason } = checkExitConditions(trade, currentPrice, riskBand);
 
