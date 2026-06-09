@@ -1,10 +1,14 @@
 import db from '../db/database.mjs';
 
-export const CRYPTO_TRADE_TYPES = ['crypto_scalp', 'scalp_v2', 'swing_v1'];
-export const MODERN_CRYPTO_TRADE_TYPES = ['scalp_v2', 'swing_v1'];
+export const CRYPTO_TRADE_TYPES = ['crypto_scalp', 'scalp_v2', 'swing_v1', 'breakout_v1'];
+export const MODERN_CRYPTO_TRADE_TYPES = ['scalp_v2', 'swing_v1', 'breakout_v1'];
+export const CRYPTO_FUTURES_TRADE_TYPES = ['crypto_futures_breakout_short_micro', 'crypto_futures_breakout_short', 'crypto_futures_breakout_short_alt', 'crypto_futures_breakout_long'];
+export const ALL_CRYPTO_TRADE_TYPES = [...CRYPTO_TRADE_TYPES, ...CRYPTO_FUTURES_TRADE_TYPES];
 export const CRYPTO_TRADE_TYPES_SQL = `('${CRYPTO_TRADE_TYPES.join("','")}')`;
 export const MODERN_CRYPTO_TRADE_TYPES_SQL = `('${MODERN_CRYPTO_TRADE_TYPES.join("','")}')`;
-export const PREDICTION_ONLY_SQL = `COALESCE(trade_type, 'prediction') NOT IN ${CRYPTO_TRADE_TYPES_SQL}`;
+export const CRYPTO_FUTURES_TRADE_TYPES_SQL = `('${CRYPTO_FUTURES_TRADE_TYPES.join("','")}')`;
+export const ALL_CRYPTO_TRADE_TYPES_SQL = `('${ALL_CRYPTO_TRADE_TYPES.join("','")}')`;
+export const PREDICTION_ONLY_SQL = `COALESCE(trade_type, 'prediction') NOT IN ${ALL_CRYPTO_TRADE_TYPES_SQL}`;
 
 function round2(n) {
   return n == null ? null : Math.round(n * 100) / 100;
@@ -19,11 +23,11 @@ function buildWindowClause(column, windowDays) {
 }
 
 function buildClosedWhere(windowDays = null) {
-  return `trade_type IN ${CRYPTO_TRADE_TYPES_SQL} AND status='closed' AND pnl IS NOT NULL${buildWindowClause('closed_at', windowDays)}`;
+  return `trade_type IN ${ALL_CRYPTO_TRADE_TYPES_SQL} AND status='closed' AND pnl IS NOT NULL${buildWindowClause('closed_at', windowDays)}`;
 }
 
 function buildOpenWhere() {
-  return `trade_type IN ${CRYPTO_TRADE_TYPES_SQL} AND status='open'`;
+  return `trade_type IN ${ALL_CRYPTO_TRADE_TYPES_SQL} AND status='open'`;
 }
 
 export function getClosedCryptoWhere(windowDays = null) {

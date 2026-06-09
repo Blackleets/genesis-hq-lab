@@ -57,6 +57,7 @@ migrate();
 function migrateIndexes() {
   const stmts = [
     `CREATE INDEX IF NOT EXISTS idx_trades_type_status ON trades(trade_type, status)`,
+    `CREATE INDEX IF NOT EXISTS idx_trades_instrument_status ON trades(instrument_type, status)`,
     `CREATE INDEX IF NOT EXISTS idx_trades_market_status ON trades(market_id, status)`,
     `CREATE TABLE IF NOT EXISTS price_snapshots (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

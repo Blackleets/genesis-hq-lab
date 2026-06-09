@@ -22,6 +22,7 @@ import { getFatigueState, applyFatigueToConfidence } from '../intelligence/setup
 const AGENT_ID   = 'swing-engine-1';
 const TRADE_TYPE = 'swing_v1';
 
+const ENABLED = !['0', 'false', 'no', 'off'].includes((process.env.SWING_ENGINE_ENABLED ?? 'true').toLowerCase());
 const TP_PCT = parseFloat(process.env.SWING_TP_PCT ?? '0.05');    // 5% default
 const SL_PCT = parseFloat(process.env.SWING_SL_PCT ?? '0.015');   // 1.5% default
 // Training-mode gate: 0.70 — stricter than scalp (0.65) but not the old 0.80 that
@@ -34,7 +35,7 @@ const TRAINING_MODE = ['1', 'true', 'yes'].includes((process.env.TRAINING_MODE ?
 
 /** Effective swing engine config (used by diagnostics + tuning tests). */
 export function swingConfig() {
-  return { minConfidence: MIN_CONFIDENCE, tpPct: TP_PCT, slPct: SL_PCT, maxCapital: MAX_CAPITAL_PER_TRADE, timeoutHours: TIMEOUT_HOURS };
+  return { enabled: ENABLED, minConfidence: MIN_CONFIDENCE, tpPct: TP_PCT, slPct: SL_PCT, maxCapital: MAX_CAPITAL_PER_TRADE, timeoutHours: TIMEOUT_HOURS };
 }
 
 // ── Resample 1m closes to N-minute bars ──────────────────────────────────────
@@ -141,6 +142,7 @@ export function evaluateSwingSignal(ctx) {
  */
 export async function runSwingCycle() {
   const result = { scanned: 0, qualified: 0, executed: 0, skipped: 0, blocked: false };
+  if (!ENABLED) return result;
 
   if (isGlobalSafeMode() || isSafeMode()) {
     result.blocked = true;

@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useLanguage } from '@core/i18n/languageStore';
 import {
-  loadCryptoOverview, loadTradeStories, loadCommentary, loadDiagnostics, loadShadowCandidateDiagnostics, loadBreakoutShadow,
-  type CryptoOverview, type TradeStory, type CommentaryItem, type ExecutionDiagnostics, type ShadowCandidateDiagnostics, type BreakoutShadowDiagnostics,
+  loadCryptoOverview, loadTradeStories, loadCommentary, loadDiagnostics, loadShadowCandidateDiagnostics, loadBreakoutShadow, loadFuturesDesk,
+  type CryptoOverview, type TradeStory, type CommentaryItem, type ExecutionDiagnostics, type ShadowCandidateDiagnostics, type BreakoutShadowDiagnostics, type FuturesDeskSnapshot,
 } from '@services/cryptoClient';
 import CandleChart from '@dashboard/charts/CandleChart';
 import { apiUrl } from '@services/apiBase';
@@ -31,6 +31,9 @@ export default function CryptoLabView() {
   const [diagnostics, setDiagnostics] = useState<ExecutionDiagnostics | null>(null);
   const [shadowCandidate, setShadowCandidate] = useState<ShadowCandidateDiagnostics | null>(null);
   const [breakoutShadow, setBreakoutShadow] = useState<BreakoutShadowDiagnostics | null>(null);
+  const [futuresDesk, setFuturesDesk] = useState<FuturesDeskSnapshot | null>(null);
+  const [futuresCycleBusy, setFuturesCycleBusy] = useState(false);
+  const [futuresCycleStatus, setFuturesCycleStatus] = useState<string | null>(null);
 
   const fetchOverview = useCallback(async () => {
     try {
@@ -59,17 +62,47 @@ export default function CryptoLabView() {
     const data = await loadBreakoutShadow();
     if (data) setBreakoutShadow(data);
   }, []);
+  const fetchFuturesDesk = useCallback(async () => {
+    const desk = await loadFuturesDesk();
+    if (desk) setFuturesDesk(desk);
+  }, []);
+
+  const handleRunFuturesCycle = useCallback(async () => {
+    setFuturesCycleBusy(true);
+    setFuturesCycleStatus(es ? 'Ejecutando ciclo real de futuros...' : 'Running real futures cycle...');
+    try {
+      const desk = await loadFuturesDesk(true);
+      if (desk) {
+        setFuturesDesk(desk);
+        await Promise.all([fetchOverview(), fetchTrades(), fetchDiagnostics()]);
+        const executed = desk.cycle?.executed ?? 0;
+        const qualified = desk.cycle?.qualified ?? 0;
+        setFuturesCycleStatus(
+          es
+            ? `Ciclo completado: ${executed} entradas, ${qualified} setups calificados`
+            : `Cycle completed: ${executed} entries, ${qualified} qualified setups`
+        );
+      } else {
+        setFuturesCycleStatus(es ? 'El backend no devolvio snapshot de futuros.' : 'Backend did not return futures snapshot.');
+      }
+    } catch {
+      setFuturesCycleStatus(es ? 'Fallo el ciclo manual de futuros.' : 'Manual futures cycle failed.');
+    } finally {
+      setFuturesCycleBusy(false);
+    }
+  }, [es, fetchDiagnostics, fetchOverview, fetchTrades]);
 
   useEffect(() => {
-    fetchOverview(); fetchTrades(); fetchCommentary(); fetchDiagnostics(); fetchShadowCandidate(); fetchBreakoutShadow();
+    fetchOverview(); fetchTrades(); fetchCommentary(); fetchDiagnostics(); fetchShadowCandidate(); fetchBreakoutShadow(); fetchFuturesDesk();
     const id1 = setInterval(fetchOverview, 15_000);
     const id2 = setInterval(fetchTrades, 15_000);
     const id3 = setInterval(fetchCommentary, 5_000);
     const id4 = setInterval(fetchDiagnostics, 10_000);
     const id5 = setInterval(fetchShadowCandidate, 10_000);
     const id6 = setInterval(fetchBreakoutShadow, 60_000); // 4h strategy — 1 min refresh is plenty
-    return () => { clearInterval(id1); clearInterval(id2); clearInterval(id3); clearInterval(id4); clearInterval(id5); clearInterval(id6); };
-  }, [fetchOverview, fetchTrades, fetchCommentary, fetchDiagnostics, fetchShadowCandidate, fetchBreakoutShadow]);
+    const id7 = setInterval(fetchFuturesDesk, 15_000);
+    return () => { clearInterval(id1); clearInterval(id2); clearInterval(id3); clearInterval(id4); clearInterval(id5); clearInterval(id6); clearInterval(id7); };
+  }, [fetchOverview, fetchTrades, fetchCommentary, fetchDiagnostics, fetchShadowCandidate, fetchBreakoutShadow, fetchFuturesDesk]);
 
   // Today's realized stats — computed from closed trades (real, no extra fetch)
   const today = useMemo(() => {
@@ -183,6 +216,10 @@ export default function CryptoLabView() {
             diagnostics={diagnostics}
             shadowCandidate={shadowCandidate}
             breakoutShadow={breakoutShadow}
+            futuresDesk={futuresDesk}
+            onRunFuturesCycle={handleRunFuturesCycle}
+            futuresCycleBusy={futuresCycleBusy}
+            futuresCycleStatus={futuresCycleStatus}
           />
         </div>
 

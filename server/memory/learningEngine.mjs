@@ -45,6 +45,59 @@ function parseJSON(text) {
   try { return JSON.parse(match[0]); } catch { return null; }
 }
 
+function deterministicLesson(trade, evidence = []) {
+  const won = (trade.pnl ?? 0) > 0;
+  const isFutures = String(trade.trade_type ?? '').startsWith('crypto_futures_');
+  const exitReason = trade.exit_reason ?? 'unknown_exit';
+  const pair = trade.asset_pair ?? trade.market_question ?? 'unknown_market';
+  const side = trade.outcome ?? 'UNKNOWN';
+  const confidence = trade.confidence ?? 0;
+
+  if (won) {
+    return {
+      lesson_text: `${pair} ${side} worked when the setup reached ${exitReason}; keep the same profile but only under matching market structure.`,
+      why_failed: 'null',
+      signal_wrong: 'null',
+      what_change: 'null',
+      new_rule: isFutures
+        ? `Repeat ${pair} ${side} futures entries only when the same breakout/risk structure is present.`
+        : `Repeat ${pair} ${side} only when the same signal stack is present.`,
+      category: 'pattern',
+      severity: 'info',
+    };
+  }
+
+  const category = exitReason === 'stop_loss'
+    ? 'timing'
+    : exitReason === 'timeout'
+      ? 'signal'
+      : confidence >= 0.8
+        ? 'confidence'
+        : 'pattern';
+
+  const signalWrong = evidence.find((item) => typeof item === 'string' && item.includes('REGIME'))
+    ?? evidence.find((item) => typeof item === 'string')
+    ?? exitReason;
+
+  const whatChange = exitReason === 'stop_loss'
+    ? 'Reduce aggression on this profile and require cleaner breakout structure before entry.'
+    : exitReason === 'timeout'
+      ? 'Treat this setup as weak follow-through and avoid holding the same pattern without expansion.'
+      : 'Require stronger confirmation before reusing this setup.';
+
+  return {
+    lesson_text: `${pair} ${side} failed via ${exitReason}; this pattern needs stricter gating before the next entry.`,
+    why_failed: `Closed with ${exitReason} after a losing ${isFutures ? 'futures' : 'trade'} entry.`,
+    signal_wrong: signalWrong,
+    what_change: whatChange,
+    new_rule: isFutures
+      ? `If ${pair} ${side} futures closes negative by ${exitReason}, tighten the profile until fresh winners repair the edge.`
+      : `If the setup loses by ${exitReason}, demand stronger confirmation before re-entry.`,
+    category,
+    severity: exitReason === 'stop_loss' ? 'warning' : 'info',
+  };
+}
+
 // ─── Analyze a closed trade and extract a lesson ─────────────────────────────
 
 export async function analyzeClosedTrade(trade) {
@@ -85,8 +138,14 @@ Respond with this exact JSON:
 }`;
 
   try {
-    const raw = await ask(systemPrompt, userPrompt);
-    const parsed = parseJSON(raw);
+    let parsed = null;
+    if (process.env.ANTHROPIC_API_KEY) {
+      const raw = await ask(systemPrompt, userPrompt);
+      parsed = parseJSON(raw);
+    } else {
+      parsed = deterministicLesson(trade, evidence);
+    }
+    if (!parsed?.lesson_text) parsed = deterministicLesson(trade, evidence);
     if (!parsed?.lesson_text) return null;
 
     const id = `lesson-${nanoid()}`;
@@ -142,8 +201,36 @@ Respond with this exact JSON:
     console.log(`[learningEngine] Lesson: ${parsed.lesson_text}`);
     return { id, ...parsed };
   } catch (err) {
-    console.error('[learningEngine] analyzeClosedTrade error:', err.message);
-    return null;
+    try {
+      const parsed = deterministicLesson(trade, evidence);
+      const id = `lesson-${nanoid()}`;
+      const tradeId = trade.id;
+      const agentId = trade.agent_id ?? trade.agentId ?? 'market-agent-1';
+      tx(() => {
+        db.prepare(`
+          INSERT INTO lessons
+            (id, trade_id, agent_id, source_type, why_failed, signal_wrong, what_change,
+             new_rule, lesson_text, category, severity, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        `).run(
+          id, tradeId, agentId,
+          won ? 'trade_win' : 'trade_loss',
+          parsed.why_failed === 'null' ? null : parsed.why_failed,
+          parsed.signal_wrong === 'null' ? null : parsed.signal_wrong,
+          parsed.what_change === 'null' ? null : parsed.what_change,
+          parsed.new_rule,
+          parsed.lesson_text,
+          parsed.category,
+          parsed.severity ?? (won ? 'info' : 'warning'),
+        );
+        db.prepare('UPDATE trades SET lesson_id = ? WHERE id = ?').run(id, tradeId);
+      });
+      console.warn('[learningEngine] Claude unavailable, used deterministic lesson fallback');
+      return { id, ...parsed, fallback: true };
+    } catch {
+      console.error('[learningEngine] analyzeClosedTrade error:', err.message);
+      return null;
+    }
   }
 }
 

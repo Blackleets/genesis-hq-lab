@@ -71,6 +71,195 @@ export async function loadCryptoOverview(): Promise<CryptoOverview> {
   return res.json() as Promise<CryptoOverview>;
 }
 
+export interface FuturesDeskConfig {
+  breakoutPeriod: number;
+  regimeSmaPeriod: number;
+  tpPct: number;
+  slPct: number;
+  timeoutHours: number;
+  maxMargin: number;
+  leverage: number;
+  governor: {
+    windowDays: number;
+    degradeMinSamples: number;
+    pauseMinSamples: number;
+    evaluatedAt: string;
+    profiles: Array<{
+      id: string;
+      tradeType: string;
+      trades: number;
+      wins: number;
+      winRate: number | null;
+      totalPnl: number;
+      avgPnl: number;
+      expectancy: number;
+      profitFactor: number | null;
+      maxDrawdown: number;
+      rankScore: number;
+      mode: 'learning' | 'degraded' | 'paused' | 'active';
+      capitalMultiplier: number;
+      leverageMultiplier: number;
+      reason: string;
+    }>;
+  };
+  profiles: Array<{
+    id: string;
+    enabled: boolean;
+    agentId: string;
+    tradeType: string;
+    tier: string;
+    interval: string;
+    maxMargin: number;
+    timeoutHours: number;
+    pairs: string[];
+  }>;
+}
+
+export interface FuturesDeskBaseline {
+  baselineAt: string;
+  resetBy?: string | null;
+  note?: string | null;
+}
+
+export interface FuturesDeskTreasury {
+  total: number;
+  available: number;
+  inTrades: number;
+  unrealizedPnl: number;
+  netWorth: number;
+  drawdownPct: number | null;
+  isPaused: boolean;
+}
+
+export interface FuturesDeskPosition {
+  id: string;
+  tradeType: string;
+  agentId: string | null;
+  pair: string;
+  side: 'LONG' | 'SHORT';
+  openedAt: string;
+  entryPrice: number | null;
+  markPrice: number | null;
+  grossMarkPnlApproxUsd: number | null;
+  capitalUsed: number | null;
+  notionalUsd: number | null;
+  leverage: number | null;
+  targetPrice: number | null;
+  stopPrice: number | null;
+  liquidationPrice: number | null;
+}
+
+export interface FuturesDeskSummaryRow {
+  tradeType: string;
+  closedTrades: number;
+  wins: number;
+  winRate: number | null;
+  totalPnl: number;
+  avgPnl: number;
+}
+
+export interface FuturesDeskEntry {
+  id: string;
+  tradeType: string;
+  agentId: string | null;
+  pair: string;
+  side: 'LONG' | 'SHORT';
+  entryPrice: number | null;
+  capitalUsed: number | null;
+  leverage: number | null;
+  openedAt: string;
+  reason: string | null;
+}
+
+export interface FuturesDeskEquityPoint {
+  ts: string;
+  tradeId: string;
+  pair: string;
+  pnl: number;
+  equity: number;
+}
+
+export interface FuturesDeskLifecycleEvent {
+  id: string;
+  tradeType: string;
+  pair: string;
+  side: 'LONG' | 'SHORT';
+  event: 'opened' | 'closed';
+  eventAt: string;
+  pnl: number | null;
+  reason: string | null;
+  status: string;
+}
+
+export interface FuturesDeskCycleResult {
+  scanned: number;
+  qualified: number;
+  executed: number;
+  skipped: number;
+  blocked: boolean;
+  startedAt?: string;
+  completedAt?: string;
+  profiles: Array<{
+    profile: string;
+    scanned: number;
+    qualified: number;
+    executed: number;
+    skipped: number;
+    blocked: boolean;
+    blockReason: string | null;
+    pairResults: Array<{
+      pair: string;
+      status: 'blocked' | 'skipped' | 'executed';
+      reason: string;
+      detail: string;
+      side?: 'LONG' | 'SHORT';
+      price?: number;
+    }>;
+  }>;
+}
+
+export interface FuturesGovernorJournalEntry {
+  profileId: string;
+  tradeType: string;
+  mode: 'learning' | 'degraded' | 'paused' | 'active';
+  reason: string;
+  trades: number;
+  winRate: number | null;
+  totalPnl: number;
+  capitalMultiplier: number;
+  leverageMultiplier: number;
+  at: string;
+}
+
+export interface FuturesDeskSnapshot {
+  ok?: boolean;
+  mode: 'status' | 'run';
+  generatedAt: string;
+  config: FuturesDeskConfig;
+  cycle: FuturesDeskCycleResult | null;
+  governorJournal: FuturesGovernorJournalEntry[];
+  baseline: FuturesDeskBaseline | null;
+  treasury: FuturesDeskTreasury;
+  openPositions: FuturesDeskPosition[];
+  closedSummary: FuturesDeskSummaryRow[];
+  equityCurve: FuturesDeskEquityPoint[];
+  recentLifecycle: FuturesDeskLifecycleEvent[];
+  recentEntries: FuturesDeskEntry[];
+}
+
+export async function loadFuturesDesk(runCycle = false): Promise<FuturesDeskSnapshot | null> {
+  try {
+    const query = runCycle ? '?run=1' : '';
+    const res = await fetch(apiUrl(`/api/crypto/futures-desk${query}`), {
+      signal: AbortSignal.timeout(5000),
+      headers: { accept: 'application/json' },
+    });
+    if (!res.ok) return null;
+    const data = await res.json() as { ok: boolean } & FuturesDeskSnapshot;
+    return data.ok ? data : null;
+  } catch { return null; }
+}
+
 // ─── AI Commentary ────────────────────────────────────────────────────────────
 
 export interface CommentaryItem {

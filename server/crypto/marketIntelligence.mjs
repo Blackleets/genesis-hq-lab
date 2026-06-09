@@ -7,7 +7,7 @@ import { getGlobalRiskDiagnostics } from '../risk/globalRiskEngine.mjs';
 import { getConfidenceDiagnostics } from '../intelligence/confidenceEngine.mjs';
 import { getTimeline } from '../observability/eventTimeline.mjs';
 import { getOrderFlowState } from './liquidityMatrix.mjs';
-import { CRYPTO_TRADE_TYPES_SQL } from './cryptoTradeUniverse.mjs';
+import { ALL_CRYPTO_TRADE_TYPES_SQL } from './cryptoTradeUniverse.mjs';
 
 // ── Market Intelligence ────────────────────────────────────────────────────────
 
@@ -38,7 +38,7 @@ export function getMarketIntelligence() {
       return db.prepare(`
         SELECT outcome, pnl, opened_at
         FROM trades
-        WHERE trade_type IN ${CRYPTO_TRADE_TYPES_SQL}
+        WHERE trade_type IN ${ALL_CRYPTO_TRADE_TYPES_SQL}
         AND opened_at > datetime('now', '-3 hours')
         ORDER BY opened_at DESC LIMIT 20
       `).all();
@@ -62,7 +62,7 @@ export function getMarketIntelligence() {
     try {
       return db.prepare(`
         SELECT pnl FROM trades
-        WHERE trade_type IN ${CRYPTO_TRADE_TYPES_SQL}
+        WHERE trade_type IN ${ALL_CRYPTO_TRADE_TYPES_SQL}
         AND status = 'closed'
         AND closed_at > datetime('now', '-6 hours')
         ORDER BY closed_at DESC LIMIT 10
@@ -139,7 +139,7 @@ export function getRegimeBiasPerformance() {
     const rows = db.prepare(`
       SELECT outcome AS side, pnl, evidence
       FROM trades
-      WHERE trade_type IN ${CRYPTO_TRADE_TYPES_SQL} AND status='closed'
+      WHERE trade_type IN ${ALL_CRYPTO_TRADE_TYPES_SQL} AND status='closed'
     `).all();
 
     const groups = {};
@@ -193,7 +193,7 @@ export function getCryptoFeedEvents(limit = 60) {
         SELECT id, asset_pair, outcome, entry_price, exit_price, pnl,
                exit_reason, opened_at, closed_at, status, confidence, trade_type
         FROM trades
-        WHERE trade_type IN ${CRYPTO_TRADE_TYPES_SQL}
+        WHERE trade_type IN ${ALL_CRYPTO_TRADE_TYPES_SQL}
         AND (
           opened_at > datetime('now', '-24 hours')
           OR closed_at > datetime('now', '-24 hours')
@@ -207,7 +207,19 @@ export function getCryptoFeedEvents(limit = 60) {
   const tradeEvents = [];
   for (const t of recentTrades) {
     const pair   = (t.asset_pair ?? 'UNKNOWN').replace('USDT', '');
-    const engine = t.trade_type === 'swing_v1' ? 'SWING' : 'SCALP';
+    const engine = t.trade_type === 'swing_v1'
+      ? 'SWING'
+      : t.trade_type === 'breakout_v1'
+        ? 'BREAKOUT'
+        : t.trade_type === 'crypto_futures_breakout_short_micro'
+          ? 'FUTURES MICRO'
+        : t.trade_type === 'crypto_futures_breakout_short'
+          ? 'FUTURES SHORT'
+          : t.trade_type === 'crypto_futures_breakout_short_alt'
+            ? 'FUTURES SHORT ALT'
+          : t.trade_type === 'crypto_futures_breakout_long'
+            ? 'FUTURES LONG'
+            : 'SCALP';
     const conf   = ((t.confidence ?? 0) * 100).toFixed(0);
 
     if (t.status === 'open') {

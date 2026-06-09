@@ -44,6 +44,7 @@ const TRADE_TYPE  = 'scalp_v2';
 // TP/SL from env or defaults
 const TP_PCT = parseFloat(process.env.SCALP_TP_PCT ?? '0.004');   // 0.4% default
 const SL_PCT = parseFloat(process.env.SCALP_SL_PCT ?? '0.002');   // 0.2% default
+const ENABLED = !['0', 'false', 'no', 'off'].includes((process.env.SCALP_ENGINE_ENABLED ?? 'true').toLowerCase());
 // Training-mode gate: 0.65 matches the engine's confidence FLOOR (evaluateScalpSignal
 // returns 0.65 at the minimum qualifying score). A higher gate would reject every
 // borderline-but-valid signal and starve training. See trainingTuning.test.mjs.
@@ -57,6 +58,7 @@ let _lastEdgePauseLogAt = 0;
 /** Effective scalp engine config (used by diagnostics + tuning tests). */
 export function scalpConfig() {
   return {
+    enabled: ENABLED,
     minConfidence: MIN_CONFIDENCE,
     tpPct: TP_PCT,
     slPct: SL_PCT,
@@ -261,6 +263,7 @@ export function evaluateScalpSignal(ctx) {
  */
 export async function runScalpingCycle() {
   const result = { scanned: 0, qualified: 0, executed: 0, skipped: 0, blocked: false };
+  if (!ENABLED) return result;
 
   // Safety gates
   if (isGlobalSafeMode() || isSafeMode()) {

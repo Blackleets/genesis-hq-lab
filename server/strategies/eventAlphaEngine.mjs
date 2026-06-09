@@ -34,6 +34,7 @@ import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs
 import { isDeptActive } from '../command/orgState.mjs';
 
 const AGENT_ID = 'event-alpha-1';
+const ENABLED = !['0', 'false', 'no', 'off'].includes((process.env.EVENT_ALPHA_ENABLED ?? 'true').toLowerCase());
 
 // Training-mode gates: 4% EV is a realistic positive edge for prediction markets
 // (8% rejected nearly everything); genesisProb ≥ 0.62 still requires the model to
@@ -46,7 +47,7 @@ const TRAINING_MODE = ['1', 'true', 'yes'].includes((process.env.TRAINING_MODE ?
 
 /** Effective event-alpha engine config (used by diagnostics + tuning tests). */
 export function eventConfig() {
-  return { evThreshold: EV_THRESHOLD, minConfidence: MIN_CONFIDENCE, maxTradesPerCycle: MAX_TRADES_PER_CYCLE };
+  return { enabled: ENABLED, evThreshold: EV_THRESHOLD, minConfidence: MIN_CONFIDENCE, maxTradesPerCycle: MAX_TRADES_PER_CYCLE };
 }
 
 // ── EV calculation ────────────────────────────────────────────────────────────
@@ -80,6 +81,7 @@ export function computeEdge(genesisProb, marketProb) {
  */
 export async function runEventAlphaCycle() {
   const result = { scanned: 0, qualified: 0, evPositive: 0, executed: 0, rejected: 0, blocked: false };
+  if (!ENABLED) return result;
 
   // Safety gates
   if (isGlobalSafeMode() || isSafeMode()) {

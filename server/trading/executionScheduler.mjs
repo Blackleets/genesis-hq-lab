@@ -23,6 +23,7 @@
 import { runScalpingCycle } from '../strategies/scalpingEngine.mjs';
 import { runSwingCycle } from '../strategies/swingEngine.mjs';
 import { runBreakoutCycle } from '../strategies/breakoutEngine.mjs';
+import { runFuturesBreakoutCycle } from '../strategies/futuresBreakoutEngine.mjs';
 import { runEventAlphaCycle } from '../strategies/eventAlphaEngine.mjs';
 import { monitorPositions, getTrainingMetrics } from './positionMonitor.mjs';
 import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs';
@@ -209,6 +210,15 @@ async function runSlow() {
       if (bk.executed > 0) console.log(`[scheduler] SLOW: breakout executed=${bk.executed}`);
     } catch (err) {
       console.error('[scheduler] breakout cycle error:', err.message);
+    }
+
+    try {
+      const futures = await runFuturesBreakoutCycle();
+      if (futures.executed > 0 || futures.qualified > 0) {
+        console.log(`[scheduler] SLOW: futures scanned=${futures.scanned} qualified=${futures.qualified} executed=${futures.executed}`);
+      }
+    } catch (err) {
+      console.error('[scheduler] futures breakout cycle error:', err.message);
     }
 
     if (TRAINING_MODE) {

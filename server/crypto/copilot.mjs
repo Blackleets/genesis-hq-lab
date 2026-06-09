@@ -17,7 +17,7 @@ import {
   getCryptoRiskConfig, exceedsDailyCap, isAssetInCooldown, dailyCryptoRealizedPnl,
 } from './cryptoRisk.mjs';
 import db from '../db/database.mjs';
-import { CRYPTO_TRADE_TYPES_SQL } from './cryptoTradeUniverse.mjs';
+import { ALL_CRYPTO_TRADE_TYPES_SQL } from './cryptoTradeUniverse.mjs';
 
 const BINANCE = process.env.BINANCE_BASE || 'https://data-api.binance.vision/api/v3';
 const NOTIONAL = 100;  // paper position size used for EV in dollars
@@ -125,7 +125,7 @@ function recentCryptoWinRate() {
   try {
     const rows = db.prepare(`
       SELECT pnl FROM trades
-      WHERE trade_type IN ('crypto_scalp','scalp_v2','swing_v1') AND status='closed'
+      WHERE trade_type IN ${ALL_CRYPTO_TRADE_TYPES_SQL} AND status='closed'
       ORDER BY closed_at DESC LIMIT 20
     `).all();
     if (rows.length < 5) return null;
@@ -153,7 +153,7 @@ export function assertTradeAllowed({ pair }) {
     if (pair) {
       const last = db.prepare(`
         SELECT pnl, closed_at FROM trades
-        WHERE trade_type IN ${CRYPTO_TRADE_TYPES_SQL} AND status='closed' AND asset_pair=?
+        WHERE trade_type IN ${ALL_CRYPTO_TRADE_TYPES_SQL} AND status='closed' AND asset_pair=?
         ORDER BY closed_at DESC LIMIT 1
       `).get(pair);
       if (isAssetInCooldown(last, Date.now(), cfg.cooldownMin)) {

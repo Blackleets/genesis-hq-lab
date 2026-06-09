@@ -353,6 +353,15 @@ ALTER TABLE trades ADD COLUMN exit_reason  TEXT;
 
 -- 24h quote volume at entry — lets us model realistic exit slippage on close.
 ALTER TABLE trades ADD COLUMN entry_volume24h REAL;
+ALTER TABLE trades ADD COLUMN instrument_type TEXT DEFAULT 'spot';
+ALTER TABLE trades ADD COLUMN exchange TEXT;
+ALTER TABLE trades ADD COLUMN margin_mode TEXT DEFAULT 'cash';
+ALTER TABLE trades ADD COLUMN leverage REAL DEFAULT 1;
+ALTER TABLE trades ADD COLUMN notional_usd REAL;
+ALTER TABLE trades ADD COLUMN funding_rate REAL DEFAULT 0;
+ALTER TABLE trades ADD COLUMN funding_paid REAL DEFAULT 0;
+ALTER TABLE trades ADD COLUMN liquidation_price REAL;
+ALTER TABLE trades ADD COLUMN maintenance_margin REAL;
 
 -- ─── ORG STATE — persists org mode, departments, focus, goal across restarts ────
 CREATE TABLE IF NOT EXISTS org_state (

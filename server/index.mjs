@@ -76,6 +76,7 @@ import { getBreakoutShadowDiagnostics }                 from './crypto/breakoutS
 import { getCommentary }                                  from './ai/commentaryEngine.mjs';
 import { getTradeStories }                                from './crypto/tradeHistory.mjs';
 import { analyzeTrade, assertTradeAllowed }               from './crypto/copilot.mjs';
+import { getFuturesDeskSnapshot }                         from './crypto/futuresDesk.mjs';
 import { scalpConfig, getLastScanSnapshot }               from './strategies/scalpingEngine.mjs';
 import { getAutopsy }                                     from './crypto/autoVeto.mjs';
 import { getFatigueIntelligenceSummary }                  from './intelligence/setupFatigue.mjs';
@@ -516,6 +517,15 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === '/api/crypto/futures-desk') {
+    try {
+      const runCycle = ['1', 'true', 'yes', 'on'].includes((url.searchParams.get('run') ?? '').toLowerCase());
+      const snapshot = await getFuturesDeskSnapshot({ runCycle });
+      sendJson(res, 200, { ok: true, ...snapshot });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
   // GET /api/crypto/candles?pair=BTCUSDT&interval=1h&limit=120
   if (url.pathname === '/api/crypto/candles') {
     try {
@@ -706,12 +716,25 @@ const server = createServer(async (req, res) => {
           const t = sched.training;
           // Best engine: highest win rate among engines with ≥3 closed trades
           let bestEngine = null, bestRate = -1;
-          const ENGINE_LABEL = { scalp_v2: 'SCALP', swing_v1: 'SWING', 'event-alpha': 'EVENT' };
+          const ENGINE_LABEL = {
+            scalp_v2: 'SCALP',
+            swing_v1: 'SWING',
+            breakout_v1: 'BREAKOUT',
+            crypto_futures_breakout_short_micro: 'FUTURES MICRO',
+            crypto_futures_breakout_short: 'FUTURES SHORT',
+            crypto_futures_breakout_short_alt: 'FUTURES SHORT ALT',
+            crypto_futures_breakout_long: 'FUTURES LONG',
+            'event-alpha': 'EVENT',
+          };
           for (const e of (t?.byType ?? [])) {
             if (e.trades >= 3 && (e.winRate ?? 0) > bestRate) { bestRate = e.winRate ?? 0; bestEngine = ENGINE_LABEL[e.tradeType] ?? e.tradeType; }
           }
           // Training day: days since the first crypto trade (1–30 window)
-          const first = db.prepare(`SELECT MIN(opened_at) m FROM trades WHERE trade_type IN ('crypto_scalp','scalp_v2','swing_v1')`).get()?.m;
+          const first = db.prepare(`
+            SELECT MIN(opened_at) m
+            FROM trades
+            WHERE trade_type IN ('crypto_scalp','scalp_v2','swing_v1','breakout_v1','crypto_futures_breakout_short_micro','crypto_futures_breakout_short','crypto_futures_breakout_short_alt','crypto_futures_breakout_long')
+          `).get()?.m;
           const trainingDay = first
             ? Math.min(30, Math.max(1, Math.ceil((Date.now() - new Date(first).getTime()) / 86_400_000)))
             : 1;

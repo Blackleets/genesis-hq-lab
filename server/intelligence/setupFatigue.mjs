@@ -7,6 +7,7 @@
 // If this module throws, callers receive NEUTRAL state and trading continues.
 
 import db from '../db/database.mjs';
+import { ALL_CRYPTO_TRADE_TYPES_SQL } from '../crypto/cryptoTradeUniverse.mjs';
 import {
   computeSetupFatigue, applyFatigueToConfidence,
   getHealthBand, getBandModifiers,
@@ -33,7 +34,7 @@ function refreshCache() {
     rows = db.prepare(`
       SELECT outcome AS side, asset_pair AS pair, pnl, confidence, evidence
       FROM trades
-      WHERE trade_type IN ('crypto_scalp','scalp_v2','swing_v1')
+      WHERE trade_type IN ${ALL_CRYPTO_TRADE_TYPES_SQL}
         AND status = 'closed' AND pnl IS NOT NULL
         AND closed_at > datetime('now', ?)
       ORDER BY closed_at DESC
