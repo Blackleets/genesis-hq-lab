@@ -142,9 +142,9 @@
 .crypto-terminal-grid {
   flex: 1;
   display: grid;
-  grid-template-columns: 240px 1fr 220px;
-  grid-template-rows: 1.7fr 0.9fr;
-  gap: 4px;
+  grid-template-columns: 236px minmax(0, 1fr) 220px;
+  grid-template-rows: minmax(0, 1fr) clamp(150px, 20vh, 188px);
+  gap: 3px;
   padding: 4px;
   overflow: hidden;
   min-height: 0;
@@ -176,6 +176,33 @@
   grid-row: 2;
   min-height: 0;
   overflow: hidden;
+}
+
+@media (max-width: 1180px) {
+  .crypto-terminal-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(420px, 1fr) 150px 170px 150px;
+  }
+
+  .crypto-zone-chart {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .crypto-zone-commentary {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .crypto-zone-desk {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .crypto-zone-intel {
+    grid-column: 1;
+    grid-row: 4;
+  }
 }
 
 /* ── Operator visibility layer — subtle motion (premium, GPU-cheap) ───────── */

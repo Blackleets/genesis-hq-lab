@@ -3,6 +3,13 @@
 ## 2026-06-09 - Codex
 
 - Branch: `feat/genesis-life-os`
+- Summary: Agrande el chart principal de Crypto Lab reorganizando el grid: el grafico toma el espacio restante como foco principal y los paneles inferiores quedan compactos. Tambien compacte el panel de orden manual y volvi el toggle `Trades` mas legible sin activarlo por defecto.
+- Files touched: `src/index.css`, `src/dashboard/charts/CandleChart.tsx`, `src/components/crypto/ChartStatsHeader.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run typecheck` ok; `npm run build` ok; `npm test` ok; Playwright local preview ok con backend local offline esperado
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
 - Summary: Limpie el chart principal de Crypto Lab ocultando los markers historicos detras de un toggle `Trades`, manteniendo visible solo el trade seleccionado cuando aplica. Esto reduce ruido visual y deja el panel mas cercano a una experiencia real tipo TradingView/DexScreener sin tocar backend ni trading.
 - Files touched: `src/dashboard/charts/CandleChart.tsx`, `src/components/crypto/ChartStatsHeader.tsx`, `docs/CHANGELOG_AI.md`
 - Verification: `npm run typecheck` ok; `npm run build` ok; `npm test` ok

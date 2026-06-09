@@ -464,7 +464,7 @@ export default function CandleChart({
       )}
 
       {/* ── Chart canvas — flex-fills the remaining card height ─────────── */}
-      <div className="relative w-full flex-1 min-h-0" style={{ minHeight: 200 }}>
+      <div className="relative w-full flex-1 min-h-0" style={{ minHeight: 260 }}>
         <div ref={wrapRef} className="absolute inset-0" />
         <div className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center">
           <div className="font-mono text-[72px] md:text-[96px] font-black tracking-[-0.08em] text-zinc-500/10 select-none">
@@ -487,7 +487,7 @@ export default function CandleChart({
 
       {/* ── Manual order panel — opens the Co-Pilot pre-trade analysis ───── */}
       {onManualOrder && (
-        <div className="border-t border-zinc-800 px-4 py-3 flex items-center gap-3 flex-wrap">
+        <div className="border-t border-zinc-800 px-4 py-2 flex items-center gap-3 flex-wrap bg-[#0b0e11]">
           <div className="flex-1 min-w-0">
             <div className="font-mono text-[12px] text-zinc-300 font-bold">{symbol}/USDT</div>
             <div className="font-mono text-[10px] text-zinc-600">$100 · paper · ◆ co-pilot asistido</div>
@@ -496,7 +496,7 @@ export default function CandleChart({
             type="button"
             onClick={() => openCopilot('LONG')}
             disabled={copilotSide !== null}
-            className="font-mono text-[13px] font-bold px-6 py-2.5 rounded
+            className="font-mono text-[12px] font-bold px-5 py-2 rounded
               bg-emerald-500 hover:bg-emerald-400 active:scale-95 disabled:opacity-50
               text-black transition-all">
             Long ▲
@@ -505,7 +505,7 @@ export default function CandleChart({
             type="button"
             onClick={() => openCopilot('SHORT')}
             disabled={copilotSide !== null}
-            className="font-mono text-[13px] font-bold px-6 py-2.5 rounded
+            className="font-mono text-[12px] font-bold px-5 py-2 rounded
               bg-rose-500 hover:bg-rose-400 active:scale-95 disabled:opacity-50
               text-white transition-all">
             Short ▼

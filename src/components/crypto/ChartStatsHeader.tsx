@@ -185,7 +185,11 @@ export function ChartStatsHeader({
         <button
           type="button"
           onClick={onToggleTrades}
-          className={`transition-opacity ${showTrades ? 'opacity-100 text-zinc-300' : 'opacity-35 text-zinc-500'}`}
+          className={`rounded border px-1.5 py-0.5 transition-colors ${
+            showTrades
+              ? 'border-zinc-500 bg-zinc-800/80 text-zinc-100'
+              : 'border-zinc-800 bg-transparent text-zinc-500 hover:text-zinc-300'
+          }`}
           aria-pressed={showTrades}
         >
           Trades
