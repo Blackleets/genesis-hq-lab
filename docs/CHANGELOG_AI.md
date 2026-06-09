@@ -761,3 +761,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Fixed `/api/health` for the futures-only runtime by falling back to the shared scheduler heartbeat when the legacy `agent_heartbeat.json` file is absent, so the production status bar can report the live futures agent instead of showing a false offline state.
 - Files touched: `server/index.mjs`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/index.mjs` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Decoupled paper futures execution from the legacy treasury by introducing a dedicated futures capital ledger derived from futures trades only, and seeded the futures agent profiles so futures entries no longer fail on `agent_profiles` foreign keys.
+- Files touched: `server/crypto/futuresCapital.mjs`, `server/crypto/futuresDesk.mjs`, `server/trading/paperExecutionEngine.mjs`, `server/db/schema.sql`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/futuresCapital.mjs` ok; `node --check server/crypto/futuresDesk.mjs` ok; `node --check server/trading/paperExecutionEngine.mjs` ok; `npm run build` ok; local paper futures open/close validation succeeded with `crypto_futures_breakout_short_micro-02d5b1c6`

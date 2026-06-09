@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { runFuturesBreakoutCycle, futuresBreakoutEngineConfig, getLastFuturesBreakoutCycle } from '../strategies/futuresBreakoutEngine.mjs';
 import { getFuturesGovernorSnapshot, syncFuturesGovernorJournal } from './futuresGovernor.mjs';
 import { getCurrentPrice } from './priceFeeder.mjs';
+import { getFuturesCapitalState } from './futuresCapital.mjs';
 import { getTreasuryAsync } from '../trading/treasury.mjs';
 
 const FUTURES_TYPES = ['crypto_futures_breakout_short_micro', 'crypto_futures_breakout_short', 'crypto_futures_breakout_short_alt', 'crypto_futures_breakout_long'];
@@ -141,23 +142,9 @@ async function buildOpenPositions() {
   }));
 }
 
-function buildFuturesCapital(openPositions, closedSummary) {
-  const reservedMargin = round2(openPositions.reduce((sum, row) => sum + (row.capitalUsed ?? 0), 0)) ?? 0;
+function buildFuturesCapital(openPositions) {
   const unrealizedPnl = round2(openPositions.reduce((sum, row) => sum + (row.grossMarkPnlApproxUsd ?? 0), 0)) ?? 0;
-  const realizedPnl = round2(closedSummary.reduce((sum, row) => sum + (row.totalPnl ?? 0), 0)) ?? 0;
-  const netPnl = round2(realizedPnl + unrealizedPnl) ?? 0;
-  const equity = round2(FUTURES_DESK_START_CAPITAL + netPnl) ?? FUTURES_DESK_START_CAPITAL;
-  const available = round2(equity - reservedMargin) ?? 0;
-  return {
-    startCapital: round2(FUTURES_DESK_START_CAPITAL),
-    reservedMargin,
-    realizedPnl,
-    unrealizedPnl,
-    netPnl,
-    equity,
-    available,
-    openPositions: openPositions.length,
-  };
+  return getFuturesCapitalState({ unrealizedPnl });
 }
 
 function buildClosedSummary(baseline) {
@@ -406,7 +393,7 @@ export async function getFuturesDeskSnapshot({ runCycle = false } = {}) {
     equity: round2(FUTURES_DESK_START_CAPITAL),
     available: round2(FUTURES_DESK_START_CAPITAL),
     openPositions: 0,
-  }, () => buildFuturesCapital(openPositions, closedSummary));
+  }, () => buildFuturesCapital(openPositions));
   const equityCurve = captureSection(warnings, 'equityCurve', [], () => buildEquityCurve(baseline));
   const recentLifecycle = captureSection(warnings, 'recentLifecycle', [], () => buildRecentLifecycle(baseline));
   const today = captureSection(warnings, 'today', {

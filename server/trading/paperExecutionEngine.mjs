@@ -12,6 +12,7 @@ import { isSafeMode } from '../memory/reconciliationEngine.mjs';
 import { reserveCapital, settleTradeCapital } from './treasury.mjs';
 import { closeCryptoTrade } from '../crypto/cryptoExecution.mjs';
 import { computeCryptoTargets } from '../crypto/cryptoMath.mjs';
+import { reserveFuturesCapital } from '../crypto/futuresCapital.mjs';
 import {
   cryptoSlippagePct,
   cryptoFuturesSlippagePct,
@@ -96,7 +97,9 @@ export async function openCryptoPosition(opts) {
   const filledCapital = applyPartialFill(capitalUsed);
 
   // ── Reserve capital ──
-  const reservation = reserveCapital(filledCapital);
+  const reservation = instrumentType === 'futures'
+    ? reserveFuturesCapital(filledCapital)
+    : reserveCapital(filledCapital);
   if (!reservation.ok) {
     return { executed: false, reason: reservation.reason };
   }
@@ -237,7 +240,9 @@ export async function closeCryptoPosition(tradeId, currentPrice, exitReason, age
   const closedTrade = closeCryptoTrade(tradeId, currentPrice, exitReason);
   if (!closedTrade) return null;
 
-  settleTradeCapital(trade.capital_used, closedTrade.pnl ?? 0);
+  if (trade.instrument_type !== 'futures') {
+    settleTradeCapital(trade.capital_used, closedTrade.pnl ?? 0);
+  }
 
   const won = (closedTrade.pnl ?? 0) > 0;
   const exitLabel = {

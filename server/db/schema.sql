@@ -329,7 +329,11 @@ VALUES
   ('scalping-engine-1', 'Scalping Engine',   'trader', 'crypto_scalping',    1, datetime('now')),
   ('swing-engine-1',    'Swing Engine',      'trader', 'crypto_scalping',    1, datetime('now')),
   ('breakout-engine-1', 'Breakout Engine',   'trader', 'crypto_scalping',    1, datetime('now')),
-  ('event-alpha-1',     'Event Alpha Engine','trader', 'prediction_markets', 1, datetime('now'));
+  ('event-alpha-1',     'Event Alpha Engine','trader', 'prediction_markets', 1, datetime('now')),
+  ('futures-breakout-short-0', 'Futures Breakout Micro', 'trader', 'crypto_futures', 1, datetime('now')),
+  ('futures-breakout-short-1', 'Futures Breakout Core',  'trader', 'crypto_futures', 1, datetime('now')),
+  ('futures-breakout-short-2', 'Futures Breakout Alt',   'trader', 'crypto_futures', 1, datetime('now')),
+  ('futures-breakout-long-1',  'Futures Breakout Long',  'trader', 'crypto_futures', 1, datetime('now'));
 
 -- Seed initial operating rules from Constitution
 INSERT OR IGNORE INTO operating_rules (id, rule_text, rule_type, scope, priority, source, created_at)
