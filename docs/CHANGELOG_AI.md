@@ -740,3 +740,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Split the futures desk capital view from the global treasury so the panel reports futures-only reserved margin, available capital, equity, and PnL instead of inheriting stale legacy reservations from unrelated open trades. Kept the global treasury visible as secondary context so mismatches are explicit instead of silent.
 - Files touched: `server/crypto/futuresDesk.mjs`, `server/index.mjs`, `src/components/crypto/FuturesDeskPanel.tsx`, `src/services/cryptoClient.ts`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/crypto/futuresDesk.mjs` ok; `node --check server/index.mjs` ok; `npm run build` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Recalibrated the futures breakout geometry per timeframe instead of forcing one 55-bar channel everywhere: `short_micro` now uses 20 bars, `short_alt` 12, `short_core` 34, and `long_probe` stays at 55. Added explicit channel-distance diagnostics to skipped `inside_channel` results so the operator can see how far each pair is from a real breakout trigger.
+- Files touched: `.env.example`, `render.yaml`, `server/strategies/futuresBreakoutEngine.mjs`, `src/components/crypto/FuturesDeskPanel.tsx`, `src/services/cryptoClient.ts`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/strategies/futuresBreakoutEngine.mjs` ok; `npm run build` ok; live probe showed `15m` short setups can now qualify with the tighter period while `5m/1h/4h` still respect current market structure.

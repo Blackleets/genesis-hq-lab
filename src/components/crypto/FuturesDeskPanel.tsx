@@ -287,7 +287,7 @@ export function FuturesDeskPanel({
               background: profile.enabled ? '#052e16' : '#111827',
             }}
           >
-            {profile.id} [{profile.tier}/{profile.interval}]: {profile.enabled ? 'on' : 'off'}
+            {profile.id} [{profile.tier}/{profile.interval}/p{profile.breakoutPeriod}]: {profile.enabled ? 'on' : 'off'}
           </span>
         ))}
       </div>

@@ -40,6 +40,10 @@ const SHORT_MICRO_MARGIN = parseFloat(process.env.FUTURES_BREAKOUT_SHORT_MICRO_M
 const SHORT_CORE_MARGIN = parseFloat(process.env.FUTURES_BREAKOUT_SHORT_CORE_MARGIN ?? String(MAX_MARGIN));
 const SHORT_ALT_MARGIN = parseFloat(process.env.FUTURES_BREAKOUT_SHORT_ALT_MARGIN ?? '200');
 const LONG_PROBE_MARGIN = parseFloat(process.env.FUTURES_BREAKOUT_LONG_PROBE_MARGIN ?? '220');
+const SHORT_MICRO_BREAKOUT_PERIOD = parseInt(process.env.FUTURES_BREAKOUT_SHORT_MICRO_PERIOD ?? '20', 10);
+const SHORT_CORE_BREAKOUT_PERIOD = parseInt(process.env.FUTURES_BREAKOUT_SHORT_CORE_PERIOD ?? '34', 10);
+const SHORT_ALT_BREAKOUT_PERIOD = parseInt(process.env.FUTURES_BREAKOUT_SHORT_ALT_PERIOD ?? '12', 10);
+const LONG_PROBE_BREAKOUT_PERIOD = parseInt(process.env.FUTURES_BREAKOUT_LONG_PROBE_PERIOD ?? String(BREAKOUT_PERIOD), 10);
 const SHORT_MICRO_LEVERAGE = parseFloat(process.env.FUTURES_BREAKOUT_SHORT_MICRO_LEVERAGE ?? '3');
 const SHORT_CORE_LEVERAGE = parseFloat(process.env.FUTURES_BREAKOUT_SHORT_CORE_LEVERAGE ?? '4');
 const SHORT_ALT_LEVERAGE = parseFloat(process.env.FUTURES_BREAKOUT_SHORT_ALT_LEVERAGE ?? '3');
@@ -65,6 +69,7 @@ const PROFILES = [
     sideLabel: 'SHORT',
     leverage: SHORT_MICRO_LEVERAGE,
     maxMargin: SHORT_MICRO_MARGIN,
+    breakoutPeriod: SHORT_MICRO_BREAKOUT_PERIOD,
     timeoutHours: 8,
   },
   {
@@ -79,6 +84,7 @@ const PROFILES = [
     sideLabel: 'SHORT',
     leverage: SHORT_CORE_LEVERAGE,
     maxMargin: SHORT_CORE_MARGIN,
+    breakoutPeriod: SHORT_CORE_BREAKOUT_PERIOD,
     timeoutHours: 48,
   },
   {
@@ -93,6 +99,7 @@ const PROFILES = [
     sideLabel: 'SHORT',
     leverage: SHORT_ALT_LEVERAGE,
     maxMargin: SHORT_ALT_MARGIN,
+    breakoutPeriod: SHORT_ALT_BREAKOUT_PERIOD,
     timeoutHours: 16,
   },
   {
@@ -107,6 +114,7 @@ const PROFILES = [
     sideLabel: 'LONG',
     leverage: LONG_PROBE_LEVERAGE,
     maxMargin: LONG_PROBE_MARGIN,
+    breakoutPeriod: LONG_PROBE_BREAKOUT_PERIOD,
     timeoutHours: TIMEOUT_HOURS,
   },
 ];
@@ -180,6 +188,23 @@ function estimateSetupEconomics({ side, price, volume24h, capitalUsed, leverage,
   };
 }
 
+function describeChannelDistance(closes, breakoutPeriod) {
+  const period = Math.max(2, breakoutPeriod);
+  if (!Array.isArray(closes) || closes.length < period + 2) return null;
+  const last = closes[closes.length - 1];
+  const window = closes.slice(closes.length - 1 - period, closes.length - 1);
+  const hi = Math.max(...window);
+  const lo = Math.min(...window);
+  const distToShortPct = hi > 0 ? ((hi - last) / hi) * 100 : null;
+  const distToLongPct = lo > 0 ? ((last - lo) / lo) * 100 : null;
+  return {
+    hi,
+    lo,
+    distToShortPct: distToShortPct == null ? null : Math.round(distToShortPct * 1000) / 1000,
+    distToLongPct: distToLongPct == null ? null : Math.round(distToLongPct * 1000) / 1000,
+  };
+}
+
 export function futuresBreakoutEngineConfig() {
   const governor = getFuturesGovernorSnapshot();
   return {
@@ -200,6 +225,7 @@ export function futuresBreakoutEngineConfig() {
       tradeType: profile.tradeType,
       tier: profile.tier,
       interval: profile.interval,
+      breakoutPeriod: profile.breakoutPeriod ?? BREAKOUT_PERIOD,
       maxMargin: profile.maxMargin,
       timeoutHours: profile.timeoutHours,
       pairs: [...profile.pairs],
@@ -358,15 +384,21 @@ async function runProfile(profile, governorProfile) {
 
     const closes = closedKlines.map((kline) => parseFloat(kline[4]));
     const barTime = closedKlines[closedKlines.length - 1][0];
-    const signalParams = { breakoutPeriod: BREAKOUT_PERIOD, regimeSmaPeriod: REGIME_SMA };
+    const breakoutPeriod = profile.breakoutPeriod ?? BREAKOUT_PERIOD;
+    const signalParams = { breakoutPeriod, regimeSmaPeriod: REGIME_SMA };
     const signal = profile.signalFn({ closes }, signalParams);
     if (signal.action !== 'TRADE') {
+      const channel = signal.reasons?.[0] === 'inside_channel'
+        ? describeChannelDistance(closes, breakoutPeriod)
+        : null;
       result.skipped++;
       result.pairResults.push({
         pair,
         status: 'skipped',
         reason: signal.reasons?.[0] ?? 'no_signal',
-        detail: signal.reasons?.join(', ') ?? 'signal did not qualify',
+        detail: channel
+          ? `inside_channel | ${channel.distToShortPct}% from short trigger | ${channel.distToLongPct}% from long trigger | period ${breakoutPeriod}`
+          : (signal.reasons?.join(', ') ?? 'signal did not qualify'),
       });
       continue;
     }
@@ -407,7 +439,7 @@ async function runProfile(profile, governorProfile) {
 
     result.qualified++;
     const asset = { symbol: pair.replace('USDT', ''), pair, price, volume24h: quoteVolume24h(closedKlines) };
-    const evidence = [...(signal.reasons ?? []), `SMA${REGIME_SMA}`, `DONCHIAN${BREAKOUT_PERIOD}`, `${profile.sideLabel}_ONLY`];
+    const evidence = [...(signal.reasons ?? []), `SMA${REGIME_SMA}`, `DONCHIAN${breakoutPeriod}`, `${profile.sideLabel}_ONLY`];
     const capitalMultiplier = governorProfile?.capitalMultiplier ?? 1;
     const leverageMultiplier = governorProfile?.leverageMultiplier ?? 1;
     const leverage = Math.max(1, Math.round((profile.leverage * leverageMultiplier) * 100) / 100);

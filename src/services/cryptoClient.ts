@@ -124,6 +124,7 @@ export interface FuturesDeskConfig {
     tradeType: string;
     tier: string;
     interval: string;
+    breakoutPeriod: number;
     maxMargin: number;
     timeoutHours: number;
     pairs: string[];
