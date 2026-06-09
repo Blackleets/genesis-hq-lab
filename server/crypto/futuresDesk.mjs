@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runFuturesBreakoutCycle, futuresBreakoutEngineConfig, getLastFuturesBreakoutCycle } from '../strategies/futuresBreakoutEngine.mjs';
-import { syncFuturesGovernorJournal } from './futuresGovernor.mjs';
+import { getFuturesGovernorSnapshot, syncFuturesGovernorJournal } from './futuresGovernor.mjs';
 import { getCurrentPrice } from './priceFeeder.mjs';
 import { getTreasuryAsync } from '../trading/treasury.mjs';
 

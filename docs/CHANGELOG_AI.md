@@ -719,3 +719,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Added an economics gate to the futures breakout engine so setups are rejected when estimated net TP after fees/funding is too small or reward/risk is too weak, and upgraded the futures governor to promote strong profiles with more capital/leverage while keeping weaker ones constrained. Exposed the new desk thresholds and richer profile scoreboard metrics to the UI contract.
 - Files touched: `.env.example`, `server/crypto/futuresGovernor.mjs`, `server/crypto/futuresDesk.mjs`, `server/strategies/futuresBreakoutEngine.mjs`, `src/components/crypto/FuturesDeskPanel.tsx`, `src/services/cryptoClient.ts`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/crypto/futuresGovernor.mjs` ok; `node --check server/strategies/futuresBreakoutEngine.mjs` ok; `npm run build` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Fixed the production futures desk crash by restoring the missing `getFuturesGovernorSnapshot` import in the backend snapshot builder, which was causing `/api/crypto/futures-desk` to return HTTP 500 and hide live futures state/PnL from the UI.
+- Files touched: `server/crypto/futuresDesk.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/futuresDesk.mjs` ok; `npm run build` ok
