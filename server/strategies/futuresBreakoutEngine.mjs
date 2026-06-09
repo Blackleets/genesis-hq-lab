@@ -30,6 +30,14 @@ const SL_PCT = parseFloat(process.env.FUTURES_BREAKOUT_SL_PCT ?? '0.03');
 const TIMEOUT_HOURS = parseInt(process.env.FUTURES_BREAKOUT_TIMEOUT_H ?? '240', 10);
 const MAX_MARGIN = parseFloat(process.env.FUTURES_BREAKOUT_MAX_MARGIN ?? '250');
 const DEFAULT_LEVERAGE = parseFloat(process.env.FUTURES_BREAKOUT_LEVERAGE ?? '3');
+const SHORT_MICRO_MARGIN = parseFloat(process.env.FUTURES_BREAKOUT_SHORT_MICRO_MARGIN ?? '150');
+const SHORT_CORE_MARGIN = parseFloat(process.env.FUTURES_BREAKOUT_SHORT_CORE_MARGIN ?? String(MAX_MARGIN));
+const SHORT_ALT_MARGIN = parseFloat(process.env.FUTURES_BREAKOUT_SHORT_ALT_MARGIN ?? '200');
+const LONG_PROBE_MARGIN = parseFloat(process.env.FUTURES_BREAKOUT_LONG_PROBE_MARGIN ?? '220');
+const SHORT_MICRO_LEVERAGE = parseFloat(process.env.FUTURES_BREAKOUT_SHORT_MICRO_LEVERAGE ?? '3');
+const SHORT_CORE_LEVERAGE = parseFloat(process.env.FUTURES_BREAKOUT_SHORT_CORE_LEVERAGE ?? '4');
+const SHORT_ALT_LEVERAGE = parseFloat(process.env.FUTURES_BREAKOUT_SHORT_ALT_LEVERAGE ?? '3');
+const LONG_PROBE_LEVERAGE = parseFloat(process.env.FUTURES_BREAKOUT_LONG_PROBE_LEVERAGE ?? String(DEFAULT_LEVERAGE));
 
 const SHORT_ENABLED = !['0', 'false', 'no', 'off'].includes((process.env.FUTURES_BREAKOUT_SHORT_ENABLED ?? 'true').toLowerCase());
 const SHORT_ALT_ENABLED = !['0', 'false', 'no', 'off'].includes((process.env.FUTURES_BREAKOUT_SHORT_ALT_ENABLED ?? 'true').toLowerCase());
@@ -46,8 +54,8 @@ const PROFILES = [
     interval: '5m',
     signalFn: shortOnlyRegimeSwitchBreakoutSignal,
     sideLabel: 'SHORT',
-    leverage: 2,
-    maxMargin: 100,
+    leverage: SHORT_MICRO_LEVERAGE,
+    maxMargin: SHORT_MICRO_MARGIN,
     timeoutHours: 8,
   },
   {
@@ -60,8 +68,8 @@ const PROFILES = [
     interval: '1h',
     signalFn: shortOnlyRegimeSwitchBreakoutSignal,
     sideLabel: 'SHORT',
-    leverage: DEFAULT_LEVERAGE,
-    maxMargin: MAX_MARGIN,
+    leverage: SHORT_CORE_LEVERAGE,
+    maxMargin: SHORT_CORE_MARGIN,
     timeoutHours: 48,
   },
   {
@@ -74,8 +82,8 @@ const PROFILES = [
     interval: '15m',
     signalFn: shortOnlyRegimeSwitchBreakoutSignal,
     sideLabel: 'SHORT',
-    leverage: 2.5,
-    maxMargin: 150,
+    leverage: SHORT_ALT_LEVERAGE,
+    maxMargin: SHORT_ALT_MARGIN,
     timeoutHours: 16,
   },
   {
@@ -88,8 +96,8 @@ const PROFILES = [
     interval: '4h',
     signalFn: longOnlyRegimeSwitchBreakoutSignal,
     sideLabel: 'LONG',
-    leverage: DEFAULT_LEVERAGE,
-    maxMargin: 180,
+    leverage: LONG_PROBE_LEVERAGE,
+    maxMargin: LONG_PROBE_MARGIN,
     timeoutHours: TIMEOUT_HOURS,
   },
 ];

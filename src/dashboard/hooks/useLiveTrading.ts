@@ -9,8 +9,10 @@ export interface LiveTradingMetrics {
   online: boolean;
   lastSync: string | null;
   capital: number;
+  netWorth: number;
   available: number;
   inTrades: number;
+  startingCapital: number;
   totalPnL: number;
   winRate: number;
   totalTrades: number;
@@ -38,8 +40,10 @@ export function useLiveTrading(): LiveTradingMetrics {
       online,
       lastSync,
       capital: treasury?.total ?? 0,
+      netWorth: treasury?.netWorth ?? treasury?.total ?? 0,
       available: treasury?.available ?? 0,
       inTrades: treasury?.inTrades ?? 0,
+      startingCapital: treasury?.startingCapital ?? 10_000,
       totalPnL: perf?.totalPnl ?? 0,
       winRate: perf?.winRate ?? 0,
       totalTrades: perf?.totalTrades ?? 0,

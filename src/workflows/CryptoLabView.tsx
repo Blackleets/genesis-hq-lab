@@ -184,6 +184,10 @@ export default function CryptoLabView() {
   }
 
   const pnl = data?.pnl;
+  const futuresTreasury = futuresDesk?.treasury ?? null;
+  const futuresClosedPnl = futuresDesk?.closedSummary.reduce((sum, row) => sum + (row.totalPnl ?? 0), 0) ?? 0;
+  const futuresNetPnl = futuresTreasury ? futuresClosedPnl + (futuresTreasury.unrealizedPnl ?? 0) : futuresClosedPnl;
+  const futuresOpenCount = futuresDesk?.openPositions.length ?? 0;
 
   return (
     <main className="flex-1 min-w-0 min-h-0 flex flex-col bg-carbon-300 overflow-hidden">
@@ -194,7 +198,18 @@ export default function CryptoLabView() {
           <div className="flex items-center gap-3">
             <span className="inline-block w-2 h-2 rounded-full animate-pulse" style={{ background: ACCENT }} />
             <span className="font-mono text-xs uppercase tracking-wider text-zinc-500">Genesis HQ · Crypto Terminal</span>
-            {pnl && (
+            {futuresTreasury ? (
+              <div className="flex gap-4 ml-4">
+                <span className="font-mono text-xs" style={{ color: futuresNetPnl >= 0 ? '#22c55e' : '#ef4444' }}>
+                  Futures {usd(futuresNetPnl)}
+                </span>
+                <span className="font-mono text-xs text-zinc-400">
+                  Avail {usd(futuresTreasury.available)}
+                </span>
+                <span className="font-mono text-xs text-amber-400">margin {usd(futuresTreasury.inTrades)}</span>
+                <span className="font-mono text-xs text-zinc-500">{futuresOpenCount} open</span>
+              </div>
+            ) : pnl && (
               <div className="flex gap-4 ml-4">
                 <span className="font-mono text-xs" style={{ color: pnl.closed.totalPnl >= 0 ? '#22c55e' : '#ef4444' }}>
                   PnL {usd(pnl.closed.totalPnl)}

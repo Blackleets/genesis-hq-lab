@@ -21,9 +21,9 @@ export default function TopBar() {
     return () => window.clearInterval(id);
   }, []);
 
-  const totalPnL = live.totalPnL;
-  const pnlColor = totalPnL >= 0 ? '#00ff9c' : '#ff4757';
-  const capitalColor = live.online && live.capital >= 10_000 ? '#00ff9c' : live.online ? '#ff4757' : '#71717a';
+  const capitalPnl = live.netWorth - live.startingCapital;
+  const pnlColor = capitalPnl >= 0 ? '#00ff9c' : '#ff4757';
+  const capitalColor = live.online && live.netWorth >= live.startingCapital ? '#00ff9c' : live.online ? '#ff4757' : '#71717a';
 
   return (
     <div className="shrink-0 h-8 bg-carbon-200 border-b border-trim flex items-center px-4 gap-4 font-mono text-[10px] uppercase tracking-wider overflow-hidden">
@@ -32,27 +32,33 @@ export default function TopBar() {
       {live.online ? (
         <>
           <span className="text-zinc-500 shrink-0">
-            {lang === 'es' ? 'Capital' : 'Cap'}:{' '}
+            {lang === 'es' ? 'Neto' : 'Net'}:{' '}
             <span style={{ color: capitalColor }}>
-              ${live.capital.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ${live.netWorth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </span>
           <span className="text-zinc-700">|</span>
           <span className="text-zinc-500 shrink-0">
-            P&L:{' '}
+            P&L cap:{' '}
             <span style={{ color: pnlColor }}>
-              {totalPnL >= 0 ? '+' : ''}${totalPnL.toFixed(2)}
+              {capitalPnl >= 0 ? '+' : ''}${capitalPnl.toFixed(2)}
             </span>
           </span>
-          {live.openTrades.length > 0 && (
-            <>
-              <span className="text-zinc-700">|</span>
-              <span className="text-zinc-500 shrink-0">
-                {lang === 'es' ? 'Abiertas' : 'Open'}:{' '}
-                <span className="text-zinc-200">{live.openTrades.length}</span>
-              </span>
-            </>
-          )}
+          <span className="text-zinc-700">|</span>
+          <span className="text-zinc-500 shrink-0">
+            {lang === 'es' ? 'Disponible' : 'Avail'}:{' '}
+            <span className="text-zinc-200">${live.available.toFixed(2)}</span>
+          </span>
+          <span className="text-zinc-700">|</span>
+          <span className="text-zinc-500 shrink-0">
+            {lang === 'es' ? 'Margen' : 'Margin'}:{' '}
+            <span className="text-amber-300">${live.inTrades.toFixed(2)}</span>
+          </span>
+          <span className="text-zinc-700">|</span>
+          <span className="text-zinc-500 shrink-0">
+            {lang === 'es' ? 'Abiertas' : 'Open'}:{' '}
+            <span className="text-zinc-200">{live.openTrades.length}</span>
+          </span>
         </>
       ) : (
         <span className="text-amber-400/90 shrink-0">

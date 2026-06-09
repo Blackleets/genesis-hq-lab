@@ -684,3 +684,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Added a dedicated futures PnL block with realized/unrealized/net-since-baseline values, exposed snapshot age in the desk, and wired a non-destructive baseline reset endpoint plus UI control so the operator can start futures reporting from zero without deleting historical losing trades.
 - Files touched: `server/crypto/futuresDesk.mjs`, `server/index.mjs`, `src/services/cryptoClient.ts`, `src/workflows/CryptoLabView.tsx`, `src/components/crypto/DeskPanel.tsx`, `src/components/crypto/FuturesDeskPanel.tsx`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/index.mjs` ok; `node --check server/crypto/futuresDesk.mjs` ok; `npm run build` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Replaced the stale scalp PnL headline with treasury-consistent capital metrics (`net`, `available`, `margin`, `open`) and switched the Crypto Lab header to live futures metrics so the UI reflects reserved capital from the 10k base instead of the legacy `-67` scalp figure. Also raised default futures profile sizing into more usable margin bands with configurable per-profile leverage.
+- Files touched: `.env.example`, `server/strategies/futuresBreakoutEngine.mjs`, `src/services/agentClient.ts`, `src/dashboard/hooks/useLiveTrading.ts`, `src/ui/TopBar.tsx`, `src/workflows/CryptoLabView.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/strategies/futuresBreakoutEngine.mjs` ok; `npm run build` ok
