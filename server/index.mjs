@@ -158,6 +158,14 @@ function notFound(res) {
   });
 }
 
+function latestIso(...values) {
+  const valid = values.filter(Boolean);
+  if (valid.length === 0) return null;
+  return valid.reduce((latest, current) => (
+    new Date(current).getTime() > new Date(latest).getTime() ? current : latest
+  ));
+}
+
 const server = createServer(async (req, res) => {
   applyCors(res);
 
@@ -1294,6 +1302,7 @@ const server = createServer(async (req, res) => {
     try {
       const treasury = getTreasury();
       const openTrades = getRecentTrades(500).filter((t) => t.status === 'open').length;
+      const schedulerHeartbeat = readHeartbeat();
       let heartbeat = null;
       try {
         const { readFile } = await import('node:fs/promises');
@@ -1304,10 +1313,18 @@ const server = createServer(async (req, res) => {
           await readFile(join(__hdir, '..', 'data', 'memory', 'agent_heartbeat.json'), 'utf8')
         );
       } catch { /* heartbeat not written yet — first boot */ }
-      const lastTickAt = heartbeat?.lastTickAt ?? null;
+      const schedulerLastTickAt = latestIso(
+        schedulerHeartbeat?.lastRun?.slow,
+        schedulerHeartbeat?.lastRun?.mid,
+        schedulerHeartbeat?.lastRun?.fast,
+      );
+      const lastTickAt = heartbeat?.lastTickAt ?? schedulerLastTickAt ?? null;
+      const schedulerAlive = schedulerLastTickAt
+        ? (Date.now() - new Date(schedulerLastTickAt).getTime()) < 10 * 60 * 1000
+        : false;
       const agentAlive = lastTickAt
         ? (Date.now() - new Date(lastTickAt).getTime()) < 10 * 60 * 1000
-        : false;
+        : schedulerAlive;
       sendJson(res, 200, {
         ok: true,
         service: 'genesis-hq-lab-backend',
@@ -1318,8 +1335,11 @@ const server = createServer(async (req, res) => {
           openTrades,
           lastTickAt,
           agentAlive,
-          totalCycles: heartbeat?.totalCycles ?? 0,
-          claudeEnabled: heartbeat?.claudeEnabled ?? false,
+          totalCycles: heartbeat?.totalCycles
+            ?? schedulerHeartbeat?.ticks?.slow
+            ?? schedulerHeartbeat?.ticks?.fast
+            ?? 0,
+          claudeEnabled: heartbeat?.claudeEnabled ?? !!process.env.ANTHROPIC_API_KEY,
         },
         optimizer: getOptimizerHeartbeat(),
       });

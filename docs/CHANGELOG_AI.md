@@ -754,3 +754,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: In `FUTURES_ONLY_MODE`, startup reconciliation now expires and refunds any open paper trade that is not a managed futures position, so stale Polymarket/scalp inventory can no longer reserve the shared capital path used by the live futures desk.
 - Files touched: `server/memory/reconciliationEngine.mjs`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/memory/reconciliationEngine.mjs` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Fixed `/api/health` for the futures-only runtime by falling back to the shared scheduler heartbeat when the legacy `agent_heartbeat.json` file is absent, so the production status bar can report the live futures agent instead of showing a false offline state.
+- Files touched: `server/index.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/index.mjs` ok; `npm run build` ok
