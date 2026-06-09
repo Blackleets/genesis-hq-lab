@@ -97,7 +97,7 @@ function isManagedFuturesTrade(trade) {
     || String(trade?.trade_type ?? '').startsWith(FUTURES_TRADE_TYPE_PREFIX);
 }
 
-function expireLegacyCryptoTradeForFuturesOnly(trade) {
+function expireLegacyTradeForFuturesOnly(trade) {
   let expired = false;
 
   tx(() => {
@@ -114,8 +114,8 @@ function expireLegacyCryptoTradeForFuturesOnly(trade) {
   if (expired) {
     settleTradeCapital(trade.capital_used ?? 0, 0);
     console.warn(
-      `[reconciliation] FUTURES_ONLY_RESET: expired legacy crypto trade ${trade.id} ` +
-      `(${trade.trade_type ?? 'unknown'}) and refunded $${(trade.capital_used ?? 0).toFixed(2)}`
+      `[reconciliation] FUTURES_ONLY_RESET: expired non-futures trade ${trade.id} ` +
+      `(${trade.market_source ?? 'unknown'} / ${trade.trade_type ?? 'unknown'}) and refunded $${(trade.capital_used ?? 0).toFixed(2)}`
     );
   }
 
@@ -164,9 +164,9 @@ export async function runStartupReconciliation(
   let hasConflict = false;
 
   for (const trade of openTrades) {
-    if (FUTURES_ONLY_MODE && trade.market_source === 'crypto' && !isManagedFuturesTrade(trade)) {
+    if (FUTURES_ONLY_MODE && !isManagedFuturesTrade(trade)) {
       try {
-        if (expireLegacyCryptoTradeForFuturesOnly(trade)) recovered++;
+        if (expireLegacyTradeForFuturesOnly(trade)) recovered++;
       } catch (err) {
         hasConflict = true;
         unresolved++;
@@ -176,7 +176,7 @@ export async function runStartupReconciliation(
           tradeId: trade.id,
           marketId: trade.market_id,
           source: trade.market_source,
-          message: `Could not expire legacy crypto trade for futures-only mode: ${err?.message}`,
+          message: `Could not expire non-futures trade for futures-only mode: ${err?.message}`,
         });
       }
       continue;

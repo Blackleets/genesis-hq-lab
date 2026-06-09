@@ -751,6 +751,6 @@ at the top. Use one block per session. Be honest about failures.
 ## 2026-06-10 - Codex
 
 - Branch: `feat/genesis-life-os`
-- Summary: In `FUTURES_ONLY_MODE`, startup reconciliation now expires and refunds legacy open crypto trades that are not managed futures positions, so stale scalp/swing exposure no longer blocks the shared capital path used by the live futures desk.
+- Summary: In `FUTURES_ONLY_MODE`, startup reconciliation now expires and refunds any open paper trade that is not a managed futures position, so stale Polymarket/scalp inventory can no longer reserve the shared capital path used by the live futures desk.
 - Files touched: `server/memory/reconciliationEngine.mjs`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/memory/reconciliationEngine.mjs` ok; `npm run build` ok
