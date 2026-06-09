@@ -321,6 +321,7 @@ export interface FuturesDeskSnapshot {
   ok?: boolean;
   mode: 'status' | 'run';
   generatedAt: string;
+  warnings?: Array<{ section: string; error: string; at: string }>;
   config: FuturesDeskConfig;
   cycle: FuturesDeskCycleResult | null;
   governorJournal: FuturesGovernorJournalEntry[];
@@ -345,7 +346,7 @@ export async function loadFuturesDesk(runCycle = false, timeoutMs = runCycle ? 3
     });
     if (!res.ok) return null;
     const data = await res.json() as { ok: boolean } & FuturesDeskSnapshot;
-    return data.ok ? data : null;
+    return data;
   } catch { return null; }
 }
 

@@ -103,6 +103,7 @@ export function FuturesDeskPanel({
   const cycleHistory = futuresDesk.cycleHistory ?? [];
   const profileScoreboard = futuresDesk.profileScoreboard ?? [];
   const startingCapital = treasury.total - realizedPnl;
+  const warnings = futuresDesk.warnings ?? [];
 
   return (
     <div style={{ background: PANEL_BG, border: `1px solid ${PANEL_BORDER}`, borderRadius: 8, padding: 10 }}>
@@ -131,6 +132,15 @@ export function FuturesDeskPanel({
         <span>{es ? `snapshot ${snapshotAgeLabel(futuresDesk.generatedAt)} atras` : `snapshot ${snapshotAgeLabel(futuresDesk.generatedAt)} ago`}</span>
         <span>{fmtEvent(futuresDesk.generatedAt)}</span>
       </div>
+
+      {warnings.length > 0 ? (
+        <div className="mt-3 rounded border border-amber-900 bg-[#1c1917] px-3 py-2 font-mono text-[10px] text-amber-300">
+          <div className="uppercase tracking-[0.14em]">{es ? 'backend degradado' : 'backend degraded'}</div>
+          <div className="mt-1 text-zinc-400">
+            {warnings[0]?.section}: {warnings[0]?.error}
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">

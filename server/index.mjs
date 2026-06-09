@@ -540,7 +540,48 @@ const server = createServer(async (req, res) => {
       const runCycle = ['1', 'true', 'yes', 'on'].includes((url.searchParams.get('run') ?? '').toLowerCase());
       const snapshot = await getFuturesDeskSnapshot({ runCycle });
       sendJson(res, 200, { ok: true, ...snapshot });
-    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    } catch (e) {
+      sendJson(res, 200, {
+        ok: false,
+        mode: 'status',
+        generatedAt: new Date().toISOString(),
+        warnings: [{ section: 'handler', error: e.message, at: new Date().toISOString() }],
+        config: {
+          breakoutPeriod: null,
+          regimeSmaPeriod: null,
+          tpPct: null,
+          slPct: null,
+          minExpectedNetUsd: null,
+          minRewardRisk: null,
+          timeoutHours: null,
+          maxMargin: null,
+          leverage: null,
+          governor: { profiles: [], journal: [] },
+          profiles: [],
+        },
+        cycle: null,
+        governorJournal: [],
+        baseline: null,
+        treasury: {
+          total: 10000,
+          available: 10000,
+          inTrades: 0,
+          unrealizedPnl: 0,
+          netWorth: 10000,
+          drawdownPct: 0,
+          isPaused: false,
+        },
+        openPositions: [],
+        closedSummary: [],
+        equityCurve: [],
+        recentLifecycle: [],
+        today: { openCount: 0, closedTrades: 0, wins: 0, losses: 0, winRate: null, totalPnl: 0, avgPnl: 0 },
+        cycleHistory: [],
+        profileScoreboard: [],
+        recentEntries: [],
+        error: e.message,
+      });
+    }
     return;
   }
 

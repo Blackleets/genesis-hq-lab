@@ -17,6 +17,32 @@ function round2(value) {
   return value == null ? null : Math.round(value * 100) / 100;
 }
 
+function captureSection(warnings, label, fallback, fn) {
+  try {
+    return fn();
+  } catch (error) {
+    warnings.push({
+      section: label,
+      error: error?.message ?? String(error),
+      at: new Date().toISOString(),
+    });
+    return fallback;
+  }
+}
+
+async function captureSectionAsync(warnings, label, fallback, fn) {
+  try {
+    return await fn();
+  } catch (error) {
+    warnings.push({
+      section: label,
+      error: error?.message ?? String(error),
+      at: new Date().toISOString(),
+    });
+    return fallback;
+  }
+}
+
 function listToSql(list) {
   return `('${list.join("','")}')`;
 }
@@ -315,25 +341,63 @@ function buildProfileScoreboard(baseline) {
 
 export async function getFuturesDeskSnapshot({ runCycle = false } = {}) {
   const startedAt = new Date().toISOString();
-  const config = futuresBreakoutEngineConfig();
+  const warnings = [];
+  const config = captureSection(warnings, 'config', {
+    breakoutPeriod: null,
+    regimeSmaPeriod: null,
+    tpPct: null,
+    slPct: null,
+    minExpectedNetUsd: null,
+    minRewardRisk: null,
+    timeoutHours: null,
+    maxMargin: null,
+    leverage: null,
+    governor: { profiles: [], journal: [] },
+    profiles: [],
+  }, () => futuresBreakoutEngineConfig());
   const cycle = runCycle
-    ? await runFuturesBreakoutCycle()
-    : getLastFuturesBreakoutCycle() ?? readPersistedCycle();
+    ? await captureSectionAsync(warnings, 'cycle.run', null, () => runFuturesBreakoutCycle())
+    : captureSection(warnings, 'cycle.status', null, () => getLastFuturesBreakoutCycle() ?? readPersistedCycle());
   if (runCycle && cycle) persistCycle(cycle);
-  const governorJournal = cycle?.governorJournal ?? syncFuturesGovernorJournal(config.governor);
-  const baseline = readBaseline();
-  const treasury = await getTreasuryAsync();
-  const openPositions = await buildOpenPositions();
-  const closedSummary = buildClosedSummary(baseline);
-  const equityCurve = buildEquityCurve(baseline);
-  const recentLifecycle = buildRecentLifecycle(baseline);
-  const today = buildTodaySummary(baseline);
-  const cycleHistory = readCycleHistory();
-  const profileScoreboard = buildProfileScoreboard(baseline);
+  const governorJournal = captureSection(
+    warnings,
+    'governorJournal',
+    cycle?.governorJournal ?? [],
+    () => cycle?.governorJournal ?? syncFuturesGovernorJournal(config.governor),
+  );
+  const baseline = captureSection(warnings, 'baseline', null, () => readBaseline());
+  const treasury = await captureSectionAsync(warnings, 'treasury', {
+    total: 10000,
+    available: 10000,
+    inTrades: 0,
+    unrealizedPnl: 0,
+    netWorth: 10000,
+    drawdownPct: 0,
+    isPaused: false,
+  }, () => getTreasuryAsync());
+  const openPositions = await captureSectionAsync(warnings, 'openPositions', [], () => buildOpenPositions());
+  const closedSummary = captureSection(warnings, 'closedSummary', [], () => buildClosedSummary(baseline));
+  const equityCurve = captureSection(warnings, 'equityCurve', [], () => buildEquityCurve(baseline));
+  const recentLifecycle = captureSection(warnings, 'recentLifecycle', [], () => buildRecentLifecycle(baseline));
+  const today = captureSection(warnings, 'today', {
+    openCount: 0,
+    closedTrades: 0,
+    wins: 0,
+    losses: 0,
+    winRate: null,
+    totalPnl: 0,
+    avgPnl: 0,
+  }, () => buildTodaySummary(baseline));
+  const cycleHistory = captureSection(warnings, 'cycleHistory', [], () => readCycleHistory());
+  const profileScoreboard = captureSection(warnings, 'profileScoreboard', [], () => buildProfileScoreboard(baseline));
+  const recentEntries = runCycle
+    ? captureSection(warnings, 'recentEntries', [], () => buildRecentEntries(startedAt))
+    : [];
 
   return {
     mode: runCycle ? 'run' : 'status',
     generatedAt: new Date().toISOString(),
+    warnings,
     config,
     cycle,
     governorJournal,
@@ -354,6 +418,6 @@ export async function getFuturesDeskSnapshot({ runCycle = false } = {}) {
     today,
     cycleHistory,
     profileScoreboard,
-    recentEntries: runCycle ? buildRecentEntries(startedAt) : [],
+    recentEntries,
   };
 }

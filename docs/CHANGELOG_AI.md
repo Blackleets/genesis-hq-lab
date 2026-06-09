@@ -726,3 +726,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Fixed the production futures desk crash by restoring the missing `getFuturesGovernorSnapshot` import in the backend snapshot builder, which was causing `/api/crypto/futures-desk` to return HTTP 500 and hide live futures state/PnL from the UI.
 - Files touched: `server/crypto/futuresDesk.mjs`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/crypto/futuresDesk.mjs` ok; `npm run build` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Hardened the futures desk path so partial backend failures no longer crash the whole endpoint: the snapshot builder now captures per-section errors into warnings with safe fallbacks, the HTTP handler returns a degraded payload instead of 500, and the frontend renders that degraded state visibly instead of pretending there is no response.
+- Files touched: `server/crypto/futuresDesk.mjs`, `server/index.mjs`, `src/components/crypto/FuturesDeskPanel.tsx`, `src/services/cryptoClient.ts`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/futuresDesk.mjs` ok; `node --check server/index.mjs` ok; `npm run build` ok
