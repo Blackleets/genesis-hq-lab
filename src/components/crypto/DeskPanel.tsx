@@ -60,7 +60,7 @@ export function DeskPanel({
   futuresCycleBusy = false,
   futuresCycleStatus = null,
 }: Props) {
-  const [tab, setTab] = useState<Tab>('POSITIONS');
+  const [tab, setTab] = useState<Tab>('STATS');
 
   const p = data?.params;
   const pnl = data?.pnl;
