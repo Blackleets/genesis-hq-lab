@@ -102,6 +102,7 @@ export function FuturesDeskPanel({
   const today = futuresDesk.today;
   const cycleHistory = futuresDesk.cycleHistory ?? [];
   const profileScoreboard = futuresDesk.profileScoreboard ?? [];
+  const startingCapital = treasury.total - realizedPnl;
 
   return (
     <div style={{ background: PANEL_BG, border: `1px solid ${PANEL_BORDER}`, borderRadius: 8, padding: 10 }}>
@@ -183,6 +184,30 @@ export function FuturesDeskPanel({
           <div className="rounded bg-[#151206] px-2 py-1.5">
             <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'neto base' : 'net since base'}</div>
             <div className="font-mono text-[11px] font-bold" style={{ color: tone(netPnl) }}>{usd(netPnl)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <div className="mb-1 font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">
+          {es ? 'Flujo de capital' : 'Capital flow'}
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          <div className="rounded bg-[#151206] px-2 py-1.5">
+            <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'inicio base' : 'base start'}</div>
+            <div className="font-mono text-[11px] font-bold text-zinc-100">{usd(startingCapital)}</div>
+          </div>
+          <div className="rounded bg-[#151206] px-2 py-1.5">
+            <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'reservado' : 'reserved'}</div>
+            <div className="font-mono text-[11px] font-bold text-amber-300">{usd(treasury.inTrades)}</div>
+          </div>
+          <div className="rounded bg-[#151206] px-2 py-1.5">
+            <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'libre' : 'free'}</div>
+            <div className="font-mono text-[11px] font-bold text-zinc-100">{usd(treasury.available)}</div>
+          </div>
+          <div className="rounded bg-[#151206] px-2 py-1.5">
+            <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'neto vivo' : 'live net'}</div>
+            <div className="font-mono text-[11px] font-bold" style={{ color: tone(netPnl) }}>{usd(treasury.netWorth)}</div>
           </div>
         </div>
       </div>

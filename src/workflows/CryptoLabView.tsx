@@ -240,6 +240,7 @@ export default function CryptoLabView() {
           diagnostics={diagnostics}
           openCount={pnl?.open.count ?? 0}
           today={today}
+          futuresDesk={futuresDesk}
         />
       </div>
 

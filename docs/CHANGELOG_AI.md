@@ -691,3 +691,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Replaced the stale scalp PnL headline with treasury-consistent capital metrics (`net`, `available`, `margin`, `open`) and switched the Crypto Lab header to live futures metrics so the UI reflects reserved capital from the 10k base instead of the legacy `-67` scalp figure. Also raised default futures profile sizing into more usable margin bands with configurable per-profile leverage.
 - Files touched: `.env.example`, `server/strategies/futuresBreakoutEngine.mjs`, `src/services/agentClient.ts`, `src/dashboard/hooks/useLiveTrading.ts`, `src/ui/TopBar.tsx`, `src/workflows/CryptoLabView.tsx`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/strategies/futuresBreakoutEngine.mjs` ok; `npm run build` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Shifted the Crypto Lab operator row into futures-first mode when the futures desk is present, so it reports futures scan/qualified/executed status instead of legacy scalp pause messaging. Added a dedicated `Capital flow` block in the futures desk to show base start, reserved margin, free capital, and live net in one place.
+- Files touched: `src/components/crypto/OperatorStatusBar.tsx`, `src/components/crypto/FuturesDeskPanel.tsx`, `src/workflows/CryptoLabView.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run build` ok
