@@ -81,7 +81,7 @@ const INTERVAL_MS = 5 * 60 * 1000;  // 5 minutes
 const AGENT_ID = 'market-agent-1';
 const ONCE = process.argv.includes('--once');
 const VERBOSE = process.argv.includes('--verbose') || process.argv.includes('-v');
-const FUTURES_ONLY_MODE = ['1', 'true', 'yes', 'on'].includes((process.env.FUTURES_ONLY_MODE ?? '').toLowerCase());
+const FUTURES_ONLY_MODE = !['0', 'false', 'no', 'off'].includes((process.env.FUTURES_ONLY_MODE ?? 'true').toLowerCase());
 const PREDICTION_AGENT_ENABLED = !FUTURES_ONLY_MODE && !['0', 'false', 'no', 'off'].includes((process.env.PREDICTION_AGENT_ENABLED ?? 'true').toLowerCase());
 const LEGACY_CRYPTO_LOOP_ENABLED = !FUTURES_ONLY_MODE && !['0', 'false', 'no', 'off'].includes((process.env.LEGACY_CRYPTO_LOOP_ENABLED ?? 'true').toLowerCase());
 

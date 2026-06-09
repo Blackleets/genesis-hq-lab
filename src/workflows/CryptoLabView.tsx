@@ -188,6 +188,10 @@ export default function CryptoLabView() {
   const futuresClosedPnl = futuresDesk?.closedSummary.reduce((sum, row) => sum + (row.totalPnl ?? 0), 0) ?? 0;
   const futuresNetPnl = futuresTreasury ? futuresClosedPnl + (futuresTreasury.unrealizedPnl ?? 0) : futuresClosedPnl;
   const futuresOpenCount = futuresDesk?.openPositions.length ?? 0;
+  const futuresOnlyView = (futuresDesk?.config.profiles.length ?? 0) > 0;
+  const filteredCommentary = futuresOnlyView
+    ? commentary.filter((item) => !/SCALPING PAUSED|negative edge recommendation|PAUSE NOW/i.test(`${item.text} ${item.detail}`))
+    : commentary;
 
   return (
     <main className="flex-1 min-w-0 min-h-0 flex flex-col bg-carbon-300 overflow-hidden">
@@ -232,7 +236,7 @@ export default function CryptoLabView() {
 
         {/* Row 2 — live activity strip (priority-aware) */}
         <div className="border-t border-zinc-800/60">
-          <LiveActivityStrip items={commentary} />
+          <LiveActivityStrip items={filteredCommentary} />
         </div>
 
         {/* Row 3 — operator status bar (counter + training + heartbeat) */}
@@ -264,7 +268,7 @@ export default function CryptoLabView() {
 
         {/* AI Commentary (bottom-left) */}
         <div className="crypto-zone-commentary">
-          <CommentaryFeed items={commentary} />
+          <CommentaryFeed items={filteredCommentary} />
         </div>
 
         {/* Desk panel — positions + stats + trades (bottom-center) */}
