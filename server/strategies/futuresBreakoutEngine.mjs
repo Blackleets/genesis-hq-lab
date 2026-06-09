@@ -10,6 +10,7 @@
 //   - long probe is opt-in, disabled by default
 
 import { fetchKlines } from '../crypto/backtest/historicalData.mjs';
+import db from '../db/database.mjs';
 import {
   shortOnlyRegimeSwitchBreakoutSignal,
   longOnlyRegimeSwitchBreakoutSignal,
@@ -92,6 +93,8 @@ const PROFILES = [
     timeoutHours: TIMEOUT_HOURS,
   },
 ];
+const CYCLE_HISTORY_KEY = 'futures_cycle_history';
+const MAX_CYCLE_HISTORY = 80;
 
 const _lastEntryBar = new Map();
 let _lastCycle = null;
@@ -133,6 +136,51 @@ export function getLastFuturesBreakoutCycle() {
   return _lastCycle;
 }
 
+function readCycleHistory() {
+  try {
+    const row = db.prepare(`SELECT value FROM org_state WHERE key = ?`).get(CYCLE_HISTORY_KEY);
+    if (!row?.value) return [];
+    const parsed = JSON.parse(row.value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeCycleHistory(history) {
+  try {
+    db.prepare(`
+      INSERT OR REPLACE INTO org_state (key, value, updated_at)
+      VALUES (?, ?, datetime('now'))
+    `).run(CYCLE_HISTORY_KEY, JSON.stringify(history.slice(-MAX_CYCLE_HISTORY)));
+  } catch {
+    // Non-fatal
+  }
+}
+
+function persistCycleSummary(cycle) {
+  const history = readCycleHistory();
+  history.push({
+    startedAt: cycle.startedAt,
+    completedAt: cycle.completedAt,
+    scanned: cycle.scanned,
+    qualified: cycle.qualified,
+    executed: cycle.executed,
+    skipped: cycle.skipped,
+    blocked: cycle.blocked,
+    profiles: cycle.profiles.map((profile) => ({
+      profile: profile.profile,
+      scanned: profile.scanned,
+      qualified: profile.qualified,
+      executed: profile.executed,
+      skipped: profile.skipped,
+      blocked: profile.blocked,
+      blockReason: profile.blockReason,
+    })),
+  });
+  writeCycleHistory(history);
+}
+
 async function runProfile(profile, governorProfile) {
   const result = {
     profile: profile.id,
@@ -145,6 +193,17 @@ async function runProfile(profile, governorProfile) {
     pairResults: [],
   };
   if (!profile.enabled) return result;
+  if (governorProfile?.supervisor?.mode === 'cooldown') {
+    result.blocked = true;
+    result.blockReason = 'supervisor_cooldown';
+    result.pairResults = profile.pairs.map((pair) => ({
+      pair,
+      status: 'blocked',
+      reason: 'supervisor_cooldown',
+      detail: governorProfile.supervisor.reason ?? 'profile cooling down',
+    }));
+    return result;
+  }
   if (governorProfile?.mode === 'paused') {
     result.blocked = true;
     result.blockReason = 'governor_paused';
@@ -344,5 +403,6 @@ export async function runFuturesBreakoutCycle() {
     startedAt,
     completedAt: new Date().toISOString(),
   };
+  persistCycleSummary(_lastCycle);
   return _lastCycle;
 }

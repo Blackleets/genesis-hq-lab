@@ -84,6 +84,11 @@ export interface FuturesDeskConfig {
     degradeMinSamples: number;
     pauseMinSamples: number;
     evaluatedAt: string;
+    supervisor: {
+      maxDailyLoss: number;
+      maxConsecutiveLosses: number;
+      cooldownHours: number;
+    };
     profiles: Array<{
       id: string;
       tradeType: string;
@@ -100,6 +105,14 @@ export interface FuturesDeskConfig {
       capitalMultiplier: number;
       leverageMultiplier: number;
       reason: string;
+      supervisor: {
+        dailyTrades: number;
+        dailyPnl: number;
+        consecutiveLosses: number;
+        cooldownUntil: string | null;
+        mode: 'cooldown' | 'live';
+        reason: string | null;
+      };
     }>;
   };
   profiles: Array<{
@@ -218,6 +231,58 @@ export interface FuturesDeskCycleResult {
   }>;
 }
 
+export interface FuturesDeskToday {
+  openCount: number;
+  closedTrades: number;
+  wins: number;
+  losses: number;
+  winRate: number | null;
+  totalPnl: number;
+  avgPnl: number;
+}
+
+export interface FuturesDeskCycleHistoryRow {
+  startedAt: string;
+  completedAt: string;
+  scanned: number;
+  qualified: number;
+  executed: number;
+  skipped: number;
+  blocked: boolean;
+  profiles: Array<{
+    profile: string;
+    scanned: number;
+    qualified: number;
+    executed: number;
+    skipped: number;
+    blocked: boolean;
+    blockReason: string | null;
+  }>;
+}
+
+export interface FuturesDeskPairScore {
+  pair: string;
+  closedTrades: number;
+  wins: number;
+  losses: number;
+  winRate: number | null;
+  totalPnl: number;
+  avgPnl: number;
+  profitFactor: number | null;
+  firstOpenedAt: string | null;
+  lastClosedAt: string | null;
+}
+
+export interface FuturesDeskProfileScore {
+  tradeType: string;
+  closedTrades: number;
+  wins: number;
+  losses: number;
+  winRate: number | null;
+  totalPnl: number;
+  pairs: FuturesDeskPairScore[];
+}
+
 export interface FuturesGovernorJournalEntry {
   profileId: string;
   tradeType: string;
@@ -244,6 +309,9 @@ export interface FuturesDeskSnapshot {
   closedSummary: FuturesDeskSummaryRow[];
   equityCurve: FuturesDeskEquityPoint[];
   recentLifecycle: FuturesDeskLifecycleEvent[];
+  today: FuturesDeskToday;
+  cycleHistory: FuturesDeskCycleHistoryRow[];
+  profileScoreboard: FuturesDeskProfileScore[];
   recentEntries: FuturesDeskEntry[];
 }
 

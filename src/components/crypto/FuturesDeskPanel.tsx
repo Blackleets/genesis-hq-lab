@@ -81,6 +81,9 @@ export function FuturesDeskPanel({
   const governorJournal = futuresDesk.governorJournal ?? [];
   const rankedProfiles = [...(config.governor?.profiles ?? [])].sort((a, b) => (b.rankScore ?? 0) - (a.rankScore ?? 0));
   const baselineAt = futuresDesk.baseline?.baselineAt ?? null;
+  const today = futuresDesk.today;
+  const cycleHistory = futuresDesk.cycleHistory ?? [];
+  const profileScoreboard = futuresDesk.profileScoreboard ?? [];
 
   return (
     <div style={{ background: PANEL_BG, border: `1px solid ${PANEL_BORDER}`, borderRadius: 8, padding: 10 }}>
@@ -146,6 +149,25 @@ export function FuturesDeskPanel({
         </div>
       </div>
 
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="rounded bg-[#151206] px-2 py-1.5">
+          <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'pnl hoy' : 'today pnl'}</div>
+          <div className="font-mono text-[11px] font-bold" style={{ color: tone(today.totalPnl) }}>{usd(today.totalPnl)}</div>
+        </div>
+        <div className="rounded bg-[#151206] px-2 py-1.5">
+          <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'cierres hoy' : 'today closes'}</div>
+          <div className="font-mono text-[11px] font-bold text-zinc-100">{today.closedTrades}</div>
+        </div>
+        <div className="rounded bg-[#151206] px-2 py-1.5">
+          <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">wr today</div>
+          <div className="font-mono text-[11px] font-bold text-zinc-100">{pct(today.winRate)}</div>
+        </div>
+        <div className="rounded bg-[#151206] px-2 py-1.5">
+          <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'abiertas hoy' : 'opened today'}</div>
+          <div className="font-mono text-[11px] font-bold text-zinc-100">{today.openCount}</div>
+        </div>
+      </div>
+
       <div className="mt-3 flex flex-wrap gap-2">
         {config.profiles.map((profile) => (
           <span
@@ -182,6 +204,9 @@ export function FuturesDeskPanel({
                   <span style={{ color: profile.mode === 'paused' ? '#f59e0b' : profile.mode === 'degraded' ? '#f97316' : profile.mode === 'active' ? '#22c55e' : '#9ca3af' }}>
                     {profile.mode}
                   </span>
+                  {profile.supervisor?.mode === 'cooldown' ? (
+                    <span style={{ color: '#f59e0b' }}>cooldown</span>
+                  ) : null}
                 </div>
                 <span className="text-zinc-500">score {profile.rankScore?.toFixed?.(2) ?? profile.rankScore}</span>
               </div>
@@ -192,6 +217,10 @@ export function FuturesDeskPanel({
               <div className="mt-1 flex items-center justify-between gap-3 font-mono text-[9px] text-zinc-600">
                 <span>{profile.reason}</span>
                 <span>cap x{profile.capitalMultiplier} · lev x{profile.leverageMultiplier}</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between gap-3 font-mono text-[9px] text-zinc-600">
+                <span>today {usd(profile.supervisor?.dailyPnl ?? 0)} · streak {profile.supervisor?.consecutiveLosses ?? 0}</span>
+                <span>{profile.supervisor?.cooldownUntil ? `until ${fmtEvent(profile.supervisor.cooldownUntil)}` : (profile.supervisor?.reason ?? 'live')}</span>
               </div>
             </div>
           ))}
@@ -227,6 +256,29 @@ export function FuturesDeskPanel({
                 <span className="text-zinc-500">
                   {entry.trades} trd · WR {pct(entry.winRate)} · {usd(entry.totalPnl)}
                 </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <div className="mb-1 font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">
+          {es ? 'Scoreboard perfiles' : 'Profile scoreboard'}
+        </div>
+        <div className="space-y-1">
+          {profileScoreboard.length === 0 ? (
+            <div className="rounded bg-[#151206] px-2 py-2 font-mono text-[10px] text-zinc-600">
+              {es ? 'Sin cierres aun para scoreboard.' : 'No closed futures trades yet for scoreboard.'}
+            </div>
+          ) : profileScoreboard.map((profile) => (
+            <div key={profile.tradeType} className="rounded bg-[#151206] px-2 py-1.5">
+              <div className="flex items-center justify-between gap-3 font-mono text-[10px]">
+                <span className="text-zinc-200">{summaryLabel({ tradeType: profile.tradeType, closedTrades: 0, wins: 0, winRate: null, totalPnl: 0, avgPnl: 0 })}</span>
+                <span style={{ color: tone(profile.totalPnl) }}>{usd(profile.totalPnl)}</span>
+              </div>
+              <div className="mt-1 font-mono text-[9px] text-zinc-500">
+                {profile.closedTrades} trd · WR {pct(profile.winRate)} · pairs {profile.pairs.length}
               </div>
             </div>
           ))}
@@ -373,6 +425,29 @@ export function FuturesDeskPanel({
                 <span style={{ color: item.event === 'closed' ? tone(item.pnl ?? 0) : '#9ca3af' }}>
                   {item.event === 'closed' ? usd(item.pnl) : item.tradeType}
                 </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <div className="mb-1 font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">
+          {es ? 'Historial de ciclos' : 'Cycle history'}
+        </div>
+        <div className="space-y-1">
+          {cycleHistory.length === 0 ? (
+            <div className="rounded bg-[#151206] px-2 py-2 font-mono text-[10px] text-zinc-600">
+              {es ? 'Sin historial de ciclos aun.' : 'No cycle history yet.'}
+            </div>
+          ) : cycleHistory.slice(0, 6).map((item) => (
+            <div key={`${item.startedAt}-${item.completedAt}`} className="rounded bg-[#151206] px-2 py-1.5">
+              <div className="flex items-center justify-between gap-3 font-mono text-[10px]">
+                <span className="text-zinc-200">{fmtEvent(item.completedAt ?? item.startedAt)}</span>
+                <span className="text-zinc-500">{item.executed} exec / {item.qualified} qual / {item.scanned} scan</span>
+              </div>
+              <div className="mt-1 font-mono text-[9px] text-zinc-600">
+                {item.profiles.map((profile) => `${profile.profile}:${profile.executed}/${profile.qualified}`).join(' · ')}
               </div>
             </div>
           ))}

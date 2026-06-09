@@ -5,6 +5,9 @@ const DEGRADE_MIN_SAMPLES = parseInt(process.env.FUTURES_GOV_DEGRADE_MIN_SAMPLES
 const PAUSE_MIN_SAMPLES = parseInt(process.env.FUTURES_GOV_PAUSE_MIN_SAMPLES ?? '10', 10);
 const DEGRADE_WIN_RATE = parseFloat(process.env.FUTURES_GOV_DEGRADE_WIN_RATE ?? '0.40');
 const PAUSE_WIN_RATE = parseFloat(process.env.FUTURES_GOV_PAUSE_WIN_RATE ?? '0.30');
+const SUPERVISOR_MAX_DAILY_LOSS = parseFloat(process.env.FUTURES_SUPERVISOR_MAX_DAILY_LOSS ?? '120');
+const SUPERVISOR_MAX_CONSEC_LOSSES = parseInt(process.env.FUTURES_SUPERVISOR_MAX_CONSEC_LOSSES ?? '3', 10);
+const SUPERVISOR_COOLDOWN_HOURS = parseInt(process.env.FUTURES_SUPERVISOR_COOLDOWN_HOURS ?? '6', 10);
 
 const PROFILE_DEFS = [
   { id: 'short_micro', tradeType: 'crypto_futures_breakout_short_micro' },
@@ -32,6 +35,61 @@ function readJournal() {
   } catch {
     return [];
   }
+}
+
+function getSupervisorState(tradeType) {
+  const daily = db.prepare(`
+    SELECT
+      COUNT(*) AS trades,
+      COALESCE(SUM(pnl), 0) AS totalPnl
+    FROM trades
+    WHERE trade_type = ?
+      AND status = 'closed'
+      AND pnl IS NOT NULL
+      AND closed_at >= datetime('now', 'start of day')
+  `).get(tradeType);
+
+  const closes = db.prepare(`
+    SELECT pnl, closed_at
+    FROM trades
+    WHERE trade_type = ?
+      AND status = 'closed'
+      AND pnl IS NOT NULL
+    ORDER BY closed_at DESC
+    LIMIT ?
+  `).all(tradeType, SUPERVISOR_MAX_CONSEC_LOSSES);
+
+  let consecutiveLosses = 0;
+  for (const close of closes) {
+    if ((close.pnl ?? 0) < 0) consecutiveLosses++;
+    else break;
+  }
+
+  const lastClosedAt = closes[0]?.closed_at ?? null;
+  const cooldownUntil = lastClosedAt
+    ? new Date(new Date(lastClosedAt).getTime() + (SUPERVISOR_COOLDOWN_HOURS * 60 * 60 * 1000)).toISOString()
+    : null;
+
+  const dailyPnl = round2(daily?.totalPnl ?? 0);
+  const dailyTrades = daily?.trades ?? 0;
+  const dailyLossTriggered = dailyPnl <= -Math.abs(SUPERVISOR_MAX_DAILY_LOSS);
+  const streakTriggered = consecutiveLosses >= SUPERVISOR_MAX_CONSEC_LOSSES;
+  const coolingDown = (dailyLossTriggered || streakTriggered)
+    && cooldownUntil != null
+    && new Date(cooldownUntil).getTime() > Date.now();
+
+  return {
+    dailyTrades,
+    dailyPnl,
+    consecutiveLosses,
+    cooldownUntil,
+    mode: coolingDown ? 'cooldown' : 'live',
+    reason: dailyLossTriggered
+      ? `daily loss ${dailyPnl} <= -${Math.abs(SUPERVISOR_MAX_DAILY_LOSS)}`
+      : streakTriggered
+        ? `${consecutiveLosses} consecutive losses`
+        : null,
+  };
 }
 
 function writeJournal(entries) {
@@ -129,6 +187,7 @@ export function getFuturesGovernorSnapshot() {
       maxDrawdown = Math.min(maxDrawdown, equity - peak);
     }
     const rankScore = round2(((winRate ?? 0) * 100) + (row?.avgPnl ?? 0) + ((profitFactor && Number.isFinite(profitFactor)) ? profitFactor * 5 : 0));
+    const supervisor = getSupervisorState(profile.tradeType);
 
     return {
       id: profile.id,
@@ -142,6 +201,7 @@ export function getFuturesGovernorSnapshot() {
       profitFactor: profitFactor == null || profitFactor === Infinity ? profitFactor : round2(profitFactor),
       maxDrawdown: round2(maxDrawdown),
       rankScore,
+      supervisor,
       ...verdict,
     };
   });
@@ -150,6 +210,11 @@ export function getFuturesGovernorSnapshot() {
     windowDays: WINDOW_DAYS,
     degradeMinSamples: DEGRADE_MIN_SAMPLES,
     pauseMinSamples: PAUSE_MIN_SAMPLES,
+    supervisor: {
+      maxDailyLoss: SUPERVISOR_MAX_DAILY_LOSS,
+      maxConsecutiveLosses: SUPERVISOR_MAX_CONSEC_LOSSES,
+      cooldownHours: SUPERVISOR_COOLDOWN_HOURS,
+    },
     profiles,
     journal: readJournal(),
     evaluatedAt: new Date().toISOString(),

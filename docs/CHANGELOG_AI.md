@@ -656,3 +656,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Added a non-destructive futures PnL baseline reset, introduced the `short_micro` 5m profile, completed the `5m/15m/1h/4h` multi-timeframe futures wiring across backend and UI, and surfaced per-profile timeframe and baseline state in the futures desk.
 - Files touched: `.env.example`, `package.json`, `scripts/resetFuturesPnlBaseline.mjs`, `server/crypto/futuresGovernor.mjs`, `server/crypto/marketIntelligence.mjs`, `server/index.mjs`, `src/services/cryptoClient.ts`, `src/components/crypto/FuturesDeskPanel.tsx`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/strategies/futuresBreakoutEngine.mjs` ok; `node --check server/crypto/futuresDesk.mjs` ok; `node --check server/crypto/futuresGovernor.mjs` ok; `node --check server/index.mjs` ok; `node --check scripts/resetFuturesPnlBaseline.mjs` ok; `npm run build` ok; `npm run futures:reset` wrote baseline `2026-06-09T14:59:54.924Z`; `npm run futures:once` scanned `short_micro` 2 pairs, `short_core` 4, `short_alt` 2, `long_probe` 2 with live `inside_channel` no-entry reasons
+
+## 2026-06-09 Ã¢â‚¬â€ Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added a real per-profile futures supervisor with cooldown triggers, persisted recent futures cycle history into SQLite-backed `org_state`, and surfaced a live "today" block plus compact profile scoreboard/history in the futures desk.
+- Files touched: `server/crypto/futuresGovernor.mjs`, `server/strategies/futuresBreakoutEngine.mjs`, `server/crypto/futuresDesk.mjs`, `src/services/cryptoClient.ts`, `src/components/crypto/FuturesDeskPanel.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/futuresGovernor.mjs` ok; `node --check server/strategies/futuresBreakoutEngine.mjs` ok; `node --check server/crypto/futuresDesk.mjs` ok; `npm run build` ok; `npm run futures:once` ok; live snapshot at `2026-06-09T15:19:32.092Z` showed all 4 profiles active in `learning`, supervisor `live`, zero daily PnL since baseline, and cycle history persisted with `10` scans and `0` executions

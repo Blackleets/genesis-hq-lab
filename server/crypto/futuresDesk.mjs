@@ -11,6 +11,7 @@ const FUTURES_TYPES = ['crypto_futures_breakout_short_micro', 'crypto_futures_br
 const __dir = dirname(fileURLToPath(import.meta.url));
 const FUTURES_CYCLE_PATH = join(__dir, '..', '..', 'data', 'futures-last-cycle.json');
 const FUTURES_BASELINE_KEY = 'futures_pnl_baseline';
+const FUTURES_CYCLE_HISTORY_KEY = 'futures_cycle_history';
 
 function round2(value) {
   return value == null ? null : Math.round(value * 100) / 100;
@@ -48,6 +49,17 @@ function readBaseline() {
 
 function buildClosedAtClause(baseline) {
   return baseline?.baselineAt ? ` AND closed_at >= '${baseline.baselineAt}'` : '';
+}
+
+function readCycleHistory(limit = 12) {
+  try {
+    const row = db.prepare(`SELECT value FROM org_state WHERE key = ?`).get(FUTURES_CYCLE_HISTORY_KEY);
+    if (!row?.value) return [];
+    const parsed = JSON.parse(row.value);
+    return Array.isArray(parsed) ? parsed.slice(-limit).reverse() : [];
+  } catch {
+    return [];
+  }
 }
 
 async function buildOpenPositions() {
@@ -175,6 +187,107 @@ function buildRecentLifecycle(baseline, limit = 12) {
   }));
 }
 
+function buildTodaySummary(baseline) {
+  const where = baseline?.baselineAt
+    ? `AND closed_at >= MAX(datetime('now', 'start of day'), '${baseline.baselineAt}')`
+    : `AND closed_at >= datetime('now', 'start of day')`;
+
+  const closed = db.prepare(`
+    SELECT
+      COUNT(*) AS closedTrades,
+      SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) AS wins,
+      COALESCE(SUM(pnl), 0) AS totalPnl,
+      COALESCE(AVG(pnl), 0) AS avgPnl
+    FROM trades
+    WHERE status = 'closed'
+      AND trade_type IN ${listToSql(FUTURES_TYPES)}
+      ${where}
+  `).get();
+
+  const opens = db.prepare(`
+    SELECT COUNT(*) AS openCount
+    FROM trades
+    WHERE status = 'open'
+      AND trade_type IN ${listToSql(FUTURES_TYPES)}
+      AND opened_at >= datetime('now', 'start of day')
+  `).get();
+
+  const winRate = (closed?.closedTrades ?? 0) > 0
+    ? round2((closed.wins ?? 0) / closed.closedTrades)
+    : null;
+
+  return {
+    openCount: opens?.openCount ?? 0,
+    closedTrades: closed?.closedTrades ?? 0,
+    wins: closed?.wins ?? 0,
+    losses: Math.max(0, (closed?.closedTrades ?? 0) - (closed?.wins ?? 0)),
+    winRate,
+    totalPnl: round2(closed?.totalPnl ?? 0),
+    avgPnl: round2(closed?.avgPnl ?? 0),
+  };
+}
+
+function buildProfileScoreboard(baseline) {
+  const rows = db.prepare(`
+    SELECT
+      trade_type AS tradeType,
+      asset_pair AS pair,
+      COUNT(*) AS closedTrades,
+      SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) AS wins,
+      COALESCE(SUM(pnl), 0) AS totalPnl,
+      COALESCE(AVG(pnl), 0) AS avgPnl,
+      COALESCE(SUM(CASE WHEN pnl > 0 THEN pnl ELSE 0 END), 0) AS grossProfit,
+      COALESCE(ABS(SUM(CASE WHEN pnl < 0 THEN pnl ELSE 0 END)), 0) AS grossLoss,
+      MIN(opened_at) AS firstOpenedAt,
+      MAX(closed_at) AS lastClosedAt
+    FROM trades
+    WHERE status = 'closed'
+      AND pnl IS NOT NULL
+      AND trade_type IN ${listToSql(FUTURES_TYPES)}${buildClosedAtClause(baseline)}
+    GROUP BY trade_type, asset_pair
+    ORDER BY totalPnl DESC, closedTrades DESC
+  `).all();
+
+  const byProfile = new Map();
+  for (const row of rows) {
+    if (!byProfile.has(row.tradeType)) byProfile.set(row.tradeType, []);
+    const profitFactor = (row.grossLoss ?? 0) > 0
+      ? row.grossProfit / row.grossLoss
+      : (row.grossProfit ?? 0) > 0 ? Infinity : null;
+    byProfile.get(row.tradeType).push({
+      pair: row.pair,
+      closedTrades: row.closedTrades,
+      wins: row.wins,
+      losses: Math.max(0, row.closedTrades - row.wins),
+      winRate: row.closedTrades > 0 ? round2(row.wins / row.closedTrades) : null,
+      totalPnl: round2(row.totalPnl),
+      avgPnl: round2(row.avgPnl),
+      profitFactor: profitFactor == null || profitFactor === Infinity ? profitFactor : round2(profitFactor),
+      firstOpenedAt: row.firstOpenedAt,
+      lastClosedAt: row.lastClosedAt,
+    });
+  }
+
+  return Array.from(byProfile.entries()).map(([tradeType, pairs]) => {
+    const summary = pairs.reduce((acc, pair) => ({
+      closedTrades: acc.closedTrades + pair.closedTrades,
+      wins: acc.wins + pair.wins,
+      losses: acc.losses + pair.losses,
+      totalPnl: acc.totalPnl + (pair.totalPnl ?? 0),
+    }), { closedTrades: 0, wins: 0, losses: 0, totalPnl: 0 });
+
+    return {
+      tradeType,
+      closedTrades: summary.closedTrades,
+      wins: summary.wins,
+      losses: summary.losses,
+      winRate: summary.closedTrades > 0 ? round2(summary.wins / summary.closedTrades) : null,
+      totalPnl: round2(summary.totalPnl),
+      pairs,
+    };
+  }).sort((a, b) => (b.totalPnl ?? 0) - (a.totalPnl ?? 0));
+}
+
 export async function getFuturesDeskSnapshot({ runCycle = false } = {}) {
   const startedAt = new Date().toISOString();
   const config = futuresBreakoutEngineConfig();
@@ -189,6 +302,9 @@ export async function getFuturesDeskSnapshot({ runCycle = false } = {}) {
   const closedSummary = buildClosedSummary(baseline);
   const equityCurve = buildEquityCurve(baseline);
   const recentLifecycle = buildRecentLifecycle(baseline);
+  const today = buildTodaySummary(baseline);
+  const cycleHistory = readCycleHistory();
+  const profileScoreboard = buildProfileScoreboard(baseline);
 
   return {
     mode: runCycle ? 'run' : 'status',
@@ -210,6 +326,9 @@ export async function getFuturesDeskSnapshot({ runCycle = false } = {}) {
     closedSummary,
     equityCurve,
     recentLifecycle,
+    today,
+    cycleHistory,
+    profileScoreboard,
     recentEntries: runCycle ? buildRecentEntries(startedAt) : [],
   };
 }
