@@ -73,6 +73,20 @@ export function scalpConfig() {
 // status WITHOUT any extra Binance fetch or polling.
 let _lastScanSnapshot = { at: null, assets: [] };
 
+// ── Scalp V2 runtime diagnostics ─────────────────────────────────────────────
+let _v2State = {
+  lastScanAt:              null,
+  lastSignalAt:            null,
+  lastTradeAt:             null,
+  executionBlockedReason:  null,
+  scannedSymbols:          [],
+  rejectedSignalsByReason: {},
+};
+
+export function getScalpV2Diagnostics() {
+  return { ..._v2State, config: scalpConfig() };
+}
+
 /** The four scalp confluences, in human terms, and the signal codes that satisfy each. */
 const CONFLUENCES = [
   { label: 'EMA trend',              codes: ['EMA_BULL_CROSS', 'EMA_BEAR_CROSS'] },
@@ -268,11 +282,15 @@ export async function runScalpingCycle() {
   // Safety gates
   if (isGlobalSafeMode() || isSafeMode()) {
     logEvent({ category: CATEGORY.EXECUTION, severity: SEVERITY.WARNING, subsystem: AGENT_ID, reason: 'SCALPING BLOCKED — safe mode' });
+    _v2State.executionBlockedReason = 'SAFE_MODE';
     result.blocked = true;
     return result;
   }
 
   if (!isDeptActive('crypto_scalping')) {
+    logEvent({ category: CATEGORY.EXECUTION, severity: SEVERITY.INFO, subsystem: AGENT_ID, reason: 'SCALP_V2_BLOCKED — crypto_scalping dept inactive' });
+    _v2State.executionBlockedReason = 'DEPT_INACTIVE';
+    result.blocked = true;
     return result;
   }
 
@@ -299,6 +317,7 @@ export async function runScalpingCycle() {
   const risk = getGlobalRiskDiagnostics();
   if (risk.band === 'CRITICAL') {
     logEvent({ category: CATEGORY.RISK, severity: SEVERITY.WARNING, subsystem: AGENT_ID, reason: `SCALPING PAUSED — risk band CRITICAL (${risk.score}/100)` });
+    _v2State.executionBlockedReason = 'RISK_CRITICAL';
     return result;
   }
 
@@ -306,25 +325,41 @@ export async function runScalpingCycle() {
   let assets;
   try {
     assets = await getAssetContexts();
-  } catch {
+  } catch (err) {
+    logEvent({ category: CATEGORY.EXECUTION, severity: SEVERITY.ERROR, subsystem: AGENT_ID, reason: `SCALP_V2_ERROR — priceFeeder threw: ${err?.message ?? 'unknown'}` });
+    _v2State.executionBlockedReason = 'PRICE_FEED_ERROR';
+    return result;
+  }
+  if (assets.length === 0) {
+    logEvent({ category: CATEGORY.EXECUTION, severity: SEVERITY.WARNING, subsystem: AGENT_ID, reason: 'SCALP_V2_BLOCKED — priceFeeder returned 0 assets' });
+    _v2State.executionBlockedReason = 'NO_ASSETS';
     return result;
   }
 
   result.scanned = assets.length;
+  _v2State.lastScanAt = new Date().toISOString();
+  _v2State.scannedSymbols = [];
+  _v2State.executionBlockedReason = null;
+  logEvent({ category: CATEGORY.SCAN, severity: SEVERITY.INFO, subsystem: AGENT_ID,
+    reason: `SCALP_V2_SCAN_STARTED — scanning ${assets.length} assets`,
+    metadata: { count: assets.length } });
+
   const snapshot = [];
 
   for (const asset of assets) {
-    // Operator visibility: log what we're scanning
-    if (result.scanned > 0) {
-      logEvent({ category: CATEGORY.SCAN, severity: SEVERITY.INFO, subsystem: AGENT_ID,
-        reason: `SCANNING ${asset.symbol} @ $${asset.price.toFixed(2)} | RSI ${asset.rsi14} | trend ${asset.trend}`,
-        metadata: { symbol: asset.symbol, price: asset.price, rsi: asset.rsi14 } });
-    }
+    _v2State.scannedSymbols.push(asset.symbol);
 
     const openedAt = new Date().toISOString();
     const signal = applyManualContextBlocks(evaluateScalpSignal(asset), asset, openedAt);
     const positionOpen = hasOpenPosition(asset.pair, TRADE_TYPE);
     const gatePass = signal.action === 'TRADE' && signal.confidence >= MIN_CONFIDENCE;
+
+    if (signal.action === 'TRADE') {
+      _v2State.lastSignalAt = new Date().toISOString();
+      logEvent({ category: CATEGORY.SCAN, severity: SEVERITY.INFO, subsystem: AGENT_ID,
+        reason: `SCALP_V2_SIGNAL_FOUND — ${asset.symbol} ${signal.side} conf=${Math.round(signal.confidence * 100)}% raw=${Math.round((signal.rawConfidence ?? 0) * 100)}% regime=${signal.regime}`,
+        metadata: { symbol: asset.symbol, side: signal.side, confidence: Math.round(signal.confidence * 100), regime: signal.regime, score: signal.score } });
+    }
 
     // Per-asset snapshot for the operator "why no trade" explainer (no extra fetch)
     snapshot.push({
@@ -355,8 +390,11 @@ export async function runScalpingCycle() {
     }
 
     if (signal.confidence < MIN_CONFIDENCE) {
+      const rejectReason = rejectReasonFor(signal, MIN_CONFIDENCE, false, positionOpen);
+      _v2State.rejectedSignalsByReason[rejectReason] = (_v2State.rejectedSignalsByReason[rejectReason] ?? 0) + 1;
       logEvent({ category: CATEGORY.SCAN, severity: SEVERITY.INFO, subsystem: AGENT_ID,
-        reason: `${asset.symbol}: signal ${signal.side} but conf ${(signal.confidence*100).toFixed(0)}% < ${(MIN_CONFIDENCE*100).toFixed(0)}% gate` });
+        reason: `SCALP_V2_SIGNAL_REJECTED — ${asset.symbol} ${signal.side} reason=${rejectReason} conf=${Math.round(signal.confidence * 100)}% gate=${Math.round(MIN_CONFIDENCE * 100)}%`,
+        metadata: { symbol: asset.symbol, side: signal.side, reason: rejectReason, confidence: Math.round(signal.confidence * 100) } });
       result.skipped++;
       continue;
     }
@@ -391,6 +429,10 @@ export async function runScalpingCycle() {
 
     if (execution.executed) {
       result.executed++;
+      _v2State.lastTradeAt = new Date().toISOString();
+      logEvent({ category: CATEGORY.EXECUTION, severity: SEVERITY.INFO, subsystem: AGENT_ID,
+        reason: `SCALP_V2_TRADE_OPENED — ${signal.side} ${asset.symbol} @ $${asset.price.toFixed(2)} conf=${Math.round(signal.confidence * 100)}%`,
+        metadata: { symbol: asset.symbol, side: signal.side, price: asset.price, confidence: Math.round(signal.confidence * 100) } });
       console.log(`[scalpingEngine] ✓ ${signal.side} ${asset.symbol} @ $${asset.price.toFixed(2)} | conf ${(signal.confidence*100).toFixed(0)}%`);
     }
   }

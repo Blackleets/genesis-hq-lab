@@ -20,58 +20,15 @@ import { isGlobalSafeMode, getGlobalRiskDiagnostics } from '../risk/globalRiskEn
 import { analyzeClosedTrade } from '../memory/learningEngine.mjs';
 import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs';
 import { computeEma } from '../crypto/priceFeeder.mjs';
+import { checkExitConditions as _checkExit } from './positionMonitorCore.mjs';
+
+export { checkExitConditions } from './positionMonitorCore.mjs';
 
 const TRADE_TYPES = ['scalp_v2', 'swing_v1', 'breakout_v1', 'crypto_futures_breakout_short_micro', 'crypto_futures_breakout_short', 'crypto_futures_breakout_short_alt', 'crypto_futures_breakout_long'];
 
 // Trade types whose edge depends on holding to TP/SL/timeout — exempt from the 1m
 // momentum-collapse check, which would close a multi-hour position on intrabar noise.
 const HOLD_TO_TARGET_TYPES = new Set(['breakout_v1', 'crypto_futures_breakout_short_micro', 'crypto_futures_breakout_short', 'crypto_futures_breakout_short_alt', 'crypto_futures_breakout_long']);
-
-// ── Check exit conditions for a single position ───────────────────────────────
-
-/**
- * Returns { shouldExit: boolean, reason: string | null, exitType: 'tp'|'sl'|'timeout'|'risk'|'momentum' | null }
- */
-function checkExitConditions(trade, currentPrice, riskBand) {
-  const isLong = trade.outcome === 'LONG';
-  const ageMs  = Date.now() - new Date(trade.opened_at).getTime();
-  const ageH   = ageMs / (1000 * 60 * 60);
-
-  // 1. Risk close: CRITICAL system risk → force exit everything
-  if (riskBand === 'CRITICAL') {
-    return { shouldExit: true, reason: 'risk_close', exitType: 'risk' };
-  }
-
-  // 2. Stop loss
-  if (trade.stop_price != null) {
-    const slHit = isLong
-      ? currentPrice <= trade.stop_price
-      : currentPrice >= trade.stop_price;
-    if (slHit) {
-      return { shouldExit: true, reason: 'stop_loss', exitType: 'sl' };
-    }
-  }
-
-  // 3. Take profit
-  if (trade.target_price != null) {
-    const tpHit = isLong
-      ? currentPrice >= trade.target_price
-      : currentPrice <= trade.target_price;
-    if (tpHit) {
-      return { shouldExit: true, reason: 'take_profit', exitType: 'tp' };
-    }
-  }
-
-  // 4. Timeout
-  if (trade.days_to_close != null) {
-    const maxHours = trade.days_to_close * 24;
-    if (ageH >= maxHours) {
-      return { shouldExit: true, reason: 'timeout', exitType: 'timeout' };
-    }
-  }
-
-  return { shouldExit: false, reason: null, exitType: null };
-}
 
 // ── Monitor confidence collapse (EMA momentum check) ─────────────────────────
 
@@ -140,7 +97,7 @@ export async function monitorPositions({ checkMomentum = false } = {}) {
     const currentPrice = priceMap[trade.asset_pair];
     if (!currentPrice) continue;
 
-    let { shouldExit, reason } = checkExitConditions(trade, currentPrice, riskBand);
+    let { shouldExit, reason } = _checkExit(trade, currentPrice, riskBand);
 
     // Momentum collapse check (only on mid/slow runs — network overhead). Exempt
     // hold-to-target strategies (e.g. breakout_v1) — their edge needs the full hold.
@@ -163,6 +120,20 @@ export async function monitorPositions({ checkMomentum = false } = {}) {
     else if (reason === 'timeout')      result.timeout++;
     else if (reason === 'risk_close')   result.risk++;
     else if (reason === 'confidence_collapse') result.momentum++;
+
+    // Structured close event for diagnostics
+    const eng = trade.trade_type === 'scalp_v2' ? 'SCALP_V2' : trade.trade_type === 'swing_v1' ? 'SWING_V1' : null;
+    if (eng) {
+      const pnlStr = closed.pnl != null ? `$${closed.pnl.toFixed(2)}` : '?';
+      const evtLabel = reason === 'take_profit' ? `${eng}_TP_HIT` : reason === 'stop_loss' ? `${eng}_SL_HIT` : `${eng}_EXITED`;
+      logEvent({
+        category: reason === 'stop_loss' ? CATEGORY.RISK : CATEGORY.EXECUTION,
+        severity: reason === 'stop_loss' ? SEVERITY.WARNING : SEVERITY.INFO,
+        subsystem: trade.agent_id ?? 'position-monitor',
+        reason: `${evtLabel} — ${trade.outcome} ${trade.asset_pair} pnl=${pnlStr} exit=${reason}`,
+        metadata: { id: trade.id, pair: trade.asset_pair, side: trade.outcome, pnl: closed.pnl, exitType: reason },
+      });
+    }
 
     // Trigger learning on close
     try {

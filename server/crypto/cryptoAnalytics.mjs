@@ -161,6 +161,29 @@ function round3(x) {
   return x == null ? null : Math.round(x * 1000) / 1000;
 }
 
+/** Today's closed/win/pnl + open count per live engine type (scalp_v2, swing_v1). */
+export function getScalpV2TodayStats() {
+  const result = {};
+  for (const type of ['scalp_v2', 'swing_v1']) {
+    const closed = db.prepare(`
+      SELECT COUNT(*) AS n,
+             SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) AS wins,
+             COALESCE(SUM(pnl), 0) AS pnl
+      FROM trades
+      WHERE trade_type = ? AND status = 'closed'
+        AND DATE(closed_at) = DATE('now')
+    `).get(type);
+    const open = db.prepare(`SELECT COUNT(*) AS n FROM trades WHERE trade_type = ? AND status = 'open'`).get(type)?.n ?? 0;
+    result[type] = {
+      closedToday:   closed?.n    ?? 0,
+      winsToday:     closed?.wins ?? 0,
+      pnlToday:      Math.round((closed?.pnl ?? 0) * 100) / 100,
+      openPositions: open,
+    };
+  }
+  return result;
+}
+
 /** Everything the Crypto Lab view needs in one shot. */
 export function getCryptoOverview() {
   return {
