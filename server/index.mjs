@@ -77,6 +77,14 @@ import { getCommentary }                                  from './ai/commentaryE
 import { getTradeStories }                                from './crypto/tradeHistory.mjs';
 import { analyzeTrade, assertTradeAllowed }               from './crypto/copilot.mjs';
 import { getFuturesDeskSnapshot, getLiveFuturesCapitalSnapshot, resetFuturesPnlBaseline } from './crypto/futuresDesk.mjs';
+import {
+  applyIntelligenceSupervisorRun,
+  getIntelligenceSupervisorHistory,
+  getIntelligenceSupervisorLatest,
+  getIntelligenceSupervisorRunById,
+  rollbackIntelligenceSupervisorOverrides,
+  runIntelligenceSupervisor,
+}                                                         from './intelligence/intelligenceSupervisor.mjs';
 import { scalpConfig, getLastScanSnapshot, getScalpV2Diagnostics } from './strategies/scalpingEngine.mjs';
 import { getAutopsy }                                     from './crypto/autoVeto.mjs';
 import { getFatigueIntelligenceSummary }                  from './intelligence/setupFatigue.mjs';
@@ -251,6 +259,110 @@ const server = createServer(async (req, res) => {
         sendJson(res, 200, { ok: true, baseline });
       } catch (error) {
         sendJson(res, 500, { ok: false, error: error instanceof Error ? error.message : 'baseline_reset_failed' });
+      }
+    });
+    return;
+  }
+
+  if (url.pathname === '/api/intelligence/supervisor/run' && req.method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', async () => {
+      try {
+        const parsed = body ? JSON.parse(body) : {};
+        if (parsed?.apply === true) {
+          sendJson(res, 400, {
+            ok: false,
+            error: 'apply_not_supported',
+            message: 'Supervisor v1 is advisory only and cannot apply recommendations.',
+          });
+          return;
+        }
+        const result = await runIntelligenceSupervisor();
+        sendJson(res, result.ok ? 200 : 503, {
+          ok: result.ok,
+          advisoryOnly: true,
+          applied: false,
+          run: result.run,
+          state: result.state,
+          error: result.error ?? null,
+        });
+      } catch (error) {
+        sendJson(res, 500, {
+          ok: false,
+          advisoryOnly: true,
+          applied: false,
+          error: error instanceof Error ? error.message : 'supervisor_run_failed',
+        });
+      }
+    });
+    return;
+  }
+
+  const intelligenceApplyMatch = url.pathname.match(/^\/api\/intelligence\/supervisor\/([^/]+)\/apply$/);
+  if (intelligenceApplyMatch && req.method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const parsed = body ? JSON.parse(body) : {};
+        const result = applyIntelligenceSupervisorRun(
+          intelligenceApplyMatch[1],
+          typeof parsed.appliedBy === 'string' && parsed.appliedBy.trim()
+            ? parsed.appliedBy.trim().slice(0, 80)
+            : 'operator',
+        );
+        sendJson(res, 200, {
+          ok: true,
+          advisoryOnly: false,
+          applied: true,
+          result,
+          state: getIntelligenceSupervisorLatest(),
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'supervisor_apply_failed';
+        const status = ['supervisor_run_not_found', 'supervisor_run_not_recommended', 'no_applicable_changes'].includes(message) ? 400 : 500;
+        sendJson(res, status, {
+          ok: false,
+          advisoryOnly: false,
+          applied: false,
+          error: message,
+        });
+      }
+    });
+    return;
+  }
+
+  if (url.pathname === '/api/intelligence/supervisor/rollback' && req.method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const parsed = body ? JSON.parse(body) : {};
+        const result = rollbackIntelligenceSupervisorOverrides(
+          typeof parsed.appliedBy === 'string' && parsed.appliedBy.trim()
+            ? parsed.appliedBy.trim().slice(0, 80)
+            : 'operator',
+          typeof parsed.reason === 'string' && parsed.reason.trim()
+            ? parsed.reason.trim().slice(0, 160)
+            : 'manual rollback',
+        );
+        sendJson(res, 200, {
+          ok: true,
+          advisoryOnly: false,
+          applied: false,
+          result,
+          state: getIntelligenceSupervisorLatest(),
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'supervisor_rollback_failed';
+        const status = message === 'no_active_overrides' ? 400 : 500;
+        sendJson(res, status, {
+          ok: false,
+          advisoryOnly: false,
+          applied: false,
+          error: message,
+        });
       }
     });
     return;
@@ -597,9 +709,60 @@ const server = createServer(async (req, res) => {
         today: { openCount: 0, closedTrades: 0, wins: 0, losses: 0, winRate: null, totalPnl: 0, avgPnl: 0 },
         cycleHistory: [],
         profileScoreboard: [],
+        supervisor: {
+          scope: 'futures_supervisor',
+          latest: null,
+          latestAttempt: null,
+          appliedPolicy: {
+            active: false,
+            sourceRunId: null,
+            appliedAt: null,
+            appliedBy: null,
+            expiresAt: null,
+            overrides: [],
+            latestApply: null,
+            impact: null,
+          },
+        },
         recentEntries: [],
         error: e.message,
       });
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/intelligence/supervisor/latest') {
+    try {
+      const state = getIntelligenceSupervisorLatest();
+      sendJson(res, 200, { ok: true, advisoryOnly: true, applied: Boolean(state.appliedPolicy?.active), ...state });
+    } catch (e) {
+      sendJson(res, 500, { ok: false, error: e.message });
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/intelligence/supervisor/history') {
+    try {
+      const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') ?? '20', 10)));
+      const history = getIntelligenceSupervisorHistory(limit);
+      sendJson(res, 200, { ok: true, advisoryOnly: true, applied: false, history });
+    } catch (e) {
+      sendJson(res, 500, { ok: false, error: e.message });
+    }
+    return;
+  }
+
+  const intelligenceRunMatch = url.pathname.match(/^\/api\/intelligence\/supervisor\/([^/]+)$/);
+  if (intelligenceRunMatch) {
+    try {
+      const run = getIntelligenceSupervisorRunById(intelligenceRunMatch[1]);
+      if (!run) {
+        sendJson(res, 404, { ok: false, error: 'supervisor_run_not_found' });
+        return;
+      }
+      sendJson(res, 200, { ok: true, advisoryOnly: true, applied: false, run });
+    } catch (e) {
+      sendJson(res, 500, { ok: false, error: e.message });
     }
     return;
   }

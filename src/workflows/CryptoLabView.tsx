@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useLanguage } from '@core/i18n/languageStore';
 import {
-  loadCryptoOverview, loadTradeStories, loadCommentary, loadDiagnostics, loadShadowCandidateDiagnostics, loadBreakoutShadow, loadFuturesDesk, resetFuturesDeskBaseline,
+  applyIntelligenceSupervisorRun, loadCryptoOverview, loadTradeStories, loadCommentary, loadDiagnostics, loadShadowCandidateDiagnostics, loadBreakoutShadow, loadFuturesDesk, resetFuturesDeskBaseline, rollbackIntelligenceSupervisor, runIntelligenceSupervisor,
   type CryptoOverview, type TradeStory, type CommentaryItem, type ExecutionDiagnostics, type ShadowCandidateDiagnostics, type BreakoutShadowDiagnostics, type FuturesDeskSnapshot,
 } from '@services/cryptoClient';
 import CandleChart from '@dashboard/charts/CandleChart';
@@ -35,6 +35,9 @@ export default function CryptoLabView() {
   const [futuresCycleBusy, setFuturesCycleBusy] = useState(false);
   const [futuresCycleStatus, setFuturesCycleStatus] = useState<string | null>(null);
   const [futuresBaselineBusy, setFuturesBaselineBusy] = useState(false);
+  const [supervisorBusy, setSupervisorBusy] = useState(false);
+  const [supervisorApplyBusy, setSupervisorApplyBusy] = useState(false);
+  const [supervisorRollbackBusy, setSupervisorRollbackBusy] = useState(false);
 
   const fetchOverview = useCallback(async () => {
     try {
@@ -137,6 +140,98 @@ export default function CryptoLabView() {
       setFuturesBaselineBusy(false);
     }
   }, [es, fetchDiagnostics, fetchOverview, fetchTrades]);
+
+  const handleRunSupervisor = useCallback(async () => {
+    setSupervisorBusy(true);
+    setFuturesCycleStatus(es ? 'Ejecutando supervisor advisory de futuros...' : 'Running futures advisory supervisor...');
+    try {
+      const result = await runIntelligenceSupervisor(40_000);
+      const latestDesk = await loadFuturesDesk(false, 10_000);
+      if (latestDesk) setFuturesDesk(latestDesk);
+
+      if (!result) {
+        setFuturesCycleStatus(es ? 'No hubo respuesta del supervisor.' : 'Supervisor did not return a response.');
+      } else if (result.ok) {
+        const latest = result.state?.latest ?? result.state?.latestAttempt ?? null;
+        setFuturesCycleStatus(
+          latest?.score != null
+            ? (es ? `Supervisor listo: score ${latest.score.toFixed(3)} advisory only.` : `Supervisor ready: score ${latest.score.toFixed(3)} advisory only.`)
+            : (es ? 'Supervisor ejecutado en modo advisory.' : 'Supervisor completed in advisory mode.')
+        );
+      } else {
+        setFuturesCycleStatus(
+          es
+            ? `Supervisor degradado: ${result.error ?? 'proveedor no disponible'}`
+            : `Supervisor degraded: ${result.error ?? 'provider unavailable'}`
+        );
+      }
+    } catch {
+      setFuturesCycleStatus(es ? 'Fallo el supervisor advisory.' : 'Advisory supervisor failed.');
+    } finally {
+      setSupervisorBusy(false);
+    }
+  }, [es]);
+
+  const handleApplySupervisor = useCallback(async () => {
+    const runId = futuresDesk?.supervisor?.latest?.id ?? futuresDesk?.supervisor?.latestAttempt?.id ?? null;
+    if (!runId) {
+      setFuturesCycleStatus(es ? 'No hay recomendacion aplicable.' : 'No applicable recommendation exists.');
+      return;
+    }
+    setSupervisorApplyBusy(true);
+    setFuturesCycleStatus(es ? 'Aplicando overrides seguros del supervisor...' : 'Applying safe supervisor overrides...');
+    try {
+      const result = await applyIntelligenceSupervisorRun(runId, 15_000);
+      const latestDesk = await loadFuturesDesk(false, 10_000);
+      if (latestDesk) setFuturesDesk(latestDesk);
+
+      if (!result) {
+        setFuturesCycleStatus(es ? 'No hubo respuesta al aplicar el supervisor.' : 'No response while applying the supervisor.');
+      } else if (result.ok) {
+        const count = result.state?.appliedPolicy?.overrides?.length ?? 0;
+        setFuturesCycleStatus(
+          es
+            ? `Supervisor aplicado: ${count} override(s) activos en runtime.`
+            : `Supervisor applied: ${count} runtime override(s) active.`
+        );
+      } else {
+        setFuturesCycleStatus(
+          es
+            ? `No se pudo aplicar: ${result.error ?? 'error desconocido'}`
+            : `Could not apply: ${result.error ?? 'unknown error'}`
+        );
+      }
+    } catch {
+      setFuturesCycleStatus(es ? 'Fallo la aplicacion del supervisor.' : 'Supervisor apply failed.');
+    } finally {
+      setSupervisorApplyBusy(false);
+    }
+  }, [es, futuresDesk]);
+
+  const handleRollbackSupervisor = useCallback(async () => {
+    setSupervisorRollbackBusy(true);
+    setFuturesCycleStatus(es ? 'Revirtiendo overrides del supervisor...' : 'Rolling back supervisor overrides...');
+    try {
+      const result = await rollbackIntelligenceSupervisor(15_000);
+      const latestDesk = await loadFuturesDesk(false, 10_000);
+      if (latestDesk) setFuturesDesk(latestDesk);
+      if (!result) {
+        setFuturesCycleStatus(es ? 'No hubo respuesta al revertir.' : 'No response while rolling back.');
+      } else if (result.ok) {
+        setFuturesCycleStatus(es ? 'Overrides del supervisor revertidos.' : 'Supervisor overrides rolled back.');
+      } else {
+        setFuturesCycleStatus(
+          es
+            ? `No se pudo revertir: ${result.error ?? 'error desconocido'}`
+            : `Could not roll back: ${result.error ?? 'unknown error'}`
+        );
+      }
+    } catch {
+      setFuturesCycleStatus(es ? 'Fallo el rollback del supervisor.' : 'Supervisor rollback failed.');
+    } finally {
+      setSupervisorRollbackBusy(false);
+    }
+  }, [es]);
 
   useEffect(() => {
     fetchOverview(); fetchTrades(); fetchCommentary(); fetchDiagnostics(); fetchShadowCandidate(); fetchBreakoutShadow(); fetchFuturesDesk();
@@ -285,8 +380,14 @@ export default function CryptoLabView() {
             futuresDesk={futuresDesk}
             onRunFuturesCycle={handleRunFuturesCycle}
             onResetFuturesBaseline={handleResetFuturesBaseline}
+            onRunSupervisor={handleRunSupervisor}
+            onApplySupervisor={handleApplySupervisor}
+            onRollbackSupervisor={handleRollbackSupervisor}
             futuresCycleBusy={futuresCycleBusy}
             futuresBaselineBusy={futuresBaselineBusy}
+            supervisorBusy={supervisorBusy}
+            supervisorApplyBusy={supervisorApplyBusy}
+            supervisorRollbackBusy={supervisorRollbackBusy}
             futuresCycleStatus={futuresCycleStatus}
           />
         </div>

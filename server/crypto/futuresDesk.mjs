@@ -7,6 +7,12 @@ import { getFuturesGovernorSnapshot, syncFuturesGovernorJournal } from './future
 import { getCurrentPrice } from './priceFeeder.mjs';
 import { getFuturesCapitalState } from './futuresCapital.mjs';
 import { getTreasuryAsync } from '../trading/treasury.mjs';
+import { getIntelligenceSupervisorLatest } from '../intelligence/intelligenceSupervisor.mjs';
+import {
+  backfillMissingFuturesLessons,
+  backfillMissingFuturesOutcomes,
+  promoteFuturesTimeoutLossLessons,
+} from './futuresLearningBackfill.mjs';
 
 const FUTURES_TYPES = ['crypto_futures_breakout_short_micro', 'crypto_futures_breakout_short', 'crypto_futures_breakout_short_alt', 'crypto_futures_breakout_long'];
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -351,9 +357,56 @@ function buildProfileScoreboard(baseline) {
   }).sort((a, b) => (b.totalPnl ?? 0) - (a.totalPnl ?? 0));
 }
 
+function buildLearningCohorts(baseline) {
+  const rows = db.prepare(`
+    SELECT
+      trade_type AS tradeType,
+      asset_pair AS pair,
+      outcome AS side,
+      COALESCE(exit_reason, 'unavailable') AS exitReason,
+      COUNT(*) AS closedTrades,
+      SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) AS wins,
+      COALESCE(SUM(pnl), 0) AS totalPnl,
+      COALESCE(AVG(pnl), 0) AS avgPnl
+    FROM trades
+    WHERE status = 'closed'
+      AND pnl IS NOT NULL
+      AND trade_type IN ${listToSql(FUTURES_TYPES)}${buildClosedAtClause(baseline)}
+    GROUP BY trade_type, asset_pair, outcome, COALESCE(exit_reason, 'unavailable')
+    HAVING COUNT(*) >= 1
+    ORDER BY COUNT(*) DESC, totalPnl DESC
+  `).all().map((row) => {
+    const closedTrades = row.closedTrades ?? 0;
+    const wins = row.wins ?? 0;
+    const winRate = closedTrades > 0 ? wins / closedTrades : null;
+    const score = (row.avgPnl ?? 0) + ((winRate ?? 0) * 20) + Math.min(12, closedTrades);
+    return {
+      key: `${row.tradeType}:${row.pair}:${row.side}:${row.exitReason}`,
+      tradeType: row.tradeType,
+      pair: row.pair,
+      side: row.side,
+      exitReason: row.exitReason,
+      closedTrades,
+      wins,
+      losses: Math.max(0, closedTrades - wins),
+      winRate: round2(winRate),
+      totalPnl: round2(row.totalPnl),
+      avgPnl: round2(row.avgPnl),
+      score: round2(score),
+    };
+  });
+
+  const strongest = [...rows].sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, 6);
+  const weakest = [...rows].sort((a, b) => (a.score ?? 0) - (b.score ?? 0)).slice(0, 6);
+  return { strongest, weakest };
+}
+
 export async function getFuturesDeskSnapshot({ runCycle = false } = {}) {
   const startedAt = new Date().toISOString();
   const warnings = [];
+  await captureSectionAsync(warnings, 'futuresLessonBackfill', { scanned: 0, generated: 0 }, () => backfillMissingFuturesLessons());
+  captureSection(warnings, 'futuresOutcomeBackfill', { scanned: 0, generated: 0 }, () => backfillMissingFuturesOutcomes());
+  captureSection(warnings, 'futuresLessonPromotion', { scanned: 0, promoted: 0, patternsCreated: 0 }, () => promoteFuturesTimeoutLossLessons());
   const config = captureSection(warnings, 'config', {
     breakoutPeriod: null,
     regimeSmaPeriod: null,
@@ -412,6 +465,22 @@ export async function getFuturesDeskSnapshot({ runCycle = false } = {}) {
   }, () => buildTodaySummary(baseline));
   const cycleHistory = captureSection(warnings, 'cycleHistory', [], () => readCycleHistory());
   const profileScoreboard = captureSection(warnings, 'profileScoreboard', [], () => buildProfileScoreboard(baseline));
+  const learningCohorts = captureSection(warnings, 'learningCohorts', { strongest: [], weakest: [] }, () => buildLearningCohorts(baseline));
+  const supervisor = captureSection(warnings, 'supervisor', {
+    scope: 'futures_supervisor',
+    latest: null,
+    latestAttempt: null,
+    appliedPolicy: {
+      active: false,
+      sourceRunId: null,
+      appliedAt: null,
+      appliedBy: null,
+      expiresAt: null,
+      overrides: [],
+      latestApply: null,
+      impact: null,
+    },
+  }, () => getIntelligenceSupervisorLatest());
   const recentEntries = runCycle
     ? captureSection(warnings, 'recentEntries', [], () => buildRecentEntries(startedAt))
     : [];
@@ -441,6 +510,8 @@ export async function getFuturesDeskSnapshot({ runCycle = false } = {}) {
     today,
     cycleHistory,
     profileScoreboard,
+    learningCohorts,
+    supervisor,
     recentEntries,
   };
 }

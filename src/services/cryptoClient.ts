@@ -127,6 +127,8 @@ export interface FuturesDeskConfig {
     breakoutPeriod: number;
     maxMargin: number;
     timeoutHours: number;
+    minExpectedNetUsd: number;
+    minRewardRisk: number;
     pairs: string[];
   }>;
 }
@@ -329,6 +331,149 @@ export interface FuturesGovernorJournalEntry {
   at: string;
 }
 
+export interface FuturesLearningCohortRow {
+  key: string;
+  tradeType: string;
+  pair: string;
+  side: 'LONG' | 'SHORT';
+  exitReason: string;
+  closedTrades: number;
+  wins: number;
+  losses: number;
+  winRate: number | null;
+  totalPnl: number;
+  avgPnl: number;
+  score: number | null;
+}
+
+export interface IntelligenceSupervisorCandidateSummary {
+  id: string;
+  source: string;
+  style: string;
+  score: number | null;
+  providerScore: number | null;
+  metrics: Record<string, number>;
+  summary: string | null;
+  critique: string[];
+  missingTerms: string[];
+  affectedProfiles: string[];
+  leaderboard: Array<{
+    candidate_id?: string;
+    candidateId?: string;
+    style?: string;
+    score?: number;
+    round?: number;
+  }>;
+}
+
+export interface IntelligenceSupervisorMission {
+  id: string;
+  generatedAt: string;
+  source: string;
+  scope: string;
+  targetObjective: string;
+  constraints: string[];
+  aggregate: {
+    closedTrades: number;
+    wins: number;
+    losses: number;
+    winRate: number | null;
+    totalPnl: number | null;
+    avgPnl: number | null;
+  };
+}
+
+export interface IntelligenceSupervisorRun {
+  id: string;
+  missionId: string;
+  source: string;
+  scope: string;
+  status: 'draft' | 'recommended' | 'archived' | 'rejected' | 'degraded' | 'failed';
+  advisoryOnly: boolean;
+  providerStatus: 'ok' | 'unknown' | 'unavailable' | 'failed' | string;
+  mission: IntelligenceSupervisorMission | null;
+  candidateSummary: IntelligenceSupervisorCandidateSummary | null;
+  recommendedPrompt: string | null;
+  recommendedRules: string[];
+  score: number | null;
+  riskNotes: string[];
+  justification: string[];
+  proposedChanges: Array<{
+    key: string;
+    label: string;
+    type: 'boolean' | 'number' | string;
+    profileId: string | null;
+    currentValue: boolean | number | null;
+    proposedValue: boolean | number | null;
+    reason: string;
+  }>;
+  artifacts: unknown;
+  createdAt: string;
+}
+
+export interface IntelligenceAppliedPolicyState {
+  active: boolean;
+  sourceRunId: string | null;
+  appliedAt: string | null;
+  appliedBy: string | null;
+  expiresAt: string | null;
+  overrides: Array<{
+    key: string;
+    label: string;
+    value: boolean | number | null;
+  }>;
+  latestApply: {
+    id: string;
+    scope: string;
+    runId: string;
+    status: string;
+    appliedBy: string;
+    appliedAt: string;
+    expiresAt: string | null;
+    overrides: Array<{
+      key: string;
+      label: string;
+      type: 'boolean' | 'number' | string;
+      profileId: string | null;
+      currentValue: boolean | number | null;
+      proposedValue: boolean | number | null;
+      reason: string;
+    }>;
+  } | null;
+  impact: {
+    comparisonWindowHours: number | null;
+    preWindow: {
+      closedTrades: number;
+      wins: number;
+      losses: number;
+      winRate: number | null;
+      totalPnl: number | null;
+      avgPnl: number | null;
+    };
+    postWindow: {
+      closedTrades: number;
+      wins: number;
+      losses: number;
+      winRate: number | null;
+      totalPnl: number | null;
+      avgPnl: number | null;
+    };
+    delta: {
+      closedTrades: number;
+      totalPnl: number | null;
+      avgPnl: number | null;
+      winRate: number | null;
+    };
+  } | null;
+}
+
+export interface IntelligenceSupervisorState {
+  scope: string;
+  latest: IntelligenceSupervisorRun | null;
+  latestAttempt: IntelligenceSupervisorRun | null;
+  appliedPolicy: IntelligenceAppliedPolicyState;
+}
+
 export interface FuturesDeskSnapshot {
   ok?: boolean;
   mode: 'status' | 'run';
@@ -347,6 +492,11 @@ export interface FuturesDeskSnapshot {
   today: FuturesDeskToday;
   cycleHistory: FuturesDeskCycleHistoryRow[];
   profileScoreboard: FuturesDeskProfileScore[];
+  learningCohorts: {
+    strongest: FuturesLearningCohortRow[];
+    weakest: FuturesLearningCohortRow[];
+  };
+  supervisor: IntelligenceSupervisorState;
   recentEntries: FuturesDeskEntry[];
 }
 
@@ -374,6 +524,109 @@ export async function resetFuturesDeskBaseline(note = 'Manual futures PnL baseli
     if (!res.ok) return null;
     const data = await res.json() as { ok: boolean; baseline?: FuturesDeskBaseline };
     return data.ok ? (data.baseline ?? null) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function loadIntelligenceSupervisorLatest(timeoutMs = 8_000): Promise<IntelligenceSupervisorState | null> {
+  try {
+    const res = await fetch(apiUrl('/api/intelligence/supervisor/latest'), {
+      signal: AbortSignal.timeout(timeoutMs),
+      headers: { accept: 'application/json' },
+    });
+    if (!res.ok) return null;
+    const data = await res.json() as { ok: boolean } & IntelligenceSupervisorState;
+    if (!data.ok) return null;
+    return {
+      scope: data.scope,
+      latest: data.latest ?? null,
+      latestAttempt: data.latestAttempt ?? null,
+      appliedPolicy: data.appliedPolicy ?? {
+        active: false,
+        sourceRunId: null,
+        appliedAt: null,
+        appliedBy: null,
+        expiresAt: null,
+        overrides: [],
+        latestApply: null,
+        impact: null,
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function runIntelligenceSupervisor(timeoutMs = 40_000): Promise<{ ok: boolean; state: IntelligenceSupervisorState | null; error?: string | null } | null> {
+  try {
+    const res = await fetch(apiUrl('/api/intelligence/supervisor/run'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ advisoryOnly: true }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    const data = await res.json() as {
+      ok: boolean;
+      state?: IntelligenceSupervisorState | null;
+      error?: string | null;
+    };
+    return {
+      ok: Boolean(data.ok),
+      state: data.state ?? null,
+      error: data.error ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function applyIntelligenceSupervisorRun(
+  runId: string,
+  timeoutMs = 15_000,
+): Promise<{ ok: boolean; state: IntelligenceSupervisorState | null; error?: string | null } | null> {
+  try {
+    const res = await fetch(apiUrl(`/api/intelligence/supervisor/${runId}/apply`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ appliedBy: 'operator' }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    const data = await res.json() as {
+      ok: boolean;
+      state?: IntelligenceSupervisorState | null;
+      error?: string | null;
+    };
+    return {
+      ok: Boolean(data.ok),
+      state: data.state ?? null,
+      error: data.error ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function rollbackIntelligenceSupervisor(
+  timeoutMs = 15_000,
+): Promise<{ ok: boolean; state: IntelligenceSupervisorState | null; error?: string | null } | null> {
+  try {
+    const res = await fetch(apiUrl('/api/intelligence/supervisor/rollback'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ appliedBy: 'operator', reason: 'manual rollback' }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    const data = await res.json() as {
+      ok: boolean;
+      state?: IntelligenceSupervisorState | null;
+      error?: string | null;
+    };
+    return {
+      ok: Boolean(data.ok),
+      state: data.state ?? null,
+      error: data.error ?? null,
+    };
   } catch {
     return null;
   }

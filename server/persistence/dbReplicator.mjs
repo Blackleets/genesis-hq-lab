@@ -24,6 +24,7 @@ const DURABLE = [
   { table: 'mistake_patterns', pk: 'id',  mode: 'full'   },
   { table: 'agent_profiles',   pk: 'id',  mode: 'full'   },
   { table: 'skill_versions',   pk: 'id',  mode: 'full'   },
+  { table: 'intelligence_runs', pk: 'id', mode: 'cursor', cursorExpr: 'created_at' },
   { table: 'org_state',        pk: 'key', mode: 'full'   },
 ];
 
