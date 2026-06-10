@@ -817,3 +817,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Upgraded the live office dialogue layer so agents now speak work-focused lines by role instead of generic filler, and the office bubbles follow the active `es/en` language without inventing trading outcomes.
 - Files touched: `src/office/officeTypes.ts`, `src/office/officeDialogueRules.ts`, `src/office/agentDialogue.ts`, `src/office/TileOffice.tsx`, `docs/CHANGELOG_AI.md`
 - Verification: `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Made office bubbles react to real system context instead of random chatter: the relevant desk now gets speaking priority when the engine degrades, risk rises, open positions exist, or commentary implies pause/breakout/momentum, and each role turns those signals into honest Spanish/English work speech.
+- Files touched: `src/office/agentDialogue.ts`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run typecheck` ok; `npm run build` ok
