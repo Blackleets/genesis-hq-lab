@@ -55,6 +55,18 @@ interface ExposureEntry {
   closed: number;
 }
 
+interface CryptoExpectancy {
+  expectancyPerTrade: number | null;
+  winRate: number | null;
+  totalPnl: number;
+  tradeCount: number;
+  profitFactor: number | null;
+  hasEdge: boolean | null;
+  verdict: string;
+  verdictReason: string;
+  dataQuality: { sufficient: boolean; warning: string | null };
+}
+
 interface AlphaReport {
   ok: boolean;
   hasEdge: boolean | null;
@@ -62,6 +74,7 @@ interface AlphaReport {
   verdictReason: string;
   tradeHistory: number;
   minTradesNeeded: number;
+  cryptoExpectancy?: CryptoExpectancy;
   expectancy: {
     expectancyPerTrade: number | null;
     winRate: number | null;
@@ -133,6 +146,51 @@ function VerdictCard({ report }: { report: AlphaReport }) {
           <div className="text-[10px] text-slate-500">Trades cerrados</div>
           <div className={`text-2xl font-mono font-bold ${cfg.color}`}>{report.tradeHistory}</div>
           <div className="text-[10px] text-slate-500">min. {report.minTradesNeeded} para significancia</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Scalp Edge card ───────────────────────────────────────────────────────────
+
+function ScalpEdgeCard({ crypto }: { crypto: CryptoExpectancy }) {
+  const cfg = VERDICT_CONFIG[crypto.verdict] ?? VERDICT_CONFIG.NO_DATA;
+  const ev  = crypto.expectancyPerTrade;
+  const wr  = crypto.winRate;
+  const pf  = crypto.profitFactor;
+
+  return (
+    <div className={`rounded border ${cfg.border} ${cfg.bg} px-3 py-2.5`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[9px] font-mono uppercase tracking-wider text-slate-500">Scalp Edge</span>
+            <span className="text-[8px] font-mono uppercase tracking-widest text-slate-600">scalp_v2 · swing_v1 · breakout_v1</span>
+          </div>
+          <div className={`text-xs font-mono font-bold mb-0.5 ${cfg.color}`}>{cfg.label}</div>
+          <p className="text-[10px] text-slate-400 leading-snug line-clamp-2">{crypto.verdictReason}</p>
+        </div>
+        <div className="shrink-0 text-right font-mono text-[10px] space-y-0.5">
+          <div>
+            <span className="text-slate-600">EV </span>
+            <span className={ev !== null ? (ev > 0 ? 'text-emerald-400' : 'text-red-400') : 'text-slate-600'}>
+              {ev !== null ? `${ev > 0 ? '+' : ''}$${ev.toFixed(2)}` : '—'}
+            </span>
+          </div>
+          <div>
+            <span className="text-slate-600">WR </span>
+            <span className={wr !== null ? (wr > 0.55 ? 'text-emerald-400' : wr > 0.45 ? 'text-yellow-400' : 'text-red-400') : 'text-slate-600'}>
+              {wr !== null ? `${(wr * 100).toFixed(1)}%` : '—'}
+            </span>
+          </div>
+          <div>
+            <span className="text-slate-600">PF </span>
+            <span className={pf !== null ? (pf > 1.2 ? 'text-emerald-400' : pf > 1 ? 'text-yellow-400' : 'text-red-400') : 'text-slate-600'}>
+              {pf !== null ? pf.toFixed(2) : '—'}
+            </span>
+          </div>
+          <div className="text-slate-600 text-[9px]">{crypto.tradeCount} trades</div>
         </div>
       </div>
     </div>
@@ -354,8 +412,11 @@ export default function AlphaValidationView() {
         </p>
       </div>
 
-      {/* Verdict */}
-      <div className="px-4 pt-3 pb-2 shrink-0">
+      {/* Verdict + Scalp Edge */}
+      <div className="px-4 pt-3 pb-2 shrink-0 space-y-2">
+        {report.cryptoExpectancy && (
+          <ScalpEdgeCard crypto={report.cryptoExpectancy} />
+        )}
         <VerdictCard report={report} />
       </div>
 

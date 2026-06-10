@@ -297,19 +297,70 @@ export default function AgentActivityFeed() {
     seenEventIds.current.add(id.slice(0, 40));
 
     if (msg.type === 'trade:executed') {
+      const asset = (msg.asset as string) ?? (msg.ticker as string) ?? '';
+      const dir   = (msg.direction as string) ?? '';
+      const price = (msg.price as number);
+      const conf  = (msg.confidence as number);
       pushEntry({
-        id, agentId: null, agentName: 'Sistema',
-        agentColor: '#ffb547',
+        id,
+        agentId: 'trading-scalping-hunter',
+        agentName: 'Scalping Hunter',
+        agentColor: '#3da9fc',
         text: {
-          es: `trade ejecutado — precio ${(msg.price as number)?.toFixed?.(2) ?? '—'}`,
-          en: `trade executed — price ${(msg.price as number)?.toFixed?.(2) ?? '—'}`,
+          es: `${dir ? dir.toUpperCase() + ' ' : ''}entrada${asset ? ' ' + asset : ''} @${price?.toFixed?.(2) ?? '—'} · conf ${conf != null ? (conf * 100).toFixed(0) + '%' : '—'}`,
+          en: `${dir ? dir.toUpperCase() + ' ' : ''}entry${asset ? ' ' + asset : ''} @${price?.toFixed?.(2) ?? '—'} · conf ${conf != null ? (conf * 100).toFixed(0) + '%' : '—'}`,
         },
         at: Date.now(), severity: 'success', isNew: true,
       });
+    } else if (msg.type === 'signal_generated') {
+      const ticker = (msg.ticker as string) ?? '';
+      const signal = (msg.signal as string) ?? '';
+      const conf   = (msg.confidence as number);
+      pushEntry({
+        id,
+        agentId: 'visual-market-scanner',
+        agentName: 'Market Scanner',
+        agentColor: '#3da9fc',
+        text: {
+          es: `señal ${signal.toUpperCase()}${ticker ? ' · ' + ticker : ''} — conf ${conf != null ? (conf * 100).toFixed(0) + '%' : '—'}`,
+          en: `${signal.toUpperCase()} signal${ticker ? ' · ' + ticker : ''} — conf ${conf != null ? (conf * 100).toFixed(0) + '%' : '—'}`,
+        },
+        at: Date.now(), severity: 'info', isNew: true,
+      });
+    } else if (msg.type === 'consensus_decision') {
+      const ticker = (msg.ticker as string) ?? '';
+      if (msg.vetoed) {
+        pushEntry({
+          id,
+          agentId: 'visual-risk-guardian',
+          agentName: 'Risk Guardian',
+          agentColor: '#ff4757',
+          text: {
+            es: `VETADO${ticker ? ' ' + ticker : ''} — ${String(msg.vetoBy ?? 'riesgo').slice(0, 32)}`,
+            en: `VETOED${ticker ? ' ' + ticker : ''} — ${String(msg.vetoBy ?? 'risk').slice(0, 32)}`,
+          },
+          at: Date.now(), severity: 'warn', isNew: true,
+        });
+      } else {
+        const decision = (msg.decision as string) ?? '';
+        pushEntry({
+          id,
+          agentId: 'visual-genesis-core',
+          agentName: 'Genesis Core',
+          agentColor: '#7c5cff',
+          text: {
+            es: `consenso ${decision.toUpperCase()}${ticker ? ' · ' + ticker : ''}`,
+            en: `${decision.toUpperCase()} consensus${ticker ? ' · ' + ticker : ''}`,
+          },
+          at: Date.now(), severity: 'info', isNew: true,
+        });
+      }
     } else if (msg.type === 'lesson:learned') {
       pushEntry({
-        id, agentId: null, agentName: 'Memoria',
-        agentColor: '#1f6fb0',
+        id,
+        agentId: 'visual-memory-curator',
+        agentName: 'Memory Curator',
+        agentColor: '#22d3ee',
         text: {
           es: 'nueva lección archivada en memoria',
           en: 'new lesson archived to memory',
@@ -320,8 +371,10 @@ export default function AgentActivityFeed() {
       const pnl = msg.pnl as number | undefined;
       const won = pnl !== undefined && pnl > 0;
       pushEntry({
-        id, agentId: null, agentName: 'Tesorería',
-        agentColor: won ? '#00ff9c' : '#ff4757',
+        id,
+        agentId: 'trading-capital-manager',
+        agentName: 'Capital Manager',
+        agentColor: won ? '#ffd24a' : '#ff4757',
         text: {
           es: `posición cerrada — ${pnl !== undefined ? (pnl >= 0 ? '+' : '') + pnl.toFixed(2) + ' USDC' : 'resultado pendiente'}`,
           en: `position closed — ${pnl !== undefined ? (pnl >= 0 ? '+' : '') + pnl.toFixed(2) + ' USDC' : 'result pending'}`,
