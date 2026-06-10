@@ -277,7 +277,11 @@ export function evaluateScalpSignal(ctx) {
  */
 export async function runScalpingCycle() {
   const result = { scanned: 0, qualified: 0, executed: 0, skipped: 0, blocked: false };
-  if (!ENABLED) return result;
+  if (!ENABLED) {
+    _v2State.executionBlockedReason = 'ENGINE_DISABLED';
+    result.blocked = true;
+    return result;
+  }
 
   // Safety gates
   if (isGlobalSafeMode() || isSafeMode()) {
@@ -304,10 +308,11 @@ export async function runScalpingCycle() {
           category: CATEGORY.RISK,
           severity: SEVERITY.WARNING,
           subsystem: AGENT_ID,
-          reason: 'SCALPING PAUSED - negative edge recommendation',
+          reason: 'SCALP_V2_BLOCKED — negative edge pause active',
           metadata: edgePause,
         });
       }
+      _v2State.executionBlockedReason = 'EDGE_PAUSE';
       result.blocked = true;
       return result;
     }
