@@ -1,6 +1,6 @@
 // HQView — the pixel office viewport: agents at work, bubbles, room drill-in.
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useT, useLanguage } from '@core/i18n/languageStore';
 import { actions, useAgents, useSelectedAgent } from '@core/store/genesisStore';
 import { useLiveBubbles } from '@activity/liveBubbles';
@@ -17,8 +17,6 @@ import GenesisOfficeWorld from '@animations/GenesisOfficeWorld';
 import AgentTooltip from '@agents/AgentTooltip';
 import AgentInspector from '@agents/AgentInspector';
 
-const HQ_RENDERER = 'canvas' as const;
-
 export default function HQView() {
   const t = useT();
   const lang = useLanguage();
@@ -28,6 +26,11 @@ export default function HQView() {
   const [hoveredAgent, setHoveredAgent] = useState<Agent | null>(null);
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [roomOpen, setRoomOpen] = useState<RoomId | null>(null);
+  const initialRenderer = useMemo(() => {
+    const raw = (import.meta.env.VITE_USE_LIVE_TILE_OFFICE ?? 'true').trim().toLowerCase();
+    return raw === 'false' || raw === '0' || raw === 'off' ? 'legacy' : 'canvas';
+  }, []);
+  const [rendererMode, setRendererMode] = useState<'canvas' | 'legacy'>(initialRenderer);
 
   const firstSpeaker = Object.values(bubbles)[0];
   const speakingAgentId = firstSpeaker?.agentId ?? null;
@@ -62,7 +65,7 @@ export default function HQView() {
           ))}
         </div>
         <div className="flex-1 min-h-0 relative bg-carbon-300">
-          {HQ_RENDERER === 'canvas' ? (
+          {rendererMode === 'canvas' ? (
             <PixelOfficeViewport internalWidth={PIXEL_CANVAS_WIDTH} internalHeight={PIXEL_CANVAS_HEIGHT}>
               {(scale) => (
                 <PixelOfficeCanvas
@@ -72,6 +75,7 @@ export default function HQView() {
                     setHoverPos({ x: screenX, y: screenY });
                   }}
                   onRoomClick={(room) => setRoomOpen(room)}
+                  onRendererDegraded={() => setRendererMode('legacy')}
                 />
               )}
             </PixelOfficeViewport>

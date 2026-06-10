@@ -796,3 +796,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Rebuilt the Crypto Lab chart surface for operator readability: expanded the terminal grid so panels stop clipping, added separate toggles for trade markers/entries/exits/labels, overlaid live trade badges directly on the candlestick chart, and upgraded the trade timeline + selected-trade card with real capital and leverage context from persisted trades.
 - Files touched: `server/crypto/tradeHistory.mjs`, `src/services/cryptoClient.ts`, `src/dashboard/charts/CandleChart.tsx`, `src/components/crypto/ChartStatsHeader.tsx`, `src/components/crypto/TradeTimeline.tsx`, `src/components/crypto/TradeStoryCard.tsx`, `src/index.css`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/crypto/tradeHistory.mjs` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Hardened the live office renderer without changing behavior: the pixel office now respects `VITE_USE_LIVE_TILE_OFFICE=false` to fall back to the previous SVG office, and sprite loading no longer fails all-or-nothing when one asset is missing. If the canvas renderer cannot initialize, HQ safely falls back to the legacy office instead of breaking.
+- Files touched: `src/animations/pixelCanvasRenderer.ts`, `src/animations/PixelOfficeCanvas.tsx`, `src/ui/views/HQView.tsx`, `src/vite-env.d.ts`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run build` ok; `npm run typecheck` ok
