@@ -16,8 +16,24 @@ import OfficeViewport from '@animations/OfficeViewport';
 import GenesisOfficeWorld from '@animations/GenesisOfficeWorld';
 import AgentTooltip from '@agents/AgentTooltip';
 import AgentInspector from '@agents/AgentInspector';
+import { TRADING_AGENTS } from '@agents/data/tradingAgents';
+import type { TradingAgent } from '@core/types/tradingAgent';
 
 const HQ_RENDERER = 'canvas' as const;
+
+// Map a visual agent to its nearest TradingAgent by department.
+function tradingDataForAgent(agent: Agent | null): TradingAgent | undefined {
+  if (!agent) return undefined;
+  switch (agent.department) {
+    case 'Market Room':     return TRADING_AGENTS.find(a => a.id === 'scalping-hunter');
+    case 'Risk Office':     return TRADING_AGENTS.find(a => a.id === 'risk-sentinel');
+    case 'Board Room':      return TRADING_AGENTS.find(a => a.id === 'capital-manager');
+    case 'Strategy Lab':    return TRADING_AGENTS.find(a => a.id === 'backtest-engineer');
+    case 'Memory Archive':  return TRADING_AGENTS.find(a => a.id === 'market-analyst');
+    case 'Genesis HR':      return TRADING_AGENTS.find(a => a.id === 'backtest-engineer');
+    default:                return undefined;
+  }
+}
 
 export default function HQView() {
   const t = useT();
@@ -91,12 +107,18 @@ export default function HQView() {
             </OfficeViewport>
           )}
           {hoveredAgent && !selectedAgent && (
-            <AgentTooltip agent={hoveredAgent} x={hoverPos.x} y={hoverPos.y} />
+            <AgentTooltip
+              agent={hoveredAgent}
+              x={hoverPos.x}
+              y={hoverPos.y}
+              tradingData={tradingDataForAgent(hoveredAgent)}
+            />
           )}
           <AgentInspector
             agent={selectedAgent}
             onClose={() => actions.setSelectedAgent(null)}
             onAction={() => { /* visual-only */ }}
+            tradingData={tradingDataForAgent(selectedAgent)}
           />
         </div>
       </main>

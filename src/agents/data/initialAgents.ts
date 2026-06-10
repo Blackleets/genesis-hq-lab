@@ -44,7 +44,7 @@ export const INITIAL_AGENTS: Agent[] = [
     learningScore: 0.55,
     visualProfile: {
       archetype: 'analyst',
-      primary: '#3da9fc', accent: '#00ff9c',
+      primary: '#3da9fc', accent: '#22d3ee',
       hair: '#1f1612', pants: '#1a1d24', accessory: 'glasses',
     },
     position: { ...ROOMS['market-desk'].entryPoint, pose: 'seated', facing: 'south' },
@@ -67,7 +67,7 @@ export const INITIAL_AGENTS: Agent[] = [
     learningScore: 0.63,
     visualProfile: {
       archetype: 'sentinel',
-      primary: '#ff4757', accent: '#ffb547',
+      primary: '#ff4757', accent: '#ff6b81',
       hair: '#0d0f15', pants: '#0d0f15', accessory: 'shield',
     },
     position: { ...ROOMS['risk-bunker'].entryPoint, pose: 'standing', facing: 'south' },
@@ -113,7 +113,7 @@ export const INITIAL_AGENTS: Agent[] = [
     learningScore: 0.67,
     visualProfile: {
       archetype: 'reviewer',
-      primary: '#ffb547', accent: '#3da9fc',
+      primary: '#7c5cff', accent: '#a78bfa',
       hair: '#3a2a1c', pants: '#1a1d24', accessory: 'clipboard',
     },
     position: { ...ROOMS['hr-pod'].entryPoint, pose: 'seated', facing: 'south' },
