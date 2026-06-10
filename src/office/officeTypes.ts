@@ -63,15 +63,37 @@ export interface ActiveDialogueBubble {
   expiresAt: number;
 }
 
+/** Derived from real loop heartbeats; 'unknown' when diagnostics unreachable. */
+export type EngineStatus = 'online' | 'degraded' | 'offline' | 'unknown';
+
 /**
- * What the office knows about the real system. Phase 3 keeps this minimal
- * and always offline; Phase 4 fills it from /api/crypto/* so dialogue can
- * reference real events. While `liveDataConnected` is false, only the
- * generic honest catalog is ever spoken.
+ * What the office knows about the real system, read-only from existing
+ * /api/crypto/* endpoints (see useLiveOfficeState). Every field is either
+ * real data or null — the UI renders nulls as unavailable/waiting and
+ * never substitutes invented numbers. While `liveDataConnected` is false,
+ * only the generic honest dialogue catalog is ever spoken.
  */
 export interface LiveOfficeState {
   liveDataConnected: boolean;
+  engineStatus: EngineStatus;
+  /** real open positions count, or null when the overview is unreachable */
+  openPositionsCount: number | null;
+  /** autopsy recommendation severity (real), or null when unavailable */
+  riskStatus: string | null;
+  /** latest real commentary line, or null when unavailable */
+  latestActivity: string | null;
+  /** local time of the last successful refresh, or null before one */
+  lastUpdateTs: number | null;
 }
+
+export const DEFAULT_LIVE_OFFICE_STATE: LiveOfficeState = {
+  liveDataConnected: false,
+  engineStatus: 'unknown',
+  openPositionsCount: null,
+  riskStatus: null,
+  latestActivity: null,
+  lastUpdateTs: null,
+};
 
 /** Mutable runtime state. Positions are the agent's feet, in canvas px. */
 export interface LiveOfficeAgent {

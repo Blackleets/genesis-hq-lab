@@ -162,6 +162,8 @@ function startWalk(agent: LiveOfficeAgent, zone: OfficeZoneId, now: number) {
   agent.state = 'walking';
 }
 
+const STATION_BY_ROLE = new Map(STATIONS.map((st) => [st.role, st]));
+
 function arrive(agent: LiveOfficeAgent, now: number) {
   agent.zone = agent.targetZone ?? agent.zone;
   agent.targetZone = null;
@@ -169,6 +171,14 @@ function arrive(agent: LiveOfficeAgent, now: number) {
   agent.pathIndex = 0;
   agent.state = pickState(agent, agent.zone);
   agent.stateUntil = now + 6000 + Math.random() * 8000;
+  // at the home desk, turn toward the monitor instead of keeping walk direction
+  if (agent.zone === agent.def.homeZone) {
+    const st = STATION_BY_ROLE.get(agent.def.id);
+    if (st) {
+      const screenX = st.desk.x + st.screen.x + st.screen.w / 2;
+      agent.facing = screenX >= agent.x ? 1 : -1;
+    }
+  }
 }
 
 function decide(agent: LiveOfficeAgent, now: number) {

@@ -13,6 +13,7 @@ import {
   OFFICE_CANVAS_W,
   OFFICE_CHARACTERS,
   OFFICE_SPRITES,
+  SERVER_RACK_LEDS,
   STATIONS,
   TILE_SIZE,
   TILESHEET_URL,
@@ -20,7 +21,8 @@ import {
   WALL_SEQUENCE,
   type FurniturePlacement,
 } from './officeLayout';
-import type { LiveOfficeAgent } from './officeTypes';
+import { OFFICE_ZONES } from './officeZones';
+import type { EngineStatus, LiveOfficeAgent } from './officeTypes';
 
 const CEILING_COLOR = '#181826';
 const ASSET_TIMEOUT_MS = 10_000;
@@ -95,12 +97,42 @@ function drawStationNameplates(ctx: CanvasRenderingContext2D) {
   }
 }
 
+/** Subtle per-zone floor tints + identity borders (Phase 5, static). */
+function drawZoneTints(ctx: CanvasRenderingContext2D) {
+  ctx.save();
+  for (const zone of Object.values(OFFICE_ZONES)) {
+    if (!zone.tint) continue;
+    const t = zone.tint;
+    ctx.globalAlpha = 0.07;
+    ctx.fillStyle = zone.accent;
+    ctx.fillRect(t.x, t.y, t.w, t.h);
+    ctx.globalAlpha = 0.22;
+    ctx.strokeStyle = zone.accent;
+    ctx.strokeRect(t.x + 0.5, t.y + 0.5, t.w - 1, t.h - 1);
+    // corner notch so zones read even with low color vision
+    ctx.globalAlpha = 0.55;
+    ctx.fillRect(t.x, t.y, 5, 2);
+    ctx.fillRect(t.x, t.y, 2, 5);
+  }
+  // serverRack has no station nameplate — give it a dim zone label
+  const server = OFFICE_ZONES.serverRack;
+  if (server.tint) {
+    ctx.globalAlpha = 0.8;
+    ctx.font = '7px monospace';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.75)';
+    ctx.fillText(server.label, server.tint.x + 4, server.tint.y + 4);
+  }
+  ctx.restore();
+}
+
 /** Paints the static parts that never change: ceiling, floors, walls. */
 export function drawOfficeBase(ctx: CanvasRenderingContext2D, sheet: HTMLImageElement) {
   ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = CEILING_COLOR;
   ctx.fillRect(0, 0, OFFICE_CANVAS_W, OFFICE_CANVAS_H);
   drawFloors(ctx, sheet);
+  drawZoneTints(ctx);
   drawWalls(ctx, sheet);
 }
 
@@ -116,6 +148,131 @@ export function drawTileOffice(ctx: CanvasRenderingContext2D, sheet: HTMLImageEl
     .sort((a, b) => (a.y + OFFICE_SPRITES[a.sprite].h) - (b.y + OFFICE_SPRITES[b.sprite].h));
   for (const f of placements) drawSprite(ctx, sheet, f);
   drawStationNameplates(ctx);
+}
+
+// --- Phase 5: animated screens & server lights ----------------------------
+
+/** Deterministic 0..1 hash so terminal lines vary without RNG per frame. */
+function hash01(n: number): number {
+  const x = Math.sin(n * 12.9898) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+type ScreenMode = 'online' | 'scanning' | 'warning' | 'offline';
+
+function screenModeFor(
+  engineStatus: EngineStatus,
+  stationAgent: LiveOfficeAgent | undefined,
+): ScreenMode {
+  if (engineStatus === 'offline' || engineStatus === 'unknown') return 'offline';
+  if (engineStatus === 'degraded') return 'warning';
+  const s = stationAgent?.state;
+  const atScreen = stationAgent && stationAgent.zone === stationAgent.def.homeZone;
+  if (atScreen && (s === 'scanning' || s === 'monitoring' || s === 'executing')) return 'scanning';
+  return 'online';
+}
+
+function drawScreen(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  mode: ScreenMode,
+  now: number,
+  seed: number,
+) {
+  ctx.save();
+  if (mode === 'offline') {
+    ctx.fillStyle = 'rgba(4, 6, 10, 0.92)';
+    ctx.fillRect(x, y, w, h);
+    // dim standby dot so "off" is a shape, not just a color
+    if (Math.floor(now / 1100) % 2 === 0) {
+      ctx.fillStyle = 'rgba(148, 60, 60, 0.55)';
+      ctx.fillRect(x + w - 3, y + h - 3, 2, 2);
+    }
+    ctx.restore();
+    return;
+  }
+
+  ctx.fillStyle = 'rgba(6, 14, 20, 0.88)';
+  ctx.fillRect(x, y, w, h);
+
+  // terminal lines: widths re-roll every ~650ms, one line occasionally blank
+  const step = Math.floor(now / 650);
+  const lines = Math.max(2, Math.floor((h - 4) / 4));
+  for (let i = 0; i < lines; i++) {
+    if (hash01(seed * 31 + step + i * 7) < 0.16) continue; // flicker gap
+    const lw = Math.max(3, Math.floor((w - 6) * (0.3 + 0.6 * hash01(seed * 17 + step * 3 + i))));
+    const warn = mode === 'warning';
+    ctx.fillStyle = warn
+      ? 'rgba(251, 191, 36, 0.55)'
+      : i % 3 === 2
+        ? 'rgba(56, 189, 248, 0.45)'
+        : 'rgba(74, 222, 128, 0.45)';
+    ctx.fillRect(x + 2, y + 2 + i * 4, lw, 2);
+  }
+
+  if (mode === 'scanning') {
+    // sweep line moving across the screen
+    const t = (now % 1600) / 1600;
+    ctx.fillStyle = 'rgba(226, 232, 240, 0.30)';
+    ctx.fillRect(x + 1 + Math.floor((w - 3) * t), y + 1, 1, h - 2);
+  } else if (mode === 'warning') {
+    const pulse = 0.10 + 0.10 * Math.abs(Math.sin(now / 420));
+    ctx.fillStyle = `rgba(251, 191, 36, ${pulse.toFixed(2)})`;
+    ctx.fillRect(x, y, w, h);
+  }
+  ctx.restore();
+}
+
+function drawScreens(
+  ctx: CanvasRenderingContext2D,
+  agents: LiveOfficeAgent[],
+  now: number,
+  engineStatus: EngineStatus,
+) {
+  for (let i = 0; i < STATIONS.length; i++) {
+    const st = STATIONS[i];
+    const agent = agents.find((a) => a.def.id === st.role);
+    const mode = screenModeFor(engineStatus, agent);
+    drawScreen(
+      ctx,
+      st.desk.x + st.screen.x,
+      st.desk.y + st.screen.y,
+      st.screen.w,
+      st.screen.h,
+      mode,
+      now,
+      i + 1,
+    );
+  }
+}
+
+function drawServerLeds(ctx: CanvasRenderingContext2D, now: number, engineStatus: EngineStatus) {
+  const { x, y, count, spacing } = SERVER_RACK_LEDS;
+  ctx.save();
+  for (let i = 0; i < count; i++) {
+    const ly = y + i * spacing;
+    if (engineStatus === 'online') {
+      const pulse = 0.45 + 0.55 * Math.abs(Math.sin(now / 900 + i * 1.3));
+      ctx.fillStyle = `rgba(74, 222, 128, ${pulse.toFixed(2)})`;
+      ctx.fillRect(x, ly, 2, 2);
+    } else if (engineStatus === 'degraded') {
+      if (i === count - 1) {
+        ctx.fillStyle = 'rgba(40, 46, 60, 0.9)'; // one bank down
+      } else {
+        const pulse = 0.4 + 0.5 * Math.abs(Math.sin(now / 500 + i));
+        ctx.fillStyle = `rgba(251, 191, 36, ${pulse.toFixed(2)})`;
+      }
+      ctx.fillRect(x, ly, 2, 2);
+    } else {
+      // offline/unknown: lights down, single dim standby on top
+      ctx.fillStyle = i === 0 ? 'rgba(148, 60, 60, 0.5)' : 'rgba(40, 46, 60, 0.9)';
+      ctx.fillRect(x, ly, 2, 2);
+    }
+  }
+  ctx.restore();
 }
 
 // --- Phase 2: live agents -------------------------------------------------
@@ -234,6 +391,7 @@ export function renderOfficeFrame(
   sheet: HTMLImageElement,
   agents: LiveOfficeAgent[],
   now: number,
+  engineStatus: EngineStatus = 'unknown',
 ) {
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(base, 0, 0);
@@ -249,6 +407,8 @@ export function renderOfficeFrame(
   items.sort((a, b) => a.bottom - b.bottom);
   for (const item of items) item.draw();
 
+  drawScreens(ctx, agents, now, engineStatus);
+  drawServerLeds(ctx, now, engineStatus);
   drawStationNameplates(ctx);
   for (const agent of agents) {
     drawStateMarker(ctx, agent, now);

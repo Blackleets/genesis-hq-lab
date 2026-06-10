@@ -142,13 +142,21 @@ export interface OfficeStation {
   desk: FurniturePlacement;
   /** where the agent stands/sits when working at this desk (Phase 2) */
   anchor: { x: number; y: number };
+  /** monitor screen face, as offsets inside the desk sprite (Phase 5) */
+  screen: SheetRect;
 }
 
 /** The five agent desks. Labels are drawn as nameplates in Phase 1. */
 export const STATIONS: OfficeStation[] = [
-  { role: 'scout',     label: 'SCOUT',     desk: { sprite: 'workstationA', x: 48,  y: 130 }, anchor: { x: 96,  y: 230 } },
-  { role: 'analyst',   label: 'ANALYST',   desk: { sprite: 'workstationB', x: 180, y: 130 }, anchor: { x: 230, y: 230 } },
-  { role: 'execution', label: 'EXECUTION', desk: { sprite: 'deskFrontPc',  x: 330, y: 120 }, anchor: { x: 366, y: 214 } },
-  { role: 'risk',      label: 'RISK',      desk: { sprite: 'deskSideA',    x: 560, y: 130 }, anchor: { x: 606, y: 222 } },
-  { role: 'portfolio', label: 'PORTFOLIO', desk: { sprite: 'deskSideB',    x: 560, y: 240 }, anchor: { x: 610, y: 334 } },
+  { role: 'scout',     label: 'SCOUT',     desk: { sprite: 'workstationA', x: 48,  y: 130 }, anchor: { x: 96,  y: 230 }, screen: { x: 31, y: 22, w: 22, h: 13 } },
+  { role: 'analyst',   label: 'ANALYST',   desk: { sprite: 'workstationB', x: 180, y: 130 }, anchor: { x: 230, y: 230 }, screen: { x: 33, y: 22, w: 20, h: 14 } },
+  { role: 'execution', label: 'EXECUTION', desk: { sprite: 'deskFrontPc',  x: 330, y: 120 }, anchor: { x: 366, y: 214 }, screen: { x: 17, y: 6,  w: 31, h: 17 } },
+  { role: 'risk',      label: 'RISK',      desk: { sprite: 'deskSideA',    x: 560, y: 130 }, anchor: { x: 606, y: 222 }, screen: { x: 36, y: 3,  w: 22, h: 13 } },
+  { role: 'portfolio', label: 'PORTFOLIO', desk: { sprite: 'deskSideB',    x: 560, y: 240 }, anchor: { x: 610, y: 334 }, screen: { x: 36, y: 2,  w: 23, h: 13 } },
 ];
+
+/**
+ * LED strip on the server cabinet (Phase 5): absolute canvas position of
+ * the topmost LED; the rest stack downward with `spacing`.
+ */
+export const SERVER_RACK_LEDS = { x: 757, y: 258, count: 3, spacing: 7 };

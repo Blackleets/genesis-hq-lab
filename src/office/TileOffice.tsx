@@ -16,8 +16,9 @@ import {
 import { AGENT_DEFINITIONS, createLiveOfficeAgents } from './officeAgents';
 import { stepOfficeAgents } from './officeAgentMovement';
 import { createDialogueRuntime, stepDialogue } from './agentDialogue';
-import type { LiveOfficeState } from './officeTypes';
 import DialogueBubble from './DialogueBubble';
+import OfficeStatusBar from './OfficeStatusBar';
+import { useLiveOfficeState } from '@hooks/useLiveOfficeState';
 
 interface Props {
   onAssetError: (error: Error) => void;
@@ -32,9 +33,6 @@ interface BubbleView {
   fading: boolean;
 }
 
-/** Phase 3: the office is not wired to live system data yet. */
-const OFFICE_STATE: LiveOfficeState = { liveDataConnected: false };
-
 const BUBBLE_SYNC_MS = 100;
 const FADE_OUT_MS = 420;
 
@@ -42,6 +40,12 @@ export default function TileOffice({ onAssetError }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [sheet, setSheet] = useState<HTMLImageElement | null>(null);
   const [bubbleViews, setBubbleViews] = useState<BubbleView[]>([]);
+  const officeState = useLiveOfficeState();
+  // ref mirror so the RAF loop reads fresh data without re-running the effect
+  const officeStateRef = useRef(officeState);
+  useEffect(() => {
+    officeStateRef.current = officeState;
+  }, [officeState]);
 
   useEffect(() => {
     let active = true;
@@ -93,7 +97,7 @@ export default function TileOffice({ onAssetError }: Props) {
       lastTs = ts;
       try {
         stepOfficeAgents(agents, ts, dt);
-        renderOfficeFrame(ctx, base, sheet, agents, ts);
+        renderOfficeFrame(ctx, base, sheet, agents, ts, officeStateRef.current.engineStatus);
       } catch (error) {
         // agent loop broke — degrade to the static Phase 1 scene
         console.warn('[TileOffice] agent loop failed, rendering static office:', error);
@@ -104,7 +108,7 @@ export default function TileOffice({ onAssetError }: Props) {
 
       if (dialogueAlive) {
         try {
-          const bubbles = stepDialogue(dialogue, agents, OFFICE_STATE, ts);
+          const bubbles = stepDialogue(dialogue, agents, officeStateRef.current, ts);
           if (ts - lastBubbleSync >= BUBBLE_SYNC_MS) {
             lastBubbleSync = ts;
             const views: BubbleView[] = [];
@@ -157,6 +161,7 @@ export default function TileOffice({ onAssetError }: Props) {
       {bubbleViews.map((b) => (
         <DialogueBubble key={b.key} text={b.text} x={b.x} y={b.y} accent={b.accent} fading={b.fading} />
       ))}
+      {sheet && <OfficeStatusBar state={officeState} />}
       {!sheet && (
         <div className="absolute inset-0 flex items-center justify-center font-mono text-[10px] uppercase tracking-[0.12em] text-zinc-500">
           loading office assets…
