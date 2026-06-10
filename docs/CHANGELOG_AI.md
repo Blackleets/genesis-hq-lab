@@ -908,3 +908,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Hardened supervisor freshness by marking backend JSON responses as non-cacheable and forcing the frontend supervisor fetches to use `no-store`, so the desk stops resurfacing stale degraded supervisor states after a successful Foundry run.
 - Files touched: `server/index.mjs`, `src/services/cryptoClient.ts`, `docs/CHANGELOG_AI.md`
 - Verification: `npm run typecheck` ok; `npm run build` ok; `node --test server/tests/intelligenceSupervisor.test.mjs` ok
+
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Tightened the Crypto Lab chart zone so it fits normal browser zoom better: the terminal grid now compresses more intelligently across viewport heights, the chart header is denser, and trade event badges stay clamped inside the visible chart instead of drifting out of bounds.
+- Files touched: `src/index.css`, `src/components/crypto/ChartStatsHeader.tsx`, `src/dashboard/charts/CandleChart.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run typecheck` ok; `npm run build` ok

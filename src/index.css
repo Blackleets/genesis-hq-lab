@@ -144,17 +144,19 @@
   height: 100%;
   display: grid;
   grid-template-columns: clamp(180px, 15vw, 236px) minmax(0, 1fr) clamp(180px, 14vw, 220px);
-  grid-template-rows: minmax(0, 1.62fr) minmax(170px, 0.78fr);
+  grid-template-rows: minmax(320px, 1.55fr) minmax(140px, 0.82fr);
   gap: 6px;
   padding: 6px;
   overflow: hidden;
   min-height: 0;
+  align-content: stretch;
 }
 
 .crypto-zone-chart {
   grid-column: 1 / -1;
   grid-row: 1;
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
 }
 
@@ -162,6 +164,7 @@
   grid-column: 1;
   grid-row: 2;
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
 }
 
@@ -169,6 +172,7 @@
   grid-column: 2;
   grid-row: 2;
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
 }
 
@@ -176,13 +180,14 @@
   grid-column: 3;
   grid-row: 2;
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
 }
 
 @media (max-width: 1480px) {
   .crypto-terminal-grid {
     grid-template-columns: 196px minmax(0, 1fr) 188px;
-    grid-template-rows: minmax(0, 1.56fr) minmax(160px, 0.74fr);
+    grid-template-rows: minmax(300px, 1.48fr) minmax(132px, 0.86fr);
     gap: 5px;
     padding: 5px;
   }
@@ -191,7 +196,7 @@
 @media (max-width: 1180px) {
   .crypto-terminal-grid {
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(280px, 1fr) minmax(140px, 0.4fr) minmax(180px, 0.52fr) minmax(150px, 0.44fr);
+    grid-template-rows: minmax(260px, 1.08fr) minmax(128px, 0.34fr) minmax(170px, 0.5fr) minmax(136px, 0.38fr);
   }
 
   .crypto-zone-chart {
@@ -217,7 +222,7 @@
 
 @media (max-height: 920px) {
   .crypto-terminal-grid {
-    grid-template-rows: minmax(0, 1.48fr) minmax(145px, 0.7fr);
+    grid-template-rows: minmax(280px, 1.42fr) minmax(120px, 0.78fr);
     gap: 4px;
     padding: 4px;
   }
@@ -226,7 +231,14 @@
 @media (max-height: 820px) {
   .crypto-terminal-grid {
     grid-template-columns: 184px minmax(0, 1fr) 176px;
-    grid-template-rows: minmax(0, 1.4fr) minmax(132px, 0.66fr);
+    grid-template-rows: minmax(244px, 1.32fr) minmax(108px, 0.82fr);
+  }
+}
+
+@media (max-height: 760px) {
+  .crypto-terminal-grid {
+    grid-template-columns: 168px minmax(0, 1fr) 164px;
+    grid-template-rows: minmax(220px, 1.24fr) minmax(96px, 0.88fr);
   }
 }
 
