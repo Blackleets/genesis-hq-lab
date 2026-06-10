@@ -141,9 +141,10 @@
 
 .crypto-terminal-grid {
   flex: 1;
+  height: 100%;
   display: grid;
-  grid-template-columns: 236px minmax(0, 1fr) 220px;
-  grid-template-rows: minmax(520px, 1.65fr) minmax(240px, 0.78fr);
+  grid-template-columns: clamp(180px, 15vw, 236px) minmax(0, 1fr) clamp(180px, 14vw, 220px);
+  grid-template-rows: minmax(0, 1.62fr) minmax(170px, 0.78fr);
   gap: 6px;
   padding: 6px;
   overflow: hidden;
@@ -178,10 +179,19 @@
   overflow: hidden;
 }
 
+@media (max-width: 1480px) {
+  .crypto-terminal-grid {
+    grid-template-columns: 196px minmax(0, 1fr) 188px;
+    grid-template-rows: minmax(0, 1.56fr) minmax(160px, 0.74fr);
+    gap: 5px;
+    padding: 5px;
+  }
+}
+
 @media (max-width: 1180px) {
   .crypto-terminal-grid {
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(460px, 1fr) minmax(180px, 0.4fr) minmax(240px, 0.52fr) minmax(200px, 0.44fr);
+    grid-template-rows: minmax(280px, 1fr) minmax(140px, 0.4fr) minmax(180px, 0.52fr) minmax(150px, 0.44fr);
   }
 
   .crypto-zone-chart {
@@ -202,6 +212,21 @@
   .crypto-zone-intel {
     grid-column: 1;
     grid-row: 4;
+  }
+}
+
+@media (max-height: 920px) {
+  .crypto-terminal-grid {
+    grid-template-rows: minmax(0, 1.48fr) minmax(145px, 0.7fr);
+    gap: 4px;
+    padding: 4px;
+  }
+}
+
+@media (max-height: 820px) {
+  .crypto-terminal-grid {
+    grid-template-columns: 184px minmax(0, 1fr) 176px;
+    grid-template-rows: minmax(0, 1.4fr) minmax(132px, 0.66fr);
   }
 }
 

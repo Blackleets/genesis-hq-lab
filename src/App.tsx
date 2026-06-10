@@ -73,7 +73,7 @@ function AppShell() {
   }, []);
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col bg-carbon-300">
+    <div className="h-dvh w-full max-w-full overflow-hidden flex flex-col bg-carbon-300">
       <GenesisHeader
         currentModule={currentModule}
         onNavigate={actions.setSelectedModule}

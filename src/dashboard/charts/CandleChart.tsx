@@ -621,7 +621,7 @@ export default function CandleChart({
       )}
 
       {/* ── Chart canvas — flex-fills the remaining card height ─────────── */}
-      <div className="relative w-full flex-1 min-h-0" style={{ minHeight: 260 }}>
+      <div className="relative w-full flex-1 min-h-0" style={{ minHeight: 220 }}>
         <div ref={wrapRef} className="absolute inset-0" />
         <div className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center">
           <div className="font-mono text-[72px] md:text-[96px] font-black tracking-[-0.08em] text-zinc-500/10 select-none">

@@ -83,7 +83,7 @@ export default function GenesisSidebar({ currentModule, onSelect }: Props) {
   const lang = useLanguage();
 
   return (
-    <aside className="w-[196px] shrink-0 bg-[#0b0e14] border-r border-[#242b3a] flex flex-col">
+    <aside className="w-[clamp(168px,14vw,196px)] shrink-0 bg-[#0b0e14] border-r border-[#242b3a] flex flex-col">
       {/* Company identity */}
       <div className="px-3.5 py-3 border-b border-[#242b3a] bg-[#0f131c]">
         <GenesisLockup size="sm" markSize={26} showTagline />

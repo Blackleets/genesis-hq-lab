@@ -824,3 +824,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Made office bubbles react to real system context instead of random chatter: the relevant desk now gets speaking priority when the engine degrades, risk rises, open positions exist, or commentary implies pause/breakout/momentum, and each role turns those signals into honest Spanish/English work speech.
 - Files touched: `src/office/agentDialogue.ts`, `docs/CHANGELOG_AI.md`
 - Verification: `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Tightened the app-shell and Crypto Lab layout so the interface fits normal desktop zoom better: the viewport now uses `dvh`, the sidebar scales down instead of staying oversized, and the terminal grid/chart use height-responsive tracks instead of large fixed minimums that forced users to zoom out.
+- Files touched: `src/App.tsx`, `src/ui/GenesisSidebar.tsx`, `src/index.css`, `src/dashboard/charts/CandleChart.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run typecheck` ok; `npm run build` ok
