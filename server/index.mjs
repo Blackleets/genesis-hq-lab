@@ -146,7 +146,12 @@ function applyCors(res) {
 
 function sendJson(res, status, payload) {
   applyCors(res);
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store, no-cache, must-revalidate',
+    Pragma: 'no-cache',
+    Expires: '0',
+  });
   res.end(JSON.stringify(payload));
 }
 

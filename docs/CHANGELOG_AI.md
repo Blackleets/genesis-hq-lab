@@ -901,3 +901,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Fixed production Foundry availability by making the supervisor adapter prefer a repo-native bundled Foundry source under `server/intelligence/foundry/` and by adding a `python3/python` runtime fallback for Linux deploys such as Render. This removes the previous dependency on an untracked nested vendor repo that production could not see.
 - Files touched: `server/intelligence/policyFoundryAdapter.mjs`, `server/intelligence/foundry/fractal_prompt_foundry.py`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/intelligence/policyFoundryAdapter.mjs` ok; `node --test server/tests/intelligenceSupervisor.test.mjs` ok; `npm run build` ok
+
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Hardened supervisor freshness by marking backend JSON responses as non-cacheable and forcing the frontend supervisor fetches to use `no-store`, so the desk stops resurfacing stale degraded supervisor states after a successful Foundry run.
+- Files touched: `server/index.mjs`, `src/services/cryptoClient.ts`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run typecheck` ok; `npm run build` ok; `node --test server/tests/intelligenceSupervisor.test.mjs` ok

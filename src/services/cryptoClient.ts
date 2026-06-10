@@ -532,6 +532,7 @@ export async function resetFuturesDeskBaseline(note = 'Manual futures PnL baseli
 export async function loadIntelligenceSupervisorLatest(timeoutMs = 8_000): Promise<IntelligenceSupervisorState | null> {
   try {
     const res = await fetch(apiUrl('/api/intelligence/supervisor/latest'), {
+      cache: 'no-store',
       signal: AbortSignal.timeout(timeoutMs),
       headers: { accept: 'application/json' },
     });
@@ -562,6 +563,7 @@ export async function runIntelligenceSupervisor(timeoutMs = 40_000): Promise<{ o
   try {
     const res = await fetch(apiUrl('/api/intelligence/supervisor/run'), {
       method: 'POST',
+      cache: 'no-store',
       headers: { 'Content-Type': 'application/json', accept: 'application/json' },
       body: JSON.stringify({ advisoryOnly: true }),
       signal: AbortSignal.timeout(timeoutMs),
