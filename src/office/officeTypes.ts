@@ -45,6 +45,34 @@ export interface Waypoint {
   y: number;
 }
 
+/** Routine status chatter vs. event-driven alerts (alerts win slots). */
+export type DialoguePriority = 'routine' | 'alert';
+
+export interface AgentDialogueMessage {
+  text: string;
+  priority: DialoguePriority;
+}
+
+/** A bubble currently shown above an agent's head. */
+export interface ActiveDialogueBubble {
+  id: number;
+  agentId: OfficeAgentId;
+  text: string;
+  priority: DialoguePriority;
+  startedAt: number;
+  expiresAt: number;
+}
+
+/**
+ * What the office knows about the real system. Phase 3 keeps this minimal
+ * and always offline; Phase 4 fills it from /api/crypto/* so dialogue can
+ * reference real events. While `liveDataConnected` is false, only the
+ * generic honest catalog is ever spoken.
+ */
+export interface LiveOfficeState {
+  liveDataConnected: boolean;
+}
+
 /** Mutable runtime state. Positions are the agent's feet, in canvas px. */
 export interface LiveOfficeAgent {
   def: AgentDefinition;

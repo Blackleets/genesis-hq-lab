@@ -1,27 +1,47 @@
 // TileOffice — React wrapper for the live tile office canvas.
-// Phase 1: static tiles. Phase 2: live agents stepped on a RAF loop.
+// Phase 1: static tiles. Phase 2: live agents on a RAF loop.
+// Phase 3: honest dialogue bubbles overlaid in canvas pixel space.
 // Degrades gracefully: tilesheet failure reports up via onAssetError
 // (HQView falls back to the legacy office); an agent-loop failure falls
-// back to the static Phase 1 scene.
+// back to the static scene; a dialogue failure just mutes the bubbles.
 
 import { useEffect, useRef, useState } from 'react';
-import { OFFICE_CANVAS_H, OFFICE_CANVAS_W } from './officeLayout';
+import { OFFICE_CANVAS_H, OFFICE_CANVAS_W, OFFICE_CHARACTERS } from './officeLayout';
 import {
   drawOfficeBase,
   drawTileOffice,
   loadOfficeTilesheet,
   renderOfficeFrame,
 } from './TileOfficeRenderer';
-import { createLiveOfficeAgents } from './officeAgents';
+import { AGENT_DEFINITIONS, createLiveOfficeAgents } from './officeAgents';
 import { stepOfficeAgents } from './officeAgentMovement';
+import { createDialogueRuntime, stepDialogue } from './agentDialogue';
+import type { LiveOfficeState } from './officeTypes';
+import DialogueBubble from './DialogueBubble';
 
 interface Props {
   onAssetError: (error: Error) => void;
 }
 
+interface BubbleView {
+  key: number;
+  text: string;
+  x: number;
+  y: number;
+  accent: string;
+  fading: boolean;
+}
+
+/** Phase 3: the office is not wired to live system data yet. */
+const OFFICE_STATE: LiveOfficeState = { liveDataConnected: false };
+
+const BUBBLE_SYNC_MS = 100;
+const FADE_OUT_MS = 420;
+
 export default function TileOffice({ onAssetError }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [sheet, setSheet] = useState<HTMLImageElement | null>(null);
+  const [bubbleViews, setBubbleViews] = useState<BubbleView[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -60,8 +80,13 @@ export default function TileOffice({ onAssetError }: Props) {
     drawOfficeBase(baseCtx, sheet);
 
     const agents = createLiveOfficeAgents(performance.now());
+    const accentById = new Map(AGENT_DEFINITIONS.map((d) => [d.id, d.accent]));
+    const dialogue = createDialogueRuntime(performance.now());
+    let dialogueAlive = true;
     let frameId = 0;
     let lastTs = 0;
+    let lastBubbleSync = 0;
+    let lastBubbleSignature = '';
 
     const tick = (ts: number) => {
       const dt = lastTs === 0 ? 16 : ts - lastTs;
@@ -73,8 +98,43 @@ export default function TileOffice({ onAssetError }: Props) {
         // agent loop broke — degrade to the static Phase 1 scene
         console.warn('[TileOffice] agent loop failed, rendering static office:', error);
         drawTileOffice(ctx, sheet);
+        setBubbleViews([]);
         return;
       }
+
+      if (dialogueAlive) {
+        try {
+          const bubbles = stepDialogue(dialogue, agents, OFFICE_STATE, ts);
+          if (ts - lastBubbleSync >= BUBBLE_SYNC_MS) {
+            lastBubbleSync = ts;
+            const views: BubbleView[] = [];
+            for (const b of bubbles) {
+              const agent = agents.find((a) => a.def.id === b.agentId);
+              if (!agent) continue;
+              const charH = OFFICE_CHARACTERS[agent.def.spriteIndex].h;
+              views.push({
+                key: b.id,
+                text: b.text,
+                x: Math.round(agent.x),
+                y: Math.round(agent.y) - charH - 10,
+                accent: accentById.get(b.agentId) ?? '#00ff9c',
+                fading: b.expiresAt - ts < FADE_OUT_MS,
+              });
+            }
+            const signature = views.map((v) => `${v.key}:${v.x}:${v.y}:${v.fading}`).join('|');
+            if (signature !== lastBubbleSignature) {
+              lastBubbleSignature = signature;
+              setBubbleViews(views);
+            }
+          }
+        } catch (error) {
+          // dialogue broke — mute bubbles, keep the office alive
+          console.warn('[TileOffice] dialogue failed, muting bubbles:', error);
+          dialogueAlive = false;
+          setBubbleViews([]);
+        }
+      }
+
       frameId = window.requestAnimationFrame(tick);
     };
     frameId = window.requestAnimationFrame(tick);
@@ -94,6 +154,9 @@ export default function TileOffice({ onAssetError }: Props) {
         className="block absolute inset-0"
         style={{ imageRendering: 'pixelated' }}
       />
+      {bubbleViews.map((b) => (
+        <DialogueBubble key={b.key} text={b.text} x={b.x} y={b.y} accent={b.accent} fading={b.fading} />
+      ))}
       {!sheet && (
         <div className="absolute inset-0 flex items-center justify-center font-mono text-[10px] uppercase tracking-[0.12em] text-zinc-500">
           loading office assets…
