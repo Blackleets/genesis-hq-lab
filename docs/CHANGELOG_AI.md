@@ -803,3 +803,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Hardened the live office renderer without changing behavior: the pixel office now respects `VITE_USE_LIVE_TILE_OFFICE=false` to fall back to the previous SVG office, and sprite loading no longer fails all-or-nothing when one asset is missing. If the canvas renderer cannot initialize, HQ safely falls back to the legacy office instead of breaking.
 - Files touched: `src/animations/pixelCanvasRenderer.ts`, `src/animations/PixelOfficeCanvas.tsx`, `src/ui/views/HQView.tsx`, `src/vite-env.d.ts`, `docs/CHANGELOG_AI.md`
 - Verification: `npm run build` ok; `npm run typecheck` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Merged the latest `origin/main` backend fixes together with Claude's live tile office branch, then resolved `HQView` so Genesis now prefers the new tile office when enabled, falls back safely to the pixel canvas if tile assets fail, and still degrades to the legacy office if the canvas renderer cannot initialize.
+- Files touched: `server/index.mjs`, `server/trading/positionMonitor.mjs`, `src/ui/views/HQView.tsx`, `public/assets/office/*`, `src/hooks/useLiveOfficeState.ts`, `src/office/*`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run build` ok; `npm run typecheck` ok
