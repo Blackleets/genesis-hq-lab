@@ -89,11 +89,39 @@ export interface FloorZone {
 }
 
 export const FLOOR_ZONES: FloorZone[] = [
-  // base carpet across the whole office
-  { tile: 'carpet', x: 0, y: WALL_BASE_Y - TILE_SIZE, w: OFFICE_CANVAS_W, h: OFFICE_CANVAS_H - WALL_BASE_Y + TILE_SIZE },
-  // tiled "execution bay" on the right wing
-  { tile: 'glass', x: 528, y: WALL_BASE_Y - TILE_SIZE, w: OFFICE_CANVAS_W - 528, h: OFFICE_CANVAS_H - WALL_BASE_Y + TILE_SIZE },
+  // base: cool tile floor across the whole office (darkened by the renderer's
+  // industrial tint — approved "Pantalla 1" look, 2026-06-10)
+  { tile: 'glass', x: 0, y: WALL_BASE_Y - TILE_SIZE, w: OFFICE_CANVAS_W, h: OFFICE_CANVAS_H - WALL_BASE_Y + TILE_SIZE },
+  // warm carpet only inside the meeting area (bottom-center)
+  { tile: 'carpet', x: 296, y: 256, w: 168, h: 150 },
 ];
+
+/**
+ * Zone tags — green terminal-style labels naming each functional area
+ * (approved agent-office visual direction). Positions are canvas px of the
+ * tag's center-top.
+ */
+export interface ZoneTag {
+  label: string;
+  cx: number;
+  y: number;
+}
+
+export const ZONE_TAGS: ZoneTag[] = [
+  { label: 'RESEARCH ZONE',     cx: 162, y: 96 },
+  { label: 'TRADING DESK',      cx: 366, y: 96 },
+  { label: 'RISK MANAGEMENT',   cx: 600, y: 96 },
+  { label: 'PORTFOLIO MONITOR', cx: 608, y: 310 },
+  { label: 'SERVER ROOM',       cx: 758, y: 232 },
+  { label: 'COFFEE AREA',       cx: 745, y: 128 },
+  { label: 'MEETING ROOM',      cx: 375, y: 252 },
+];
+
+/** Wall-mounted market screen (decorative animated candles, no numbers). */
+export const MARKET_WATCH = { x: 340, y: 8, w: 160, h: 62 };
+
+/** Dark room patch behind the server rack (industrial server-room read). */
+export const SERVER_ROOM_RECT = { x: 728, y: 242, w: 60, h: 102 };
 
 /** Wall panels drawn left→right along the top, bottoms aligned at WALL_BASE_Y. */
 export const WALL_SEQUENCE: OfficeSpriteId[] = [
@@ -159,4 +187,4 @@ export const STATIONS: OfficeStation[] = [
  * LED strip on the server cabinet (Phase 5): absolute canvas position of
  * the topmost LED; the rest stack downward with `spacing`.
  */
-export const SERVER_RACK_LEDS = { x: 757, y: 258, count: 3, spacing: 7 };
+export const SERVER_RACK_LEDS = { x: 757, y: 258, count: 4, spacing: 7 };
