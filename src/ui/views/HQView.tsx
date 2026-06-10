@@ -1,4 +1,4 @@
-// HQView — the pixel office viewport: agents at work, bubbles, room drill-in.
+// HQView â€” the pixel office viewport: agents at work, bubbles, room drill-in.
 
 import { useMemo, useState } from 'react';
 import { useT, useLanguage } from '@core/i18n/languageStore';
@@ -16,6 +16,10 @@ import OfficeViewport from '@animations/OfficeViewport';
 import GenesisOfficeWorld from '@animations/GenesisOfficeWorld';
 import AgentTooltip from '@agents/AgentTooltip';
 import AgentInspector from '@agents/AgentInspector';
+import TileOffice from '@office/TileOffice';
+import { OFFICE_CANVAS_H, OFFICE_CANVAS_W } from '@office/officeLayout';
+
+const HQ_RENDERER = 'canvas' as const;
 
 export default function HQView() {
   const t = useT();
@@ -30,7 +34,13 @@ export default function HQView() {
     const raw = (import.meta.env.VITE_USE_LIVE_TILE_OFFICE ?? 'true').trim().toLowerCase();
     return raw === 'false' || raw === '0' || raw === 'off' ? 'legacy' : 'canvas';
   }, []);
+  const tileOfficeEnabled = useMemo(() => {
+    const raw = (import.meta.env.VITE_USE_LIVE_TILE_OFFICE ?? 'true').trim().toLowerCase();
+    return !(raw === 'false' || raw === '0' || raw === 'off');
+  }, []);
   const [rendererMode, setRendererMode] = useState<'canvas' | 'legacy'>(initialRenderer);
+  const [tileOfficeFailed, setTileOfficeFailed] = useState(false);
+  const tileOfficeActive = tileOfficeEnabled && !tileOfficeFailed;
 
   const firstSpeaker = Object.values(bubbles)[0];
   const speakingAgentId = firstSpeaker?.agentId ?? null;
@@ -65,7 +75,18 @@ export default function HQView() {
           ))}
         </div>
         <div className="flex-1 min-h-0 relative bg-carbon-300">
-          {rendererMode === 'canvas' ? (
+          {tileOfficeActive ? (
+            <PixelOfficeViewport internalWidth={OFFICE_CANVAS_W} internalHeight={OFFICE_CANVAS_H}>
+              {() => (
+                <TileOffice
+                  onAssetError={(error) => {
+                    console.warn('[TileOffice] falling back to legacy office:', error.message);
+                    setTileOfficeFailed(true);
+                  }}
+                />
+              )}
+            </PixelOfficeViewport>
+          ) : rendererMode === 'canvas' && HQ_RENDERER === 'canvas' ? (
             <PixelOfficeViewport internalWidth={PIXEL_CANVAS_WIDTH} internalHeight={PIXEL_CANVAS_HEIGHT}>
               {(scale) => (
                 <PixelOfficeCanvas
