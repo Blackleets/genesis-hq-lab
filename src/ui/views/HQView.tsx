@@ -16,8 +16,13 @@ import OfficeViewport from '@animations/OfficeViewport';
 import GenesisOfficeWorld from '@animations/GenesisOfficeWorld';
 import AgentTooltip from '@agents/AgentTooltip';
 import AgentInspector from '@agents/AgentInspector';
+import TileOffice from '@office/TileOffice';
+import { OFFICE_CANVAS_H, OFFICE_CANVAS_W } from '@office/officeLayout';
 
 const HQ_RENDERER = 'canvas' as const;
+// Live tile office (Phase 1). Falls back to the legacy pixel office if the
+// tilesheet fails to load — flip to false to disable without code changes.
+const USE_LIVE_TILE_OFFICE = true;
 
 export default function HQView() {
   const t = useT();
@@ -28,6 +33,8 @@ export default function HQView() {
   const [hoveredAgent, setHoveredAgent] = useState<Agent | null>(null);
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [roomOpen, setRoomOpen] = useState<RoomId | null>(null);
+  const [tileOfficeFailed, setTileOfficeFailed] = useState(false);
+  const tileOfficeActive = USE_LIVE_TILE_OFFICE && !tileOfficeFailed;
 
   const firstSpeaker = Object.values(bubbles)[0];
   const speakingAgentId = firstSpeaker?.agentId ?? null;
@@ -62,7 +69,18 @@ export default function HQView() {
           ))}
         </div>
         <div className="flex-1 min-h-0 relative bg-carbon-300">
-          {HQ_RENDERER === 'canvas' ? (
+          {tileOfficeActive ? (
+            <PixelOfficeViewport internalWidth={OFFICE_CANVAS_W} internalHeight={OFFICE_CANVAS_H}>
+              {() => (
+                <TileOffice
+                  onAssetError={(error) => {
+                    console.warn('[TileOffice] falling back to legacy office:', error.message);
+                    setTileOfficeFailed(true);
+                  }}
+                />
+              )}
+            </PixelOfficeViewport>
+          ) : HQ_RENDERER === 'canvas' ? (
             <PixelOfficeViewport internalWidth={PIXEL_CANVAS_WIDTH} internalHeight={PIXEL_CANVAS_HEIGHT}>
               {(scale) => (
                 <PixelOfficeCanvas
