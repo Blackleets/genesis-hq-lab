@@ -894,3 +894,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Hardened the futures supervisor operations loop with expiring runtime overrides, manual rollback, before-vs-after impact comparison, and learning cohorts grouped by profile, pair, side, and exit reason. The desk now shows not only what policy is active, but when it expires, whether it helped, and which real futures cohorts are strongest or weakest.
 - Files touched: `server/intelligence/policyApplication.mjs`, `server/intelligence/intelligenceSupervisor.mjs`, `server/db/schema.sql`, `server/db/database.mjs`, `server/index.mjs`, `server/crypto/futuresDesk.mjs`, `server/tests/intelligenceSupervisor.test.mjs`, `src/services/cryptoClient.ts`, `src/workflows/CryptoLabView.tsx`, `src/components/crypto/DeskPanel.tsx`, `src/components/crypto/FuturesDeskPanel.tsx`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/intelligence/policyApplication.mjs` ok; `node --check server/crypto/futuresDesk.mjs` ok; `node --test server/tests/intelligenceSupervisor.test.mjs` ok; `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Fixed production Foundry availability by making the supervisor adapter prefer a repo-native bundled Foundry source under `server/intelligence/foundry/` and by adding a `python3/python` runtime fallback for Linux deploys such as Render. This removes the previous dependency on an untracked nested vendor repo that production could not see.
+- Files touched: `server/intelligence/policyFoundryAdapter.mjs`, `server/intelligence/foundry/fractal_prompt_foundry.py`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/intelligence/policyFoundryAdapter.mjs` ok; `node --test server/tests/intelligenceSupervisor.test.mjs` ok; `npm run build` ok

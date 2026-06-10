@@ -6,10 +6,6 @@ import { summarizeMissionForProvider } from './missionBuilder.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-function getPythonBin() {
-  return process.env.PYTHON_BIN?.trim() || 'python';
-}
-
 function getTimeoutMs() {
   const parsed = parseInt(process.env.FRACTAL_FOUNDRY_TIMEOUT_MS ?? '30000', 10);
   return Number.isFinite(parsed) ? parsed : 30000;
@@ -19,6 +15,8 @@ function resolveFoundryTarget() {
   const configured = process.env.FRACTAL_FOUNDRY_PATH?.trim();
   const candidates = [
     configured,
+    resolve(__dirname, 'foundry'),
+    resolve(__dirname, 'foundry', 'fractal_prompt_foundry.py'),
     resolve(__dirname, '..', '..', 'vendor', 'fractal-prompt-foundry'),
     resolve(__dirname, '..', '..', 'vendor', 'fractal-prompt-foundry', 'fractal_prompt_foundry.py'),
   ].filter(Boolean);
@@ -30,6 +28,14 @@ function resolveFoundryTarget() {
     return { absolute, moduleDir };
   }
   return null;
+}
+
+function getPythonCandidates() {
+  const configured = process.env.PYTHON_BIN?.trim();
+  if (configured) return [configured];
+  return process.platform === 'win32'
+    ? ['python', 'py']
+    : ['python3', 'python'];
 }
 
 function runPythonFoundry(mission, target) {
@@ -64,10 +70,24 @@ print(json.dumps(result))
 
   return new Promise((resolvePromise, rejectPromise) => {
     const timeoutMs = getTimeoutMs();
-    const child = spawn(getPythonBin(), ['-c', pythonScript], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      env: process.env,
-    });
+    let child = null;
+    let launchError = null;
+    for (const pythonBin of getPythonCandidates()) {
+      try {
+        child = spawn(pythonBin, ['-c', pythonScript], {
+          stdio: ['pipe', 'pipe', 'pipe'],
+          env: process.env,
+        });
+        launchError = null;
+        break;
+      } catch (error) {
+        launchError = error;
+      }
+    }
+    if (!child) {
+      rejectPromise(launchError instanceof Error ? launchError : new Error('No Python runtime available for Foundry'));
+      return;
+    }
 
     let stdout = '';
     let stderr = '';
