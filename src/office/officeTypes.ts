@@ -48,8 +48,13 @@ export interface Waypoint {
 /** Routine status chatter vs. event-driven alerts (alerts win slots). */
 export type DialoguePriority = 'routine' | 'alert';
 
+export interface LocalizedDialogueText {
+  es: string;
+  en: string;
+}
+
 export interface AgentDialogueMessage {
-  text: string;
+  text: LocalizedDialogueText;
   priority: DialoguePriority;
 }
 
@@ -57,7 +62,7 @@ export interface AgentDialogueMessage {
 export interface ActiveDialogueBubble {
   id: number;
   agentId: OfficeAgentId;
-  text: string;
+  text: LocalizedDialogueText;
   priority: DialoguePriority;
   startedAt: number;
   expiresAt: number;

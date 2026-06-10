@@ -6,6 +6,7 @@
 // back to the static scene; a dialogue failure just mutes the bubbles.
 
 import { useEffect, useRef, useState } from 'react';
+import { useLanguage } from '@core/i18n/languageStore';
 import { OFFICE_CANVAS_H, OFFICE_CANVAS_W, OFFICE_CHARACTERS } from './officeLayout';
 import {
   drawOfficeBase,
@@ -37,6 +38,7 @@ const BUBBLE_SYNC_MS = 100;
 const FADE_OUT_MS = 420;
 
 export default function TileOffice({ onAssetError }: Props) {
+  const lang = useLanguage();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [sheet, setSheet] = useState<HTMLImageElement | null>(null);
   const [bubbleViews, setBubbleViews] = useState<BubbleView[]>([]);
@@ -118,7 +120,7 @@ export default function TileOffice({ onAssetError }: Props) {
               const charH = OFFICE_CHARACTERS[agent.def.spriteIndex].h;
               views.push({
                 key: b.id,
-                text: b.text,
+                text: b.text[lang],
                 x: Math.round(agent.x),
                 y: Math.round(agent.y) - charH - 10,
                 accent: accentById.get(b.agentId) ?? '#00ff9c',
@@ -147,7 +149,7 @@ export default function TileOffice({ onAssetError }: Props) {
       window.cancelAnimationFrame(frameId);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sheet]);
+  }, [sheet, lang]);
 
   return (
     <div className="relative" style={{ width: `${OFFICE_CANVAS_W}px`, height: `${OFFICE_CANVAS_H}px` }}>

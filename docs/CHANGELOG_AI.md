@@ -810,3 +810,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Merged the latest `origin/main` backend fixes together with Claude's live tile office branch, then resolved `HQView` so Genesis now prefers the new tile office when enabled, falls back safely to the pixel canvas if tile assets fail, and still degrades to the legacy office if the canvas renderer cannot initialize.
 - Files touched: `server/index.mjs`, `server/trading/positionMonitor.mjs`, `src/ui/views/HQView.tsx`, `public/assets/office/*`, `src/hooks/useLiveOfficeState.ts`, `src/office/*`, `docs/CHANGELOG_AI.md`
 - Verification: `npm run build` ok; `npm run typecheck` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Upgraded the live office dialogue layer so agents now speak work-focused lines by role instead of generic filler, and the office bubbles follow the active `es/en` language without inventing trading outcomes.
+- Files touched: `src/office/officeTypes.ts`, `src/office/officeDialogueRules.ts`, `src/office/agentDialogue.ts`, `src/office/TileOffice.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run typecheck` ok; `npm run build` ok

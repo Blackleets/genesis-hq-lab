@@ -20,6 +20,7 @@ import type {
   AgentDialogueMessage,
   LiveOfficeAgent,
   LiveOfficeState,
+  LocalizedDialogueText,
   OfficeAgentId,
 } from './officeTypes';
 
@@ -33,7 +34,7 @@ const randBetween = (min: number, max: number) => min + Math.random() * (max - m
 export function generateAgentDialogue(
   agent: LiveOfficeAgent,
   officeState: LiveOfficeState,
-  lastText?: string,
+  lastText?: LocalizedDialogueText,
 ): AgentDialogueMessage | null {
   // Phase 3: no live data is ever connected, so only the generic honest
   // catalog applies. Phase 4 will branch here on real officeState events.
@@ -41,15 +42,15 @@ export function generateAgentDialogue(
 
   const pool = BASE_MESSAGES[agent.def.id][agent.state] ?? [];
   const candidates = pool.filter((m) => {
-    if (!isMessageAllowed(m.text)) {
-      console.warn('[agentDialogue] blocked forbidden message:', m.text);
+    if (!isMessageAllowed(m.text.es) || !isMessageAllowed(m.text.en)) {
+      console.warn('[agentDialogue] blocked forbidden message:', m.text.es, '|', m.text.en);
       return false;
     }
     return true;
   });
   if (candidates.length === 0) return null;
 
-  const fresh = candidates.filter((m) => m.text !== lastText);
+  const fresh = candidates.filter((m) => m.text.es !== lastText?.es && m.text.en !== lastText?.en);
   const pickFrom = fresh.length > 0 ? fresh : candidates;
   return pickFrom[Math.floor(Math.random() * pickFrom.length)];
 }
@@ -58,7 +59,7 @@ export interface DialogueRuntime {
   bubbles: ActiveDialogueBubble[];
   nextGlobalSpeakAt: number;
   nextSpeakAt: Partial<Record<OfficeAgentId, number>>;
-  lastText: Partial<Record<OfficeAgentId, string>>;
+  lastText: Partial<Record<OfficeAgentId, LocalizedDialogueText>>;
   nextBubbleId: number;
 }
 
