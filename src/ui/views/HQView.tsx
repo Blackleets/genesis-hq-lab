@@ -21,9 +21,17 @@ import type { TradingAgent } from '@core/types/tradingAgent';
 
 const HQ_RENDERER = 'canvas' as const;
 
-// Map a visual agent to its nearest TradingAgent by department.
+// Map a visual agent to its matching TradingAgent.
+// Trading specialist agents (id prefix 'trading-') match directly.
+// Original visual seed agents fall back to department-based mapping.
 function tradingDataForAgent(agent: Agent | null): TradingAgent | undefined {
   if (!agent) return undefined;
+  // Direct match for trading specialist agents
+  if (agent.id.startsWith('trading-')) {
+    const tradingId = agent.id.replace('trading-', '');
+    return TRADING_AGENTS.find(a => a.id === tradingId);
+  }
+  // Department fallback for original visual seed agents
   switch (agent.department) {
     case 'Market Room':     return TRADING_AGENTS.find(a => a.id === 'scalping-hunter');
     case 'Risk Office':     return TRADING_AGENTS.find(a => a.id === 'risk-sentinel');

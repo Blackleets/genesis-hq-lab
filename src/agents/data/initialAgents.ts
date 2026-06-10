@@ -123,4 +123,128 @@ export const INITIAL_AGENTS: Agent[] = [
     isVisualSeed: true,
     capabilities: ['hr_review', 'agent_onboarding', 'agent_training'],
   },
+
+  // ── Trading Specialists — 5 tactical agents, tiered by learningScore ────────
+  // Visual tier spread: Rookie → Professional → Elite → Elite → Legendary
+  // So the user can see all 4 evolution states in the office at once.
+
+  {
+    id: 'trading-scalping-hunter',
+    name: 'Scalping Hunter',
+    role: { es: 'Cazador de señales de alta frecuencia', en: 'High-frequency signal hunter' },
+    department: 'Market Room',
+    rank: 'intern',
+    status: 'idle',
+    currentTaskId: null,
+    currentTask: null,
+    trustScore: 0.45,
+    learningScore: 0.05, // level ≈1 → Rookie (chunky pixels, no aura)
+    visualProfile: {
+      archetype: 'analyst',
+      primary: '#3da9fc', accent: '#22d3ee',
+      hair: '#1a1a2a', pants: '#1a1d24', accessory: 'glasses',
+    },
+    position: { x: ROOMS['market-desk'].entryPoint.x + 40, y: ROOMS['market-desk'].entryPoint.y, pose: 'standing', facing: 'south' },
+    currentRoom: 'market-desk',
+    movementState: 'still',
+    hiredAt: new Date().toISOString(),
+    isVisualSeed: true,
+    capabilities: ['market_scan', 'signal_generation', 'paper_trade'],
+  },
+
+  {
+    id: 'trading-market-analyst',
+    name: 'Market Analyst',
+    role: { es: 'Analista de inteligencia de mercado', en: 'Market intelligence analyst' },
+    department: 'Strategy Lab',
+    rank: 'junior',
+    status: 'idle',
+    currentTaskId: null,
+    currentTask: null,
+    trustScore: 0.62,
+    learningScore: 0.25, // level ≈11 → Professional (ground ring + tick crest)
+    visualProfile: {
+      archetype: 'analyst',
+      primary: '#22d3ee', accent: '#67e8f9',
+      hair: '#22181a', pants: '#1a1d24', accessory: 'headset',
+    },
+    position: { ...ROOMS['strategy-lab'].entryPoint, pose: 'seated', facing: 'south' },
+    currentRoom: 'strategy-lab',
+    movementState: 'still',
+    hiredAt: new Date().toISOString(),
+    isVisualSeed: true,
+    capabilities: ['market_scan', 'signal_generation', 'system_check'],
+  },
+
+  {
+    id: 'trading-risk-sentinel',
+    name: 'Risk Sentinel',
+    role: { es: 'Centinela de control de riesgo', en: 'Risk control enforcer' },
+    department: 'Risk Office',
+    rank: 'operator',
+    status: 'working',
+    currentTaskId: null,
+    currentTask: { es: 'Monitoreando exposición del portafolio', en: 'Monitoring portfolio exposure' },
+    trustScore: 0.81,
+    learningScore: 0.45, // level ≈20 → Elite (chevron crest + ground glow + soft aura)
+    visualProfile: {
+      archetype: 'sentinel',
+      primary: '#ff4757', accent: '#ff6b81',
+      hair: '#0a0c10', pants: '#0d0f15', accessory: 'shield',
+    },
+    position: { x: ROOMS['risk-bunker'].entryPoint.x + 60, y: ROOMS['risk-bunker'].entryPoint.y, pose: 'standing', facing: 'south' },
+    currentRoom: 'risk-bunker',
+    movementState: 'still',
+    hiredAt: new Date().toISOString(),
+    isVisualSeed: true,
+    capabilities: ['risk_review', 'decision_review', 'performance_review'],
+  },
+
+  {
+    id: 'trading-backtest-engineer',
+    name: 'Backtest Engineer',
+    role: { es: 'Ingeniero de validación de estrategias', en: 'Strategy validation engineer' },
+    department: 'Execution Desk',
+    rank: 'senior',
+    status: 'thinking',
+    currentTaskId: null,
+    currentTask: { es: 'Analizando hipótesis de edge', en: 'Analyzing edge hypothesis' },
+    trustScore: 0.76,
+    learningScore: 0.60, // level ≈28 → Elite (late, near Legendary threshold)
+    visualProfile: {
+      archetype: 'scientist',
+      primary: '#7c5cff', accent: '#a78bfa',
+      hair: '#1a1020', pants: '#14101e', accessory: 'flask',
+    },
+    position: { ...ROOMS['execution-desk'].entryPoint, pose: 'seated', facing: 'south' },
+    currentRoom: 'execution-desk',
+    movementState: 'still',
+    hiredAt: new Date().toISOString(),
+    isVisualSeed: true,
+    capabilities: ['performance_review', 'system_check', 'decision_review'],
+  },
+
+  {
+    id: 'trading-capital-manager',
+    name: 'Capital Manager',
+    role: { es: 'Estratega de asignación de capital', en: 'Capital allocation strategist' },
+    department: 'Board Room',
+    rank: 'lead',
+    status: 'idle',
+    currentTaskId: null,
+    currentTask: null,
+    trustScore: 0.91,
+    learningScore: 0.75, // level ≈37 → Legendary (crown + orbital nodes + breathing halo)
+    visualProfile: {
+      archetype: 'commander',
+      primary: '#ffd24a', accent: '#fbbf24',
+      hair: '#1a1408', pants: '#181410', accessory: 'crown',
+    },
+    position: { ...ROOMS['board-room'].entryPoint, pose: 'standing', facing: 'south' },
+    currentRoom: 'board-room',
+    movementState: 'still',
+    hiredAt: new Date().toISOString(),
+    isVisualSeed: true,
+    capabilities: ['decision_review', 'performance_review', 'module_unlock_review'],
+  },
 ];

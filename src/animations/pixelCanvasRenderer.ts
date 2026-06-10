@@ -382,11 +382,17 @@ function drawFurniture(ctx: CanvasRenderingContext2D, sprites: LoadedSpriteMap) 
 // Map an agent to its Genesis Worker role (drives color + props).
 export function creatureForAgent(agent: Agent): CreatureKind {
   switch (agent.id) {
-    case 'visual-genesis-core':   return 'ceo';
-    case 'visual-market-scanner': return 'trader';
-    case 'visual-risk-guardian':  return 'risk';
-    case 'visual-memory-curator': return 'memory';
-    case 'visual-hr-evaluator':   return 'analyst';
+    case 'visual-genesis-core':         return 'ceo';
+    case 'visual-market-scanner':       return 'trader';
+    case 'visual-risk-guardian':        return 'risk';
+    case 'visual-memory-curator':       return 'memory';
+    case 'visual-hr-evaluator':         return 'analyst';
+    // Trading specialists
+    case 'trading-scalping-hunter':     return 'trader';
+    case 'trading-risk-sentinel':       return 'risk';
+    case 'trading-market-analyst':      return 'analyst';
+    case 'trading-backtest-engineer':   return 'research';
+    case 'trading-capital-manager':     return 'ceo';
   }
   const dept = (agent.department ?? '').toLowerCase();
   if (dept.includes('board'))   return 'ceo';
