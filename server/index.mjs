@@ -30,7 +30,7 @@ import {
 } from './agents/agentEngine.mjs';
 import { getLogs as getAgentLogs } from './agents/agentMemory.mjs';
 import { getProviderStatus } from './agents/providerRouter.mjs';
-import { getCryptoOverview, getOptimizerHeartbeat, computeCryptoEdgeScorecard } from './crypto/cryptoAnalytics.mjs';
+import { getCryptoOverview, getOptimizerHeartbeat, computeCryptoEdgeScorecard, getScalpV2TodayStats } from './crypto/cryptoAnalytics.mjs';
 import {
   setBroadcast as kalshiSetBroadcast,
   startWS      as kalshiStartWS,
@@ -77,7 +77,7 @@ import { getCommentary }                                  from './ai/commentaryE
 import { getTradeStories }                                from './crypto/tradeHistory.mjs';
 import { analyzeTrade, assertTradeAllowed }               from './crypto/copilot.mjs';
 import { getFuturesDeskSnapshot, getLiveFuturesCapitalSnapshot, resetFuturesPnlBaseline } from './crypto/futuresDesk.mjs';
-import { scalpConfig, getLastScanSnapshot }               from './strategies/scalpingEngine.mjs';
+import { scalpConfig, getLastScanSnapshot, getScalpV2Diagnostics } from './strategies/scalpingEngine.mjs';
 import { getAutopsy }                                     from './crypto/autoVeto.mjs';
 import { getFatigueIntelligenceSummary }                  from './intelligence/setupFatigue.mjs';
 import { getDbHealth, startReplication }                  from './persistence/dbReplicator.mjs';
@@ -855,6 +855,13 @@ const server = createServer(async (req, res) => {
         autopsy: (() => { try { return getAutopsy(); } catch { return null; } })(),
         fatigueIntelligence: (() => { try { return getFatigueIntelligenceSummary(); } catch { return null; } })(),
         llm: getCryptoLlmStatus(),
+        scalpingV2: (() => {
+          try {
+            const diag  = getScalpV2Diagnostics();
+            const today = getScalpV2TodayStats();
+            return { ...diag, today };
+          } catch { return null; }
+        })(),
       });
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;

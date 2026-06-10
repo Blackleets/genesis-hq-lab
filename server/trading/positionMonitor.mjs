@@ -1,17 +1,17 @@
-// positionMonitor.mjs — multi-speed position lifecycle manager for Phase 6A engines.
+// positionMonitor.mjs â€” multi-speed position lifecycle manager for Phase 6A engines.
 //
 // Monitors positions opened by:
 //   scalpingEngine  (trade_type='scalp_v2')
 //   swingEngine     (trade_type='swing_v1')
 //
-// (The existing positionManager.mjs handles trade_type='crypto_scalp' — no conflict.)
+// (The existing positionManager.mjs handles trade_type='crypto_scalp' â€” no conflict.)
 //
 // Exit conditions checked in priority order:
-//   1. Risk close       — global risk CRITICAL
-//   2. Stop loss        — current price crosses stop_price
-//   3. Take profit      — current price crosses target_price
-//   4. Timeout          — position older than days_to_close
-//   5. Confidence drop  — EMA9 crosses back against entry (momentum collapse)
+//   1. Risk close       â€” global risk CRITICAL
+//   2. Stop loss        â€” current price crosses stop_price
+//   3. Take profit      â€” current price crosses target_price
+//   4. Timeout          â€” position older than days_to_close
+//   5. Confidence drop  â€” EMA9 crosses back against entry (momentum collapse)
 
 import db from '../db/database.mjs';
 import { getCurrentPrice } from '../crypto/priceFeeder.mjs';
@@ -20,12 +20,15 @@ import { isGlobalSafeMode, getGlobalRiskDiagnostics } from '../risk/globalRiskEn
 import { analyzeClosedTrade } from '../memory/learningEngine.mjs';
 import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs';
 import { computeEma } from '../crypto/priceFeeder.mjs';
+import { checkExitConditions as _checkExit } from './positionMonitorCore.mjs';
+
+export { checkExitConditions } from './positionMonitorCore.mjs';
 
 const TRADE_TYPES = ['scalp_v2', 'swing_v1', 'breakout_v1', 'crypto_futures_breakout_short_micro', 'crypto_futures_breakout_short', 'crypto_futures_breakout_short_alt', 'crypto_futures_breakout_long'];
 const FUTURES_BREAK_EVEN_TRIGGER_PCT = parseFloat(process.env.FUTURES_BREAK_EVEN_TRIGGER_PCT ?? '0.35');
 const FUTURES_BREAK_EVEN_LOCK_PCT = parseFloat(process.env.FUTURES_BREAK_EVEN_LOCK_PCT ?? '0.001');
 
-// Trade types whose edge depends on holding to TP/SL/timeout — exempt from the 1m
+// Trade types whose edge depends on holding to TP/SL/timeout â€” exempt from the 1m
 // momentum-collapse check, which would close a multi-hour position on intrabar noise.
 const HOLD_TO_TARGET_TYPES = new Set(['breakout_v1', 'crypto_futures_breakout_short_micro', 'crypto_futures_breakout_short', 'crypto_futures_breakout_short_alt', 'crypto_futures_breakout_long']);
 
@@ -67,53 +70,7 @@ function maybeTightenFuturesStop(trade, currentPrice) {
   return true;
 }
 
-// ── Check exit conditions for a single position ───────────────────────────────
-
-/**
- * Returns { shouldExit: boolean, reason: string | null, exitType: 'tp'|'sl'|'timeout'|'risk'|'momentum' | null }
- */
-function checkExitConditions(trade, currentPrice, riskBand) {
-  const isLong = trade.outcome === 'LONG';
-  const ageMs  = Date.now() - new Date(trade.opened_at).getTime();
-  const ageH   = ageMs / (1000 * 60 * 60);
-
-  // 1. Risk close: CRITICAL system risk → force exit everything
-  if (riskBand === 'CRITICAL') {
-    return { shouldExit: true, reason: 'risk_close', exitType: 'risk' };
-  }
-
-  // 2. Stop loss
-  if (trade.stop_price != null) {
-    const slHit = isLong
-      ? currentPrice <= trade.stop_price
-      : currentPrice >= trade.stop_price;
-    if (slHit) {
-      return { shouldExit: true, reason: 'stop_loss', exitType: 'sl' };
-    }
-  }
-
-  // 3. Take profit
-  if (trade.target_price != null) {
-    const tpHit = isLong
-      ? currentPrice >= trade.target_price
-      : currentPrice <= trade.target_price;
-    if (tpHit) {
-      return { shouldExit: true, reason: 'take_profit', exitType: 'tp' };
-    }
-  }
-
-  // 4. Timeout
-  if (trade.days_to_close != null) {
-    const maxHours = trade.days_to_close * 24;
-    if (ageH >= maxHours) {
-      return { shouldExit: true, reason: 'timeout', exitType: 'timeout' };
-    }
-  }
-
-  return { shouldExit: false, reason: null, exitType: null };
-}
-
-// ── Monitor confidence collapse (EMA momentum check) ─────────────────────────
+// â”€â”€ Monitor confidence collapse (EMA momentum check) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Fetch recent 1m closes and check if momentum has reversed against position direction.
@@ -145,11 +102,11 @@ async function checkMomentumCollapse(trade) {
   }
 }
 
-// ── Main monitor function ─────────────────────────────────────────────────────
+// â”€â”€ Main monitor function â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Check and close all open positions from Phase 6A engines.
- * @param {{ checkMomentum?: boolean }} opts — momentum check is slow (network call), skip on fast runs
+ * @param {{ checkMomentum?: boolean }} opts â€” momentum check is slow (network call), skip on fast runs
  */
 export async function monitorPositions({ checkMomentum = false } = {}) {
   const result = { checked: 0, closed: 0, tp: 0, sl: 0, timeout: 0, risk: 0, momentum: 0 };
@@ -181,10 +138,10 @@ export async function monitorPositions({ checkMomentum = false } = {}) {
     if (!currentPrice) continue;
     maybeTightenFuturesStop(trade, currentPrice);
 
-    let { shouldExit, reason } = checkExitConditions(trade, currentPrice, riskBand);
+    let { shouldExit, reason } = _checkExit(trade, currentPrice, riskBand);
 
-    // Momentum collapse check (only on mid/slow runs — network overhead). Exempt
-    // hold-to-target strategies (e.g. breakout_v1) — their edge needs the full hold.
+    // Momentum collapse check (only on mid/slow runs â€” network overhead). Exempt
+    // hold-to-target strategies (e.g. breakout_v1) â€” their edge needs the full hold.
     if (!shouldExit && checkMomentum && !HOLD_TO_TARGET_TYPES.has(trade.trade_type)) {
       const collapsed = await checkMomentumCollapse(trade);
       if (collapsed) {
@@ -205,10 +162,24 @@ export async function monitorPositions({ checkMomentum = false } = {}) {
     else if (reason === 'risk_close')   result.risk++;
     else if (reason === 'confidence_collapse') result.momentum++;
 
+    // Structured close event for diagnostics
+    const eng = trade.trade_type === 'scalp_v2' ? 'SCALP_V2' : trade.trade_type === 'swing_v1' ? 'SWING_V1' : null;
+    if (eng) {
+      const pnlStr = closed.pnl != null ? `$${closed.pnl.toFixed(2)}` : '?';
+      const evtLabel = reason === 'take_profit' ? `${eng}_TP_HIT` : reason === 'stop_loss' ? `${eng}_SL_HIT` : `${eng}_EXITED`;
+      logEvent({
+        category: reason === 'stop_loss' ? CATEGORY.RISK : CATEGORY.EXECUTION,
+        severity: reason === 'stop_loss' ? SEVERITY.WARNING : SEVERITY.INFO,
+        subsystem: trade.agent_id ?? 'position-monitor',
+        reason: `${evtLabel} â€” ${trade.outcome} ${trade.asset_pair} pnl=${pnlStr} exit=${reason}`,
+        metadata: { id: trade.id, pair: trade.asset_pair, side: trade.outcome, pnl: closed.pnl, exitType: reason },
+      });
+    }
+
     // Trigger learning on close
     try {
       await analyzeClosedTrade({ ...trade, pnl: closed.pnl, closedAt: closed.closedAt, exitReason: reason });
-    } catch { /* best-effort — don't block */ }
+    } catch { /* best-effort â€” don't block */ }
 
     // Throttle to avoid overwhelming DB
     await new Promise(r => setTimeout(r, 100));
@@ -224,7 +195,7 @@ export async function monitorPositions({ checkMomentum = false } = {}) {
   return result;
 }
 
-// ── Training metrics snapshot ─────────────────────────────────────────────────
+// â”€â”€ Training metrics snapshot â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Returns current training metrics for operator visibility.
