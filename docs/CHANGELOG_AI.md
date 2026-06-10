@@ -789,3 +789,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Unified `/api/health` with the live futures mark-to-market path so the production status layer now reports the same real futures equity, unrealized PnL, and available capital as the futures desk instead of a stale zero-PnL snapshot.
 - Files touched: `server/crypto/futuresDesk.mjs`, `server/index.mjs`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/crypto/futuresDesk.mjs` ok; `node --check server/index.mjs` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Rebuilt the Crypto Lab chart surface for operator readability: expanded the terminal grid so panels stop clipping, added separate toggles for trade markers/entries/exits/labels, overlaid live trade badges directly on the candlestick chart, and upgraded the trade timeline + selected-trade card with real capital and leverage context from persisted trades.
+- Files touched: `server/crypto/tradeHistory.mjs`, `src/services/cryptoClient.ts`, `src/dashboard/charts/CandleChart.tsx`, `src/components/crypto/ChartStatsHeader.tsx`, `src/components/crypto/TradeTimeline.tsx`, `src/components/crypto/TradeStoryCard.tsx`, `src/index.css`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/tradeHistory.mjs` ok; `npm run build` ok

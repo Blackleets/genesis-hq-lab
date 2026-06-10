@@ -526,6 +526,10 @@ export interface TradeStory {
   id:           string;
   pair:         string;
   side:         'LONG' | 'SHORT';
+  agent_id?:    string | null;
+  trade_type?:  string | null;
+  capital_used?: number | null;
+  leverage?:     number | null;
   entry_price:  number;
   exit_price:   number | null;
   target_price: number | null;
