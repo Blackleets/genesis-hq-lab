@@ -1,10 +1,19 @@
-// TileOffice — React wrapper for the Phase 1 tile office canvas.
-// If the tilesheet fails to load it reports up via onAssetError so HQView
-// can fall back to the legacy pixel office without breaking anything.
+// TileOffice — React wrapper for the live tile office canvas.
+// Phase 1: static tiles. Phase 2: live agents stepped on a RAF loop.
+// Degrades gracefully: tilesheet failure reports up via onAssetError
+// (HQView falls back to the legacy office); an agent-loop failure falls
+// back to the static Phase 1 scene.
 
 import { useEffect, useRef, useState } from 'react';
 import { OFFICE_CANVAS_H, OFFICE_CANVAS_W } from './officeLayout';
-import { drawTileOffice, loadOfficeTilesheet } from './TileOfficeRenderer';
+import {
+  drawOfficeBase,
+  drawTileOffice,
+  loadOfficeTilesheet,
+  renderOfficeFrame,
+} from './TileOfficeRenderer';
+import { createLiveOfficeAgents } from './officeAgents';
+import { stepOfficeAgents } from './officeAgentMovement';
 
 interface Props {
   onAssetError: (error: Error) => void;
@@ -38,7 +47,41 @@ export default function TileOffice({ onAssetError }: Props) {
       onAssetError(new Error('2d context unavailable'));
       return;
     }
-    drawTileOffice(ctx, sheet);
+
+    // prerender the immutable layers once
+    const base = document.createElement('canvas');
+    base.width = OFFICE_CANVAS_W;
+    base.height = OFFICE_CANVAS_H;
+    const baseCtx = base.getContext('2d');
+    if (!baseCtx) {
+      drawTileOffice(ctx, sheet);
+      return;
+    }
+    drawOfficeBase(baseCtx, sheet);
+
+    const agents = createLiveOfficeAgents(performance.now());
+    let frameId = 0;
+    let lastTs = 0;
+
+    const tick = (ts: number) => {
+      const dt = lastTs === 0 ? 16 : ts - lastTs;
+      lastTs = ts;
+      try {
+        stepOfficeAgents(agents, ts, dt);
+        renderOfficeFrame(ctx, base, sheet, agents, ts);
+      } catch (error) {
+        // agent loop broke — degrade to the static Phase 1 scene
+        console.warn('[TileOffice] agent loop failed, rendering static office:', error);
+        drawTileOffice(ctx, sheet);
+        return;
+      }
+      frameId = window.requestAnimationFrame(tick);
+    };
+    frameId = window.requestAnimationFrame(tick);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sheet]);
 
