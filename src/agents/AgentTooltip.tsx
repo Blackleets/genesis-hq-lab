@@ -11,7 +11,7 @@ import { pickRole } from '@agents/agentHelpers';
 import { agentEvolution } from '@animations/agentEvolution';
 import AgentSpritePreview from '@agents/AgentSpritePreview';
 import PerformanceBadge from '@agents/PerformanceBadge';
-import { STATUS_COLORS, tradingPerformanceScore } from '@agents/utils/tradingAgentUtils';
+import { STATUS_COLORS } from '@agents/utils/tradingAgentUtils';
 
 interface Props {
   agent: Agent;
