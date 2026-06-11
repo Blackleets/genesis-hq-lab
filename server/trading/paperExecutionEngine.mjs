@@ -13,6 +13,8 @@ import { reserveCapital, settleTradeCapital } from './treasury.mjs';
 import { closeCryptoTrade } from '../crypto/cryptoExecution.mjs';
 import { computeCryptoTargets } from '../crypto/cryptoMath.mjs';
 import { reserveFuturesCapital } from '../crypto/futuresCapital.mjs';
+import { analyzeClosedTrade } from '../memory/learningEngine.mjs';
+import { createOutcomeRecord, saveOutcome } from '../learning/outcomeModel.mjs';
 import {
   cryptoSlippagePct,
   cryptoFuturesSlippagePct,
@@ -264,6 +266,25 @@ export async function closeCryptoPosition(tradeId, currentPrice, exitReason, age
 
   if (TRAINING_MODE) {
     console.log(`[paperExec][TRAINING] ${agentId ?? trade.agent_id}: ${exitLabel} ${trade.outcome} ${trade.asset_pair ?? ''} @ $${currentPrice.toFixed(2)} | PnL=$${(closedTrade.pnl ?? 0).toFixed(2)}`);
+  }
+
+  // Centralize learning at the execution close path so futures lessons are
+  // generated even when the caller forgets to trigger the learning engine.
+  if (!trade.lesson_id) {
+    try {
+      await analyzeClosedTrade(closedTrade);
+    } catch (error) {
+      console.warn(`[paperExec] Lesson extraction failed for ${tradeId}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  try {
+    saveOutcome(createOutcomeRecord({
+      ...closedTrade,
+      closed_at: closedTrade.closedAt ?? closedTrade.closed_at,
+    }));
+  } catch (error) {
+    console.warn(`[paperExec] Outcome recording failed for ${tradeId}: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   return closedTrade;

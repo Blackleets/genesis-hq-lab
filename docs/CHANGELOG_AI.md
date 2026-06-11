@@ -831,3 +831,73 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Tightened the app-shell and Crypto Lab layout so the interface fits normal desktop zoom better: the viewport now uses `dvh`, the sidebar scales down instead of staying oversized, and the terminal grid/chart use height-responsive tracks instead of large fixed minimums that forced users to zoom out.
 - Files touched: `src/App.tsx`, `src/ui/GenesisSidebar.tsx`, `src/index.css`, `src/dashboard/charts/CandleChart.tsx`, `docs/CHANGELOG_AI.md`
 - Verification: `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added a recommendation-only futures intelligence supervisor that builds missions from real futures/governor/lesson state, optionally runs a local Foundry Python worker offline, persists advisory policy packages, exposes latest/history/run APIs, and surfaces the latest unapplied recommendation in the Futures Desk without touching execution semantics.
+- Files touched: `server/db/schema.sql`, `server/crypto/futuresDesk.mjs`, `server/index.mjs`, `server/intelligence/missionBuilder.mjs`, `server/intelligence/policyEvaluator.mjs`, `server/intelligence/policyFoundryAdapter.mjs`, `server/intelligence/intelligenceSupervisor.mjs`, `server/persistence/dbReplicator.mjs`, `server/tests/intelligenceSupervisor.test.mjs`, `src/services/cryptoClient.ts`, `src/components/crypto/FuturesDeskPanel.tsx`, `src/components/crypto/DeskPanel.tsx`, `src/workflows/CryptoLabView.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/intelligence/missionBuilder.mjs` ok; `node --check server/intelligence/policyEvaluator.mjs` ok; `node --check server/intelligence/policyFoundryAdapter.mjs` ok; `node --check server/intelligence/intelligenceSupervisor.mjs` ok; `node --check server/index.mjs` ok; `node --test --test-concurrency=1 server/tests/intelligenceSupervisor.test.mjs` ok; `npm run typecheck` ok; `npm run build` ok; `npm test` failed on pre-existing suites including `alphaValidation.test.mjs`, `cryptoTruth.test.mjs`, `futuresBreakoutEngine` and reconciliation/scalp regressions
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Tightened the live futures desk to avoid low-value trades: raised the default breakout TP target, increased margin allocation on the main futures profiles, added per-profile minimum expected net-profit and reward/risk gates after fees, and delayed the futures break-even lock so positions have more room to reach meaningful gains instead of closing too early for tiny wins.
+- Files touched: `server/strategies/futuresBreakoutEngine.mjs`, `server/trading/positionMonitor.mjs`, `src/services/cryptoClient.ts`, `src/components/crypto/FuturesDeskPanel.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/strategies/futuresBreakoutEngine.mjs` ok; `node --check server/trading/positionMonitor.mjs` ok; `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Disabled the `short_micro` futures profile by default after confirming the only recorded micro close was a tiny losing timeout, so the desk now focuses by default on larger setups with more room to clear fees and produce meaningful net PnL.
+- Files touched: `server/strategies/futuresBreakoutEngine.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/strategies/futuresBreakoutEngine.mjs` ok; `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Promoted `short_core` as the main high-conviction futures profile by increasing its default size and leverage, tightening its minimum net-profit and reward/risk gates, shortening its timeout, and narrowing the default pair set to BTC/ETH/SOL so the desk prioritizes fewer but economically stronger core shorts.
+- Files touched: `server/strategies/futuresBreakoutEngine.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/strategies/futuresBreakoutEngine.mjs` ok; `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Fixed the real futures learning loop so closed futures trades now generate lessons from the centralized paper execution close path, and added a safe backfill pass for older closed futures rows missing `lesson_id`. This removed the gap where real futures closes could exist without feeding the learning engine.
+- Files touched: `server/trading/paperExecutionEngine.mjs`, `server/trading/positionMonitor.mjs`, `server/crypto/futuresLearningBackfill.mjs`, `server/crypto/futuresDesk.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/trading/paperExecutionEngine.mjs` ok; `node --check server/trading/positionMonitor.mjs` ok; `node --check server/crypto/futuresLearningBackfill.mjs` ok; backfill generated 1 real futures lesson; `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Hardened the futures learning pressure path: closed paper futures trades now also write `trade_outcomes`, timeout losses on futures are promoted from passive `info` to actionable `warning/timing`, and the futures backfill now upgrades old weak lessons into real warning-grade memory plus linked mistake patterns.
+- Files touched: `server/memory/learningEngine.mjs`, `server/trading/paperExecutionEngine.mjs`, `server/crypto/futuresLearningBackfill.mjs`, `server/crypto/futuresDesk.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/memory/learningEngine.mjs` ok; `node --check server/trading/paperExecutionEngine.mjs` ok; `node --check server/crypto/futuresLearningBackfill.mjs` ok; confirmed persisted futures lesson upgraded to `warning/timing`; confirmed linked `mistake_patterns` row and `trade_outcomes` row for the real futures close; `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Connected the futures intelligence supervisor to the real vendored `fractal-prompt-foundry` engine under `vendor/fractal-prompt-foundry`, made the adapter auto-discover that source by default, and executed a real supervisor run that produced a persisted `recommended` package from Foundry with score `1.003`.
+- Files touched: `server/intelligence/policyFoundryAdapter.mjs`, `vendor/fractal-prompt-foundry/*`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/intelligence/policyFoundryAdapter.mjs` ok; real `runIntelligenceSupervisor()` returned `status=recommended`, `source=foundry`, `providerStatus=ok`; `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added a safe `apply supervisor` path for the futures intelligence layer. Recommended runs now persist deterministic runtime changes, the operator can apply only a strict whitelist of futures overrides, those overrides are audited in SQLite and shown in the desk UI, and the futures breakout engine now reads runtime overrides dynamically so applied policy changes take effect without changing trades, governor state, or execution semantics.
+- Files touched: `server/intelligence/policyApplication.mjs`, `server/intelligence/intelligenceSupervisor.mjs`, `server/intelligence/policyFoundryAdapter.mjs`, `server/strategies/futuresBreakoutEngine.mjs`, `server/db/schema.sql`, `server/db/database.mjs`, `server/index.mjs`, `server/tests/intelligenceSupervisor.test.mjs`, `src/services/cryptoClient.ts`, `src/workflows/CryptoLabView.tsx`, `src/components/crypto/DeskPanel.tsx`, `src/components/crypto/FuturesDeskPanel.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/intelligence/policyApplication.mjs` ok; `node --check server/intelligence/policyFoundryAdapter.mjs` ok; `node --check server/strategies/futuresBreakoutEngine.mjs` ok; `node --test server/tests/intelligenceSupervisor.test.mjs` ok; `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Hardened the futures supervisor operations loop with expiring runtime overrides, manual rollback, before-vs-after impact comparison, and learning cohorts grouped by profile, pair, side, and exit reason. The desk now shows not only what policy is active, but when it expires, whether it helped, and which real futures cohorts are strongest or weakest.
+- Files touched: `server/intelligence/policyApplication.mjs`, `server/intelligence/intelligenceSupervisor.mjs`, `server/db/schema.sql`, `server/db/database.mjs`, `server/index.mjs`, `server/crypto/futuresDesk.mjs`, `server/tests/intelligenceSupervisor.test.mjs`, `src/services/cryptoClient.ts`, `src/workflows/CryptoLabView.tsx`, `src/components/crypto/DeskPanel.tsx`, `src/components/crypto/FuturesDeskPanel.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/intelligence/policyApplication.mjs` ok; `node --check server/crypto/futuresDesk.mjs` ok; `node --test server/tests/intelligenceSupervisor.test.mjs` ok; `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-10 - Claude
+
+- Branch: `claude/genesis-agent-visual-design-74o3bb`
+- Summary: Applied the owner-approved "Pantalla 1" industrial-dark visual direction to the live tile office: dark ambient cast over floors/walls (props and agents stay bright), terminal-style green zone tags (RESEARCH ZONE, TRADING DESK, RISK MANAGEMENT, PORTFOLIO MONITOR, SERVER ROOM, COFFEE AREA, MEETING ROOM), a wall-mounted MARKET WATCH screen with decorative numberless candle animation, dark server-room patch with extra LED bank, meeting-area carpet, restyled dialogue bubbles (dark slate plate + accent bar), and the status strip promoted to a top operations header (GENESIS HQ brand, engine, live agent count, positions, risk, activity, clock). All values remain real or honest placeholders; agent movement, dialogue sourcing, and data wiring untouched.
+- Files touched: `src/office/officeLayout.ts`, `src/office/TileOfficeRenderer.ts`, `src/office/OfficeStatusBar.tsx`, `src/office/TileOffice.tsx`, `src/office/DialogueBubble.tsx`, `docs/DESIGN_DIRECTION.md`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run typecheck` ok; `npm run build` ok

@@ -163,7 +163,7 @@ export default function TileOffice({ onAssetError }: Props) {
       {bubbleViews.map((b) => (
         <DialogueBubble key={b.key} text={b.text} x={b.x} y={b.y} accent={b.accent} fading={b.fading} />
       ))}
-      {sheet && <OfficeStatusBar state={officeState} />}
+      {sheet && <OfficeStatusBar state={officeState} agentCount={AGENT_DEFINITIONS.length} />}
       {!sheet && (
         <div className="absolute inset-0 flex items-center justify-center font-mono text-[10px] uppercase tracking-[0.12em] text-zinc-500">
           loading office assets…

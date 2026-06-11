@@ -374,6 +374,46 @@ CREATE TABLE IF NOT EXISTS org_state (
   updated_at TEXT NOT NULL
 );
 
+-- —— INTELLIGENCE SUPERVISOR RUNS — recommendation-only policy packages ——
+CREATE TABLE IF NOT EXISTS intelligence_runs (
+  id                TEXT PRIMARY KEY,
+  mission_id        TEXT NOT NULL,
+  source            TEXT NOT NULL,
+  scope             TEXT NOT NULL,
+  status            TEXT NOT NULL,          -- 'draft' | 'recommended' | 'archived' | 'rejected' | 'degraded' | 'failed'
+  advisory_only     INTEGER NOT NULL DEFAULT 1,
+  provider_status   TEXT NOT NULL DEFAULT 'unknown',
+  mission           TEXT NOT NULL,          -- JSON mission snapshot
+  candidate_summary TEXT,                   -- JSON best candidate summary
+  recommended_prompt TEXT,
+  recommended_rules TEXT,                   -- JSON string[]
+  score             REAL,
+  risk_notes        TEXT,                   -- JSON string[]
+  justification     TEXT,                   -- JSON string[]
+  proposed_changes  TEXT,                   -- JSON proposed runtime changes
+  artifacts         TEXT,                   -- JSON provider artifacts
+  created_at        TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_intelligence_runs_scope_created
+  ON intelligence_runs(scope, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_intelligence_runs_scope_status_created
+  ON intelligence_runs(scope, status, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS intelligence_policy_applies (
+  id                TEXT PRIMARY KEY,
+  run_id            TEXT NOT NULL,
+  scope             TEXT NOT NULL,
+  status            TEXT NOT NULL,          -- 'applied'
+  applied_overrides TEXT NOT NULL,          -- JSON changes applied
+  applied_by        TEXT NOT NULL DEFAULT 'operator',
+  created_at        TEXT NOT NULL,
+  expires_at        TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_intelligence_policy_applies_scope_created
+  ON intelligence_policy_applies(scope, created_at DESC);
+
 -- ─── AGENT DECISIONS — full audit trail of every signal emitted ───────────────
 -- Populated by MarketAnalystAgent (and future agents) on every BUY/SELL signal.
 -- outcome / resolved_at set when the linked trade closes.

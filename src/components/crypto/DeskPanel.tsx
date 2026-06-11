@@ -49,8 +49,14 @@ interface Props {
   futuresDesk?: FuturesDeskSnapshot | null;
   onRunFuturesCycle?: () => void;
   onResetFuturesBaseline?: () => void;
+  onRunSupervisor?: () => void;
+  onApplySupervisor?: () => void;
+  onRollbackSupervisor?: () => void;
   futuresCycleBusy?: boolean;
   futuresBaselineBusy?: boolean;
+  supervisorBusy?: boolean;
+  supervisorApplyBusy?: boolean;
+  supervisorRollbackBusy?: boolean;
   futuresCycleStatus?: string | null;
 }
 
@@ -164,8 +170,14 @@ export function DeskPanel({
   futuresDesk,
   onRunFuturesCycle,
   onResetFuturesBaseline,
+  onRunSupervisor,
+  onApplySupervisor,
+  onRollbackSupervisor,
   futuresCycleBusy = false,
   futuresBaselineBusy = false,
+  supervisorBusy = false,
+  supervisorApplyBusy = false,
+  supervisorRollbackBusy = false,
   futuresCycleStatus = null,
 }: Props) {
   const [tab, setTab] = useState<Tab>('STATS');
@@ -222,8 +234,14 @@ export function DeskPanel({
               es={es}
               onRunCycle={onRunFuturesCycle}
               onResetBaseline={onResetFuturesBaseline}
+              onRunSupervisor={onRunSupervisor}
+              onApplySupervisor={onApplySupervisor}
+              onRollbackSupervisor={onRollbackSupervisor}
               runBusy={futuresCycleBusy}
               baselineBusy={futuresBaselineBusy}
+              supervisorBusy={supervisorBusy}
+              supervisorApplyBusy={supervisorApplyBusy}
+              supervisorRollbackBusy={supervisorRollbackBusy}
               runStatus={futuresCycleStatus}
             />
 
