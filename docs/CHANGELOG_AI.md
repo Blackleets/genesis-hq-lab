@@ -1,5 +1,12 @@
 # CHANGELOG_AI
 
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added the product foundation layer for the wallet-first SaaS path without enabling custody, fees, or live trading. The schema now supports users, verified wallets, wallet sessions, owner/admin audit logs, entitlements, future billing events, operation intents, support/risk flags, wallet snapshots, opt-in global learning, private user memory, global memory candidates, and per-user paper sandbox accounts. Added product safety contracts that keep fees/live trading disabled by default.
+- Files touched: `server/db/schema.sql`, `server/product/productFoundation.mjs`, `server/tests/productFoundation.test.mjs`, `docs/GENESIS_PRODUCT_FOUNDATION.md`, `docs/CHANGELOG_AI.md`
+- Verification: `node --test --test-concurrency=1 server/tests/productFoundation.test.mjs` ok; `npm run typecheck` ok; `npm test -- --test-concurrency=1` ok (817/817); `npm run build` ok
+
 ## 2026-06-09 - Codex
 
 - Branch: `feat/genesis-life-os`
