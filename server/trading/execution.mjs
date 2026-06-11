@@ -1,5 +1,6 @@
 import { saveTrade } from '../memory/tradingMemory.mjs';
 import { computePaperFillCosts } from './costs.mjs';
+import { consumeApprovedDecision, attachTradeToDecision } from '../crypto/decisionMemory.mjs';
 import { appendFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join as execPathJoin, dirname as execDirname } from 'node:path';
 import { fileURLToPath as execFromUrl } from 'node:url';
@@ -29,6 +30,19 @@ export const REAL_TRADING_ENABLED = ['1', 'true', 'yes'].includes(
 );
 
 export async function executeTrade(tradeProposal) {
+    // ── Decision Council gate for the event-alpha engine ──
+    // event-alpha trades must carry a fresh approved council decision.
+    // The legacy prediction-market workflow (workflow.mjs) keeps its own
+    // debate + preTradeCheck pipeline and is not council-gated here.
+    if ((tradeProposal.agentId ?? '').startsWith('event-alpha')) {
+        const gate = consumeApprovedDecision(tradeProposal.councilDecisionId, {
+            pair: null, side: tradeProposal.outcome, tradeType: tradeProposal.tradeType ?? null,
+        });
+        if (!gate.ok) {
+            return { executed: false, reason: `council_gate:${gate.reason}`, blocked: true };
+        }
+    }
+
     if (!REAL_TRADING_ENABLED) {
         const costs = computePaperFillCosts({
             entryPrice: tradeProposal.entryPrice,
@@ -44,6 +58,7 @@ export async function executeTrade(tradeProposal) {
             reason: `${tradeProposal.reason ?? ''} | ${costs.costNote}`.trim().replace(/^\| /, ''),
         });
         console.log(`[execution] paper fill costs: ${costs.costNote}`);
+        if (tradeProposal.councilDecisionId) attachTradeToDecision(tradeProposal.councilDecisionId, tradeId);
         return { executed: true, tradeId, mode: 'paper', costs };
     }
 

@@ -17,6 +17,7 @@ import {
 } from '../crypto/backtest/strategyLab.mjs';
 import { getCurrentPrice } from '../crypto/priceFeeder.mjs';
 import { openCryptoFuturesPosition, hasOpenPosition } from '../trading/paperExecutionEngine.mjs';
+import { evaluateTrade } from '../crypto/decisionCouncil.mjs';
 import { isGlobalSafeMode, getGlobalRiskDiagnostics } from '../risk/globalRiskEngine.mjs';
 import { isSafeMode } from '../memory/reconciliationEngine.mjs';
 import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs';
@@ -542,7 +543,40 @@ async function runProfile(profile, governorProfile, runtimeConfig) {
       });
       continue;
     }
+    // Decision Council gate — mandatory before any execution.
+    const decision = await evaluateTrade({
+      strategy: profile.tradeType,
+      symbol: asset.symbol,
+      pair,
+      side: signal.side,
+      entryPrice: price,
+      targetPct: runtimeConfig.tpPct,
+      stopPct: runtimeConfig.slPct,
+      confidence: signal.confidence ?? 0.75,
+      capitalUsed,
+      leverage,
+      instrumentType: 'futures',
+      volume24h: asset.volume24h,
+      signals: evidence,
+      agentId: profile.agentId,
+      tradeType: profile.tradeType,
+    });
+    if (decision.final_decision !== 'approved') {
+      result.skipped++;
+      result.pairResults.push({
+        pair,
+        status: 'skipped',
+        reason: 'council_rejected',
+        detail: decision.rejection_reason,
+        side: signal.side,
+        price,
+        economics,
+      });
+      continue;
+    }
+
     const execution = await openCryptoFuturesPosition({
+      councilDecisionId: decision.decision_id,
       asset,
       side: signal.side,
       confidence: signal.confidence ?? 0.75,

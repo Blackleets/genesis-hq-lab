@@ -1094,3 +1094,87 @@ export async function analyzeCopilot(pair: string, side: 'LONG' | 'SHORT'): Prom
     return data.ok ? data.analysis : null;
   } catch { return null; }
 }
+
+// ── Decision Council (multi-agent trade approval) ─────────────────────────────
+
+export interface CouncilDecision {
+  decision_id: string;
+  timestamp: string;
+  symbol: string;
+  asset_pair: string | null;
+  strategy: string;
+  trade_type: string | null;
+  agent_id: string | null;
+  side: 'long' | 'short' | 'no_trade';
+  entry: number | null;
+  stop_loss: number | null;
+  take_profit: number | null;
+  risk_reward: number | null;
+  position_size: number | null;
+  risk_usd: number | null;
+  fees_estimated: number | null;
+  spread_estimated: number | null;
+  slippage_estimated: number | null;
+  expected_value: number | null;
+  profit_factor: number | null;
+  win_rate: number | null;
+  confidence: number | null;
+  market_regime: string | null;
+  technical_report: string | null;
+  sentiment_report: string | null;
+  bull_case: string | null;
+  bear_case: string | null;
+  trader_summary: string | null;
+  risk_manager_verdict: 'approved' | 'rejected';
+  portfolio_manager_verdict: 'approved' | 'rejected';
+  final_decision: 'approved' | 'rejected';
+  rejection_reason: string;
+  lessons_from_similar_trades: string[];
+  trade_id: string | null;
+  outcome: {
+    pnl: number | null;
+    fees: number | null;
+    exitReason: string | null;
+    bullWasRight: boolean | null;
+    bearWasRight: boolean | null;
+    lesson: string | null;
+    recordedAt: string;
+  } | null;
+}
+
+export interface CouncilPerformanceRow {
+  bucket: string;
+  samples: number;
+  winRate: number | null;
+  profitFactor: number;
+  netPnl: number;
+  avgEv: number | null;
+}
+
+export interface CouncilSnapshot {
+  state: 'HUNTING' | 'REVIEWING' | 'APPROVED' | 'REJECTED' | 'EXECUTING';
+  latest: CouncilDecision | null;
+  recent: CouncilDecision[];
+  stats: {
+    approved: number;
+    rejected: number;
+    topRejectionReasons: { reason: string; count: number }[];
+  };
+  config: Record<string, number>;
+  performance: {
+    byStrategy: CouncilPerformanceRow[];
+    bySymbol: CouncilPerformanceRow[];
+    byRegime: CouncilPerformanceRow[];
+    bySetup: CouncilPerformanceRow[];
+  };
+  blockedSetups: CouncilPerformanceRow[];
+}
+
+export async function loadCouncil(limit = 20): Promise<CouncilSnapshot | null> {
+  try {
+    const res = await fetch(apiUrl(`/api/crypto/council?limit=${limit}`), { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    const data = await res.json() as { ok: boolean } & CouncilSnapshot;
+    return data.ok ? data : null;
+  } catch { return null; }
+}
