@@ -26,6 +26,9 @@ const healthyContext = () => ({
   lossStreak: 0,
   lastLossAt: null,
   lessons: [],
+  // explicit nulls keep tests offline-deterministic (no live news/book fetch)
+  sentiment: null,
+  realSpreadPct: null,
 });
 
 const goodSwingSignal = (over = {}) => ({
@@ -192,4 +195,60 @@ test('memory — trade outcome closes the loop with bull/bear attribution and a 
   assert.equal(updated.outcome.bearWasRight, true);
   assert.match(updated.outcome.lesson, /swing_v1 long ADA/);
   assert.match(updated.outcome.lesson, /stop_loss/);
+});
+
+import { executeTrade } from '../trading/execution.mjs';
+
+test('sentiment — real headlines feed the report and the debate', async () => {
+  const sentiment = {
+    sentiment: 'bullish', strength: 0.7, bull: 6, bear: 1, count: 8,
+    headlines: [{ title: 'Bitcoin rallies to record high', source: 'Reuters' }],
+    fetchedAt: new Date().toISOString(),
+  };
+  const aligned = await evaluateTrade(goodSwingSignal(), { ...healthyContext(), sentiment });
+  assert.match(aligned.sentiment_report, /BULLISH/);
+  assert.match(aligned.sentiment_report, /Bitcoin rallies to record high/);
+  assert.match(aligned.bull_case, /News flow agrees/);
+
+  const opposed = await evaluateTrade(goodSwingSignal({ side: 'SHORT', regime: 'BEAR' }),
+    { ...healthyContext(), sentiment });
+  assert.match(opposed.bear_case, /News flow disagrees/);
+});
+
+test('sentiment — unavailable source produces honest abstention', async () => {
+  const d = await evaluateTrade(goodSwingSignal(), healthyContext());
+  assert.match(d.sentiment_report, /insufficient_data/);
+});
+
+test('spread — live order-book spread overrides the tier estimate', async () => {
+  const live = await evaluateTrade(goodSwingSignal(), { ...healthyContext(), realSpreadPct: 0.004 });
+  // 0.4% of $300 notional = $1.20 (vs tier estimate 0.02% = $0.06)
+  assert.equal(live.spread_estimated, 1.2);
+  assert.match(live.technical_report, /order_book/);
+
+  const fallback = await evaluateTrade(goodSwingSignal(), healthyContext());
+  assert.match(fallback.technical_report, /tier_estimate/);
+});
+
+test('binary — open prediction trades do not false-positive the duplicate gate', async () => {
+  const ctx = healthyContext();
+  ctx.openPositions = [{ asset_pair: null, trade_type: 'prediction', capital_used: 50 }];
+  const d = await evaluateTrade({
+    strategy: 'prediction_market', binary: true,
+    symbol: 'Will X happen by July?', pair: null,
+    side: 'YES', entryPrice: 0.45, confidence: 0.72, genesisProb: 0.72,
+    capitalUsed: 50, volume24h: 50_000, agentId: 'market-agent-1', tradeType: 'prediction',
+  }, ctx);
+  assert.equal(d.final_decision, 'approved', d.rejection_reason);
+  assert.ok(d.expected_value > 0);
+});
+
+test('gate — executeTrade refuses ANY proposal without an approved decision', async () => {
+  const result = await executeTrade({
+    agentId: 'market-agent-1', marketId: 'm1', marketSource: 'polymarket',
+    marketQuestion: 'bypass attempt', outcome: 'YES', entryPrice: 0.5,
+    shares: 10, capitalUsed: 5, confidence: 0.9, tradeType: 'prediction',
+  });
+  assert.equal(result.executed, false);
+  assert.equal(result.reason, 'council_gate:missing_decision_id');
 });

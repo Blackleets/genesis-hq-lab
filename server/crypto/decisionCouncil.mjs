@@ -39,6 +39,7 @@ import {
   getLastLossAt,
 } from './decisionMemory.mjs';
 import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs';
+import { getNewsSentiment, getRealSpreadPct } from './councilIntel.mjs';
 
 // ── Configurable hard thresholds (Fase 6 risk gate) ───────────────────────────
 const MIN_RR = parseFloat(process.env.COUNCIL_MIN_RR ?? '1.5');
@@ -57,8 +58,18 @@ const pct = (x) => `${(x * 100).toFixed(2)}%`;
 
 // ── Context builder — every field read from real Genesis sources ──────────────
 
-function buildContext(signal, overrides = {}) {
+async function buildContext(signal, overrides = {}) {
   const ctx = { ...overrides };
+  const isCrypto = Boolean(signal.pair);
+  // Real news sentiment (Google News RSS + lexicon scoring) — null on failure,
+  // and the override key (even null) lets tests stay deterministic/offline.
+  if (ctx.sentiment === undefined) {
+    ctx.sentiment = isCrypto ? await getNewsSentiment(signal.symbol) : null;
+  }
+  // Real spread from the live order book — null falls back to tier estimate.
+  if (ctx.realSpreadPct === undefined) {
+    ctx.realSpreadPct = isCrypto ? await getRealSpreadPct(signal.pair) : null;
+  }
   if (!ctx.treasury) {
     try { ctx.treasury = getTreasury(); } catch { ctx.treasury = null; }
   }
@@ -94,10 +105,6 @@ function buildContext(signal, overrides = {}) {
         { symbol: signal.symbol, strategy: signal.strategy, side: signal.side });
     } catch { ctx.lessons = []; }
   }
-  // sentiment/news: Genesis has no live news source wired yet — stays null
-  // unless a caller provides real items; the analyst then reports
-  // insufficient_data instead of inventing narrative.
-  ctx.newsItems = ctx.newsItems ?? null;
   ctx.nowMs = ctx.nowMs ?? Date.now();
   return ctx;
 }
@@ -115,7 +122,7 @@ function estimateSpreadPct(volume24h) {
 
 function computeEconomics(signal, context) {
   const isFutures = signal.instrumentType === 'futures';
-  const isBinary = signal.strategy === 'event_alpha';
+  const isBinary = signal.binary === true || signal.strategy === 'event_alpha';
   const capital = signal.capitalUsed ?? 0;
   const leverage = isFutures ? Math.max(1, signal.leverage ?? 1) : 1;
   const notional = capital * leverage;
@@ -160,7 +167,10 @@ function computeEconomics(signal, context) {
     ? cryptoFuturesSlippagePct(notional, signal.volume24h ?? 0)
     : cryptoSlippagePct(capital, signal.volume24h ?? 0);
   const slipUsd = slipPct * notional * 2;
-  const spreadPct = estimateSpreadPct(signal.volume24h);
+  // Spread: live order-book value when the book is reachable; otherwise the
+  // liquidity-tier estimate, explicitly flagged in the technical report.
+  const spreadPct = context.realSpreadPct ?? estimateSpreadPct(signal.volume24h);
+  const spreadSource = context.realSpreadPct != null ? 'order_book' : 'tier_estimate';
   const spreadUsd = spreadPct * notional;
 
   // Win probability: real setup history when there is enough of it, otherwise
@@ -176,7 +186,7 @@ function computeEconomics(signal, context) {
   return {
     isBinary, notional, entry, stopLoss, takeProfit,
     rewardUsd, riskUsd, riskReward: riskUsd > 0 ? rewardUsd / riskUsd : null,
-    feesUsd, spreadPct, spreadUsd, slipPct, slipUsd,
+    feesUsd, spreadPct, spreadSource, spreadUsd, slipPct, slipUsd,
     pWin, pSource: useHistory ? `setup_history(n=${stats.samples})` : 'signal_confidence',
     setupStats: stats ?? null, grossEv, ev,
   };
@@ -198,7 +208,7 @@ function technicalAnalyst(signal, eco) {
   }
   lines.push(`Risk/reward: ${eco.riskReward != null ? eco.riskReward.toFixed(2) : 'n/a'} (reward $${round2(eco.rewardUsd)} vs risk $${round2(eco.riskUsd)}).`);
   lines.push(`Entry quality: costs round-trip $${round2(eco.feesUsd + eco.spreadUsd + eco.slipUsd)} ` +
-    `(fees $${round2(eco.feesUsd)}, spread $${round2(eco.spreadUsd)}, slippage $${round2(eco.slipUsd)}) ` +
+    `(fees $${round2(eco.feesUsd)}, spread $${round2(eco.spreadUsd)}${eco.spreadSource ? ` [${eco.spreadSource}]` : ''}, slippage $${round2(eco.slipUsd)}) ` +
     `= ${pct((eco.feesUsd + eco.spreadUsd + eco.slipUsd) / Math.max(1e-9, eco.notional))} of notional.`);
   return { ok: true, report: lines.join('\n') };
 }
@@ -206,16 +216,20 @@ function technicalAnalyst(signal, eco) {
 // ── Role 2: Sentiment / News Analyst (never invents) ──────────────────────────
 
 function sentimentAnalyst(context) {
-  const items = context.newsItems;
-  if (!items || items.length === 0) {
+  const s = context.sentiment;
+  if (!s) {
     return {
       verdict: 'insufficient_data',
-      report: 'insufficient_data — no live news/sentiment source is wired into Genesis; '
-        + 'catalyst risk unassessed. This analyst abstains rather than inventing narrative.',
+      report: 'insufficient_data — news source unavailable right now; catalyst risk '
+        + 'unassessed. This analyst abstains rather than inventing narrative.',
     };
   }
-  const lines = items.slice(0, 5).map((n) => `- ${n.title ?? n.text ?? String(n)}`);
-  return { verdict: 'reported', report: `Recent items considered:\n${lines.join('\n')}` };
+  const lines = [
+    `News sentiment: ${s.sentiment.toUpperCase()} (strength ${s.strength}, `
+      + `${s.bull} bullish vs ${s.bear} bearish keywords over ${s.count} headlines).`,
+    ...s.headlines.map((h) => `- ${h.title}${h.source ? ` (${h.source})` : ''}`),
+  ];
+  return { verdict: s.sentiment, strength: s.strength, report: lines.join('\n') };
 }
 
 // ── Role 3: Market Regime Analyst ─────────────────────────────────────────────
@@ -252,6 +266,11 @@ function bullResearcher(signal, eco, regimeRep, context) {
   }
   if (eco.ev != null && eco.ev > 0) pts.push(`Positive net EV after all costs: $${round2(eco.ev)} (p=${round2(eco.pWin)} from ${eco.pSource}).`);
   if (signal.confidence != null && signal.confidence >= 0.75) pts.push(`Engine conviction high: ${pct(signal.confidence)}.`);
+  const news = context.sentiment;
+  const wantBull = normalizeSide(signal.side) === 'long';
+  if (news && news.strength >= 0.5 && ((wantBull && news.sentiment === 'bullish') || (!wantBull && news.sentiment === 'bearish'))) {
+    pts.push(`News flow agrees: ${news.sentiment} headlines (strength ${news.strength}, ${news.count} items).`);
+  }
   if (pts.length === 0) pts.push('No strong affirmative evidence — the bull case is thin.');
   return { case: pts.join('\n') };
 }
@@ -268,6 +287,11 @@ function bearResearcher(signal, eco, regimeRep, context) {
   if (regimeRep.compatible === false) pts.push(`Regime headwind: ${regimeRep.regime} is incompatible with this side.`);
   if (eco.setupStats && eco.setupStats.samples >= MIN_SETUP_SAMPLES && eco.setupStats.profitFactor < 1) {
     pts.push(`History argues against: PF ${eco.setupStats.profitFactor} over ${eco.setupStats.samples} trades.`);
+  }
+  const news = context.sentiment;
+  const wantBull = normalizeSide(signal.side) === 'long';
+  if (news && news.strength >= 0.5 && ((wantBull && news.sentiment === 'bearish') || (!wantBull && news.sentiment === 'bullish'))) {
+    pts.push(`News flow disagrees: ${news.sentiment} headlines (strength ${news.strength}, ${news.count} items) against this side.`);
   }
   if ((context.lossStreak ?? 0) >= 3) pts.push(`Desk is on a ${context.lossStreak}-loss streak — execution quality suspect.`);
   if ((context.dailyPnlUsd ?? 0) < 0) pts.push(`Today is already negative: $${round2(context.dailyPnlUsd)} realized.`);
@@ -309,7 +333,9 @@ function riskManager(signal, eco, regimeRep, trader, context) {
     if (eco.setupStats.profitFactor < MIN_PF) rejections.push('setup_profit_factor_below_floor');
     if (eco.setupStats.winRate != null && eco.setupStats.winRate < MIN_WIN_RATE) rejections.push('setup_win_rate_below_floor');
   }
-  const dup = (context.openPositions ?? []).some(
+  // Duplicate check is pair-based — crypto only. Binary prediction markets
+  // (pair=null) are de-duplicated upstream by their own market-id checks.
+  const dup = signal.pair != null && (context.openPositions ?? []).some(
     (p) => p.asset_pair === signal.pair && p.trade_type === signal.tradeType);
   if (dup) rejections.push('duplicate_position');
   if (context.lastLossAt) {
@@ -377,7 +403,7 @@ function portfolioManager(signal, eco, riskVerdict, context) {
  *   setupStats, openPositions, dailyPnlUsd, lossStreak, lastLossAt, lessons, nowMs)
  */
 export async function evaluateTrade(signal, contextOverrides = {}) {
-  const context = buildContext(signal, contextOverrides);
+  const context = await buildContext(signal, contextOverrides);
   const eco = computeEconomics(signal, context);
 
   const technical = technicalAnalyst(signal, eco);

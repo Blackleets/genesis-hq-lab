@@ -30,17 +30,14 @@ export const REAL_TRADING_ENABLED = ['1', 'true', 'yes'].includes(
 );
 
 export async function executeTrade(tradeProposal) {
-    // ── Decision Council gate for the event-alpha engine ──
-    // event-alpha trades must carry a fresh approved council decision.
-    // The legacy prediction-market workflow (workflow.mjs) keeps its own
-    // debate + preTradeCheck pipeline and is not council-gated here.
-    if ((tradeProposal.agentId ?? '').startsWith('event-alpha')) {
-        const gate = consumeApprovedDecision(tradeProposal.councilDecisionId, {
-            pair: null, side: tradeProposal.outcome, tradeType: tradeProposal.tradeType ?? null,
-        });
-        if (!gate.ok) {
-            return { executed: false, reason: `council_gate:${gate.reason}`, blocked: true };
-        }
+    // ── Decision Council gate — NEVER bypass ──
+    // Every trade through this path (event alpha AND the prediction-market
+    // workflow, paper or real) must carry a fresh approved council decision.
+    const gate = consumeApprovedDecision(tradeProposal.councilDecisionId, {
+        pair: null, side: tradeProposal.outcome, tradeType: tradeProposal.tradeType ?? null,
+    });
+    if (!gate.ok) {
+        return { executed: false, reason: `council_gate:${gate.reason}`, blocked: true };
     }
 
     if (!REAL_TRADING_ENABLED) {
@@ -71,6 +68,7 @@ export async function executeTrade(tradeProposal) {
         }
 
         const tradeId = saveTrade(tradeProposal);
+        if (tradeProposal.councilDecisionId) attachTradeToDecision(tradeProposal.councilDecisionId, tradeId);
         return { executed: true, tradeId, mode: 'real', orderId: orderResult.orderId };
     }
 
