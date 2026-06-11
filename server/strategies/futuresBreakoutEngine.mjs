@@ -17,6 +17,7 @@ import {
 } from '../crypto/backtest/strategyLab.mjs';
 import { getCurrentPrice } from '../crypto/priceFeeder.mjs';
 import { openCryptoFuturesPosition, hasOpenPosition } from '../trading/paperExecutionEngine.mjs';
+import { evaluateTrade } from '../crypto/decisionCouncil.mjs';
 import { isGlobalSafeMode, getGlobalRiskDiagnostics } from '../risk/globalRiskEngine.mjs';
 import { isSafeMode } from '../memory/reconciliationEngine.mjs';
 import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs';
@@ -61,6 +62,11 @@ function getFuturesBreakoutRuntimeConfig() {
   const breakoutPeriod = envInt('FUTURES_BREAKOUT_PERIOD', 55, overrides);
   const defaultLeverage = envNumber('FUTURES_BREAKOUT_LEVERAGE', 3, overrides);
   const timeoutHours = envInt('FUTURES_BREAKOUT_TIMEOUT_H', 240, overrides);
+  // Family master switches: SHORT_ENABLED / LONG_ENABLED gate EVERY profile on
+  // that side. Per-profile flags (micro/alt) are sub-switches ANDed with the
+  // master, so an operator who disables shorts disables ALL short profiles.
+  const shortMaster = envBool('FUTURES_BREAKOUT_SHORT_ENABLED', true, overrides);
+  const longMaster = envBool('FUTURES_BREAKOUT_LONG_ENABLED', true, overrides);
 
   return {
     days: envInt('FUTURES_BREAKOUT_DAYS', 90, overrides),
@@ -77,7 +83,7 @@ function getFuturesBreakoutRuntimeConfig() {
     profiles: [
       {
         id: 'short_micro',
-        enabled: envBool('FUTURES_BREAKOUT_SHORT_MICRO_ENABLED', false, overrides),
+        enabled: shortMaster && envBool('FUTURES_BREAKOUT_SHORT_MICRO_ENABLED', false, overrides),
         agentId: 'futures-breakout-short-0',
         tradeType: 'crypto_futures_breakout_short_micro',
         pairs: envPairs('FUTURES_BREAKOUT_SHORT_MICRO_PAIRS', 'BTCUSDT,ETHUSDT'),
@@ -94,7 +100,7 @@ function getFuturesBreakoutRuntimeConfig() {
       },
       {
         id: 'short_core',
-        enabled: envBool('FUTURES_BREAKOUT_SHORT_ENABLED', true, overrides),
+        enabled: shortMaster,
         agentId: 'futures-breakout-short-1',
         tradeType: 'crypto_futures_breakout_short',
         pairs: envPairs('FUTURES_BREAKOUT_SHORT_PAIRS', 'BTCUSDT,ETHUSDT,SOLUSDT'),
@@ -111,7 +117,7 @@ function getFuturesBreakoutRuntimeConfig() {
       },
       {
         id: 'short_alt',
-        enabled: envBool('FUTURES_BREAKOUT_SHORT_ALT_ENABLED', true, overrides),
+        enabled: shortMaster && envBool('FUTURES_BREAKOUT_SHORT_ALT_ENABLED', true, overrides),
         agentId: 'futures-breakout-short-2',
         tradeType: 'crypto_futures_breakout_short_alt',
         pairs: envPairs('FUTURES_BREAKOUT_SHORT_ALT_PAIRS', 'XRPUSDT,DOGEUSDT'),
@@ -128,7 +134,7 @@ function getFuturesBreakoutRuntimeConfig() {
       },
       {
         id: 'long_probe',
-        enabled: envBool('FUTURES_BREAKOUT_LONG_ENABLED', true, overrides),
+        enabled: longMaster,
         agentId: 'futures-breakout-long-1',
         tradeType: 'crypto_futures_breakout_long',
         pairs: envPairs('FUTURES_BREAKOUT_LONG_PAIRS', 'BTCUSDT,ETHUSDT'),
@@ -537,7 +543,40 @@ async function runProfile(profile, governorProfile, runtimeConfig) {
       });
       continue;
     }
+    // Decision Council gate — mandatory before any execution.
+    const decision = await evaluateTrade({
+      strategy: profile.tradeType,
+      symbol: asset.symbol,
+      pair,
+      side: signal.side,
+      entryPrice: price,
+      targetPct: runtimeConfig.tpPct,
+      stopPct: runtimeConfig.slPct,
+      confidence: signal.confidence ?? 0.75,
+      capitalUsed,
+      leverage,
+      instrumentType: 'futures',
+      volume24h: asset.volume24h,
+      signals: evidence,
+      agentId: profile.agentId,
+      tradeType: profile.tradeType,
+    });
+    if (decision.final_decision !== 'approved') {
+      result.skipped++;
+      result.pairResults.push({
+        pair,
+        status: 'skipped',
+        reason: 'council_rejected',
+        detail: decision.rejection_reason,
+        side: signal.side,
+        price,
+        economics,
+      });
+      continue;
+    }
+
     const execution = await openCryptoFuturesPosition({
+      councilDecisionId: decision.decision_id,
       asset,
       side: signal.side,
       confidence: signal.confidence ?? 0.75,

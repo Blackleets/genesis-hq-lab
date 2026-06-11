@@ -139,13 +139,20 @@ describe('evaluateScalpSignal — new field coverage', async () => {
     }
   });
 
-  it('rawConfidence is always >= confidence after veto/fatigue reduction', () => {
+  it('confidence never exceeds raw + positive regime bias, capped at 0.92', () => {
     const ctx = makeCtx({ ema9: 50300, ema21: 50000, rsi14: 55, change1h: 0.5 });
     const result = evaluateScalpSignal(ctx);
     if (result.action === 'TRADE' && result.rawConfidence != null) {
-      // rawConfidence may be higher or equal (regime/veto/fatigue can only lower)
-      assert.ok(result.rawConfidence >= result.confidence - 0.001,
-        `rawConfidence ${result.rawConfidence} < confidence ${result.confidence}`);
+      // Design spec (regime.mjs BIAS): an aligned regime may ADD up to +10
+      // confidence points; veto and fatigue only lower. So the bound is
+      // raw + max(0, bias)/100, never above the 0.92 engine ceiling.
+      const allowed = Math.min(0.92, result.rawConfidence + Math.max(0, result.bias ?? 0) / 100);
+      assert.ok(result.confidence <= allowed + 0.001,
+        `confidence ${result.confidence} exceeds raw ${result.rawConfidence} + bias ${result.bias}`);
+      if (result.vetoed) {
+        assert.ok(result.confidence <= 0.40 + 0.001,
+          `vetoed signal must cap confidence at 0.40, got ${result.confidence}`);
+      }
     }
   });
 

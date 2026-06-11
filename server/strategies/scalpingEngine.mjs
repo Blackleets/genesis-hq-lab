@@ -37,6 +37,7 @@ import {
   shouldPauseScalpEntriesForNegativeEdge,
 } from '../crypto/autoVeto.mjs';
 import { getFatigueState, applyFatigueToConfidence } from '../intelligence/setupFatigue.mjs';
+import { evaluateTrade } from '../crypto/decisionCouncil.mjs';
 
 const AGENT_ID    = 'scalping-engine-1';
 const TRADE_TYPE  = 'scalp_v2';
@@ -418,7 +419,35 @@ export async function runScalpingCycle() {
     const capitalMultiplier = risk.band === 'HIGH_RISK' ? 0.5 : 1.0;
     const capitalUsed = Math.min(MAX_CAPITAL_PER_TRADE * capitalMultiplier, 200);
 
+    // Decision Council: debate + risk review + PM approval. Mandatory —
+    // the execution engine refuses orders without an approved decision_id.
+    const decision = await evaluateTrade({
+      strategy: 'scalp_v2',
+      symbol: asset.symbol,
+      pair: asset.pair,
+      side: signal.side,
+      entryPrice: asset.price,
+      targetPct: TP_PCT,
+      stopPct: SL_PCT,
+      confidence: signal.confidence,
+      capitalUsed,
+      instrumentType: 'spot',
+      volume24h: asset.volume24h,
+      regime: signal.regime,
+      signals: signal.signals,
+      rsi14: asset.rsi14,
+      agentId: AGENT_ID,
+      tradeType: TRADE_TYPE,
+    });
+    if (decision.final_decision !== 'approved') {
+      _v2State.rejectedSignalsByReason[`council:${decision.rejection_reason.split(',')[0]}`] =
+        (_v2State.rejectedSignalsByReason[`council:${decision.rejection_reason.split(',')[0]}`] ?? 0) + 1;
+      result.skipped++;
+      continue;
+    }
+
     const execution = await openCryptoPosition({
+      councilDecisionId: decision.decision_id,
       asset,
       side: signal.side,
       confidence: signal.confidence,

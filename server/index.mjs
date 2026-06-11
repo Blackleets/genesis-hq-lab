@@ -87,6 +87,12 @@ import {
 }                                                         from './intelligence/intelligenceSupervisor.mjs';
 import { scalpConfig, getLastScanSnapshot, getScalpV2Diagnostics } from './strategies/scalpingEngine.mjs';
 import { getAutopsy }                                     from './crypto/autoVeto.mjs';
+import { getCouncilConfig }                               from './crypto/decisionCouncil.mjs';
+import {
+  getLatestDecision as getLatestCouncilDecision,
+  getRecentDecisions as getRecentCouncilDecisions,
+  getCouncilStats, getCouncilPerformance, getBlockedSetups,
+} from './crypto/decisionMemory.mjs';
 import { getFatigueIntelligenceSummary }                  from './intelligence/setupFatigue.mjs';
 import { getDbHealth, startReplication }                  from './persistence/dbReplicator.mjs';
 import { readHeartbeat }                                  from './trading/schedulerHeartbeat.mjs';
@@ -927,6 +933,45 @@ const server = createServer(async (req, res) => {
   if (url.pathname === '/api/db/health') {
     try {
       sendJson(res, 200, { ok: true, ...getDbHealth() });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  // GET /api/crypto/council — Decision Council: latest decision, verdicts,
+  // approval stats, per-setup performance and blocked setups. Read-only.
+  if (url.pathname === '/api/crypto/council') {
+    try {
+      const latest = getLatestCouncilDecision();
+      const recent = getRecentCouncilDecisions(parseInt(url.searchParams.get('limit') ?? '20', 10));
+      // Desk state for the dashboard badge:
+      //   HUNTING   — no decision yet / last decision older than 10 min
+      //   EXECUTING — latest approved decision has an open trade attached
+      //   APPROVED / REJECTED — latest decision verdict (recent)
+      let state = 'HUNTING';
+      if (latest) {
+        const ageMs = Date.now() - new Date(latest.timestamp).getTime();
+        if (latest.final_decision === 'approved' && latest.trade_id) {
+          const open = db.prepare("SELECT 1 FROM trades WHERE id = ? AND status = 'open'").get(latest.trade_id);
+          state = open ? 'EXECUTING' : (ageMs < 600_000 ? 'APPROVED' : 'HUNTING');
+        } else if (ageMs < 600_000) {
+          state = latest.final_decision === 'approved' ? 'APPROVED' : 'REJECTED';
+        }
+      }
+      sendJson(res, 200, {
+        ok: true,
+        state,
+        latest,
+        recent,
+        stats: getCouncilStats(),
+        config: getCouncilConfig(),
+        performance: {
+          byStrategy: getCouncilPerformance('strategy'),
+          bySymbol: getCouncilPerformance('symbol'),
+          byRegime: getCouncilPerformance('market_regime'),
+          bySetup: getCouncilPerformance('setup'),
+        },
+        blockedSetups: getBlockedSetups(),
+      });
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;
   }

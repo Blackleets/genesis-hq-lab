@@ -258,7 +258,7 @@ function scoreRiskProfile(safeMode = false) {
 
   try {
     const peakRow  = db.prepare(`SELECT value FROM org_state WHERE key = 'peak_capital'`).get();
-    const capRow   = db.prepare(`SELECT total FROM capital_history ORDER BY recorded_at DESC LIMIT 1`).get();
+    const capRow   = db.prepare(`SELECT total FROM capital_history ORDER BY rowid DESC LIMIT 1`).get();
 
     if (peakRow && capRow) {
       const peak     = parseFloat(peakRow.value);

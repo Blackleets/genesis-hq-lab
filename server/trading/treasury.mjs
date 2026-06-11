@@ -24,7 +24,7 @@ const REINVESTMENT = {
 // ─── Ensure treasury table has initial record ─────────────────────────────────
 
 function ensureTreasury() {
-  const existing = db.prepare('SELECT * FROM capital_history ORDER BY recorded_at DESC LIMIT 1').get();
+  const existing = db.prepare('SELECT * FROM capital_history ORDER BY rowid DESC LIMIT 1').get();
   if (existing) return existing;
 
   const now = new Date().toISOString();
@@ -35,13 +35,13 @@ function ensureTreasury() {
     VALUES (?, ?, 0, 0, 0, 0, 0, 0, 'Genesis HQ initialized', ?)
   `).run(STARTING_CAPITAL, STARTING_CAPITAL, now);
 
-  return db.prepare('SELECT * FROM capital_history ORDER BY recorded_at DESC LIMIT 1').get();
+  return db.prepare('SELECT * FROM capital_history ORDER BY rowid DESC LIMIT 1').get();
 }
 
 // ─── Get current treasury state ───────────────────────────────────────────────
 
 export function getTreasury() {
-  const row = db.prepare('SELECT * FROM capital_history ORDER BY recorded_at DESC LIMIT 1').get();
+  const row = db.prepare('SELECT * FROM capital_history ORDER BY rowid DESC LIMIT 1').get();
   if (!row) return ensureTreasury();
 
   const openPnl = getUnrealizedPnl();  // null when open positions exist and no live price available
@@ -78,7 +78,7 @@ export function getTreasury() {
 // ─── Async treasury — same shape as getTreasury() but with live P&L ──────────
 
 export async function getTreasuryAsync() {
-  const row = db.prepare('SELECT * FROM capital_history ORDER BY recorded_at DESC LIMIT 1').get();
+  const row = db.prepare('SELECT * FROM capital_history ORDER BY rowid DESC LIMIT 1').get();
   if (!row) return ensureTreasury();
 
   const openPnl = await getUnrealizedPnlAsync();
@@ -134,7 +134,7 @@ export function reserveCapital(amount) {
       SELECT total, available - ?, in_trades + ?,
              bucket_reserve, bucket_upgrade, bucket_exp, bucket_expand, bucket_liquid,
              'Capital reserved for trade', datetime('now')
-      FROM capital_history ORDER BY recorded_at DESC LIMIT 1
+      FROM capital_history ORDER BY rowid DESC LIMIT 1
     `).run(amount, amount);
   });
 
@@ -162,7 +162,7 @@ export function settleTradeCapital(capitalUsed, pnl) {
         bucket_liquid + ?,
         'Trade settled PnL: ' || printf('%.2f', ?),
         datetime('now')
-      FROM capital_history ORDER BY recorded_at DESC LIMIT 1
+      FROM capital_history ORDER BY rowid DESC LIMIT 1
     `).run(
       pnl,
       returned,
@@ -178,7 +178,7 @@ export function settleTradeCapital(capitalUsed, pnl) {
 
   // Update peak capital if new total exceeds current peak (monotonically increasing).
   // Must read after tx() completes so we see the updated total.
-  const newRow = db.prepare('SELECT total FROM capital_history ORDER BY recorded_at DESC LIMIT 1').get();
+  const newRow = db.prepare('SELECT total FROM capital_history ORDER BY rowid DESC LIMIT 1').get();
   const newTotal = newRow?.total ?? 0;
   const currentPeak = getPeakCapital();
   if (newTotal > currentPeak) {
@@ -293,7 +293,7 @@ async function getUnrealizedPnlAsync() {
 //
 // Never decreases: peak is monotonically increasing by definition.
 
-let _peakCache = null;  // { value: number, source: 'sqlite'|'memory' }
+let _peakCache = null;  // { value: number, source: 'sqlite'|'memory' } — last known good
 
 function _loadPeakFromDB() {
   try {
@@ -301,7 +301,6 @@ function _loadPeakFromDB() {
     if (stored) {
       const v = parseFloat(stored.value);
       if (isFinite(v) && v > 0) {
-        console.log(`[treasury:peak] Loaded from org_state: $${v.toFixed(2)}`);
         return { value: v, source: 'sqlite' };
       }
     }
@@ -328,15 +327,24 @@ function _persistPeak(value) {
   }
 }
 
+// Always re-read org_state (a single indexed row — microseconds with
+// better-sqlite3). A stale module cache here is dangerous: after a DB
+// restore or any external write to peak_capital, drawdownPct and the
+// isPaused circuit breaker would silently operate on the wrong peak.
+// The cache only serves as last-known-good when SQLite itself fails.
 function getPeakCapital() {
-  if (!_peakCache) _peakCache = _loadPeakFromDB();
-  return _peakCache.value;
+  const loaded = _loadPeakFromDB();
+  if (loaded.source === 'sqlite') {
+    _peakCache = loaded;
+    return loaded.value;
+  }
+  return _peakCache?.value ?? loaded.value;
 }
 
 /** Exported for health diagnostics and tests. */
 export function getPeakCapitalMeta() {
-  if (!_peakCache) _peakCache = _loadPeakFromDB();
-  return { value: _peakCache.value, source: _peakCache.source };
+  const value = getPeakCapital();
+  return { value, source: _peakCache?.source ?? 'memory' };
 }
 
 /** Test-only: reset module-level cache to simulate a server restart. */
