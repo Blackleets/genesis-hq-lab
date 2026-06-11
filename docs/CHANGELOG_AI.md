@@ -935,7 +935,7 @@ at the top. Use one block per session. Be honest about failures.
 - Branch: `feat/genesis-life-os`
 - Summary: Hardened the Supabase futures runner and maintenance audit findings without changing trading decisions. The runner now requires `GENESIS_RUNNER_TOKEN` via header or bearer token, the GitHub workflow sends that secret, alpha validation reports blocked totals consistently, visual agent heartbeat no longer implies synthetic trading work, the regime backtest reads the full canonical crypto universe, and reconciliation tests clean dependent rows before deleting test trades.
 - Files touched: `supabase/functions/genesis-runner/index.ts`, `.github/workflows/futures-hosted-runner.yml`, `server/research/alphaValidationEngine.mjs`, `src/activity/AgentActivityFeed.tsx`, `server/crypto/backtest/regimeBiasBacktest.mjs`, `server/tests/reconciliation.test.mjs`, `docs/CHANGELOG_AI.md`
-- Verification: `npm test -- --test-concurrency=1` 810/810 ok; `npm run typecheck` ok; `npm run build` ok
+- Verification: `npm test -- --test-concurrency=1` 810/810 ok; `npm run typecheck` ok; `npm run build` ok; `npx -y deno@latest check --config supabase/functions/genesis-runner/deno.json supabase/functions/genesis-runner/index.ts` ok; deployed Supabase Edge Function `genesis-runner` version 2; unauthenticated runner request returns `401 runner_auth_required`; GitHub Actions run `27364283522` succeeded with masked `GENESIS_RUNNER_TOKEN`, scanned 10 markets, executed 1 real paper futures position, and Vercel `/api/system/health` reported `agentAlive=true`, `totalCycles=5`
 
 ## 2026-06-11 - Claude
 
