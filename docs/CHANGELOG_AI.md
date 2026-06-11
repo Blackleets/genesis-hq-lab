@@ -915,3 +915,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Tightened the Crypto Lab chart zone so it fits normal browser zoom better: the terminal grid now compresses more intelligently across viewport heights, the chart header is denser, and trade event badges stay clamped inside the visible chart instead of drifting out of bounds.
 - Files touched: `src/index.css`, `src/components/crypto/ChartStatsHeader.tsx`, `src/dashboard/charts/CandleChart.tsx`, `docs/CHANGELOG_AI.md`
 - Verification: `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-10 - Claude
+
+- Branch: `claude/genesis-agent-visual-design-74o3bb`
+- Summary: Applied the owner-approved "Pantalla 1" industrial-dark visual direction to the live tile office: dark ambient cast over floors/walls (props and agents stay bright), terminal-style green zone tags (RESEARCH ZONE, TRADING DESK, RISK MANAGEMENT, PORTFOLIO MONITOR, SERVER ROOM, COFFEE AREA, MEETING ROOM), a wall-mounted MARKET WATCH screen with decorative numberless candle animation, dark server-room patch with extra LED bank, meeting-area carpet, restyled dialogue bubbles (dark slate plate + accent bar), and the status strip promoted to a top operations header (GENESIS HQ brand, engine, live agent count, positions, risk, activity, clock). All values remain real or honest placeholders; agent movement, dialogue sourcing, and data wiring untouched.
+- Files touched: `src/office/officeLayout.ts`, `src/office/TileOfficeRenderer.ts`, `src/office/OfficeStatusBar.tsx`, `src/office/TileOffice.tsx`, `src/office/DialogueBubble.tsx`, `docs/DESIGN_DIRECTION.md`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run typecheck` ok; `npm run build` ok

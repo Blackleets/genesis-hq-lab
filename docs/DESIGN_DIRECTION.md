@@ -17,6 +17,14 @@ will be reverted.
 
 ## 2. Floor & walls
 
+> **2026-06-10 owner-approved exception (live tile office / HQ canvas):**
+> the tile office uses the "Pantalla 1" industrial look — cool gray tile
+> floor and slate-dark walls (a dark ambient cast over the architecture),
+> warm carpet only in the meeting area, terminal-green zone tags, and a
+> numberless MARKET WATCH wall screen. Characters and furniture stay at
+> normal brightness so they read instantly. The warm-hardwood rule below
+> still applies to any *new* surface that has not adopted this direction.
+
 - **Default floor**: warm beige hardwood. Low noise, low saturation.
 - **Banned floors**: high-saturation red, bright neon, pure black.
 - **Walls**: dark carbon `#181d28` with a 1px trim `#262d3d`. The

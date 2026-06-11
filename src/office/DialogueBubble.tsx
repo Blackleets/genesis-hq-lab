@@ -33,13 +33,15 @@ export default function DialogueBubble({ text, x, y, accent, fading }: Props) {
       }}
     >
       <div
-        className="font-mono text-[8px] leading-[10px] text-zinc-100 px-1.5 py-1"
+        className="font-mono text-[8px] leading-[10px] px-1.5 py-1"
         style={{
           maxWidth: '120px',
           whiteSpace: 'normal',
-          backgroundColor: 'rgba(12, 12, 24, 0.86)',
-          border: `1px solid ${accent}55`,
-          boxShadow: `0 0 0 1px rgba(0, 0, 0, 0.55)`,
+          color: '#e1e5eb',
+          backgroundColor: 'rgba(29, 33, 42, 0.95)',
+          border: '1px solid rgba(58, 65, 79, 0.95)',
+          borderLeft: `2px solid ${accent}cc`,
+          boxShadow: '0 1px 0 1px rgba(0, 0, 0, 0.45)',
         }}
       >
         {text}
@@ -52,7 +54,7 @@ export default function DialogueBubble({ text, x, y, accent, fading }: Props) {
           height: 0,
           borderLeft: '3px solid transparent',
           borderRight: '3px solid transparent',
-          borderTop: '4px solid rgba(12, 12, 24, 0.86)',
+          borderTop: '4px solid rgba(29, 33, 42, 0.95)',
         }}
       />
     </div>
