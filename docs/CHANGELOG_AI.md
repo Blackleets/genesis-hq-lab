@@ -971,3 +971,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Prevented the hosted futures workflow from marking Genesis unhealthy when no valid database URL exists. The cron now reports a warning and skips the hosted tick cleanly until a real Postgres connection string is configured, preserving Claude's trading/UI work and avoiding fake execution.
 - Files touched: `.github/workflows/futures-hosted-runner.yml`, `docs/CHANGELOG_AI.md`
 - Verification: GitHub Actions run `27360119564` completed successfully with the tick skipped because no valid DB URL is configured; Vercel `/api/health` and `/api/system/health` returned 200; no trading-engine files changed
+
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Replaced the degraded GitHub/Postgres runner path with a Supabase Edge runner. `genesis-runner` scans real Binance futures candles, closes paper futures positions on TP/SL/timeout, opens only qualifying paper breakout setups, writes cycle history, and refreshes the durable runner heartbeat that production reads.
+- Files touched: `supabase/functions/genesis-runner/index.ts`, `supabase/functions/genesis-runner/deno.json`, `.github/workflows/futures-hosted-runner.yml`, `docs/CHANGELOG_AI.md`
+- Verification: `npx -y deno@latest check --config supabase/functions/genesis-runner/deno.json supabase/functions/genesis-runner/index.ts` ok; Supabase Edge Function `genesis-runner` deployed version 1; live call returned `mode=executed`, `scanned=10`, `executed=0`, `closed=0`; Vercel `/api/system/health` reports `agentAlive=true`
