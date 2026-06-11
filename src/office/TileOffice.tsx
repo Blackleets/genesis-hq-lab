@@ -16,6 +16,7 @@ import {
 } from './TileOfficeRenderer';
 import { AGENT_DEFINITIONS, createLiveOfficeAgents } from './officeAgents';
 import { stepOfficeAgents } from './officeAgentMovement';
+import { applyLiveOfficeEvents, createLiveEventsRuntime } from './officeLiveEvents';
 import { createDialogueRuntime, stepDialogue } from './agentDialogue';
 import DialogueBubble from './DialogueBubble';
 import OfficeStatusBar from './OfficeStatusBar';
@@ -88,6 +89,7 @@ export default function TileOffice({ onAssetError }: Props) {
     const agents = createLiveOfficeAgents(performance.now());
     const accentById = new Map(AGENT_DEFINITIONS.map((d) => [d.id, d.accent]));
     const dialogue = createDialogueRuntime(performance.now());
+    const liveEvents = createLiveEventsRuntime();
     let dialogueAlive = true;
     let frameId = 0;
     let lastTs = 0;
@@ -99,6 +101,7 @@ export default function TileOffice({ onAssetError }: Props) {
       lastTs = ts;
       try {
         stepOfficeAgents(agents, ts, dt);
+        applyLiveOfficeEvents(agents, officeStateRef.current, liveEvents, ts);
         renderOfficeFrame(ctx, base, sheet, agents, ts, officeStateRef.current.engineStatus);
       } catch (error) {
         // agent loop broke — degrade to the static Phase 1 scene

@@ -129,12 +129,16 @@ function expireLegacyTradeForFuturesOnly(trade) {
  *
  * @param {Function} getStatusFn  - injectable for tests (defaults to real getMarketStatus)
  * @param {Function} getTradesFn  - injectable for tests (defaults to real getOpenTrades)
+ * @param {object}   [options]    - { futuresOnly } — injectable for tests; defaults
+ *                                  to the FUTURES_ONLY_MODE env flag in production
  * @returns {Promise<object>} reconciliation state
  */
 export async function runStartupReconciliation(
   getStatusFn = getMarketStatus,
   getTradesFn = getOpenTrades,
+  options = {},
 ) {
+  const futuresOnly = options.futuresOnly ?? FUTURES_ONLY_MODE;
   const startMs = Date.now();
   console.log('[reconciliation] ── Startup position reconciliation ──────────────');
 
@@ -164,7 +168,7 @@ export async function runStartupReconciliation(
   let hasConflict = false;
 
   for (const trade of openTrades) {
-    if (FUTURES_ONLY_MODE && !isManagedFuturesTrade(trade)) {
+    if (futuresOnly && !isManagedFuturesTrade(trade)) {
       try {
         if (expireLegacyTradeForFuturesOnly(trade)) recovered++;
       } catch (err) {

@@ -1,5 +1,6 @@
 import { saveTrade } from '../memory/tradingMemory.mjs';
 import { computePaperFillCosts } from './costs.mjs';
+import { consumeApprovedDecision, attachTradeToDecision } from '../crypto/decisionMemory.mjs';
 import { appendFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join as execPathJoin, dirname as execDirname } from 'node:path';
 import { fileURLToPath as execFromUrl } from 'node:url';
@@ -29,6 +30,16 @@ export const REAL_TRADING_ENABLED = ['1', 'true', 'yes'].includes(
 );
 
 export async function executeTrade(tradeProposal) {
+    // ── Decision Council gate — NEVER bypass ──
+    // Every trade through this path (event alpha AND the prediction-market
+    // workflow, paper or real) must carry a fresh approved council decision.
+    const gate = consumeApprovedDecision(tradeProposal.councilDecisionId, {
+        pair: null, side: tradeProposal.outcome, tradeType: tradeProposal.tradeType ?? null,
+    });
+    if (!gate.ok) {
+        return { executed: false, reason: `council_gate:${gate.reason}`, blocked: true };
+    }
+
     if (!REAL_TRADING_ENABLED) {
         const costs = computePaperFillCosts({
             entryPrice: tradeProposal.entryPrice,
@@ -44,6 +55,7 @@ export async function executeTrade(tradeProposal) {
             reason: `${tradeProposal.reason ?? ''} | ${costs.costNote}`.trim().replace(/^\| /, ''),
         });
         console.log(`[execution] paper fill costs: ${costs.costNote}`);
+        if (tradeProposal.councilDecisionId) attachTradeToDecision(tradeProposal.councilDecisionId, tradeId);
         return { executed: true, tradeId, mode: 'paper', costs };
     }
 
@@ -56,6 +68,7 @@ export async function executeTrade(tradeProposal) {
         }
 
         const tradeId = saveTrade(tradeProposal);
+        if (tradeProposal.councilDecisionId) attachTradeToDecision(tradeProposal.councilDecisionId, tradeId);
         return { executed: true, tradeId, mode: 'real', orderId: orderResult.orderId };
     }
 

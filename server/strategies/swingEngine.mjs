@@ -18,6 +18,7 @@ import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs
 import { isDeptActive } from '../command/orgState.mjs';
 import { classifyRegime, applyRegimeBias } from '../crypto/regime.mjs';
 import { getFatigueState, applyFatigueToConfidence } from '../intelligence/setupFatigue.mjs';
+import { evaluateTrade } from '../crypto/decisionCouncil.mjs';
 
 const AGENT_ID   = 'swing-engine-1';
 const TRADE_TYPE = 'swing_v1';
@@ -193,7 +194,32 @@ export async function runSwingCycle() {
 
     result.qualified++;
 
+    // Decision Council gate — mandatory before any execution.
+    const decision = await evaluateTrade({
+      strategy: 'swing_v1',
+      symbol: asset.symbol,
+      pair: asset.pair,
+      side: signal.side,
+      entryPrice: asset.price,
+      targetPct: TP_PCT,
+      stopPct: SL_PCT,
+      confidence: signal.confidence,
+      capitalUsed: MAX_CAPITAL_PER_TRADE,
+      instrumentType: 'spot',
+      volume24h: asset.volume24h,
+      regime: signal.regime,
+      signals: signal.signals,
+      rsi14: asset.rsi14,
+      agentId: AGENT_ID,
+      tradeType: TRADE_TYPE,
+    });
+    if (decision.final_decision !== 'approved') {
+      result.skipped++;
+      continue;
+    }
+
     const execution = await openCryptoPosition({
+      councilDecisionId: decision.decision_id,
       asset,
       side: signal.side,
       confidence: signal.confidence,
