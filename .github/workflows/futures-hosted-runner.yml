@@ -1,0 +1,46 @@
+name: Hosted Futures Runner
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hosted-futures-runner
+  cancel-in-progress: false
+
+jobs:
+  futures-tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      DB_MODE: hybrid
+      HOSTED_RUNNER_SOURCE: github_actions
+      FUTURES_ONLY_MODE: 'true'
+      PREDICTION_AGENT_ENABLED: 'false'
+      LEGACY_CRYPTO_LOOP_ENABLED: 'false'
+      SCALP_ENGINE_ENABLED: 'false'
+      SWING_ENGINE_ENABLED: 'false'
+      EVENT_ALPHA_ENABLED: 'false'
+      BREAKOUT_ENGINE_ENABLED: 'false'
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      KALSHI_API_KEY: ${{ secrets.KALSHI_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Run real futures tick
+        run: node --env-file-if-exists=.env scripts/runHostedFuturesTick.mjs

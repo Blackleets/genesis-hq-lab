@@ -48,6 +48,31 @@ function parseJson<T>(value: unknown, fallback: T): T {
   }
 }
 
+async function getHostedRunnerHeartbeat() {
+  const rows = await fetchRows(
+    "org_state",
+    "value,updated_at",
+    (q) => q.eq("key", "external_runner_heartbeat").limit(1),
+  );
+  const row: any = rows[0] ?? null;
+  const payload = parseJson(row?.value, null);
+  const lastTickAt = payload?.lastTickAt ?? null;
+  const msSinceLastTick = lastTickAt
+    ? Date.now() - new Date(lastTickAt).getTime()
+    : null;
+  return {
+    source: payload?.source ?? "external",
+    lastTickAt,
+    totalCycles: Number(payload?.totalCycles ?? 0),
+    claudeEnabled: Boolean(payload?.claudeEnabled),
+    lastResult: payload?.lastResult ?? null,
+    msSinceLastTick: Number.isFinite(msSinceLastTick) ? msSinceLastTick : null,
+    agentAlive: Number.isFinite(msSinceLastTick) ? msSinceLastTick < 10 * 60 * 1000 : false,
+    neverStarted: !lastTickAt,
+    updatedAt: row?.updated_at ?? null,
+  };
+}
+
 function exitKind(exitReason: string | null | undefined) {
   switch (exitReason) {
     case "take_profit": return "TP";
@@ -741,6 +766,7 @@ async function getMarketIntelligence() {
 
 async function getHealth() {
   const futures = await getFuturesDesk();
+  const runner = await getHostedRunnerHeartbeat();
   return {
     ok: true,
     service: "genesis-hq-supabase-fallback",
@@ -751,16 +777,17 @@ async function getHealth() {
       capital: futures.futuresCapital.equity ?? FUTURES_START_CAPITAL,
       isPaused: false,
       openTrades: futures.openPositions.length,
-      lastTickAt: null,
-      agentAlive: false,
-      totalCycles: 0,
-      claudeEnabled: false,
+      lastTickAt: runner.lastTickAt,
+      agentAlive: runner.agentAlive,
+      totalCycles: runner.totalCycles,
+      claudeEnabled: runner.claudeEnabled,
     },
   };
 }
 
 async function getSystemHealth() {
   const futures = await getFuturesDesk();
+  const runner = await getHostedRunnerHeartbeat();
   const totalTrades = await countRows("trades");
   const lessons = await countRows("lessons");
   return {
@@ -778,14 +805,14 @@ async function getSystemHealth() {
       drawdownPct: futures.treasury.drawdownPct,
     },
     agentRunner: {
-      ok: false,
+      ok: runner.agentAlive || runner.neverStarted,
       openTrades: futures.openPositions.length,
-      lastTickAt: null,
-      agentAlive: false,
-      msSinceLastTick: null,
-      totalCycles: 0,
-      claudeEnabled: false,
-      neverStarted: true,
+      lastTickAt: runner.lastTickAt,
+      agentAlive: runner.agentAlive,
+      msSinceLastTick: runner.msSinceLastTick,
+      totalCycles: runner.totalCycles,
+      claudeEnabled: runner.claudeEnabled,
+      neverStarted: runner.neverStarted,
     },
     kalshi: { ok: false, hasApiKey: false, wsConnected: false, mode: "fallback" },
     optimizer: { ok: false, mode: "fallback" },
@@ -812,8 +839,8 @@ async function getSystemHealth() {
       openTrades: futures.openPositions.length,
       isPaused: false,
       drawdownPct: futures.treasury.drawdownPct ?? 0,
-      agentAlive: false,
-      lastTickAt: null,
+      agentAlive: runner.agentAlive,
+      lastTickAt: runner.lastTickAt,
       realizedPnl: futures.futuresCapital.realizedPnl,
       winRate: futures.today.winRate,
       totalTrades: futures.closedSummary.reduce((sum: number, row: any) => sum + row.closedTrades, 0),

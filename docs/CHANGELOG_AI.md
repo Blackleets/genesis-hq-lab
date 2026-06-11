@@ -943,3 +943,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Replaced the failed Vercel Postgres contingency with a real Supabase Edge Function fallback and wired the public serverless API routes to use it first. This keeps `genesis-hq-lab.vercel.app` serving real health, overview, futures desk, commentary, trades, diagnostics, market intelligence, and supervisor data even while Render is suspended.
 - Files touched: `supabase/functions/genesis-fallback/index.ts`, `supabase/functions/genesis-fallback/deno.json`, `api/_lib/remoteFallback.js`, `api/health.js`, `api/system/health.js`, `api/crypto/overview.js`, `api/crypto/trades.js`, `api/crypto/commentary.js`, `api/crypto/diagnostics.js`, `api/crypto/futures-desk.js`, `api/crypto/market-intelligence.js`, `api/intelligence/supervisor/latest.js`, `docs/CHANGELOG_AI.md`
 - Verification: `npm run typecheck` ok; `npm run build` ok; Supabase Edge Function `genesis-fallback` returns live JSON for `health`, `crypto-overview`, `crypto-futures-desk`, and `supervisor-latest`
+
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added a safe hosted futures runner path without touching trading logic. The repo now includes a one-shot hosted tick wrapper that restores from Supabase, runs the real futures slow-cycle, replicates back, and writes a durable heartbeat into `org_state`. A GitHub Actions schedule can execute that tick every 5 minutes, and the Vercel/Supabase fallback now reads the durable heartbeat so production can show the runner as live when hosted ticks are landing.
+- Files touched: `server/trading/hostedRunnerHeartbeat.mjs`, `scripts/runHostedFuturesTick.mjs`, `.github/workflows/futures-hosted-runner.yml`, `api/_lib/cryptoFallback.js`, `supabase/functions/genesis-fallback/index.ts`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/trading/hostedRunnerHeartbeat.mjs` ok; `node --check scripts/runHostedFuturesTick.mjs` ok; `node --check api/_lib/cryptoFallback.js` ok; `node scripts/runHostedFuturesTick.mjs` skips cleanly without `DATABASE_URL`; `npm run typecheck` ok; `npm run build` ok

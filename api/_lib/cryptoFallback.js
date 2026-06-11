@@ -23,6 +23,46 @@ function parseJson(value, fallback) {
   }
 }
 
+async function getHostedRunnerHeartbeatFallback() {
+  try {
+    const res = await query(`
+      SELECT value, updated_at
+      FROM org_state
+      WHERE key = 'external_runner_heartbeat'
+      LIMIT 1
+    `);
+    const row = res.rows[0] ?? null;
+    const payload = parseJson(row?.value, null);
+    const lastTickAt = payload?.lastTickAt ?? null;
+    const msSinceLastTick = lastTickAt
+      ? Date.now() - new Date(lastTickAt).getTime()
+      : null;
+    return {
+      source: payload?.source ?? 'external',
+      lastTickAt,
+      totalCycles: Number(payload?.totalCycles ?? 0),
+      claudeEnabled: Boolean(payload?.claudeEnabled),
+      lastResult: payload?.lastResult ?? null,
+      msSinceLastTick: Number.isFinite(msSinceLastTick) ? msSinceLastTick : null,
+      agentAlive: Number.isFinite(msSinceLastTick) ? msSinceLastTick < 10 * 60 * 1000 : false,
+      neverStarted: !lastTickAt,
+      updatedAt: row?.updated_at ?? null,
+    };
+  } catch {
+    return {
+      source: 'external',
+      lastTickAt: null,
+      totalCycles: 0,
+      claudeEnabled: false,
+      lastResult: null,
+      msSinceLastTick: null,
+      agentAlive: false,
+      neverStarted: true,
+      updatedAt: null,
+    };
+  }
+}
+
 function exitKind(exitReason) {
   switch (exitReason) {
     case 'take_profit': return 'TP';
@@ -863,6 +903,7 @@ export async function getMarketIntelligenceFallback() {
 
 export async function getHealthFallback() {
   const futures = await getFuturesDeskFallback();
+  const runner = await getHostedRunnerHeartbeatFallback();
   const openTrades = futures.openPositions.length;
   return {
     ok: true,
@@ -874,10 +915,10 @@ export async function getHealthFallback() {
       capital: futures.futuresCapital.equity ?? FUTURES_START_CAPITAL,
       isPaused: false,
       openTrades,
-      lastTickAt: null,
-      agentAlive: false,
-      totalCycles: 0,
-      claudeEnabled: false,
+      lastTickAt: runner.lastTickAt,
+      agentAlive: runner.agentAlive,
+      totalCycles: runner.totalCycles,
+      claudeEnabled: runner.claudeEnabled,
     },
   };
 }
@@ -885,6 +926,7 @@ export async function getHealthFallback() {
 export async function getSystemHealthFallback() {
   const futures = await getFuturesDeskFallback();
   const health = await getHealthFallback();
+  const runner = await getHostedRunnerHeartbeatFallback();
   const totalTradesRes = await query(`SELECT COUNT(*)::int AS total FROM trades`);
   const lessonsRes = await query(`SELECT COUNT(*)::int AS total FROM lessons`);
   return {
@@ -902,14 +944,14 @@ export async function getSystemHealthFallback() {
       drawdownPct: futures.treasury.drawdownPct,
     },
     agentRunner: {
-      ok: false,
+      ok: runner.agentAlive || runner.neverStarted,
       openTrades: health.agent.openTrades,
-      lastTickAt: null,
-      agentAlive: false,
-      msSinceLastTick: null,
-      totalCycles: 0,
-      claudeEnabled: false,
-      neverStarted: true,
+      lastTickAt: runner.lastTickAt,
+      agentAlive: runner.agentAlive,
+      msSinceLastTick: runner.msSinceLastTick,
+      totalCycles: runner.totalCycles,
+      claudeEnabled: runner.claudeEnabled,
+      neverStarted: runner.neverStarted,
     },
     kalshi: { ok: false, hasApiKey: false, wsConnected: false, mode: 'fallback' },
     optimizer: { ok: false, mode: 'fallback' },
@@ -936,8 +978,8 @@ export async function getSystemHealthFallback() {
       openTrades: futures.openPositions.length,
       isPaused: false,
       drawdownPct: futures.treasury.drawdownPct ?? 0,
-      agentAlive: false,
-      lastTickAt: null,
+      agentAlive: runner.agentAlive,
+      lastTickAt: runner.lastTickAt,
       realizedPnl: futures.futuresCapital.realizedPnl,
       winRate: futures.today.winRate,
       totalTrades: futures.closedSummary.reduce((sum, row) => sum + row.closedTrades, 0),
