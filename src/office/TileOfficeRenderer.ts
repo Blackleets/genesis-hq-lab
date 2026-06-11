@@ -9,22 +9,28 @@ import {
   FLOOR_TILES,
   FLOOR_ZONES,
   FURNITURE,
+  MARKET_WATCH,
   OFFICE_CANVAS_H,
   OFFICE_CANVAS_W,
   OFFICE_CHARACTERS,
   OFFICE_SPRITES,
   SERVER_RACK_LEDS,
+  SERVER_ROOM_RECT,
   STATIONS,
   TILE_SIZE,
   TILESHEET_URL,
   WALL_BASE_Y,
   WALL_SEQUENCE,
+  ZONE_TAGS,
   type FurniturePlacement,
 } from './officeLayout';
 import { OFFICE_ZONES } from './officeZones';
 import type { EngineStatus, LiveOfficeAgent } from './officeTypes';
 
-const CEILING_COLOR = '#181826';
+const CEILING_COLOR = '#0d0f16';
+/** Industrial dark cast multiplied over floors/walls (props stay bright). */
+const AMBIENT_TINT = '#9aa3b8';
+const TAG_GREEN = '#34d27b';
 const ASSET_TIMEOUT_MS = 10_000;
 
 /** Loads the office tilesheet; rejects on error or timeout so callers can fall back. */
@@ -75,26 +81,24 @@ function drawSprite(ctx: CanvasRenderingContext2D, sheet: HTMLImageElement, f: F
   ctx.drawImage(sheet, s.x, s.y, s.w, s.h, f.x, f.y, s.w, s.h);
 }
 
-function drawNameplate(ctx: CanvasRenderingContext2D, label: string, cx: number, y: number) {
+/** Terminal-style zone tag: dark plate, slate border, green mono label. */
+function drawTag(ctx: CanvasRenderingContext2D, label: string, cx: number, y: number) {
   ctx.save();
   ctx.font = '7px monospace';
   ctx.textBaseline = 'top';
-  const w = ctx.measureText(label).width + 8;
+  const w = ctx.measureText(label).width + 10;
   const x = Math.round(cx - w / 2);
-  ctx.fillStyle = 'rgba(10, 10, 20, 0.78)';
-  ctx.fillRect(x, y, w, 11);
-  ctx.strokeStyle = 'rgba(0, 255, 156, 0.35)';
-  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, 10);
-  ctx.fillStyle = '#00ff9c';
-  ctx.fillText(label, x + 4, y + 2);
+  ctx.fillStyle = 'rgba(13, 16, 21, 0.92)';
+  ctx.fillRect(x, y, w, 12);
+  ctx.strokeStyle = 'rgba(67, 81, 99, 0.9)';
+  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, 11);
+  ctx.fillStyle = TAG_GREEN;
+  ctx.fillText(label, x + 5, y + 3);
   ctx.restore();
 }
 
-function drawStationNameplates(ctx: CanvasRenderingContext2D) {
-  for (const st of STATIONS) {
-    const s = OFFICE_SPRITES[st.desk.sprite];
-    drawNameplate(ctx, st.label, st.desk.x + s.w / 2, st.desk.y - 13);
-  }
+function drawZoneTags(ctx: CanvasRenderingContext2D) {
+  for (const t of ZONE_TAGS) drawTag(ctx, t.label, t.cx, t.y);
 }
 
 /** Subtle per-zone floor tints + identity borders (Phase 5, static). */
@@ -103,25 +107,16 @@ function drawZoneTints(ctx: CanvasRenderingContext2D) {
   for (const zone of Object.values(OFFICE_ZONES)) {
     if (!zone.tint) continue;
     const t = zone.tint;
-    ctx.globalAlpha = 0.07;
+    ctx.globalAlpha = 0.06;
     ctx.fillStyle = zone.accent;
     ctx.fillRect(t.x, t.y, t.w, t.h);
-    ctx.globalAlpha = 0.22;
+    ctx.globalAlpha = 0.20;
     ctx.strokeStyle = zone.accent;
     ctx.strokeRect(t.x + 0.5, t.y + 0.5, t.w - 1, t.h - 1);
     // corner notch so zones read even with low color vision
-    ctx.globalAlpha = 0.55;
+    ctx.globalAlpha = 0.5;
     ctx.fillRect(t.x, t.y, 5, 2);
     ctx.fillRect(t.x, t.y, 2, 5);
-  }
-  // serverRack has no station nameplate — give it a dim zone label
-  const server = OFFICE_ZONES.serverRack;
-  if (server.tint) {
-    ctx.globalAlpha = 0.8;
-    ctx.font = '7px monospace';
-    ctx.textBaseline = 'top';
-    ctx.fillStyle = 'rgba(148, 163, 184, 0.75)';
-    ctx.fillText(server.label, server.tint.x + 4, server.tint.y + 4);
   }
   ctx.restore();
 }
@@ -132,8 +127,22 @@ export function drawOfficeBase(ctx: CanvasRenderingContext2D, sheet: HTMLImageEl
   ctx.fillStyle = CEILING_COLOR;
   ctx.fillRect(0, 0, OFFICE_CANVAS_W, OFFICE_CANVAS_H);
   drawFloors(ctx, sheet);
-  drawZoneTints(ctx);
   drawWalls(ctx, sheet);
+  // industrial dark cast over the architecture only (furniture/agents are
+  // drawn per-frame at normal brightness, so they pop like the approved look)
+  ctx.save();
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.fillStyle = AMBIENT_TINT;
+  ctx.fillRect(0, 0, OFFICE_CANVAS_W, OFFICE_CANVAS_H);
+  ctx.restore();
+  // dark server room patch behind the rack zone
+  ctx.save();
+  ctx.fillStyle = 'rgba(18, 22, 30, 0.82)';
+  ctx.fillRect(SERVER_ROOM_RECT.x, SERVER_ROOM_RECT.y, SERVER_ROOM_RECT.w, SERVER_ROOM_RECT.h);
+  ctx.strokeStyle = 'rgba(10, 12, 18, 0.9)';
+  ctx.strokeRect(SERVER_ROOM_RECT.x + 0.5, SERVER_ROOM_RECT.y + 0.5, SERVER_ROOM_RECT.w - 1, SERVER_ROOM_RECT.h - 1);
+  ctx.restore();
+  drawZoneTints(ctx);
 }
 
 const ALL_PLACEMENTS: FurniturePlacement[] = [...FURNITURE, ...STATIONS.map((st) => st.desk)];
@@ -147,7 +156,49 @@ export function drawTileOffice(ctx: CanvasRenderingContext2D, sheet: HTMLImageEl
   const placements = [...ALL_PLACEMENTS]
     .sort((a, b) => (a.y + OFFICE_SPRITES[a.sprite].h) - (b.y + OFFICE_SPRITES[b.sprite].h));
   for (const f of placements) drawSprite(ctx, sheet, f);
-  drawStationNameplates(ctx);
+  drawMarketWatch(ctx, 0);
+  drawZoneTags(ctx);
+}
+
+// --- Market Watch wall screen ----------------------------------------------
+// Decorative animated candle silhouette (deliberately numberless: real market
+// figures live in the dashboards — see AGENTS.md §4 data integrity).
+
+function drawMarketWatch(ctx: CanvasRenderingContext2D, now: number) {
+  const { x, y, w, h } = MARKET_WATCH;
+  ctx.save();
+  // mount + bezel + screen
+  ctx.fillStyle = '#1a1e26';
+  ctx.fillRect(x - 3, y - 3, w + 6, h + 6);
+  ctx.fillStyle = '#0a0e12';
+  ctx.fillRect(x, y, w, h);
+
+  ctx.font = '7px monospace';
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = TAG_GREEN;
+  ctx.fillText('MARKET WATCH', x + 6, y + 4);
+
+  // candles scroll left slowly; pattern is a deterministic hash, no RNG state
+  const step = Math.floor(now / 900);
+  const baseline = y + h - 10;
+  const count = Math.floor((w - 12) / 6);
+  for (let i = 0; i < count; i++) {
+    const v0 = hash01((i + step) * 7.13);
+    const v1 = hash01((i + step) * 7.13 + 3.7);
+    const up = v1 >= v0;
+    const body = 4 + Math.floor(Math.min(v0, v1) * 18);
+    const top = baseline - body - Math.floor(Math.max(v0, v1) * 10);
+    const cx = x + 7 + i * 6;
+    ctx.fillStyle = up ? 'rgba(74, 222, 128, 0.85)' : 'rgba(248, 113, 113, 0.85)';
+    ctx.fillRect(cx + 1, top - 3, 1, body + 6); // wick
+    ctx.fillRect(cx, top, 3, body);             // body
+  }
+  ctx.strokeStyle = 'rgba(56, 66, 82, 0.8)';
+  ctx.beginPath();
+  ctx.moveTo(x + 6, baseline + 4.5);
+  ctx.lineTo(x + w - 6, baseline + 4.5);
+  ctx.stroke();
+  ctx.restore();
 }
 
 // --- Phase 5: animated screens & server lights ----------------------------
@@ -409,7 +460,8 @@ export function renderOfficeFrame(
 
   drawScreens(ctx, agents, now, engineStatus);
   drawServerLeds(ctx, now, engineStatus);
-  drawStationNameplates(ctx);
+  drawMarketWatch(ctx, now);
+  drawZoneTags(ctx);
   for (const agent of agents) {
     drawStateMarker(ctx, agent, now);
     drawAgentLabel(ctx, agent);

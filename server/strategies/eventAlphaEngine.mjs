@@ -26,6 +26,7 @@ import { runDebate } from '../trading/debateRoom.mjs';
 import { checkVeto, logVeto } from '../memory/mistakePrevention.mjs';
 import { getDecisionContext } from '../memory/learningEngine.mjs';
 import { executeTrade } from '../trading/execution.mjs';
+import { evaluateTrade as councilEvaluate } from '../crypto/decisionCouncil.mjs';
 import { kellySize, reserveCapital } from '../trading/treasury.mjs';
 import { preTradeCheck } from '../trading/riskManager.mjs';
 import { isGlobalSafeMode, getGlobalRiskDiagnostics } from '../risk/globalRiskEngine.mjs';
@@ -212,6 +213,28 @@ export async function runEventAlphaCycle() {
       continue;
     }
 
+    // Decision Council gate — binary-market evaluation with the real
+    // debate probability. Mandatory: executeTrade refuses event-alpha
+    // proposals without an approved decision_id.
+    const councilDecision = await councilEvaluate({
+      strategy: 'event_alpha',
+      symbol: market.question?.slice(0, 60) ?? market.id,
+      pair: null,
+      side: debateResult.outcome,
+      entryPrice,
+      confidence: genesisProb,
+      genesisProb,
+      capitalUsed: kellySizing.dollarSize,
+      volume24h: market.volume24h ?? 0,
+      signals: [`EV ${(ev * 100).toFixed(1)}%`, `edge ${(edge * 100).toFixed(1)}%`],
+      agentId: AGENT_ID,
+      tradeType: 'event_alpha',
+    });
+    if (councilDecision.final_decision !== 'approved') {
+      result.rejected++;
+      continue;
+    }
+
     const reservation = reserveCapital(kellySizing.dollarSize);
     if (!reservation.ok) {
       result.rejected++;
@@ -219,6 +242,8 @@ export async function runEventAlphaCycle() {
     }
 
     const execution = await executeTrade({
+      councilDecisionId: councilDecision.decision_id,
+      tradeType: 'event_alpha',
       agentId: AGENT_ID,
       marketId: market.id, marketSource: market.source,
       marketQuestion: market.question,

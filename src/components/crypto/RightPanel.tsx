@@ -5,10 +5,12 @@ import { useState } from 'react';
 import { MarketIntelPanel } from './MarketIntelPanel';
 import { LiquidityMatrix } from './LiquidityMatrix';
 import { ProValidationPanel } from './ProValidationPanel';
+import { CouncilPanel } from './CouncilPanel';
 
-type Tab = 'INTEL' | 'DEPTH' | 'PRO';
+type Tab = 'COUNCIL' | 'INTEL' | 'DEPTH' | 'PRO';
 
 const TAB_COLOR: Record<Tab, string> = {
+  COUNCIL: '#22c55e',
   INTEL: '#f59e0b',
   DEPTH: '#a855f7',
   PRO: '#3da9fc',
@@ -33,7 +35,7 @@ export function RightPanel({ pair, className = '' }: Props) {
       overflow: 'hidden',
     }}>
       <div style={{ display: 'flex', flexShrink: 0, borderBottom: '1px solid #1e2a3a' }}>
-        {(['INTEL', 'DEPTH', 'PRO'] as Tab[]).map((name) => (
+        {(['COUNCIL', 'INTEL', 'DEPTH', 'PRO'] as Tab[]).map((name) => (
           <button
             key={name}
             onClick={() => setTab(name)}
@@ -59,6 +61,7 @@ export function RightPanel({ pair, className = '' }: Props) {
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        {tab === 'COUNCIL' && <CouncilPanel />}
         {tab === 'INTEL' && <MarketIntelPanel />}
         {tab === 'DEPTH' && <LiquidityMatrix pair={pair} noBorder />}
         {tab === 'PRO' && <ProValidationPanel />}

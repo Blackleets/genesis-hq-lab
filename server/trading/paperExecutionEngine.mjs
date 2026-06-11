@@ -23,6 +23,11 @@ import {
   estimateFuturesMaintenanceMarginUsd,
 } from './costs.mjs';
 import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs';
+import {
+  consumeApprovedDecision,
+  attachTradeToDecision,
+  recordDecisionOutcome,
+} from '../crypto/decisionMemory.mjs';
 
 const TRAINING_MODE = ['1', 'true', 'yes'].includes((process.env.TRAINING_MODE ?? '').toLowerCase());
 
@@ -90,6 +95,18 @@ export async function openCryptoPosition(opts) {
     logEvent({ category: CATEGORY.EXECUTION, severity: SEVERITY.WARNING, subsystem: agentId,
       reason: `BLOCKED (reconciliation safe mode): ${side} ${asset.symbol}`, metadata: { asset: asset.symbol } });
     return { executed: false, reason: 'reconciliation_safe_mode', blocked: true };
+  }
+
+  // ── Decision Council gate — NEVER bypass ──
+  // Every crypto position requires a fresh, approved, unconsumed council
+  // decision matching this exact pair/side/tradeType. Engines obtain it via
+  // decisionCouncil.evaluateTrade() before calling here.
+  const gate = consumeApprovedDecision(opts.councilDecisionId, { pair: asset.pair, side, tradeType });
+  if (!gate.ok) {
+    logEvent({ category: CATEGORY.EXECUTION, severity: SEVERITY.WARNING, subsystem: agentId,
+      reason: `BLOCKED (council gate ${gate.reason}): ${side} ${asset.symbol}`,
+      metadata: { asset: asset.symbol, side, tradeType, councilGate: gate.reason } });
+    return { executed: false, reason: `council_gate:${gate.reason}`, blocked: true };
   }
 
   // ── Simulate latency ──
@@ -192,6 +209,8 @@ export async function openCryptoPosition(opts) {
     });
   });
 
+  attachTradeToDecision(opts.councilDecisionId, id);
+
   const msg = `OPEN ${side} ${asset.symbol} @ $${effectiveEntryPrice.toFixed(2)} → TP $${tp.toFixed ? tp.toFixed(2) : tp} | SL $${sl.toFixed ? sl.toFixed(2) : sl} | capital $${effectiveCapital.toFixed(2)}`;
   logEvent({ category: CATEGORY.EXECUTION, severity: SEVERITY.INFO, subsystem: agentId, reason: msg,
     metadata: { tradeId: id, confidence, asset: asset.symbol, side, tradeType, type: 'open' } });
@@ -285,6 +304,14 @@ export async function closeCryptoPosition(tradeId, currentPrice, exitReason, age
     }));
   } catch (error) {
     console.warn(`[paperExec] Outcome recording failed for ${tradeId}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  // Close the council loop: write the real outcome (PnL, exit reason,
+  // bull/bear attribution, lesson) back onto the authorizing decision.
+  try {
+    recordDecisionOutcome({ ...closedTrade, id: tradeId });
+  } catch (error) {
+    console.warn(`[paperExec] Council outcome write-back failed for ${tradeId}: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   return closedTrade;

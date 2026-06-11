@@ -109,7 +109,7 @@ describe('Scenario 2: Open position confirmed active → recovering', () => {
     const mockStatus = async () => ({ status: 'open' });
     const mockTrades = () => [trade];
 
-    const result = await runStartupReconciliation(mockStatus, mockTrades);
+    const result = await runStartupReconciliation(mockStatus, mockTrades, { futuresOnly: false });
 
     assert.equal(result.status, RECONCILIATION_STATUS.RECOVERING);
     assert.equal(result.recoveredPositions, 0);
@@ -140,7 +140,7 @@ describe('Scenario 3: Position resolved during downtime → recovered', () => {
     const dbTrade = db.prepare(`SELECT * FROM trades WHERE id = ?`).get(tradeId);
     const mockTrades = () => [dbTrade];
 
-    const result = await runStartupReconciliation(mockStatus, mockTrades);
+    const result = await runStartupReconciliation(mockStatus, mockTrades, { futuresOnly: false });
 
     assert.equal(result.recoveredPositions, 1);
     assert.equal(result.unresolvedExposure, 0);
@@ -168,7 +168,7 @@ describe('Scenario 4: Network failure → degraded', () => {
     const mockStatus = async () => { throw new Error('ECONNREFUSED'); };
     const mockTrades = () => [trade];
 
-    const result = await runStartupReconciliation(mockStatus, mockTrades);
+    const result = await runStartupReconciliation(mockStatus, mockTrades, { futuresOnly: false });
 
     assert.equal(result.status, RECONCILIATION_STATUS.DEGRADED);
     assert.ok(result.issues.length > 0);
@@ -196,7 +196,7 @@ describe('Scenario 5: Conflicting market state → degraded', () => {
     const mockStatus = async () => ({ status: 'unknown_state_xyz' });
     const mockTrades = () => [trade];
 
-    const result = await runStartupReconciliation(mockStatus, mockTrades);
+    const result = await runStartupReconciliation(mockStatus, mockTrades, { futuresOnly: false });
 
     assert.equal(result.status, RECONCILIATION_STATUS.DEGRADED);
     const conflictIssue = result.issues.find(i => i.type === 'conflicting_state');
@@ -291,5 +291,55 @@ describe('Scenario 7: State persists across simulated restarts', () => {
     assert.equal(status.status, 'degraded');
     assert.equal(status.orphanCount, 1);
     assert.ok(Math.abs(status.unresolvedExposure - 99.99) < 0.01);
+  });
+});
+
+// ── Scenario 8: Futures-only mode expires legacy non-futures trades ───────────
+
+describe('Scenario 8: futures-only mode resets legacy prediction trades', () => {
+  let tradeId = null;
+  before(resetState);
+  after(() => {
+    if (tradeId) deleteTrade(tradeId);
+    resetState();
+  });
+
+  test('expires the legacy trade without querying the exchange and ends healthy', async () => {
+    const trade = makeTrade({ market_id: `${P}mkt-legacy` });
+    tradeId = saveTrade(trade);
+
+    const result = await runStartupReconciliation(
+      () => { throw new Error('exchange must not be queried in futures-only reset'); },
+      () => [trade],
+      { futuresOnly: true },
+    );
+
+    assert.equal(result.status, RECONCILIATION_STATUS.HEALTHY);
+    const row = db.prepare(`SELECT status, exit_reason FROM trades WHERE id = ?`).get(tradeId);
+    assert.equal(row.status, 'expired');
+    assert.equal(row.exit_reason, 'futures_only_reset');
+  });
+
+  test('managed futures trades are NOT expired by futures-only mode', async () => {
+    const trade = makeTrade({
+      market_id: `${P}mkt-futures`,
+      market_source: 'crypto',
+    });
+    const futuresId = saveTrade(trade);
+    db.prepare(`UPDATE trades SET trade_type = 'crypto_futures_breakout_short' WHERE id = ?`).run(futuresId);
+
+    try {
+      const result = await runStartupReconciliation(
+        () => { throw new Error('crypto trades never query the exchange'); },
+        () => [{ ...trade, trade_type: 'crypto_futures_breakout_short' }],
+        { futuresOnly: true },
+      );
+      // crypto futures position is accepted as active → recovering, not expired
+      assert.equal(result.status, RECONCILIATION_STATUS.RECOVERING);
+      const row = db.prepare(`SELECT status FROM trades WHERE id = ?`).get(futuresId);
+      assert.equal(row.status, 'open');
+    } finally {
+      deleteTrade(futuresId);
+    }
   });
 });
