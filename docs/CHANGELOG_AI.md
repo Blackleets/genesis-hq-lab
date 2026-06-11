@@ -930,6 +930,13 @@ at the top. Use one block per session. Be honest about failures.
 - Files touched: `src/office/officeLayout.ts`, `src/office/TileOfficeRenderer.ts`, `src/office/OfficeStatusBar.tsx`, `src/office/TileOffice.tsx`, `src/office/DialogueBubble.tsx`, `docs/DESIGN_DIRECTION.md`, `docs/CHANGELOG_AI.md`
 - Verification: `npm run typecheck` ok; `npm run build` ok
 
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Hardened the Supabase futures runner and maintenance audit findings without changing trading decisions. The runner now requires `GENESIS_RUNNER_TOKEN` via header or bearer token, the GitHub workflow sends that secret, alpha validation reports blocked totals consistently, visual agent heartbeat no longer implies synthetic trading work, the regime backtest reads the full canonical crypto universe, and reconciliation tests clean dependent rows before deleting test trades.
+- Files touched: `supabase/functions/genesis-runner/index.ts`, `.github/workflows/futures-hosted-runner.yml`, `server/research/alphaValidationEngine.mjs`, `src/activity/AgentActivityFeed.tsx`, `server/crypto/backtest/regimeBiasBacktest.mjs`, `server/tests/reconciliation.test.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `npm test -- --test-concurrency=1` 810/810 ok; `npm run typecheck` ok; `npm run build` ok
+
 ## 2026-06-11 - Claude
 
 - Branch: `claude/genesis-agent-visual-design-74o3bb`

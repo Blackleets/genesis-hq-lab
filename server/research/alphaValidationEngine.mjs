@@ -522,10 +522,12 @@ export function computeDecisionQuality(trades = null) {
       : null,
 
     // We can't compute true false negatives without knowing what blocked trades would have resolved to.
-    // We report the count as a data point, not a performance metric.
+    // Keep totalBlocked aligned with the two explicit buckets shown in the UI.
+    // Other BLOCKED_* operator events are intentionally excluded from this metric.
     blockedByConfidence:  confidenceBlocked,
     blockedByVeto:        vetoedCount,
-    totalBlocked:         blockedCount + vetoedCount,
+    totalBlocked:         confidenceBlocked + vetoedCount,
+    blockedByOther:       Math.max(0, blockedCount - confidenceBlocked),
     falseNegativeNote:    'False negatives cannot be measured without outcome data on blocked trades.',
 
     dataQuality: {

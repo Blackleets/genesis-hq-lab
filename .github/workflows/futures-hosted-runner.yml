@@ -20,4 +20,5 @@ jobs:
       - name: Run Supabase hosted futures tick
         run: |
           curl --fail --silent --show-error \
+            -H "x-genesis-runner-token: ${{ secrets.GENESIS_RUNNER_TOKEN }}" \
             "https://swgixcbwyhxttnmrglbk.supabase.co/functions/v1/genesis-runner"

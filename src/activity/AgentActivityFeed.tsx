@@ -1,5 +1,5 @@
 // AgentActivityFeed — terminal-style live activity stream.
-// Sources: real store events → WebSocket ticks → synthetic heartbeat.
+// Sources: real store events → WebSocket ticks → neutral visual heartbeat.
 // Entries slide in from top, max 30 visible. No spinners.
 
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -9,6 +9,14 @@ import { useLanguage } from '@core/i18n/languageStore';
 import type { Agent, AgentStatus } from '@core/types/genesis';
 import type { TaskType } from '@core/types/task';
 import type { SystemEvent } from '@core/types/event';
+
+const MONEY_TASK_TYPES = new Set<TaskType>([
+  'market_scan',
+  'risk_review',
+  'paper_trade',
+  'signal_generation',
+  'performance_review',
+]);
 
 // ─── Phrase tables ────────────────────────────────────────────────────────────
 
@@ -37,7 +45,7 @@ const TASK_PHRASES: Record<TaskType, Array<{ es: string; en: string }>> = {
     { es: 'consolidando memoria episódica', en: 'consolidating episodic memory' },
   ],
   paper_trade: [
-    { es: 'ejecutando trade en simulación', en: 'executing simulated trade' },
+    { es: 'verificando controles de paper trading', en: 'checking paper-trading controls' },
     { es: 'calculando tamaño de posición', en: 'calculating position size' },
     { es: 'verificando criterio de Kelly', en: 'verifying Kelly criterion' },
   ],
@@ -190,6 +198,23 @@ function phraseForAgent(agent: Agent, tasks: ReturnType<typeof useTasks>): { es:
   return { es: 'en estado nominal', en: 'in nominal state' };
 }
 
+function heartbeatPhraseForAgent(agent: Agent, tasks: ReturnType<typeof useTasks>): { es: string; en: string } {
+  const task = agent.currentTaskId ? tasks.find(t => t.id === agent.currentTaskId) : null;
+  if (task?.isVisualSeed) {
+    return {
+      es: 'presencia visual; esperando evento operativo real',
+      en: 'visual presence; waiting for a real operational event',
+    };
+  }
+  if (task && MONEY_TASK_TYPES.has(task.type)) {
+    return {
+      es: 'monitoreando eventos confirmados del backend',
+      en: 'monitoring confirmed backend events',
+    };
+  }
+  return phraseForAgent(agent, tasks);
+}
+
 function eventToEntry(
   e: SystemEvent,
   agents: Agent[],
@@ -220,7 +245,7 @@ function eventToEntry(
 }
 
 function heartbeatEntry(agent: Agent, tasks: ReturnType<typeof useTasks>): ActivityEntry {
-  const phrase = phraseForAgent(agent, tasks);
+  const phrase = heartbeatPhraseForAgent(agent, tasks);
   return {
     id: `hb-${agent.id}-${Date.now()}`,
     agentId: agent.id,

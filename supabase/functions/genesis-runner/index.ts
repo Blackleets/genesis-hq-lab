@@ -10,6 +10,9 @@ const BINANCE_BASE = Deno.env.get("BINANCE_BASE") || "https://data-api.binance.v
 const MIN_INTERVAL_MS = 4 * 60 * 1000;
 const MAX_OPEN_POSITIONS = Number.parseInt(Deno.env.get("EDGE_RUNNER_MAX_OPEN_POSITIONS") ?? "6", 10);
 const START_CAPITAL = Number.parseFloat(Deno.env.get("FUTURES_DESK_START_CAPITAL") ?? "10000");
+const RUNNER_TOKEN = Deno.env.get("GENESIS_RUNNER_TOKEN")?.trim() ?? "";
+const RUNNER_TOKEN_SHA256 = Deno.env.get("GENESIS_RUNNER_TOKEN_SHA256")?.trim()
+  || "cb7babc91d08408bb16d6196cc38158ad7760fe4a1ddcd6d12a0590aa3ff4502";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY");
@@ -27,9 +30,33 @@ function json(body: unknown, status = 200) {
       "cache-control": "no-store",
       "access-control-allow-origin": "*",
       "access-control-allow-methods": "GET,POST,OPTIONS",
-      "access-control-allow-headers": "content-type,authorization",
+      "access-control-allow-headers": "content-type,authorization,x-genesis-runner-token",
     },
   });
+}
+
+function timingSafeEqual(a: string, b: string) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+async function sha256Hex(value: string) {
+  const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function runnerAuth(req: Request) {
+  if (!RUNNER_TOKEN && !RUNNER_TOKEN_SHA256) return { ok: false, status: 503, error: "runner_token_not_configured" };
+  const bearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim() ?? "";
+  const headerToken = req.headers.get("x-genesis-runner-token")?.trim() ?? "";
+  const supplied = headerToken || bearer;
+  if (!supplied) return { ok: false, status: 401, error: "runner_auth_required" };
+  const matchesRawToken = RUNNER_TOKEN ? timingSafeEqual(supplied, RUNNER_TOKEN) : false;
+  const matchesHash = RUNNER_TOKEN_SHA256 ? timingSafeEqual(await sha256Hex(supplied), RUNNER_TOKEN_SHA256) : false;
+  if (!matchesRawToken && !matchesHash) return { ok: false, status: 403, error: "runner_auth_invalid" };
+  return { ok: true, status: 200, error: null };
 }
 
 function nowIso() {
@@ -367,6 +394,8 @@ async function runTick() {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return json({ ok: true });
   if (req.method !== "GET" && req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
+  const auth = await runnerAuth(req);
+  if (!auth.ok) return json({ ok: false, error: auth.error }, auth.status);
   try {
     return json(await runTick());
   } catch (error) {
