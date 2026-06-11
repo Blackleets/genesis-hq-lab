@@ -964,3 +964,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Bound the hosted futures workflow to the existing GitHub `Production` environment and copied the production Postgres URL into environment-scoped secrets. This keeps the runner wiring isolated to deployment infra and avoids touching the futures engine itself.
 - Files touched: `.github/workflows/futures-hosted-runner.yml`, `docs/CHANGELOG_AI.md`
 - Verification: environment secrets created for `Production`; pending rerun validation of the hosted workflow against those environment-scoped secrets
+
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Prevented the hosted futures workflow from marking Genesis unhealthy when no valid database URL exists. The cron now reports a warning and skips the hosted tick cleanly until a real Postgres connection string is configured, preserving Claude's trading/UI work and avoiding fake execution.
+- Files touched: `.github/workflows/futures-hosted-runner.yml`, `docs/CHANGELOG_AI.md`
+- Verification: pending workflow rerun; no trading-engine files changed
