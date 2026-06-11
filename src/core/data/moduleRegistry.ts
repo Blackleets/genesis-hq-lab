@@ -29,7 +29,8 @@ export type ModuleId =
   | 'crypto'
   | 'system'
   | 'operator'
-  | 'alpha';
+  | 'alpha'
+  | 'pred-markets';
 
 export type ModuleState =
   | 'ready'
@@ -255,6 +256,24 @@ export const MODULES: ModuleEntry[] = [
     relation: {
       es: 'Capa de observabilidad — responde POR QUÉ Genesis tomó o bloqueó cada decisión.',
       en: 'Observability layer — answers WHY Genesis made or blocked each decision.',
+    },
+  },
+  {
+    id: 'pred-markets',
+    navKey: 'nav.pred-markets',
+    state: 'ready',
+    description: {
+      es: 'Lab de prediction markets: datos reales de Polymarket/Kalshi, backtesting, LP tooling y ejecución en paper mode. Live trading bloqueado por defecto.',
+      en: 'Prediction markets lab: real Polymarket/Kalshi data, backtesting, LP tooling, and paper-mode execution. Live trading locked by default.',
+    },
+    futureActions: [
+      { es: 'Conectar CLOB API para órdenes reales.', en: 'Connect CLOB API for real orders.' },
+      { es: 'Añadir datos históricos para backtest real.', en: 'Add historical data for real backtesting.' },
+      { es: 'Activar LP automático con confirmación manual.', en: 'Enable automatic LP with manual confirmation.' },
+    ],
+    relation: {
+      es: 'Capa de prediction markets de Genesis — aislada del motor crypto, paper-first.',
+      en: 'Genesis prediction markets layer — isolated from the crypto engine, paper-first.',
     },
   },
   {

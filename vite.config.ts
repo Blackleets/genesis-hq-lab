@@ -20,6 +20,7 @@ export default defineConfig({
       '@ui':         alias('ui'),
       '@hooks':      alias('hooks'),
       '@office':     alias('office'),
+      '@components': alias('components'),
     },
   },
   server: {
