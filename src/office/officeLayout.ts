@@ -111,7 +111,7 @@ export const ZONE_TAGS: ZoneTag[] = [
   { label: 'RESEARCH ZONE',     cx: 162, y: 96 },
   { label: 'TRADING DESK',      cx: 366, y: 96 },
   { label: 'RISK MANAGEMENT',   cx: 600, y: 96 },
-  { label: 'PORTFOLIO MONITOR', cx: 608, y: 310 },
+  { label: 'PORTFOLIO MONITOR', cx: 608, y: 354 },
   { label: 'SERVER ROOM',       cx: 758, y: 232 },
   { label: 'COFFEE AREA',       cx: 745, y: 128 },
   { label: 'MEETING ROOM',      cx: 375, y: 252 },
