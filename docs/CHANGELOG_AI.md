@@ -915,3 +915,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Tightened the Crypto Lab chart zone so it fits normal browser zoom better: the terminal grid now compresses more intelligently across viewport heights, the chart header is denser, and trade event badges stay clamped inside the visible chart instead of drifting out of bounds.
 - Files touched: `src/index.css`, `src/components/crypto/ChartStatsHeader.tsx`, `src/dashboard/charts/CandleChart.tsx`, `docs/CHANGELOG_AI.md`
 - Verification: `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added a Vercel/Supabase contingency read path so the frontend can fall back from Render to same-origin serverless endpoints backed by replicated Postgres when the free Render backend is asleep or unavailable. The fallback serves real replicated data for health, system health, crypto overview, futures desk, trade stories, commentary, diagnostics, market intelligence, and supervisor latest without faking live execution.
+- Files touched: `api/_lib/http.js`, `api/_lib/postgres.js`, `api/_lib/cryptoFallback.js`, `api/health.js`, `api/system/health.js`, `api/crypto/overview.js`, `api/crypto/trades.js`, `api/crypto/commentary.js`, `api/crypto/diagnostics.js`, `api/crypto/futures-desk.js`, `api/crypto/market-intelligence.js`, `api/intelligence/supervisor/latest.js`, `src/services/apiBase.ts`, `src/services/cryptoClient.ts`, `src/services/agentClient.ts`, `src/hooks/useTruthLayer.ts`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check api/_lib/cryptoFallback.js` ok; `node --check api/health.js` ok; `node --check api/system/health.js` ok; `node --check api/crypto/overview.js` ok; `node --check api/crypto/trades.js` ok; `node --check api/crypto/commentary.js` ok; `node --check api/crypto/diagnostics.js` ok; `node --check api/crypto/futures-desk.js` ok; `node --check api/crypto/market-intelligence.js` ok; `node --check api/intelligence/supervisor/latest.js` ok; `npm run typecheck` ok; `npm run build` ok

@@ -1,5 +1,5 @@
 // cryptoClient — read-only client for the crypto scalping engine.
-import { apiUrl } from '@services/apiBase';
+import { apiUrl, fetchApi } from '@services/apiBase';
 
 export interface CryptoParams {
   targetPct: number;
@@ -66,7 +66,7 @@ export interface CryptoOverview {
 }
 
 export async function loadCryptoOverview(): Promise<CryptoOverview> {
-  const res = await fetch(apiUrl('/api/crypto/overview'), { headers: { accept: 'application/json' } });
+  const res = await fetchApi('/api/crypto/overview', { headers: { accept: 'application/json' } });
   if (!res.ok) throw new Error(`Crypto overview failed: ${res.status}`);
   return res.json() as Promise<CryptoOverview>;
 }
@@ -503,7 +503,7 @@ export interface FuturesDeskSnapshot {
 export async function loadFuturesDesk(runCycle = false, timeoutMs = runCycle ? 35_000 : 5_000): Promise<FuturesDeskSnapshot | null> {
   try {
     const query = runCycle ? '?run=1' : '';
-    const res = await fetch(apiUrl(`/api/crypto/futures-desk${query}`), {
+    const res = await fetchApi(`/api/crypto/futures-desk${query}`, {
       signal: AbortSignal.timeout(timeoutMs),
       headers: { accept: 'application/json' },
     });
@@ -531,7 +531,7 @@ export async function resetFuturesDeskBaseline(note = 'Manual futures PnL baseli
 
 export async function loadIntelligenceSupervisorLatest(timeoutMs = 8_000): Promise<IntelligenceSupervisorState | null> {
   try {
-    const res = await fetch(apiUrl('/api/intelligence/supervisor/latest'), {
+    const res = await fetchApi('/api/intelligence/supervisor/latest', {
       cache: 'no-store',
       signal: AbortSignal.timeout(timeoutMs),
       headers: { accept: 'application/json' },
@@ -648,7 +648,7 @@ export interface CommentaryItem {
 
 export async function loadCommentary(limit = 40): Promise<CommentaryItem[]> {
   try {
-    const res = await fetch(apiUrl(`/api/crypto/commentary?limit=${limit}`), {
+    const res = await fetchApi(`/api/crypto/commentary?limit=${limit}`, {
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return [];
@@ -677,7 +677,7 @@ export interface MarketIntel {
 
 export async function loadMarketIntelligence(): Promise<MarketIntel | null> {
   try {
-    const res = await fetch(apiUrl('/api/crypto/market-intelligence'), {
+    const res = await fetchApi('/api/crypto/market-intelligence', {
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
@@ -725,8 +725,8 @@ export interface DepthData {
 
 export async function loadDepth(pair = 'BTCUSDT', levels = 20): Promise<DepthData | null> {
   try {
-    const res = await fetch(
-      apiUrl(`/api/crypto/depth?pair=${pair}&levels=${levels}`),
+    const res = await fetchApi(
+      `/api/crypto/depth?pair=${pair}&levels=${levels}`,
       { signal: AbortSignal.timeout(5000) }
     );
     if (!res.ok) return null;
@@ -763,8 +763,8 @@ export interface ProValidation {
 
 export async function loadProValidation(pair = 'BTCUSDT'): Promise<ProValidation | null> {
   try {
-    const res = await fetch(
-      apiUrl(`/api/crypto/pro-validation?pair=${pair}`),
+    const res = await fetchApi(
+      `/api/crypto/pro-validation?pair=${pair}`,
       { signal: AbortSignal.timeout(8000) }
     );
     if (!res.ok) return null;
@@ -803,7 +803,7 @@ export interface TradeStory {
 export async function loadTradeStories(limit = 40, pair?: string): Promise<TradeStory[]> {
   try {
     const q = pair ? `?limit=${limit}&pair=${pair}` : `?limit=${limit}`;
-    const res = await fetch(apiUrl(`/api/crypto/trades${q}`), { signal: AbortSignal.timeout(5000) });
+    const res = await fetchApi(`/api/crypto/trades${q}`, { signal: AbortSignal.timeout(5000) });
     if (!res.ok) return [];
     const data = await res.json() as { ok: boolean; trades: TradeStory[] };
     return data.trades ?? [];
@@ -972,7 +972,7 @@ export interface ExecutionDiagnostics {
 
 export async function loadDiagnostics(): Promise<ExecutionDiagnostics | null> {
   try {
-    const res = await fetch(apiUrl('/api/crypto/diagnostics'), { signal: AbortSignal.timeout(5000) });
+    const res = await fetchApi('/api/crypto/diagnostics', { signal: AbortSignal.timeout(5000) });
     if (!res.ok) return null;
     const data = await res.json() as { ok: boolean } & ExecutionDiagnostics;
     return data.ok ? data : null;
@@ -1010,7 +1010,7 @@ export interface ShadowCandidateDiagnostics {
 
 export async function loadShadowCandidateDiagnostics(): Promise<ShadowCandidateDiagnostics | null> {
   try {
-    const res = await fetch(apiUrl('/api/crypto/shadow-candidate'), { signal: AbortSignal.timeout(5000) });
+    const res = await fetchApi('/api/crypto/shadow-candidate', { signal: AbortSignal.timeout(5000) });
     if (!res.ok) return null;
     const data = await res.json() as { ok: boolean } & ShadowCandidateDiagnostics;
     return data.ok ? data : null;
@@ -1076,7 +1076,7 @@ export interface BreakoutShadowDiagnostics {
 
 export async function loadBreakoutShadow(): Promise<BreakoutShadowDiagnostics | null> {
   try {
-    const res = await fetch(apiUrl('/api/crypto/breakout-shadow'), { signal: AbortSignal.timeout(8000) });
+    const res = await fetchApi('/api/crypto/breakout-shadow', { signal: AbortSignal.timeout(8000) });
     if (!res.ok) return null;
     const data = await res.json() as { ok: boolean } & BreakoutShadowDiagnostics;
     return data.ok ? data : null;
