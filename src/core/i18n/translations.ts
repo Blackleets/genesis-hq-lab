@@ -36,6 +36,7 @@ export const TRANSLATIONS = {
   'nav.system':          { es: 'System Health',                 en: 'System Health' },
   'nav.operator':        { es: 'Operador Timeline',            en: 'Operator Timeline' },
   'nav.alpha':           { es: 'Alpha Validation',             en: 'Alpha Validation' },
+  'nav.pred-markets':    { es: 'Prediction Markets Lab',        en: 'Prediction Markets Lab' },
 
   // ---------------- MODULE STATES ----------------
   'state.ready':             { es: 'listo',                        en: 'ready' },

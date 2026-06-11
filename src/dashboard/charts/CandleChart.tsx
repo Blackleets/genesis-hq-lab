@@ -192,6 +192,7 @@ export default function CandleChart({
   const [showTradeLabels, setShowTradeLabels] = useState(true);
   const [overlayEvents, setOverlayEvents] = useState<OverlayEvent[]>([]);
   const [viewportVersion, setViewportVersion] = useState(0);
+  const [overlayBounds, setOverlayBounds] = useState({ width: 0, height: 0 });
 
   // Co-pilot pre-trade state
   const [copilotSide, setCopilotSide]         = useState<'LONG' | 'SHORT' | null>(null);
@@ -275,13 +276,23 @@ export default function CandleChart({
 
     // Responsive width + height — chart fills its container cell
     const ro = new ResizeObserver(() => {
-      if (wrapRef.current) chart.applyOptions({
-        width:  wrapRef.current.clientWidth,
-        height: wrapRef.current.clientHeight || 380,
-      });
+      if (wrapRef.current) {
+        chart.applyOptions({
+          width:  wrapRef.current.clientWidth,
+          height: wrapRef.current.clientHeight || 380,
+        });
+        setOverlayBounds({
+          width: wrapRef.current.clientWidth,
+          height: wrapRef.current.clientHeight || 380,
+        });
+      }
       bumpViewport();
     });
     ro.observe(wrapRef.current);
+    setOverlayBounds({
+      width: wrapRef.current.clientWidth,
+      height: wrapRef.current.clientHeight || 380,
+    });
 
     return () => {
       ro.disconnect();
@@ -631,9 +642,15 @@ export default function CandleChart({
         <div className="pointer-events-none absolute inset-0 z-[3] overflow-hidden">
           {overlayEvents.map((event, index) => {
             const isEntry = event.kind === 'ENTRY';
-            const laneOffset = (index % 3) * 18;
-            const top = Math.max(10, Math.min((event.y ?? 0) + (isEntry ? 14 + laneOffset : -58 - laneOffset), 9999));
-            const left = Math.max(10, Math.min((event.x ?? 0) - 24, 9999));
+            const laneOffset = (index % 3) * 16;
+            const badgeWidth = overlayBounds.width < 640 ? 144 : 188;
+            const badgeHeight = 36;
+            const rawTop = (event.y ?? 0) + (isEntry ? 14 + laneOffset : -52 - laneOffset);
+            const rawLeft = (event.x ?? 0) - 22;
+            const maxLeft = Math.max(10, overlayBounds.width - badgeWidth - 10);
+            const maxTop = Math.max(10, overlayBounds.height - badgeHeight - 10);
+            const top = Math.max(10, Math.min(rawTop, maxTop));
+            const left = Math.max(10, Math.min(rawLeft, maxLeft));
             return (
               <button
                 key={event.key}
@@ -643,7 +660,7 @@ export default function CandleChart({
                 style={{
                   top,
                   left,
-                  maxWidth: 188,
+                  maxWidth: badgeWidth,
                   background: event.selected ? 'rgba(9,12,18,0.96)' : 'rgba(9,12,18,0.84)',
                   borderColor: `${event.accent}${event.selected ? 'cc' : '66'}`,
                 }}

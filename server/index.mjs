@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 const __dir = dirname(fileURLToPath(import.meta.url));
 import { WebSocketServer } from 'ws';
 import { fetchPolymarketEventsSnapshot, fetchPolymarketHealth } from './polymarket.mjs';
+import { handlePredictionMarketsRoute } from './predictionMarkets/index.mjs';
 import { generateClaudePlan } from './claudePlanner.mjs';
 import { getSnapshot, getCapital, getTrades, getLessons, getAgentStats, addHumanOrder } from './memoryStore.mjs';
 import { getDashboardMetrics, computeEdgeScorecard } from './trading/analytics.mjs';
@@ -152,7 +153,12 @@ function applyCors(res) {
 
 function sendJson(res, status, payload) {
   applyCors(res);
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store, no-cache, must-revalidate',
+    Pragma: 'no-cache',
+    Expires: '0',
+  });
   res.end(JSON.stringify(payload));
 }
 
@@ -1634,6 +1640,14 @@ const server = createServer(async (req, res) => {
   if (url.pathname === '/api/kalshi/status') {
     sendJson(res, 200, getKalshiStatus());
     return;
+  }
+
+  // ── Prediction Markets module routes (/api/prediction-markets/*) ─────────────
+  if (url.pathname.startsWith('/api/prediction-markets')) {
+    const handled = await handlePredictionMarketsRoute(req, res, url, {
+      apiSecret: process.env.API_SECRET?.trim() || null,
+    });
+    if (handled) return;
   }
 
   if (url.pathname === '/api/polymarket/health') {

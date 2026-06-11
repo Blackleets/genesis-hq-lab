@@ -55,6 +55,8 @@ function saveTrade(t) {
 }
 
 function deleteTrade(id) {
+  db.prepare(`DELETE FROM trade_outcomes WHERE trade_id = ?`).run(id);
+  db.prepare(`DELETE FROM lessons WHERE trade_id = ?`).run(id);
   db.prepare(`DELETE FROM trades WHERE id = ?`).run(id);
 }
 

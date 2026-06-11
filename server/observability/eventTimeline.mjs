@@ -20,6 +20,7 @@ export const CATEGORY = {
   SYSTEM:     'SYSTEM',
   EXECUTION:  'EXECUTION',  // Phase 6A engine execution events
   SCAN:       'SCAN',       // Phase 6A market scanning events
+  PREDICTION: 'PREDICTION', // Prediction Markets module
 };
 
 export const SEVERITY = {

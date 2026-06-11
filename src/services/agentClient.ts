@@ -1,11 +1,11 @@
 // agentClient — fetches live agent runner data from the backend.
 // All endpoints are read-only. Errors return null so UI degrades gracefully.
 
-import { apiUrl } from '@services/apiBase';
+import { apiUrl, fetchApi } from '@services/apiBase';
 
 async function get<T>(path: string): Promise<T | null> {
   try {
-    const res = await fetch(apiUrl(path), {
+    const res = await fetchApi(path, {
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
