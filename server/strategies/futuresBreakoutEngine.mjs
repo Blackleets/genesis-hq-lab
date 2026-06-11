@@ -61,6 +61,11 @@ function getFuturesBreakoutRuntimeConfig() {
   const breakoutPeriod = envInt('FUTURES_BREAKOUT_PERIOD', 55, overrides);
   const defaultLeverage = envNumber('FUTURES_BREAKOUT_LEVERAGE', 3, overrides);
   const timeoutHours = envInt('FUTURES_BREAKOUT_TIMEOUT_H', 240, overrides);
+  // Family master switches: SHORT_ENABLED / LONG_ENABLED gate EVERY profile on
+  // that side. Per-profile flags (micro/alt) are sub-switches ANDed with the
+  // master, so an operator who disables shorts disables ALL short profiles.
+  const shortMaster = envBool('FUTURES_BREAKOUT_SHORT_ENABLED', true, overrides);
+  const longMaster = envBool('FUTURES_BREAKOUT_LONG_ENABLED', true, overrides);
 
   return {
     days: envInt('FUTURES_BREAKOUT_DAYS', 90, overrides),
@@ -77,7 +82,7 @@ function getFuturesBreakoutRuntimeConfig() {
     profiles: [
       {
         id: 'short_micro',
-        enabled: envBool('FUTURES_BREAKOUT_SHORT_MICRO_ENABLED', false, overrides),
+        enabled: shortMaster && envBool('FUTURES_BREAKOUT_SHORT_MICRO_ENABLED', false, overrides),
         agentId: 'futures-breakout-short-0',
         tradeType: 'crypto_futures_breakout_short_micro',
         pairs: envPairs('FUTURES_BREAKOUT_SHORT_MICRO_PAIRS', 'BTCUSDT,ETHUSDT'),
@@ -94,7 +99,7 @@ function getFuturesBreakoutRuntimeConfig() {
       },
       {
         id: 'short_core',
-        enabled: envBool('FUTURES_BREAKOUT_SHORT_ENABLED', true, overrides),
+        enabled: shortMaster,
         agentId: 'futures-breakout-short-1',
         tradeType: 'crypto_futures_breakout_short',
         pairs: envPairs('FUTURES_BREAKOUT_SHORT_PAIRS', 'BTCUSDT,ETHUSDT,SOLUSDT'),
@@ -111,7 +116,7 @@ function getFuturesBreakoutRuntimeConfig() {
       },
       {
         id: 'short_alt',
-        enabled: envBool('FUTURES_BREAKOUT_SHORT_ALT_ENABLED', true, overrides),
+        enabled: shortMaster && envBool('FUTURES_BREAKOUT_SHORT_ALT_ENABLED', true, overrides),
         agentId: 'futures-breakout-short-2',
         tradeType: 'crypto_futures_breakout_short_alt',
         pairs: envPairs('FUTURES_BREAKOUT_SHORT_ALT_PAIRS', 'XRPUSDT,DOGEUSDT'),
@@ -128,7 +133,7 @@ function getFuturesBreakoutRuntimeConfig() {
       },
       {
         id: 'long_probe',
-        enabled: envBool('FUTURES_BREAKOUT_LONG_ENABLED', true, overrides),
+        enabled: longMaster,
         agentId: 'futures-breakout-long-1',
         tradeType: 'crypto_futures_breakout_long',
         pairs: envPairs('FUTURES_BREAKOUT_LONG_PAIRS', 'BTCUSDT,ETHUSDT'),

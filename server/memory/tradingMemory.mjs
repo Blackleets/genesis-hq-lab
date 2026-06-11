@@ -92,7 +92,7 @@ export function closeTrade(tradeId, resolvedOutcome, { settleCapital = false } =
           bucket_liquid + ?,
           'Trade settled PnL: ' || printf('%.2f', ?),
           datetime('now')
-        FROM capital_history ORDER BY recorded_at DESC LIMIT 1
+        FROM capital_history ORDER BY rowid DESC LIMIT 1
       `).run(
         pnl, returned, trade.capital_used,
         pnl > 0 ? pnl * REINVESTMENT.reserve : 0,
