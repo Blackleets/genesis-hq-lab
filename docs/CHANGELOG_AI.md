@@ -978,3 +978,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Replaced the degraded GitHub/Postgres runner path with a Supabase Edge runner. `genesis-runner` scans real Binance futures candles, closes paper futures positions on TP/SL/timeout, opens only qualifying paper breakout setups, writes cycle history, and refreshes the durable runner heartbeat that production reads.
 - Files touched: `supabase/functions/genesis-runner/index.ts`, `supabase/functions/genesis-runner/deno.json`, `.github/workflows/futures-hosted-runner.yml`, `docs/CHANGELOG_AI.md`
 - Verification: `npx -y deno@latest check --config supabase/functions/genesis-runner/deno.json supabase/functions/genesis-runner/index.ts` ok; Supabase Edge Function `genesis-runner` deployed version 1; live call returned `mode=executed`, `scanned=10`, `executed=0`, `closed=0`; GitHub Actions run `27361375836` completed successfully via `Run Supabase hosted futures tick`; Vercel `/api/system/health` reports `agentAlive=true`, `totalCycles=2`
+
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Installed the internal Genesis Maintainer Orchestrator protocol as a repo skill and documentation set. The protocol defines task classification, evidence gates, live proof expectations, permission boundaries, money-module guardrails, and required fix reporting.
+- Files touched: `.skills/maintainer-orchestrator/SKILL.md`, `docs/GENESIS_MAINTAINER_PROTOCOL.md`, `docs/GENESIS_FIX_REPORT_TEMPLATE.md`, `docs/GENESIS_LIVE_PROOF_CHECKLIST.md`, `README.md`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run build` ok
