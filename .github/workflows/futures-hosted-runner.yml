@@ -26,11 +26,6 @@ jobs:
       SWING_ENGINE_ENABLED: 'false'
       EVENT_ALPHA_ENABLED: 'false'
       BREAKOUT_ENGINE_ENABLED: 'false'
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      KALSHI_API_KEY: ${{ secrets.KALSHI_API_KEY }}
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -42,5 +37,23 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      - name: Verify hosted runner env
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+        run: |
+          if [ -n "${DATABASE_URL:-}" ] || [ -n "${POSTGRES_URL:-}" ]; then
+            echo "db_url_present=true"
+          else
+            echo "::error::DATABASE_URL and POSTGRES_URL are both missing for Hosted Futures Runner"
+            exit 1
+          fi
+
       - name: Run real futures tick
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          KALSHI_API_KEY: ${{ secrets.KALSHI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: node --env-file-if-exists=.env scripts/runHostedFuturesTick.mjs

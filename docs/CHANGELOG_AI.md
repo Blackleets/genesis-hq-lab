@@ -950,3 +950,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Added a safe hosted futures runner path without touching trading logic. The repo now includes a one-shot hosted tick wrapper that restores from Supabase, runs the real futures slow-cycle, replicates back, and writes a durable heartbeat into `org_state`. A GitHub Actions schedule can execute that tick every 5 minutes, and the Vercel/Supabase fallback now reads the durable heartbeat so production can show the runner as live when hosted ticks are landing.
 - Files touched: `server/trading/hostedRunnerHeartbeat.mjs`, `scripts/runHostedFuturesTick.mjs`, `.github/workflows/futures-hosted-runner.yml`, `api/_lib/cryptoFallback.js`, `supabase/functions/genesis-fallback/index.ts`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/trading/hostedRunnerHeartbeat.mjs` ok; `node --check scripts/runHostedFuturesTick.mjs` ok; `node --check api/_lib/cryptoFallback.js` ok; `node scripts/runHostedFuturesTick.mjs` skips cleanly without `DATABASE_URL`; `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Hardened the hosted futures workflow without changing execution semantics. The workflow now validates that a database URL is actually injected before the tick starts and passes the secrets at step scope, which makes the failure mode explicit instead of silently reporting the runner as inactive.
+- Files touched: `.github/workflows/futures-hosted-runner.yml`, `docs/CHANGELOG_AI.md`
+- Verification: manual GitHub Actions rerun still reports both database env vars missing inside the job; no trading-engine files changed
