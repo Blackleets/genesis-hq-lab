@@ -12,9 +12,11 @@ export type OfficeAgentRoleName =
   | 'portfolio_monitor';
 
 /**
- * Visual states. `warning` and `executing` are rendered but never
- * self-triggered in Phase 2 — they are reserved for real system events
- * (Phase 3) so the office never fakes trading activity.
+ * Visual states. `warning` and `executing` are never self-triggered by the
+ * wander loop — they are driven exclusively by real system events through
+ * officeLiveEvents (Phase 3): a real autopsy severity puts Risk in alert,
+ * and a real open-positions change makes Execution visibly execute. The
+ * office never fakes trading activity.
  */
 export type AgentState =
   | 'idle'
