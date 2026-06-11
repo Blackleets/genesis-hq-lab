@@ -957,3 +957,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Hardened the hosted futures workflow without changing execution semantics. The workflow now validates that a database URL is actually injected before the tick starts and passes the secrets at step scope, which makes the failure mode explicit instead of silently reporting the runner as inactive.
 - Files touched: `.github/workflows/futures-hosted-runner.yml`, `docs/CHANGELOG_AI.md`
 - Verification: manual GitHub Actions rerun still reports both database env vars missing inside the job; no trading-engine files changed
+
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Bound the hosted futures workflow to the existing GitHub `Production` environment and copied the production Postgres URL into environment-scoped secrets. This keeps the runner wiring isolated to deployment infra and avoids touching the futures engine itself.
+- Files touched: `.github/workflows/futures-hosted-runner.yml`, `docs/CHANGELOG_AI.md`
+- Verification: environment secrets created for `Production`; pending rerun validation of the hosted workflow against those environment-scoped secrets
