@@ -137,23 +137,25 @@ print(json.dumps(result))
 }
 
 // ── LLM fallback — used when Python Foundry is unavailable (e.g. Render) ──
-// Prefers Gemini Flash (free tier) when GEMINI_API_KEY is set; falls back to Claude.
+// Priority: Groq (free, fast) → Gemini (free) → Claude (paid)
 
 async function runLlmSupervisorMission(mission) {
+  const useGroq   = isProviderConfigured('groq');
   const useGemini = isProviderConfigured('gemini');
   const useClaude = isProviderConfigured('claude');
 
-  if (!useGemini && !useClaude) {
+  if (!useGroq && !useGemini && !useClaude) {
     return {
       ok: false,
       providerStatus: 'unavailable',
-      error: 'No LLM API key configured (set GEMINI_API_KEY or ANTHROPIC_API_KEY)',
+      error: 'No LLM API key configured (set GROQ_API_KEY, GEMINI_API_KEY, or ANTHROPIC_API_KEY)',
       source: 'none',
     };
   }
 
-  const provider  = useGemini ? 'gemini' : 'claude';
-  const modelId   = useGemini ? 'gemini-2.0-flash' : 'claude-haiku-4-5-20251001';
+  // Priority: Groq (free, fast) → Gemini (free) → Claude (paid)
+  const provider  = useGroq ? 'groq' : useGemini ? 'gemini' : 'claude';
+  const modelId   = useGroq ? 'llama-3.3-70b-versatile' : useGemini ? 'gemini-2.0-flash' : 'claude-haiku-4-5-20251001';
   const summary   = summarizeMissionForProvider(mission);
 
   const systemPrompt = `You are the intelligence supervisor for a crypto futures paper-trading desk.
@@ -189,18 +191,25 @@ Respond with JSON matching this schema exactly:
     const result = JSON.parse(llmResult.content);
     return { ok: true, providerStatus: 'ok', source: provider, result };
   } catch (err) {
-    // If primary failed and we were using Gemini, try Claude as last resort
-    if (useGemini && useClaude) {
+    // Cascade through remaining providers on failure
+    const fallbackChain = [
+      useGroq   && provider !== 'groq'   && { provider: 'groq',   modelId: 'llama-3.3-70b-versatile' },
+      useGemini && provider !== 'gemini' && { provider: 'gemini', modelId: 'gemini-2.0-flash' },
+      useClaude && provider !== 'claude' && { provider: 'claude', modelId: 'claude-haiku-4-5-20251001' },
+    ].filter(Boolean);
+
+    for (const fb of fallbackChain) {
       try {
         const fallback = await routeToProvider(
           [{ role: 'user', content: userMsg }],
           systemPrompt,
-          { provider: 'claude', modelId: 'claude-haiku-4-5-20251001', maxTokens: 600, timeoutMs: 30000 },
+          { provider: fb.provider, modelId: fb.modelId, maxTokens: 600, timeoutMs: 30000 },
         );
         const result = JSON.parse(fallback.content);
-        return { ok: true, providerStatus: 'ok', source: 'claude', result };
-      } catch { /* fall through */ }
+        return { ok: true, providerStatus: 'ok', source: fb.provider, result };
+      } catch { /* try next */ }
     }
+
     return {
       ok: false,
       providerStatus: 'failed',

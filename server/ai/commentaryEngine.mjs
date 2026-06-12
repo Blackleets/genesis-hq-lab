@@ -165,13 +165,14 @@ export function deterministicSummary() {
   }
 }
 
-// ── LLM desk summary — prefers Gemini Flash (free), falls back to Claude ──────
+// ── LLM desk summary — prefers Groq (free+fast), then Gemini, then Claude ──────
 
 async function regenerateSummaryAsync() {
   if (_summaryInFlight) return;
+  const hasGroq   = isProviderConfigured('groq');
   const hasGemini = isProviderConfigured('gemini');
   const hasClaude = isProviderConfigured('claude');
-  if (!hasGemini && !hasClaude) {
+  if (!hasGroq && !hasGemini && !hasClaude) {
     _summaryCache = { text: deterministicSummary(), ts: Date.now(), source: 'deterministic' };
     return;
   }
@@ -184,8 +185,9 @@ async function regenerateSummaryAsync() {
     } catch { /* non-fatal */ }
 
     const system = `You are Genesis HQ's trading desk. Write ONE factual desk-update sentence (max 140 chars) summarizing current posture. Quant-desk tone: numbers over adjectives, no hype, no emojis, no exclamation marks. Plain text only.`;
-    const provider = hasGemini ? 'gemini' : 'claude';
-    const modelId  = hasGemini ? 'gemini-2.0-flash' : 'claude-haiku-4-5-20251001';
+    // Priority: Groq (free, fast) → Gemini (free) → Claude (paid)
+    const provider = hasGroq ? 'groq' : hasGemini ? 'gemini' : 'claude';
+    const modelId  = hasGroq ? 'gemma2-9b-it' : hasGemini ? 'gemini-2.0-flash' : 'claude-haiku-4-5-20251001';
     const llmResult = await routeToProvider(
       [{ role: 'user', content: `State:\n${intelLine}\n\nWrite the desk update.` }],
       system,
