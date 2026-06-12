@@ -3,8 +3,8 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { summarizeMissionForProvider } from './missionBuilder.mjs';
+import { routeToProvider, isProviderConfigured } from '../agents/providerRouter.mjs';
 
-const CLAUDE_API = 'https://api.anthropic.com/v1/messages';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function getTimeoutMs() {
@@ -136,20 +136,26 @@ print(json.dumps(result))
   });
 }
 
-// ── Claude fallback — used when Python Foundry is unavailable (e.g. Render) ──
+// ── LLM fallback — used when Python Foundry is unavailable (e.g. Render) ──
+// Prefers Gemini Flash (free tier) when GEMINI_API_KEY is set; falls back to Claude.
 
-async function runClaudeSupervisorMission(mission) {
-  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
-  if (!apiKey) {
+async function runLlmSupervisorMission(mission) {
+  const useGemini = isProviderConfigured('gemini');
+  const useClaude = isProviderConfigured('claude');
+
+  if (!useGemini && !useClaude) {
     return {
       ok: false,
       providerStatus: 'unavailable',
-      error: 'ANTHROPIC_API_KEY not set — Claude supervisor fallback unavailable',
-      source: 'claude',
+      error: 'No LLM API key configured (set GEMINI_API_KEY or ANTHROPIC_API_KEY)',
+      source: 'none',
     };
   }
 
-  const summary = summarizeMissionForProvider(mission);
+  const provider  = useGemini ? 'gemini' : 'claude';
+  const modelId   = useGemini ? 'gemini-2.0-flash' : 'claude-haiku-4-5-20251001';
+  const summary   = summarizeMissionForProvider(mission);
+
   const systemPrompt = `You are the intelligence supervisor for a crypto futures paper-trading desk.
 Analyze the performance data and produce a concise advisory in JSON.
 Rules: paper-only, advisory-only, never suggest turning off risk gates, never invent metrics.
@@ -158,12 +164,12 @@ Respond ONLY with valid JSON — no markdown, no prose outside JSON.`;
   const userMsg = `Futures desk data:
 ${JSON.stringify(summary.context, null, 2)}
 
-Respond with JSON matching this schema:
+Respond with JSON matching this schema exactly:
 {
   "best_candidate": {
-    "candidate_id": "claude-<short-id>",
+    "candidate_id": "llm-advisory",
     "prompt": "<1-3 sentence advisory for the desk operator>",
-    "style": "claude-advisory"
+    "style": "${provider}-advisory"
   },
   "best_evaluation": {
     "total_score": <0.0-1.0 based on data quality and edge clarity>,
@@ -171,37 +177,35 @@ Respond with JSON matching this schema:
     "result_summary": "<one sentence summary>"
   },
   "justification": "<why these recommendations>",
-  "source": "claude"
+  "source": "${provider}"
 }`;
 
   try {
-    const res = await fetch(CLAUDE_API, {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 600,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userMsg }],
-      }),
-      signal: AbortSignal.timeout(30000),
-    });
-
-    if (!res.ok) throw new Error(`Claude API ${res.status}`);
-    const data = await res.json();
-    const raw = data.content?.[0]?.text ?? '';
-    const result = JSON.parse(raw);
-    return { ok: true, providerStatus: 'ok', source: 'claude', result };
+    const llmResult = await routeToProvider(
+      [{ role: 'user', content: userMsg }],
+      systemPrompt,
+      { provider, modelId, maxTokens: 600, timeoutMs: 30000 },
+    );
+    const result = JSON.parse(llmResult.content);
+    return { ok: true, providerStatus: 'ok', source: provider, result };
   } catch (err) {
+    // If primary failed and we were using Gemini, try Claude as last resort
+    if (useGemini && useClaude) {
+      try {
+        const fallback = await routeToProvider(
+          [{ role: 'user', content: userMsg }],
+          systemPrompt,
+          { provider: 'claude', modelId: 'claude-haiku-4-5-20251001', maxTokens: 600, timeoutMs: 30000 },
+        );
+        const result = JSON.parse(fallback.content);
+        return { ok: true, providerStatus: 'ok', source: 'claude', result };
+      } catch { /* fall through */ }
+    }
     return {
       ok: false,
       providerStatus: 'failed',
       error: err instanceof Error ? err.message : String(err),
-      source: 'claude',
+      source: provider,
     };
   }
 }
@@ -209,8 +213,8 @@ Respond with JSON matching this schema:
 export async function runFoundrySupervisorMission(mission) {
   const target = resolveFoundryTarget();
   if (!target) {
-    // Python Foundry not available — fall back to Claude
-    return runClaudeSupervisorMission(mission);
+    // Python Foundry not available — fall back to LLM (Gemini preferred, then Claude)
+    return runLlmSupervisorMission(mission);
   }
 
   try {
@@ -222,8 +226,8 @@ export async function runFoundrySupervisorMission(mission) {
       result,
     };
   } catch (error) {
-    // Python ran but failed — also try Claude
-    console.warn('[policyFoundryAdapter] Python Foundry failed, trying Claude fallback:', error?.message);
-    return runClaudeSupervisorMission(mission);
+    // Python ran but failed — fall back to LLM
+    console.warn('[policyFoundryAdapter] Python Foundry failed, trying LLM fallback:', error?.message);
+    return runLlmSupervisorMission(mission);
   }
 }
