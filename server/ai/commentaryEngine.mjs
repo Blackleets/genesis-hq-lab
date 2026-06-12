@@ -12,8 +12,8 @@
 
 import { getCryptoFeedEvents, getMarketIntelligence } from '../crypto/marketIntelligence.mjs';
 import { getConfidenceDiagnostics } from '../intelligence/confidenceEngine.mjs';
+import { routeToProvider, isProviderConfigured } from '../agents/providerRouter.mjs';
 
-const CLAUDE_API     = 'https://api.anthropic.com/v1/messages';
 const SUMMARY_TTL_MS = 5 * 60 * 1000;
 
 // Per-type minimum interval between emitted lines (ms). 0 = no floor.
@@ -165,12 +165,14 @@ export function deterministicSummary() {
   }
 }
 
-// ── Claude desk summary (fire-and-forget) ─────────────────────────────────────
+// ── LLM desk summary — prefers Groq (free+fast), then Gemini, then Claude ──────
 
 async function regenerateSummaryAsync() {
   if (_summaryInFlight) return;
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
+  const hasGroq   = isProviderConfigured('groq');
+  const hasGemini = isProviderConfigured('gemini');
+  const hasClaude = isProviderConfigured('claude');
+  if (!hasGroq && !hasGemini && !hasClaude) {
     _summaryCache = { text: deterministicSummary(), ts: Date.now(), source: 'deterministic' };
     return;
   }
@@ -183,20 +185,15 @@ async function regenerateSummaryAsync() {
     } catch { /* non-fatal */ }
 
     const system = `You are Genesis HQ's trading desk. Write ONE factual desk-update sentence (max 140 chars) summarizing current posture. Quant-desk tone: numbers over adjectives, no hype, no emojis, no exclamation marks. Plain text only.`;
-    const res = await fetch(CLAUDE_API, {
-      method: 'POST',
-      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 80,
-        system,
-        messages: [{ role: 'user', content: `State:\n${intelLine}\n\nWrite the desk update.` }],
-      }),
-      signal: AbortSignal.timeout(15000),
-    });
-    if (!res.ok) throw new Error(`Claude ${res.status}`);
-    const data = await res.json();
-    const text = (data.content?.[0]?.text ?? '').replace(/\s+/g, ' ').trim().slice(0, 160);
+    // Priority: Groq (free, fast) → Gemini (free) → Claude (paid)
+    const provider = hasGroq ? 'groq' : hasGemini ? 'gemini' : 'claude';
+    const modelId  = hasGroq ? 'gemma2-9b-it' : hasGemini ? 'gemini-2.0-flash' : 'claude-haiku-4-5-20251001';
+    const llmResult = await routeToProvider(
+      [{ role: 'user', content: `State:\n${intelLine}\n\nWrite the desk update.` }],
+      system,
+      { provider, modelId, maxTokens: 80, timeoutMs: 15000 },
+    );
+    const text = (llmResult.content ?? '').replace(/\s+/g, ' ').trim().slice(0, 160);
     _summaryCache = text
       ? { text, ts: Date.now(), source: 'llm' }
       : { text: deterministicSummary(), ts: Date.now(), source: 'deterministic' };

@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { summarizeMissionForProvider } from './missionBuilder.mjs';
+import { routeToProvider, isProviderConfigured } from '../agents/providerRouter.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -135,15 +136,94 @@ print(json.dumps(result))
   });
 }
 
-export async function runFoundrySupervisorMission(mission) {
-  const target = resolveFoundryTarget();
-  if (!target) {
+// ── LLM fallback — used when Python Foundry is unavailable (e.g. Render) ──
+// Priority: Groq (free, fast) → Gemini (free) → Claude (paid)
+
+async function runLlmSupervisorMission(mission) {
+  const useGroq   = isProviderConfigured('groq');
+  const useGemini = isProviderConfigured('gemini');
+  const useClaude = isProviderConfigured('claude');
+
+  if (!useGroq && !useGemini && !useClaude) {
     return {
       ok: false,
       providerStatus: 'unavailable',
-      error: 'Foundry source not configured or vendored source missing',
-      source: 'foundry',
+      error: 'No LLM API key configured (set GROQ_API_KEY, GEMINI_API_KEY, or ANTHROPIC_API_KEY)',
+      source: 'none',
     };
+  }
+
+  // Priority: Groq (free, fast) → Gemini (free) → Claude (paid)
+  const provider  = useGroq ? 'groq' : useGemini ? 'gemini' : 'claude';
+  const modelId   = useGroq ? 'llama-3.3-70b-versatile' : useGemini ? 'gemini-2.0-flash' : 'claude-haiku-4-5-20251001';
+  const summary   = summarizeMissionForProvider(mission);
+
+  const systemPrompt = `You are the intelligence supervisor for a crypto futures paper-trading desk.
+Analyze the performance data and produce a concise advisory in JSON.
+Rules: paper-only, advisory-only, never suggest turning off risk gates, never invent metrics.
+Respond ONLY with valid JSON — no markdown, no prose outside JSON.`;
+
+  const userMsg = `Futures desk data:
+${JSON.stringify(summary.context, null, 2)}
+
+Respond with JSON matching this schema exactly:
+{
+  "best_candidate": {
+    "candidate_id": "llm-advisory",
+    "prompt": "<1-3 sentence advisory for the desk operator>",
+    "style": "${provider}-advisory"
+  },
+  "best_evaluation": {
+    "total_score": <0.0-1.0 based on data quality and edge clarity>,
+    "critique": ["<observation 1>", "<observation 2>"],
+    "result_summary": "<one sentence summary>"
+  },
+  "justification": "<why these recommendations>",
+  "source": "${provider}"
+}`;
+
+  try {
+    const llmResult = await routeToProvider(
+      [{ role: 'user', content: userMsg }],
+      systemPrompt,
+      { provider, modelId, maxTokens: 600, timeoutMs: 30000 },
+    );
+    const result = JSON.parse(llmResult.content);
+    return { ok: true, providerStatus: 'ok', source: provider, result };
+  } catch (err) {
+    // Cascade through remaining providers on failure
+    const fallbackChain = [
+      useGroq   && provider !== 'groq'   && { provider: 'groq',   modelId: 'llama-3.3-70b-versatile' },
+      useGemini && provider !== 'gemini' && { provider: 'gemini', modelId: 'gemini-2.0-flash' },
+      useClaude && provider !== 'claude' && { provider: 'claude', modelId: 'claude-haiku-4-5-20251001' },
+    ].filter(Boolean);
+
+    for (const fb of fallbackChain) {
+      try {
+        const fallback = await routeToProvider(
+          [{ role: 'user', content: userMsg }],
+          systemPrompt,
+          { provider: fb.provider, modelId: fb.modelId, maxTokens: 600, timeoutMs: 30000 },
+        );
+        const result = JSON.parse(fallback.content);
+        return { ok: true, providerStatus: 'ok', source: fb.provider, result };
+      } catch { /* try next */ }
+    }
+
+    return {
+      ok: false,
+      providerStatus: 'failed',
+      error: err instanceof Error ? err.message : String(err),
+      source: provider,
+    };
+  }
+}
+
+export async function runFoundrySupervisorMission(mission) {
+  const target = resolveFoundryTarget();
+  if (!target) {
+    // Python Foundry not available — fall back to LLM (Gemini preferred, then Claude)
+    return runLlmSupervisorMission(mission);
   }
 
   try {
@@ -155,11 +235,8 @@ export async function runFoundrySupervisorMission(mission) {
       result,
     };
   } catch (error) {
-    return {
-      ok: false,
-      providerStatus: 'failed',
-      error: error instanceof Error ? error.message : String(error),
-      source: 'foundry',
-    };
+    // Python ran but failed — fall back to LLM
+    console.warn('[policyFoundryAdapter] Python Foundry failed, trying LLM fallback:', error?.message);
+    return runLlmSupervisorMission(mission);
   }
 }
