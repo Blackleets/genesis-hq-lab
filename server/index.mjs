@@ -7,6 +7,10 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 import { WebSocketServer } from 'ws';
 import { fetchPolymarketEventsSnapshot, fetchPolymarketHealth } from './polymarket.mjs';
 import { handlePredictionMarketsRoute } from './predictionMarkets/index.mjs';
+import {
+  getStrategyRegistry, runSystemValidation,
+  computeAllocation, getQuantState, generateQuantReport,
+} from './quant/index.mjs';
 import { generateClaudePlan } from './claudePlanner.mjs';
 import { getSnapshot, getCapital, getTrades, getLessons, getAgentStats, addHumanOrder } from './memoryStore.mjs';
 import { getDashboardMetrics, computeEdgeScorecard } from './trading/analytics.mjs';
@@ -1639,6 +1643,53 @@ const server = createServer(async (req, res) => {
 
   if (url.pathname === '/api/kalshi/status') {
     sendJson(res, 200, getKalshiStatus());
+    return;
+  }
+
+  // ── Quant Lab routes (/api/quant/*) ──────────────────────────────────────────
+  if (url.pathname === '/api/quant/status') {
+    try {
+      const state = getQuantState();
+      sendJson(res, 200, { ok: true, ...state.edgeVerdict, updatedAt: state.updatedAt, errors: state.errors });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/quant/strategies') {
+    try {
+      sendJson(res, 200, { ok: true, ...getStrategyRegistry() });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/quant/validation') {
+    try {
+      sendJson(res, 200, { ok: true, ...runSystemValidation() });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/quant/allocation') {
+    try {
+      sendJson(res, 200, { ok: true, ...computeAllocation() });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/quant/report') {
+    try {
+      sendJson(res, 200, { ok: true, ...generateQuantReport() });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
     return;
   }
 

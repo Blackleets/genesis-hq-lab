@@ -1,5 +1,21 @@
 # CHANGELOG_AI
 
+## 2026-06-11 - Claude (Quant Lab UI + Docs — FASE 8–9)
+
+- Branch: `claude/genesis-prediction-markets-5qmflo`
+- Summary: FASE 8 — Added `QuantReadinessPanel.tsx` as a new QUANT tab in `RightPanel`. Shows edge verdict banner, blockers with codes, allocation summary, strategy table with status badges, and dataMode. No fake data. Created `src/services/quantClient.ts` with typed fetch wrappers. FASE 9 — Added three architecture docs: GENESIS_QUANT_LAB_ARCHITECTURE.md, GENESIS_QUANT_VALIDATION_RULES.md, GENESIS_QUANT_ROADMAP.md.
+- Files created: `src/components/crypto/QuantReadinessPanel.tsx`, `src/services/quantClient.ts`, `docs/GENESIS_QUANT_LAB_ARCHITECTURE.md`, `docs/GENESIS_QUANT_VALIDATION_RULES.md`, `docs/GENESIS_QUANT_ROADMAP.md`
+- Files modified: `src/components/crypto/RightPanel.tsx`
+- Verification: `npm run typecheck` clean, `npm run build` ok
+
+## 2026-06-11 - Claude (Quant Lab Core — FASE 2–7)
+
+- Branch: `claude/genesis-prediction-markets-5qmflo`
+- Summary: Built the Quant Lab core pipeline answering "do we have validated edge, yes or no?". Created `server/quant/` with 5 modules: Strategy Registry (unified catalog, 7 strategies, PROMOTION_CRITERIA), Validation Gate (pure `validateStrategyProfile` + DB-backed `runSystemValidation`), Portfolio Allocation Engine (capital sizing with safe-mode and daily-loss-cap blocks), Quant State aggregator, and Quant Report generator. Added 5 GET endpoints to `server/index.mjs` (`/api/quant/status|strategies|validation|allocation|report`). Wrote 58 unit+integration tests across 4 test files. Fixed duplicate export in `strategyRegistry.mjs`.
+- Files created: `server/quant/alpha/strategyRegistry.mjs`, `server/quant/validation/validationGate.mjs`, `server/quant/portfolio/allocationEngine.mjs`, `server/quant/quantState.mjs`, `server/quant/quantReport.mjs`, `server/quant/index.mjs`, `server/tests/quantStrategyRegistry.test.mjs`, `server/tests/quantValidationGate.test.mjs`, `server/tests/quantAllocationEngine.test.mjs`, `server/tests/quantReport.test.mjs`
+- Files modified: `server/index.mjs`
+- Verification: `npm run typecheck` clean, `npm test` 988/988 pass, `npm run build` ok
+
 ## 2026-06-11 - Codex
 
 - Branch: `feat/genesis-life-os`
