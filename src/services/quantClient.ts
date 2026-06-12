@@ -33,12 +33,22 @@ export interface QuantAllocationSummary {
 }
 
 export interface QuantMetrics {
-  totalStrategies: number;
-  byStatus:        Record<string, number>;
-  totalTrades?:    number;
-  profitFactor?:   number | null;
-  expectancy?:     number | null;
-  winRate?:        number | null;
+  totalStrategies:  number;
+  byStatus:         Record<string, number>;
+  totalTrades?:     number;
+  profitFactor?:    number | null;
+  expectancy?:      number | null;
+  winRate?:         number | null;
+  maxDrawdown?:     number | null;
+  sharpeProxy?:     number | null;
+  sortinoProxy?:    number | null;
+  rollingPf15?:     number | null;
+  maxLossStreak?:   number | null;
+  wfRobustShort?:   boolean | null;
+  wfRobustCombined?: boolean | null;
+  wfRunAt?:         string | null;
+  promotedCount?:   number;
+  alphaVerdict?:    string | null;
 }
 
 export interface QuantReport {

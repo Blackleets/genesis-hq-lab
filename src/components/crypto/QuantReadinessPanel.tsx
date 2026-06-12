@@ -216,28 +216,33 @@ export function QuantReadinessPanel({ es = true }: { es?: boolean }) {
           {/* Allocation */}
           {report.allocation && <AllocationSummary allocation={report.allocation} />}
 
-          {/* Metrics row */}
-          <div className="flex gap-4 mb-3">
+          {/* Core metrics row */}
+          <div className="flex flex-wrap gap-4 mb-2">
             <div>
-              <div className="font-mono text-[9px] text-zinc-200">
-                {report.metrics.totalStrategies}
-              </div>
+              <div className="font-mono text-[9px] text-zinc-200">{report.metrics.totalStrategies}</div>
               <div className="font-mono text-[8px] text-zinc-600">estrategias</div>
             </div>
             {report.metrics.profitFactor != null && (
               <div>
-                <div className="font-mono text-[9px] text-zinc-200">
-                  {pf(report.metrics.profitFactor)}
-                </div>
+                <div className="font-mono text-[9px] text-zinc-200">{pf(report.metrics.profitFactor)}</div>
                 <div className="font-mono text-[8px] text-zinc-600">PF</div>
               </div>
             )}
             {report.metrics.winRate != null && (
               <div>
-                <div className="font-mono text-[9px] text-zinc-200">
-                  {pct(report.metrics.winRate)}
-                </div>
+                <div className="font-mono text-[9px] text-zinc-200">{pct(report.metrics.winRate)}</div>
                 <div className="font-mono text-[8px] text-zinc-600">WR</div>
+              </div>
+            )}
+            {report.metrics.maxDrawdown != null && (
+              <div>
+                <div
+                  className="font-mono text-[9px]"
+                  style={{ color: report.metrics.maxDrawdown > 0.15 ? '#ef4444' : '#22c55e' }}
+                >
+                  {pct(report.metrics.maxDrawdown)}
+                </div>
+                <div className="font-mono text-[8px] text-zinc-600">DD máx</div>
               </div>
             )}
             <div>
@@ -248,6 +253,60 @@ export function QuantReadinessPanel({ es = true }: { es?: boolean }) {
                 {report.dataMode}
               </div>
               <div className="font-mono text-[8px] text-zinc-600">fuente</div>
+            </div>
+          </div>
+
+          {/* Extended edge metrics */}
+          <div
+            style={{ border: `1px solid ${BORDER}`, borderRadius: 4 }}
+            className="flex flex-wrap gap-x-4 gap-y-1 px-2 py-1.5 mb-3"
+          >
+            {report.metrics.rollingPf15 != null && (
+              <div className="flex items-center gap-1">
+                <span className="font-mono text-[7px] text-zinc-600">PF-15</span>
+                <span
+                  className="font-mono text-[9px]"
+                  style={{ color: report.metrics.rollingPf15 >= 1.0 ? '#22c55e' : '#ef4444' }}
+                >
+                  {pf(report.metrics.rollingPf15)}
+                </span>
+              </div>
+            )}
+            {report.metrics.sortinoProxy != null && (
+              <div className="flex items-center gap-1">
+                <span className="font-mono text-[7px] text-zinc-600">Sortino</span>
+                <span className="font-mono text-[9px] text-zinc-300">{pf(report.metrics.sortinoProxy)}</span>
+              </div>
+            )}
+            {report.metrics.sharpeProxy != null && (
+              <div className="flex items-center gap-1">
+                <span className="font-mono text-[7px] text-zinc-600">Sharpe</span>
+                <span className="font-mono text-[9px] text-zinc-300">{pf(report.metrics.sharpeProxy)}</span>
+              </div>
+            )}
+            {report.metrics.maxLossStreak != null && (
+              <div className="flex items-center gap-1">
+                <span className="font-mono text-[7px] text-zinc-600">Racha</span>
+                <span
+                  className="font-mono text-[9px]"
+                  style={{ color: report.metrics.maxLossStreak >= 8 ? '#ef4444' : '#a1a1aa' }}
+                >
+                  -{report.metrics.maxLossStreak}
+                </span>
+              </div>
+            )}
+            {/* Walk-forward OOS status */}
+            <div className="flex items-center gap-1">
+              <span className="font-mono text-[7px] text-zinc-600">WF-OOS</span>
+              {report.metrics.wfRunAt == null ? (
+                <span className="font-mono text-[8px] text-amber-500">sin datos</span>
+              ) : report.metrics.wfRobustCombined || report.metrics.wfRobustShort ? (
+                <span className="font-mono text-[8px] text-green-400">
+                  {report.metrics.wfRobustCombined ? 'COMBINADO ✓' : 'CORTO ✓'}
+                </span>
+              ) : (
+                <span className="font-mono text-[8px] text-red-400">NO ROBUSTO</span>
+              )}
             </div>
           </div>
 
