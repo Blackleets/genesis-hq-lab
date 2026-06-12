@@ -15,6 +15,7 @@
 // All capital decisions must start here.
 
 import { getFuturesGovernorSnapshot } from '../../crypto/futuresGovernor.mjs';
+import { recordStatusIfChanged, getStatusOverride } from './promotionAudit.mjs';
 
 // ── Promotion thresholds (aligned with alphaValidationEngine.MIN_TRADES_FOR_EDGE) ──
 export const PROMOTION_CRITERIA = Object.freeze({
@@ -185,8 +186,12 @@ export function getStrategyRegistry() {
   }
 
   const strategies = STATIC_STRATEGIES.map((s) => {
-    const status = deriveStatus(s, governorProfiles);
+    const derived = deriveStatus(s, governorProfiles);
+    const override = getStatusOverride(s.strategyId);
+    const status = override ? override.status : derived;
     const gp = s.governorId ? governorProfiles.find((p) => p.id === s.governorId) : null;
+
+    recordStatusIfChanged(s.strategyId, status, gp ?? {});
 
     return {
       strategyId:        s.strategyId,
@@ -199,6 +204,7 @@ export function getStrategyRegistry() {
       enabled:           s.enabled(),
       paperOnly:         s.paperOnly,
       note:              s.note ?? null,
+      overrideStatus:    override ? { status: override.status, reason: override.reason, setBy: override.set_by, setAt: override.set_at } : null,
       promotionCriteria: PROMOTION_CRITERIA,
       // Live data from governor (when available)
       live: gp ? {

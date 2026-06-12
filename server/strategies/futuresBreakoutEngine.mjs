@@ -6,8 +6,8 @@
 //
 // Design:
 //   - each profile is its own "agent" with its own trade_type
-//   - short core is enabled by default
-//   - long probe is opt-in, disabled by default
+//   - short_core, short_micro, short_alt, and long_probe are all enabled by default
+//   - disable any profile via its FUTURES_BREAKOUT_<PROFILE>_ENABLED=false env var
 
 import { fetchKlines } from '../crypto/backtest/historicalData.mjs';
 import db from '../db/database.mjs';
@@ -83,10 +83,10 @@ function getFuturesBreakoutRuntimeConfig() {
     profiles: [
       {
         id: 'short_micro',
-        enabled: shortMaster && envBool('FUTURES_BREAKOUT_SHORT_MICRO_ENABLED', false, overrides),
+        enabled: shortMaster && envBool('FUTURES_BREAKOUT_SHORT_MICRO_ENABLED', true, overrides),
         agentId: 'futures-breakout-short-0',
         tradeType: 'crypto_futures_breakout_short_micro',
-        pairs: envPairs('FUTURES_BREAKOUT_SHORT_MICRO_PAIRS', 'BTCUSDT,ETHUSDT'),
+        pairs: envPairs('FUTURES_BREAKOUT_SHORT_MICRO_PAIRS', 'BTCUSDT,ETHUSDT,SOLUSDT'),
         tier: 'micro',
         interval: '5m',
         signalFn: shortOnlyRegimeSwitchBreakoutSignal,
@@ -120,7 +120,7 @@ function getFuturesBreakoutRuntimeConfig() {
         enabled: shortMaster && envBool('FUTURES_BREAKOUT_SHORT_ALT_ENABLED', true, overrides),
         agentId: 'futures-breakout-short-2',
         tradeType: 'crypto_futures_breakout_short_alt',
-        pairs: envPairs('FUTURES_BREAKOUT_SHORT_ALT_PAIRS', 'XRPUSDT,DOGEUSDT'),
+        pairs: envPairs('FUTURES_BREAKOUT_SHORT_ALT_PAIRS', 'XRPUSDT,DOGEUSDT,SOLUSDT,BNBUSDT'),
         tier: 'alt',
         interval: '15m',
         signalFn: shortOnlyRegimeSwitchBreakoutSignal,
@@ -137,7 +137,7 @@ function getFuturesBreakoutRuntimeConfig() {
         enabled: longMaster,
         agentId: 'futures-breakout-long-1',
         tradeType: 'crypto_futures_breakout_long',
-        pairs: envPairs('FUTURES_BREAKOUT_LONG_PAIRS', 'BTCUSDT,ETHUSDT'),
+        pairs: envPairs('FUTURES_BREAKOUT_LONG_PAIRS', 'BTCUSDT,ETHUSDT,SOLUSDT'),
         tier: 'probe',
         interval: '4h',
         signalFn: longOnlyRegimeSwitchBreakoutSignal,

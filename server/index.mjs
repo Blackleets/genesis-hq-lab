@@ -10,6 +10,9 @@ import { handlePredictionMarketsRoute } from './predictionMarkets/index.mjs';
 import {
   getStrategyRegistry, runSystemValidation,
   computeAllocation, getQuantState, generateQuantReport,
+  getWfCache, isWfCacheStale, executeWalkForward, isWfRunning,
+  startWfScheduler, getWfSchedulerStatus,
+  getTransitionHistory, setStatusOverride, clearStatusOverride, getAllOverrides,
 } from './quant/index.mjs';
 import { generateClaudePlan } from './claudePlanner.mjs';
 import { getSnapshot, getCapital, getTrades, getLessons, getAgentStats, addHumanOrder } from './memoryStore.mjs';
@@ -1693,6 +1696,139 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === '/api/quant/wf/status') {
+    const cache = getWfCache();
+    sendJson(res, 200, {
+      ok: true,
+      running: isWfRunning(),
+      stale: isWfCacheStale(24),
+      cache: cache
+        ? { completedAt: cache.completedAt, startedAt: cache.startedAt, durationMs: cache.durationMs }
+        : null,
+      summary: cache?.summary ?? null,
+      scheduler: getWfSchedulerStatus(),
+    });
+    return;
+  }
+
+  if (url.pathname === '/api/quant/wf/run') {
+    if (isWfRunning()) {
+      sendJson(res, 200, { ok: true, running: true, message: 'Walk-forward already in progress' });
+      return;
+    }
+    // Fire-and-forget — do not await
+    executeWalkForward().catch(err =>
+      console.error('[WF] background run failed:', err.message)
+    );
+    sendJson(res, 202, { ok: true, running: true, message: 'Walk-forward started' });
+    return;
+  }
+
+  if (url.pathname === '/api/quant/diagnostics') {
+    try {
+      // Trade counts
+      const total  = db.prepare(`SELECT COUNT(*) as n FROM trades`).get()?.n ?? 0;
+      const open   = db.prepare(`SELECT COUNT(*) as n FROM trades WHERE status = 'open'`).get()?.n ?? 0;
+      const closed = db.prepare(`SELECT COUNT(*) as n FROM trades WHERE status = 'closed'`).get()?.n ?? 0;
+      const byType = db.prepare(`
+        SELECT trade_type, status, COUNT(*) as n
+        FROM trades GROUP BY trade_type, status ORDER BY n DESC LIMIT 20
+      `).all();
+      const recentClosed = db.prepare(`
+        SELECT trade_type, exit_reason, pnl, closed_at
+        FROM trades WHERE status = 'closed'
+        ORDER BY closed_at DESC LIMIT 10
+      `).all();
+
+      // Futures cycle history from org_state
+      let cycleHistory = [];
+      try {
+        const row = db.prepare(`SELECT value FROM org_state WHERE key = 'futures_cycle_history'`).get();
+        if (row?.value) cycleHistory = JSON.parse(row.value).slice(-5);
+      } catch { /* non-fatal */ }
+
+      sendJson(res, 200, {
+        ok: true,
+        trades: { total, open, closed, byType, recentClosed },
+        wf: {
+          running: isWfRunning(),
+          stale: isWfCacheStale(24),
+          scheduler: getWfSchedulerStatus(),
+        },
+        futuresCycles: cycleHistory,
+        gate: (() => {
+          try {
+            const v = runSystemValidation();
+            return { approved: v.approved, status: v.status, checks: v.checks?.map(c => ({ name: c.name, pass: c.pass, code: c.code })) };
+          } catch (e) {
+            return { error: e.message };
+          }
+        })(),
+      });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  // GET /api/quant/strategy-log?strategyId=<id>&limit=50 — transition history
+  if (url.pathname === '/api/quant/strategy-log') {
+    try {
+      const strategyId = url.searchParams.get('strategyId') || undefined;
+      const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get('limit') ?? '50', 10)));
+      const history = getTransitionHistory({ strategyId, limit });
+      const overrides = getAllOverrides();
+      sendJson(res, 200, { ok: true, history, overrides });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  // POST /api/quant/strategy-override — set a manual status override
+  // Body: { strategyId, status, reason? }
+  if (url.pathname === '/api/quant/strategy-override' && req.method === 'POST') {
+    if (!requireAuth(req, res)) return;
+    let raw = '';
+    req.on('data', (chunk) => { raw += chunk; });
+    req.on('end', () => {
+      try {
+        const { strategyId, status, reason } = JSON.parse(raw || '{}');
+        const VALID_STATUSES = ['RESEARCH', 'BACKTESTING', 'PAPER', 'PROMOTED', 'REJECTED', 'DISABLED'];
+        if (!strategyId || typeof strategyId !== 'string') {
+          sendJson(res, 400, { ok: false, error: 'strategyId required' });
+          return;
+        }
+        if (!VALID_STATUSES.includes(status)) {
+          sendJson(res, 400, { ok: false, error: `status must be one of: ${VALID_STATUSES.join(', ')}` });
+          return;
+        }
+        setStatusOverride(strategyId, status, { reason: reason ?? null, setBy: 'operator-api' });
+        sendJson(res, 200, { ok: true, strategyId, status, reason: reason ?? null });
+      } catch (err) {
+        sendJson(res, 500, { ok: false, error: err.message });
+      }
+    });
+    return;
+  }
+
+  // DELETE /api/quant/strategy-override/:strategyId — clear a manual override
+  if (url.pathname.startsWith('/api/quant/strategy-override/') && req.method === 'DELETE') {
+    if (!requireAuth(req, res)) return;
+    try {
+      const strategyId = decodeURIComponent(url.pathname.slice('/api/quant/strategy-override/'.length));
+      if (!strategyId) {
+        sendJson(res, 400, { ok: false, error: 'strategyId required in path' });
+        return;
+      }
+      clearStatusOverride(strategyId);
+      sendJson(res, 200, { ok: true, strategyId, cleared: true });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
   // ── Prediction Markets module routes (/api/prediction-markets/*) ─────────────
   if (url.pathname.startsWith('/api/prediction-markets')) {
     const handled = await handlePredictionMarketsRoute(req, res, url, {
@@ -1768,6 +1904,9 @@ server.listen(PORT, HOST, () => {
 
   // Hybrid persistence — async replication of SQLite → Supabase (no-op without DATABASE_URL).
   startReplication();
+
+  // Walk-forward auto-scheduler: refreshes OOS evidence every hour when trades ≥ 30.
+  startWfScheduler();
 
   // Keep Render free tier awake — ping own /api/health every 4 min
   const renderUrl = process.env.RENDER_EXTERNAL_URL;
