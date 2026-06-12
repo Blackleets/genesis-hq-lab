@@ -1,5 +1,13 @@
 # CHANGELOG_AI
 
+## 2026-06-11 - Claude (Quant Lab UI + Docs — FASE 8–9)
+
+- Branch: `claude/genesis-prediction-markets-5qmflo`
+- Summary: FASE 8 — Added `QuantReadinessPanel.tsx` as a new QUANT tab in `RightPanel`. Shows edge verdict banner, blockers with codes, allocation summary, strategy table with status badges, and dataMode. No fake data. Created `src/services/quantClient.ts` with typed fetch wrappers. FASE 9 — Added three architecture docs: GENESIS_QUANT_LAB_ARCHITECTURE.md, GENESIS_QUANT_VALIDATION_RULES.md, GENESIS_QUANT_ROADMAP.md.
+- Files created: `src/components/crypto/QuantReadinessPanel.tsx`, `src/services/quantClient.ts`, `docs/GENESIS_QUANT_LAB_ARCHITECTURE.md`, `docs/GENESIS_QUANT_VALIDATION_RULES.md`, `docs/GENESIS_QUANT_ROADMAP.md`
+- Files modified: `src/components/crypto/RightPanel.tsx`
+- Verification: `npm run typecheck` clean, `npm run build` ok
+
 ## 2026-06-11 - Claude (Quant Lab Core — FASE 2–7)
 
 - Branch: `claude/genesis-prediction-markets-5qmflo`
