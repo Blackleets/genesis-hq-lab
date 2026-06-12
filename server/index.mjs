@@ -12,6 +12,7 @@ import {
   computeAllocation, getQuantState, generateQuantReport,
   getWfCache, isWfCacheStale, executeWalkForward, isWfRunning,
   startWfScheduler, getWfSchedulerStatus,
+  getTransitionHistory, setStatusOverride, clearStatusOverride, getAllOverrides,
 } from './quant/index.mjs';
 import { generateClaudePlan } from './claudePlanner.mjs';
 import { getSnapshot, getCapital, getTrades, getLessons, getAgentStats, addHumanOrder } from './memoryStore.mjs';
@@ -1764,6 +1765,64 @@ const server = createServer(async (req, res) => {
           }
         })(),
       });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  // GET /api/quant/strategy-log?strategyId=<id>&limit=50 — transition history
+  if (url.pathname === '/api/quant/strategy-log') {
+    try {
+      const strategyId = url.searchParams.get('strategyId') || undefined;
+      const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get('limit') ?? '50', 10)));
+      const history = getTransitionHistory({ strategyId, limit });
+      const overrides = getAllOverrides();
+      sendJson(res, 200, { ok: true, history, overrides });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  // POST /api/quant/strategy-override — set a manual status override
+  // Body: { strategyId, status, reason? }
+  if (url.pathname === '/api/quant/strategy-override' && req.method === 'POST') {
+    if (!requireAuth(req, res)) return;
+    let raw = '';
+    req.on('data', (chunk) => { raw += chunk; });
+    req.on('end', () => {
+      try {
+        const { strategyId, status, reason } = JSON.parse(raw || '{}');
+        const VALID_STATUSES = ['RESEARCH', 'BACKTESTING', 'PAPER', 'PROMOTED', 'REJECTED', 'DISABLED'];
+        if (!strategyId || typeof strategyId !== 'string') {
+          sendJson(res, 400, { ok: false, error: 'strategyId required' });
+          return;
+        }
+        if (!VALID_STATUSES.includes(status)) {
+          sendJson(res, 400, { ok: false, error: `status must be one of: ${VALID_STATUSES.join(', ')}` });
+          return;
+        }
+        setStatusOverride(strategyId, status, { reason: reason ?? null, setBy: 'operator-api' });
+        sendJson(res, 200, { ok: true, strategyId, status, reason: reason ?? null });
+      } catch (err) {
+        sendJson(res, 500, { ok: false, error: err.message });
+      }
+    });
+    return;
+  }
+
+  // DELETE /api/quant/strategy-override/:strategyId — clear a manual override
+  if (url.pathname.startsWith('/api/quant/strategy-override/') && req.method === 'DELETE') {
+    if (!requireAuth(req, res)) return;
+    try {
+      const strategyId = decodeURIComponent(url.pathname.slice('/api/quant/strategy-override/'.length));
+      if (!strategyId) {
+        sendJson(res, 400, { ok: false, error: 'strategyId required in path' });
+        return;
+      }
+      clearStatusOverride(strategyId);
+      sendJson(res, 200, { ok: true, strategyId, cleared: true });
     } catch (err) {
       sendJson(res, 500, { ok: false, error: err.message });
     }
