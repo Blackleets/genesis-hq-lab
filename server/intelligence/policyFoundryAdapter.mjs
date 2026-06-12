@@ -4,6 +4,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { summarizeMissionForProvider } from './missionBuilder.mjs';
 
+const CLAUDE_API = 'https://api.anthropic.com/v1/messages';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function getTimeoutMs() {
@@ -135,15 +136,81 @@ print(json.dumps(result))
   });
 }
 
-export async function runFoundrySupervisorMission(mission) {
-  const target = resolveFoundryTarget();
-  if (!target) {
+// ── Claude fallback — used when Python Foundry is unavailable (e.g. Render) ──
+
+async function runClaudeSupervisorMission(mission) {
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+  if (!apiKey) {
     return {
       ok: false,
       providerStatus: 'unavailable',
-      error: 'Foundry source not configured or vendored source missing',
-      source: 'foundry',
+      error: 'ANTHROPIC_API_KEY not set — Claude supervisor fallback unavailable',
+      source: 'claude',
     };
+  }
+
+  const summary = summarizeMissionForProvider(mission);
+  const systemPrompt = `You are the intelligence supervisor for a crypto futures paper-trading desk.
+Analyze the performance data and produce a concise advisory in JSON.
+Rules: paper-only, advisory-only, never suggest turning off risk gates, never invent metrics.
+Respond ONLY with valid JSON — no markdown, no prose outside JSON.`;
+
+  const userMsg = `Futures desk data:
+${JSON.stringify(summary.context, null, 2)}
+
+Respond with JSON matching this schema:
+{
+  "best_candidate": {
+    "candidate_id": "claude-<short-id>",
+    "prompt": "<1-3 sentence advisory for the desk operator>",
+    "style": "claude-advisory"
+  },
+  "best_evaluation": {
+    "total_score": <0.0-1.0 based on data quality and edge clarity>,
+    "critique": ["<observation 1>", "<observation 2>"],
+    "result_summary": "<one sentence summary>"
+  },
+  "justification": "<why these recommendations>",
+  "source": "claude"
+}`;
+
+  try {
+    const res = await fetch(CLAUDE_API, {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 600,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMsg }],
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+
+    if (!res.ok) throw new Error(`Claude API ${res.status}`);
+    const data = await res.json();
+    const raw = data.content?.[0]?.text ?? '';
+    const result = JSON.parse(raw);
+    return { ok: true, providerStatus: 'ok', source: 'claude', result };
+  } catch (err) {
+    return {
+      ok: false,
+      providerStatus: 'failed',
+      error: err instanceof Error ? err.message : String(err),
+      source: 'claude',
+    };
+  }
+}
+
+export async function runFoundrySupervisorMission(mission) {
+  const target = resolveFoundryTarget();
+  if (!target) {
+    // Python Foundry not available — fall back to Claude
+    return runClaudeSupervisorMission(mission);
   }
 
   try {
@@ -155,11 +222,8 @@ export async function runFoundrySupervisorMission(mission) {
       result,
     };
   } catch (error) {
-    return {
-      ok: false,
-      providerStatus: 'failed',
-      error: error instanceof Error ? error.message : String(error),
-      source: 'foundry',
-    };
+    // Python ran but failed — also try Claude
+    console.warn('[policyFoundryAdapter] Python Foundry failed, trying Claude fallback:', error?.message);
+    return runClaudeSupervisorMission(mission);
   }
 }
