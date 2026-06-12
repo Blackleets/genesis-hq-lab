@@ -1,6 +1,11 @@
 # Backend + agente 24/7 en Render (free tier — sin disco persistente).
 # Los datos SQLite sobreviven mientras el proceso vive pero se resetean al redeploy.
-# Para persistencia real: upgrade a paid tier ($7/mes) y añadir el bloque disk:.
+# La replicación híbrida (DB_MODE=hybrid) vuelca todo a Supabase cada 5s; en el
+# siguiente boot, restore.mjs repuebla SQLite desde Postgres — cero pérdida de trades.
+#
+# Para evitar el sleep del free tier: configura UptimeRobot (gratis) apuntando a
+# /api/health cada 5 minutos.
+#
 # Conecta el repo en https://dashboard.render.com → New → Blueprint
 
 services:
@@ -8,45 +13,121 @@ services:
     name: genesis-hq-backend
     runtime: node
     plan: free
-    branch: feat/genesis-life-os
-    autoDeploy: true            # redeploy automáticamente en cada push a la branch
+    branch: main
+    autoDeploy: true
     buildCommand: npm install
     startCommand: npm run start:render
     healthCheckPath: /api/health
     envVars:
+      # ── Runtime ──────────────────────────────────────────────────────────────
       - key: NODE_VERSION
         value: "22"
       - key: HOST
         value: 0.0.0.0
       - key: PORT
         value: 10000
+      # Heap cap: keeps server+agent+optimizer under the 512MB free-tier limit.
+      - key: NODE_OPTIONS
+        value: "--max-old-space-size=400"
+
+      # ── Secrets (set values in Render dashboard, NOT here) ────────────────
       - key: ANTHROPIC_API_KEY
         sync: false
-      # Hybrid persistence — Supabase Postgres durable memory. Set the value in the
-      # Render dashboard (Environment). sync:false keeps the Blueprint from clobbering it.
+      # Supabase Postgres URL — hybrid persistence. Set in Render dashboard.
       - key: DATABASE_URL
         sync: false
+
+      # ── Persistence ───────────────────────────────────────────────────────
       - key: DB_MODE
         value: hybrid
+
+      # ── Engine switches ───────────────────────────────────────────────────
       - key: FUTURES_ONLY_MODE
         value: "true"
       - key: LEGACY_CRYPTO_LOOP_ENABLED
         value: "false"
       - key: SCALP_ENGINE_ENABLED
         value: "false"
+      - key: FUTURES_BREAKOUT_SHORT_ENABLED
+        value: "true"
+      - key: FUTURES_BREAKOUT_SHORT_MICRO_ENABLED
+        value: "true"
+      - key: FUTURES_BREAKOUT_SHORT_ALT_ENABLED
+        value: "true"
+      - key: FUTURES_BREAKOUT_LONG_ENABLED
+        value: "true"
+
+      # ── Signal pair universe (expanded) ───────────────────────────────────
+      - key: FUTURES_BREAKOUT_SHORT_MICRO_PAIRS
+        value: BTCUSDT,ETHUSDT,SOLUSDT
+      - key: FUTURES_BREAKOUT_SHORT_PAIRS
+        value: BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT
+      - key: FUTURES_BREAKOUT_SHORT_ALT_PAIRS
+        value: XRPUSDT,DOGEUSDT,SOLUSDT,BNBUSDT
+      - key: FUTURES_BREAKOUT_LONG_PAIRS
+        value: BTCUSDT,ETHUSDT,SOLUSDT
+
+      # ── Breakout parameters ────────────────────────────────────────────────
       - key: FUTURES_BREAKOUT_TP_PCT
         value: "0.12"
       - key: FUTURES_BREAKOUT_SL_PCT
         value: "0.03"
+      - key: FUTURES_BREAKOUT_MIN_EXPECTED_NET_USD
+        value: "18"
+      - key: FUTURES_BREAKOUT_MIN_REWARD_RISK
+        value: "1.8"
       - key: FUTURES_BREAKOUT_SHORT_MICRO_PERIOD
         value: "20"
+      - key: FUTURES_BREAKOUT_SHORT_MICRO_LEVERAGE
+        value: "3"
+      - key: FUTURES_BREAKOUT_SHORT_MICRO_MARGIN
+        value: "150"
       - key: FUTURES_BREAKOUT_SHORT_CORE_PERIOD
         value: "34"
+      - key: FUTURES_BREAKOUT_SHORT_CORE_LEVERAGE
+        value: "4"
+      - key: FUTURES_BREAKOUT_SHORT_CORE_MARGIN
+        value: "250"
       - key: FUTURES_BREAKOUT_SHORT_ALT_PERIOD
         value: "12"
+      - key: FUTURES_BREAKOUT_SHORT_ALT_LEVERAGE
+        value: "3"
+      - key: FUTURES_BREAKOUT_SHORT_ALT_MARGIN
+        value: "200"
       - key: FUTURES_BREAKOUT_LONG_PROBE_PERIOD
         value: "55"
-      # Optimizer footprint tuned for the 512MB free tier (smaller window, less often).
+      - key: FUTURES_BREAKOUT_LONG_PROBE_LEVERAGE
+        value: "3"
+      - key: FUTURES_BREAKOUT_LONG_PROBE_MARGIN
+        value: "220"
+
+      # ── Risk controls ─────────────────────────────────────────────────────
+      - key: CRYPTO_DAILY_LOSS_CAP
+        value: "300"
+      - key: CRYPTO_COOLDOWN_MIN
+        value: "15"
+
+      # ── Governor thresholds ────────────────────────────────────────────────
+      - key: FUTURES_GOV_PROMOTE_MIN_SAMPLES
+        value: "8"
+      - key: FUTURES_GOV_ATTACK_MIN_SAMPLES
+        value: "12"
+
+      # ── Walk-forward OOS auto-scheduler ───────────────────────────────────
+      - key: WF_CHECK_INTERVAL_MIN
+        value: "60"
+      - key: WF_MAX_AGE_HOURS
+        value: "24"
+      - key: WF_MIN_TRADES_GATE
+        value: "30"
+      - key: WF_PAIRS
+        value: BTCUSDT,ETHUSDT,SOLUSDT
+      - key: WF_WINDOWS
+        value: "6"
+      - key: WF_MIN_TRADES
+        value: "8"
+
+      # ── Optimizer (tuned for 512MB free tier) ─────────────────────────────
       - key: OPTIMIZER_DAYS
         value: "14"
       - key: OPTIMIZER_INTERVAL_MIN
