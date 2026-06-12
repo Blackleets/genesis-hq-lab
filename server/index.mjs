@@ -11,6 +11,7 @@ import {
   getStrategyRegistry, runSystemValidation,
   computeAllocation, getQuantState, generateQuantReport,
   getWfCache, isWfCacheStale, executeWalkForward, isWfRunning,
+  startWfScheduler, getWfSchedulerStatus,
 } from './quant/index.mjs';
 import { generateClaudePlan } from './claudePlanner.mjs';
 import { getSnapshot, getCapital, getTrades, getLessons, getAgentStats, addHumanOrder } from './memoryStore.mjs';
@@ -1704,6 +1705,7 @@ const server = createServer(async (req, res) => {
         ? { completedAt: cache.completedAt, startedAt: cache.startedAt, durationMs: cache.durationMs }
         : null,
       summary: cache?.summary ?? null,
+      scheduler: getWfSchedulerStatus(),
     });
     return;
   }
@@ -1718,6 +1720,53 @@ const server = createServer(async (req, res) => {
       console.error('[WF] background run failed:', err.message)
     );
     sendJson(res, 202, { ok: true, running: true, message: 'Walk-forward started' });
+    return;
+  }
+
+  if (url.pathname === '/api/quant/diagnostics') {
+    try {
+      // Trade counts
+      const total  = db.prepare(`SELECT COUNT(*) as n FROM trades`).get()?.n ?? 0;
+      const open   = db.prepare(`SELECT COUNT(*) as n FROM trades WHERE status = 'open'`).get()?.n ?? 0;
+      const closed = db.prepare(`SELECT COUNT(*) as n FROM trades WHERE status = 'closed'`).get()?.n ?? 0;
+      const byType = db.prepare(`
+        SELECT trade_type, status, COUNT(*) as n
+        FROM trades GROUP BY trade_type, status ORDER BY n DESC LIMIT 20
+      `).all();
+      const recentClosed = db.prepare(`
+        SELECT trade_type, exit_reason, pnl, closed_at
+        FROM trades WHERE status = 'closed'
+        ORDER BY closed_at DESC LIMIT 10
+      `).all();
+
+      // Futures cycle history from org_state
+      let cycleHistory = [];
+      try {
+        const row = db.prepare(`SELECT value FROM org_state WHERE key = 'futures_cycle_history'`).get();
+        if (row?.value) cycleHistory = JSON.parse(row.value).slice(-5);
+      } catch { /* non-fatal */ }
+
+      sendJson(res, 200, {
+        ok: true,
+        trades: { total, open, closed, byType, recentClosed },
+        wf: {
+          running: isWfRunning(),
+          stale: isWfCacheStale(24),
+          scheduler: getWfSchedulerStatus(),
+        },
+        futuresCycles: cycleHistory,
+        gate: (() => {
+          try {
+            const v = runSystemValidation();
+            return { approved: v.approved, status: v.status, checks: v.checks?.map(c => ({ name: c.name, pass: c.pass, code: c.code })) };
+          } catch (e) {
+            return { error: e.message };
+          }
+        })(),
+      });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
     return;
   }
 
@@ -1796,6 +1845,9 @@ server.listen(PORT, HOST, () => {
 
   // Hybrid persistence — async replication of SQLite → Supabase (no-op without DATABASE_URL).
   startReplication();
+
+  // Walk-forward auto-scheduler: refreshes OOS evidence every hour when trades ≥ 30.
+  startWfScheduler();
 
   // Keep Render free tier awake — ping own /api/health every 4 min
   const renderUrl = process.env.RENDER_EXTERNAL_URL;
