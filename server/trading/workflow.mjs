@@ -10,6 +10,7 @@ import { preTradeCheck, recordTradeDecision } from './riskManager.mjs';
 import { checkVeto, logVeto } from '../memory/mistakePrevention.mjs';
 import { getDecisionContext } from '../memory/learningEngine.mjs';
 import { executeTrade } from './execution.mjs';
+import { evaluateTrade as councilEvaluate } from '../crypto/decisionCouncil.mjs';
 import { updateAfterTrade } from '../memory/agentScoring.mjs';
 import { analyzeClosedTrade } from '../memory/learningEngine.mjs';
 import { closeTrade } from '../memory/tradingMemory.mjs';
@@ -142,6 +143,29 @@ async function stepExecute(market, debateResult, kellyMultiplier = 1.0) {
     return { executed: false, reason: riskCheck.errors[0], riskCheck };
   }
 
+  // Decision Council gate — mandatory: executeTrade refuses proposals
+  // without an approved decision_id. Evaluated BEFORE reserving capital
+  // so a rejection never leaks a reservation.
+  const councilDecision = await councilEvaluate({
+    strategy: 'prediction_market',
+    binary: true,
+    symbol: market.question?.slice(0, 60) ?? market.id,
+    pair: null,
+    side: debateResult.outcome,
+    entryPrice: intendedPrice,
+    confidence: debateResult.confidence,
+    genesisProb: debateResult.confidence,
+    capitalUsed: kellySizing.dollarSize,
+    volume24h: market.volume24h ?? 0,
+    signals: [`debate ${debateResult.outcome} @ ${(debateResult.confidence * 100).toFixed(0)}%`],
+    agentId: 'market-agent-1',
+    tradeType: 'prediction',
+  });
+  if (councilDecision.final_decision !== 'approved') {
+    console.log(`[workflow] COUNCIL BLOCK: ${councilDecision.rejection_reason}`);
+    return { executed: false, reason: `council:${councilDecision.rejection_reason}` };
+  }
+
   // Reserve capital (checks drawdown + available balance)
   const reservation = reserveCapital(kellySizing.dollarSize);
   if (!reservation.ok) {
@@ -150,6 +174,8 @@ async function stepExecute(market, debateResult, kellyMultiplier = 1.0) {
   }
 
   const execution = await executeTrade({
+    councilDecisionId: councilDecision.decision_id,
+    tradeType: 'prediction',
     agentId: 'market-agent-1',
     marketId: market.id,
     marketSource: market.source,

@@ -1,0 +1,24 @@
+name: Hosted Futures Runner
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hosted-futures-runner
+  cancel-in-progress: false
+
+jobs:
+  futures-tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Run Supabase hosted futures tick
+        run: |
+          curl --fail --silent --show-error \
+            -H "x-genesis-runner-token: ${{ secrets.GENESIS_RUNNER_TOKEN }}" \
+            "https://swgixcbwyhxttnmrglbk.supabase.co/functions/v1/genesis-runner"

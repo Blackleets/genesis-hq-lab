@@ -1,4 +1,9 @@
-import type { FuturesDeskSnapshot, FuturesDeskSummaryRow, FuturesDeskPosition } from '@services/cryptoClient';
+import type {
+  FuturesDeskSnapshot,
+  FuturesDeskSummaryRow,
+  FuturesDeskPosition,
+  IntelligenceSupervisorRun,
+} from '@services/cryptoClient';
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 const PANEL_BG = '#101006';
@@ -47,17 +52,61 @@ function fmtEvent(iso?: string | null) {
   return `${String(d.getUTCMonth() + 1).padStart(2, '0')}/${String(d.getUTCDate()).padStart(2, '0')} ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}z`;
 }
 
+function snapshotAgeLabel(iso?: string | null) {
+  if (!iso) return '-';
+  const deltaMs = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(deltaMs)) return '-';
+  const seconds = Math.max(0, Math.floor(deltaMs / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h`;
+}
+
+function supervisorTone(status?: string | null) {
+  if (status === 'recommended' || status === 'draft') return '#22c55e';
+  if (status === 'degraded') return '#f59e0b';
+  if (status === 'failed') return '#ef4444';
+  return '#9ca3af';
+}
+
+function supervisorLabel(run: IntelligenceSupervisorRun | null, es: boolean) {
+  if (!run) return es ? 'sin corrida' : 'no run';
+  if (run.status === 'recommended') return es ? 'recomendado' : 'recommended';
+  if (run.status === 'draft') return 'draft';
+  if (run.status === 'degraded') return es ? 'degradado' : 'degraded';
+  if (run.status === 'failed') return es ? 'fallido' : 'failed';
+  return run.status;
+}
+
 export function FuturesDeskPanel({
   futuresDesk,
   es,
   onRunCycle,
+  onResetBaseline,
+  onRunSupervisor,
+  onApplySupervisor,
+  onRollbackSupervisor,
   runBusy = false,
+  baselineBusy = false,
+  supervisorBusy = false,
+  supervisorApplyBusy = false,
+  supervisorRollbackBusy = false,
   runStatus = null,
 }: {
   futuresDesk: FuturesDeskSnapshot | null;
   es: boolean;
   onRunCycle?: () => void;
+  onResetBaseline?: () => void;
+  onRunSupervisor?: () => void;
+  onApplySupervisor?: () => void;
+  onRollbackSupervisor?: () => void;
   runBusy?: boolean;
+  baselineBusy?: boolean;
+  supervisorBusy?: boolean;
+  supervisorApplyBusy?: boolean;
+  supervisorRollbackBusy?: boolean;
   runStatus?: string | null;
 }) {
   if (!futuresDesk) {
@@ -73,9 +122,11 @@ export function FuturesDeskPanel({
     );
   }
 
-  const { treasury, config, openPositions, closedSummary } = futuresDesk;
+  const { treasury, futuresCapital, config, openPositions, closedSummary } = futuresDesk;
   const allPairs = Array.from(new Set(config.profiles.flatMap((profile) => profile.pairs)));
   const realizedEquity = futuresDesk.equityCurve;
+  const realizedPnl = futuresCapital.realizedPnl ?? closedSummary.reduce((sum, row) => sum + (row.totalPnl ?? 0), 0);
+  const netPnl = futuresCapital.netPnl ?? (realizedPnl + (futuresCapital.unrealizedPnl ?? 0));
   const lifecycle = futuresDesk.recentLifecycle;
   const profileMeta = new Map(config.profiles.map((profile) => [profile.id, profile]));
   const governorJournal = futuresDesk.governorJournal ?? [];
@@ -84,6 +135,35 @@ export function FuturesDeskPanel({
   const today = futuresDesk.today;
   const cycleHistory = futuresDesk.cycleHistory ?? [];
   const profileScoreboard = futuresDesk.profileScoreboard ?? [];
+  const startingCapital = futuresCapital.startCapital ?? 10000;
+  const warnings = futuresDesk.warnings ?? [];
+  const supervisorState = futuresDesk.supervisor ?? {
+    scope: 'futures_supervisor',
+    latest: null,
+    latestAttempt: null,
+    appliedPolicy: {
+      active: false,
+      sourceRunId: null,
+      appliedAt: null,
+      appliedBy: null,
+      expiresAt: null,
+      overrides: [],
+      latestApply: null,
+      impact: null,
+    },
+  };
+  const supervisorRun = supervisorState.latest ?? null;
+  const supervisorAttempt = supervisorState.latestAttempt ?? null;
+  const visibleSupervisor = supervisorAttempt && (!supervisorRun || supervisorAttempt.createdAt >= supervisorRun.createdAt)
+    ? supervisorAttempt
+    : supervisorRun;
+  const canApplySupervisor = Boolean(
+    onApplySupervisor
+    && visibleSupervisor
+    && visibleSupervisor.status === 'recommended'
+    && visibleSupervisor.proposedChanges.length > 0
+  );
+  const canRollbackSupervisor = Boolean(onRollbackSupervisor && supervisorState.appliedPolicy?.active);
 
   return (
     <div style={{ background: PANEL_BG, border: `1px solid ${PANEL_BORDER}`, borderRadius: 8, padding: 10 }}>
@@ -108,39 +188,286 @@ export function FuturesDeskPanel({
         </span>
       </div>
 
+      <div className="mt-2 flex items-center justify-between gap-3 font-mono text-[9px] text-zinc-500">
+        <span>{es ? `snapshot ${snapshotAgeLabel(futuresDesk.generatedAt)} atras` : `snapshot ${snapshotAgeLabel(futuresDesk.generatedAt)} ago`}</span>
+        <span>{fmtEvent(futuresDesk.generatedAt)}</span>
+      </div>
+
+      {warnings.length > 0 ? (
+        <div className="mt-3 rounded border border-amber-900 bg-[#1c1917] px-3 py-2 font-mono text-[10px] text-amber-300">
+          <div className="uppercase tracking-[0.14em]">{es ? 'backend degradado' : 'backend degraded'}</div>
+          <div className="mt-1 text-zinc-400">
+            {warnings[0]?.section}: {warnings[0]?.error}
+          </div>
+        </div>
+      ) : null}
+
       <div className="mt-3 flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onRunCycle}
-          disabled={!onRunCycle || runBusy}
-          className="rounded border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em]"
-          style={{
-            color: runBusy ? '#a1a1aa' : '#fbbf24',
-            borderColor: runBusy ? '#3f3f46' : '#78350f',
-            background: runBusy ? '#111827' : '#1c1917',
-            cursor: !onRunCycle || runBusy ? 'not-allowed' : 'pointer',
-          }}
-        >
-          {runBusy ? (es ? 'corriendo...' : 'running...') : 'run cycle now'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onRunCycle}
+            disabled={!onRunCycle || runBusy}
+            className="rounded border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em]"
+            style={{
+              color: runBusy ? '#a1a1aa' : '#fbbf24',
+              borderColor: runBusy ? '#3f3f46' : '#78350f',
+              background: runBusy ? '#111827' : '#1c1917',
+              cursor: !onRunCycle || runBusy ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {runBusy ? (es ? 'corriendo...' : 'running...') : 'run cycle now'}
+          </button>
+          <button
+            type="button"
+            onClick={onResetBaseline}
+            disabled={!onResetBaseline || baselineBusy}
+            className="rounded border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em]"
+            style={{
+              color: baselineBusy ? '#a1a1aa' : '#22c55e',
+              borderColor: baselineBusy ? '#3f3f46' : '#14532d',
+              background: baselineBusy ? '#111827' : '#052e16',
+              cursor: !onResetBaseline || baselineBusy ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {baselineBusy ? (es ? 'reseteando...' : 'resetting...') : (es ? 'reset pnl base' : 'reset pnl base')}
+          </button>
+          <button
+            type="button"
+            onClick={onRunSupervisor}
+            disabled={!onRunSupervisor || supervisorBusy}
+            className="rounded border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em]"
+            style={{
+              color: supervisorBusy ? '#a1a1aa' : '#38bdf8',
+              borderColor: supervisorBusy ? '#3f3f46' : '#1d4ed8',
+              background: supervisorBusy ? '#111827' : '#08111f',
+              cursor: !onRunSupervisor || supervisorBusy ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {supervisorBusy ? (es ? 'supervisando...' : 'supervising...') : (es ? 'run supervisor' : 'run supervisor')}
+          </button>
+          <button
+            type="button"
+            onClick={onApplySupervisor}
+            disabled={!canApplySupervisor || supervisorApplyBusy}
+            className="rounded border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em]"
+            style={{
+              color: supervisorApplyBusy ? '#a1a1aa' : '#22c55e',
+              borderColor: supervisorApplyBusy ? '#3f3f46' : '#14532d',
+              background: supervisorApplyBusy ? '#111827' : '#052e16',
+              cursor: !canApplySupervisor || supervisorApplyBusy ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {supervisorApplyBusy ? (es ? 'aplicando...' : 'applying...') : (es ? 'apply supervisor' : 'apply supervisor')}
+          </button>
+          <button
+            type="button"
+            onClick={onRollbackSupervisor}
+            disabled={!canRollbackSupervisor || supervisorRollbackBusy}
+            className="rounded border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em]"
+            style={{
+              color: supervisorRollbackBusy ? '#a1a1aa' : '#f59e0b',
+              borderColor: supervisorRollbackBusy ? '#3f3f46' : '#78350f',
+              background: supervisorRollbackBusy ? '#111827' : '#1c1917',
+              cursor: !canRollbackSupervisor || supervisorRollbackBusy ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {supervisorRollbackBusy ? (es ? 'revirtiendo...' : 'rolling back...') : (es ? 'rollback' : 'rollback')}
+          </button>
+        </div>
         <span className="font-mono text-[9px] text-zinc-500">
           {runStatus ?? (es ? 'Disparo manual sobre el motor real.' : 'Manual trigger on the real engine.')}
         </span>
       </div>
 
+      <div className="mt-3">
+        <div className="mb-1 font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">
+          {es ? 'Supervisor intelligence' : 'Intelligence supervisor'}
+        </div>
+        <div className="rounded bg-[#151206] px-2 py-2">
+          {!visibleSupervisor ? (
+            <div className="font-mono text-[10px] text-zinc-600">
+              {es ? 'Sin recomendacion todavia. Ejecuta el supervisor manual para generar una corrida advisory.' : 'No recommendation yet. Run the supervisor manually to generate an advisory pass.'}
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between gap-3 font-mono text-[10px]">
+                <div className="flex items-center gap-2">
+                  <span className="text-zinc-200">{visibleSupervisor.source}</span>
+                  <span style={{ color: supervisorTone(visibleSupervisor.status) }}>
+                    {supervisorLabel(visibleSupervisor, es)}
+                  </span>
+                  <span className="text-sky-300">
+                    {supervisorState.appliedPolicy?.sourceRunId === visibleSupervisor.id
+                      ? (es ? 'aplicado' : 'applied')
+                      : (es ? 'no aplicado' : 'not applied')}
+                  </span>
+                </div>
+                <span className="text-zinc-500">{fmtEvent(visibleSupervisor.createdAt)}</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between gap-3 font-mono text-[9px] text-zinc-500">
+                <span>{es ? 'scope advisory only' : 'advisory-only scope'}</span>
+                <span>{visibleSupervisor.score == null ? 'score -' : `score ${visibleSupervisor.score.toFixed(3)}`}</span>
+              </div>
+              <div className="mt-2 font-mono text-[9px] text-zinc-400">
+                {visibleSupervisor.candidateSummary?.summary
+                  ?? visibleSupervisor.justification?.[0]
+                  ?? (es ? 'Sin resumen del proveedor.' : 'No provider summary returned.')}
+              </div>
+              <div className="mt-2 font-mono text-[9px] text-zinc-500">
+                {es ? 'perfiles impactados' : 'affected profiles'}: {visibleSupervisor.candidateSummary?.affectedProfiles?.length
+                  ? visibleSupervisor.candidateSummary.affectedProfiles.join(' / ')
+                  : (es ? 'ninguno confirmado' : 'none confirmed')}
+              </div>
+              <div className="mt-2 space-y-1">
+                {visibleSupervisor.proposedChanges.length === 0 ? (
+                  <div className="font-mono text-[9px] text-zinc-600">
+                    {es ? 'Sin cambios runtime propuestos.' : 'No runtime changes proposed.'}
+                  </div>
+                ) : visibleSupervisor.proposedChanges.slice(0, 4).map((change) => (
+                  <div key={`${visibleSupervisor.id}-${change.key}`} className="font-mono text-[9px] text-emerald-300">
+                    {change.profileId ?? 'desk'}: {change.label} {String(change.currentValue)} -&gt; {String(change.proposedValue)}
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 space-y-1">
+                {visibleSupervisor.recommendedRules.length === 0 ? (
+                  <div className="font-mono text-[9px] text-zinc-600">
+                    {es ? 'Sin reglas nuevas aplicadas. Estado advisory puro.' : 'No new rules applied. Pure advisory state.'}
+                  </div>
+                ) : visibleSupervisor.recommendedRules.slice(0, 3).map((rule, index) => (
+                  <div key={`${visibleSupervisor.id}-rule-${index}`} className="font-mono text-[9px] text-zinc-500">
+                    {rule}
+                  </div>
+                ))}
+              </div>
+              {visibleSupervisor.riskNotes.length > 0 ? (
+                <div className="mt-2 rounded border border-amber-950 bg-[#18130a] px-2 py-1.5 font-mono text-[9px] text-amber-300">
+                  {visibleSupervisor.riskNotes[0]}
+                </div>
+              ) : null}
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <div className="mb-1 font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">
+          {es ? 'Runtime overrides' : 'Runtime overrides'}
+        </div>
+        <div className="rounded bg-[#151206] px-2 py-2">
+          {supervisorState.appliedPolicy?.active ? (
+            <>
+              <div className="flex items-center justify-between gap-3 font-mono text-[9px] text-zinc-500">
+                <span>{es ? 'origen' : 'source'} {supervisorState.appliedPolicy.sourceRunId ?? '-'}</span>
+                <span>{fmtEvent(supervisorState.appliedPolicy.appliedAt)}</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between gap-3 font-mono text-[9px] text-zinc-500">
+                <span>{es ? 'expira' : 'expires'} {fmtEvent(supervisorState.appliedPolicy.expiresAt)}</span>
+                <span>{es ? 'operador' : 'operator'} {supervisorState.appliedPolicy.appliedBy ?? '-'}</span>
+              </div>
+              <div className="mt-2 space-y-1">
+                {supervisorState.appliedPolicy.overrides.map((override) => (
+                  <div key={override.key} className="font-mono text-[9px] text-emerald-300">
+                    {override.label}: {String(override.value)}
+                  </div>
+                ))}
+              </div>
+              {supervisorState.appliedPolicy.impact ? (
+                <div className="mt-2 rounded border border-zinc-800 bg-[#111107] px-2 py-2">
+                  <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">
+                    {es ? 'impacto del override' : 'override impact'}
+                  </div>
+                  <div className="mt-1 font-mono text-[9px] text-zinc-500">
+                    {es ? 'ventana' : 'window'} {supervisorState.appliedPolicy.impact.comparisonWindowHours?.toFixed?.(1) ?? '-'}h
+                  </div>
+                  <div className="mt-1 grid grid-cols-3 gap-2 font-mono text-[9px]">
+                    <div className="text-zinc-500">
+                      pre {usd(supervisorState.appliedPolicy.impact.preWindow.totalPnl)} / {pct(supervisorState.appliedPolicy.impact.preWindow.winRate)}
+                    </div>
+                    <div className="text-zinc-500">
+                      post {usd(supervisorState.appliedPolicy.impact.postWindow.totalPnl)} / {pct(supervisorState.appliedPolicy.impact.postWindow.winRate)}
+                    </div>
+                    <div style={{ color: tone(supervisorState.appliedPolicy.impact.delta.totalPnl ?? 0) }}>
+                      delta {usd(supervisorState.appliedPolicy.impact.delta.totalPnl)} / {pct(supervisorState.appliedPolicy.impact.delta.winRate)}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <div className="font-mono text-[10px] text-zinc-600">
+              {es ? 'Sin overrides activos del supervisor.' : 'No active supervisor overrides.'}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <div className="mb-1 font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">
+          {es ? 'PnL de futuros' : 'Futures PnL'}
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded bg-[#151206] px-2 py-1.5">
+            <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'realizado' : 'realized'}</div>
+            <div className="font-mono text-[11px] font-bold" style={{ color: tone(realizedPnl) }}>{usd(realizedPnl)}</div>
+          </div>
+          <div className="rounded bg-[#151206] px-2 py-1.5">
+            <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'no realizado' : 'unrealized'}</div>
+            <div className="font-mono text-[11px] font-bold" style={{ color: tone(futuresCapital.unrealizedPnl ?? 0) }}>{usd(futuresCapital.unrealizedPnl)}</div>
+          </div>
+          <div className="rounded bg-[#151206] px-2 py-1.5">
+            <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'neto base' : 'net since base'}</div>
+            <div className="font-mono text-[11px] font-bold" style={{ color: tone(netPnl) }}>{usd(netPnl)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <div className="mb-1 font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">
+          {es ? 'Flujo de capital' : 'Capital flow'}
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          <div className="rounded bg-[#151206] px-2 py-1.5">
+            <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'inicio base' : 'base start'}</div>
+            <div className="font-mono text-[11px] font-bold text-zinc-100">{usd(startingCapital)}</div>
+          </div>
+          <div className="rounded bg-[#151206] px-2 py-1.5">
+            <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'reservado' : 'reserved'}</div>
+            <div className="font-mono text-[11px] font-bold text-amber-300">{usd(futuresCapital.reservedMargin)}</div>
+          </div>
+          <div className="rounded bg-[#151206] px-2 py-1.5">
+            <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'libre' : 'free'}</div>
+            <div className="font-mono text-[11px] font-bold text-zinc-100">{usd(futuresCapital.available)}</div>
+          </div>
+          <div className="rounded bg-[#151206] px-2 py-1.5">
+            <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'neto vivo' : 'live net'}</div>
+            <div className="font-mono text-[11px] font-bold" style={{ color: tone(netPnl) }}>{usd(futuresCapital.equity)}</div>
+          </div>
+        </div>
+      </div>
+
       <div className="mt-3 grid grid-cols-2 gap-2">
         <div className="rounded bg-[#151206] px-2 py-1.5">
+          <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'tp neto min' : 'min net tp'}</div>
+          <div className="font-mono text-[11px] font-bold text-zinc-100">{usd(config.minExpectedNetUsd)}</div>
+        </div>
+        <div className="rounded bg-[#151206] px-2 py-1.5">
+          <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'rr minimo' : 'min rr'}</div>
+          <div className="font-mono text-[11px] font-bold text-zinc-100">{config.minRewardRisk.toFixed(2)}x</div>
+        </div>
+        <div className="rounded bg-[#151206] px-2 py-1.5">
           <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">net worth</div>
-          <div className="font-mono text-[11px] font-bold text-zinc-100">{usd(treasury.netWorth)}</div>
+          <div className="font-mono text-[11px] font-bold text-zinc-100">{usd(futuresCapital.equity)}</div>
         </div>
         <div className="rounded bg-[#151206] px-2 py-1.5">
           <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">{es ? 'disponible' : 'available'}</div>
-          <div className="font-mono text-[11px] font-bold text-zinc-100">{usd(treasury.available)}</div>
+          <div className="font-mono text-[11px] font-bold text-zinc-100">{usd(futuresCapital.available)}</div>
         </div>
         <div className="rounded bg-[#151206] px-2 py-1.5">
           <div className="font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">uPnL</div>
-          <div className="font-mono text-[11px] font-bold" style={{ color: tone(treasury.unrealizedPnl) }}>
-            {usd(treasury.unrealizedPnl)}
+          <div className="font-mono text-[11px] font-bold" style={{ color: tone(futuresCapital.unrealizedPnl ?? 0) }}>
+            {usd(futuresCapital.unrealizedPnl)}
           </div>
         </div>
         <div className="rounded bg-[#151206] px-2 py-1.5">
@@ -179,7 +506,7 @@ export function FuturesDeskPanel({
               background: profile.enabled ? '#052e16' : '#111827',
             }}
           >
-            {profile.id} [{profile.tier}/{profile.interval}]: {profile.enabled ? 'on' : 'off'}
+            {profile.id} [{profile.tier}/{profile.interval}/p{profile.breakoutPeriod}] min ${profile.minExpectedNetUsd?.toFixed?.(0) ?? '-'} rr {profile.minRewardRisk?.toFixed?.(1) ?? '-'}: {profile.enabled ? 'on' : 'off'}
           </span>
         ))}
       </div>
@@ -282,6 +609,53 @@ export function FuturesDeskPanel({
               </div>
             </div>
           ))}
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div>
+          <div className="mb-1 font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">
+            {es ? 'Cohortes fuertes' : 'Strong cohorts'}
+          </div>
+          <div className="space-y-1">
+            {(futuresDesk.learningCohorts?.strongest ?? []).length === 0 ? (
+              <div className="rounded bg-[#151206] px-2 py-2 font-mono text-[10px] text-zinc-600">
+                {es ? 'Sin cohortes cerradas aun.' : 'No closed cohorts yet.'}
+              </div>
+            ) : futuresDesk.learningCohorts.strongest.slice(0, 4).map((row) => (
+              <div key={row.key} className="rounded bg-[#151206] px-2 py-1.5">
+                <div className="flex items-center justify-between gap-3 font-mono text-[9px]">
+                  <span className="text-zinc-200">{summaryLabel({ tradeType: row.tradeType, closedTrades: 0, wins: 0, winRate: null, totalPnl: 0, avgPnl: 0 })} {row.pair}</span>
+                  <span style={{ color: tone(row.totalPnl) }}>{usd(row.totalPnl)}</span>
+                </div>
+                <div className="mt-1 font-mono text-[8px] text-zinc-500">
+                  {row.side} / {row.exitReason} / {row.closedTrades} trd / WR {pct(row.winRate)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div>
+          <div className="mb-1 font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">
+            {es ? 'Cohortes debiles' : 'Weak cohorts'}
+          </div>
+          <div className="space-y-1">
+            {(futuresDesk.learningCohorts?.weakest ?? []).length === 0 ? (
+              <div className="rounded bg-[#151206] px-2 py-2 font-mono text-[10px] text-zinc-600">
+                {es ? 'Sin cohortes cerradas aun.' : 'No closed cohorts yet.'}
+              </div>
+            ) : futuresDesk.learningCohorts.weakest.slice(0, 4).map((row) => (
+              <div key={row.key} className="rounded bg-[#151206] px-2 py-1.5">
+                <div className="flex items-center justify-between gap-3 font-mono text-[9px]">
+                  <span className="text-zinc-200">{summaryLabel({ tradeType: row.tradeType, closedTrades: 0, wins: 0, winRate: null, totalPnl: 0, avgPnl: 0 })} {row.pair}</span>
+                  <span style={{ color: tone(row.totalPnl) }}>{usd(row.totalPnl)}</span>
+                </div>
+                <div className="mt-1 font-mono text-[8px] text-zinc-500">
+                  {row.side} / {row.exitReason} / {row.closedTrades} trd / WR {pct(row.winRate)}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

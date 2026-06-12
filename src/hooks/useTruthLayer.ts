@@ -2,6 +2,7 @@
 // Exposes granular health indicators that /api/health does not provide.
 
 import { useEffect, useState } from 'react';
+import { fetchApi } from '@services/apiBase';
 
 export interface TruthIssue {
   severity: 'warn' | 'info';
@@ -156,14 +157,6 @@ interface UseTruthLayerReturn {
 
 const POLL_INTERVAL_MS = 15_000;
 
-const API_BASE = (() => {
-  try {
-    return import.meta.env?.VITE_API_BASE ?? 'http://localhost:8787';
-  } catch {
-    return 'http://localhost:8787';
-  }
-})();
-
 export function useTruthLayer(): UseTruthLayerReturn {
   const [truth, setTruth] = useState<SystemTruth | null>(null);
   const [loading, setLoading] = useState(true);
@@ -174,7 +167,7 @@ export function useTruthLayer(): UseTruthLayerReturn {
 
     async function fetchTruth() {
       try {
-        const res = await fetch(`${API_BASE}/api/system/health`);
+        const res = await fetchApi('/api/system/health');
         const data: SystemTruth = await res.json();
         if (!cancelled) {
           setTruth(data);

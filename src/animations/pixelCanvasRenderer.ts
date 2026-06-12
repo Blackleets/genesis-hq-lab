@@ -49,10 +49,13 @@ export function flattenSpritePaths(): string[] {
 
 export async function loadPixelSprites(): Promise<LoadedSpriteMap> {
   const paths = flattenSpritePaths();
-  const entries = await Promise.all(paths.map(async (path) => {
+  const settled = await Promise.allSettled(paths.map(async (path) => {
     const image = await loadImage(path);
     return [path, image] as const;
   }));
+  const entries = settled
+    .filter((result): result is PromiseFulfilledResult<readonly [string, HTMLImageElement]> => result.status === 'fulfilled')
+    .map((result) => result.value);
   return Object.fromEntries(entries);
 }
 

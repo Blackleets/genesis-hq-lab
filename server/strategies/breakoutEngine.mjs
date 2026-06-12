@@ -19,6 +19,7 @@ import { openCryptoPosition, hasOpenPosition } from '../trading/paperExecutionEn
 import { isGlobalSafeMode, getGlobalRiskDiagnostics } from '../risk/globalRiskEngine.mjs';
 import { isSafeMode } from '../memory/reconciliationEngine.mjs';
 import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs';
+import { evaluateTrade } from '../crypto/decisionCouncil.mjs';
 
 const AGENT_ID   = 'breakout-engine-1';
 const TRADE_TYPE = 'breakout_v1';
@@ -96,7 +97,30 @@ export async function runBreakoutCycle() {
     const asset = { symbol: pair.replace('USDT', ''), pair, price, volume24h: quoteVolume24h(closedKlines) };
     const evidence = [...(sig.reasons ?? []), `SMA${REGIME_SMA}`, `DONCHIAN${BREAKOUT_PERIOD}`];
 
+    // Decision Council gate — mandatory before any execution.
+    const decision = await evaluateTrade({
+      strategy: TRADE_TYPE,
+      symbol: asset.symbol,
+      pair: asset.pair,
+      side: sig.side,
+      entryPrice: price,
+      targetPct: TP_PCT,
+      stopPct: SL_PCT,
+      confidence: sig.confidence ?? 0.75,
+      capitalUsed: MAX_CAPITAL,
+      instrumentType: 'spot',
+      volume24h: asset.volume24h,
+      signals: evidence,
+      agentId: AGENT_ID,
+      tradeType: TRADE_TYPE,
+    });
+    if (decision.final_decision !== 'approved') {
+      result.skipped++;
+      continue;
+    }
+
     const execution = await openCryptoPosition({
+      councilDecisionId: decision.decision_id,
       asset,
       side: sig.side,
       confidence: sig.confidence ?? 0.75,

@@ -1,5 +1,35 @@
 # CHANGELOG_AI
 
+## 2026-06-12 - Claude (Data Pipeline — métricas y bugs críticos)
+
+- Branch: `claude/genesis-prediction-markets-5qmflo`
+- Summary: Fuerza bruta en el pipeline de datos. Fixed 2 critical bugs in validationGate: (1) `report?.totalTrades` → `report?.tradeHistory` (field name wrong, tradeCount always 0), (2) `report?.expectancy?.maxDrawdown` → `report?.expectancy?.maxDrawdownPct` (field never existed, drawdown check always null/pass). Added 4 new metrics to `computeExpectancy()`: maxDrawdownPct (equity curve), sortinoProxy (mean PnL / downside std), rollingPf15 (PF over last 15 trades), maxLossStreak. Added 2 new gate checks: ROLLING_EDGE_DEGRADING (blocks if recent PF < 1.0 but aggregate passes), STREAK_TOO_HIGH (blocks if max consecutive losses ≥ 8). Added 6 tests for new metrics.
+- Files modified: `server/research/alphaValidationEngine.mjs`, `server/quant/validation/validationGate.mjs`, `server/tests/alphaValidation.test.mjs`
+- Verification: `npm test` 993/993 pass, `npm run typecheck` clean
+
+## 2026-06-11 - Claude (Quant Lab UI + Docs — FASE 8–9)
+
+- Branch: `claude/genesis-prediction-markets-5qmflo`
+- Summary: FASE 8 — Added `QuantReadinessPanel.tsx` as a new QUANT tab in `RightPanel`. Shows edge verdict banner, blockers with codes, allocation summary, strategy table with status badges, and dataMode. No fake data. Created `src/services/quantClient.ts` with typed fetch wrappers. FASE 9 — Added three architecture docs: GENESIS_QUANT_LAB_ARCHITECTURE.md, GENESIS_QUANT_VALIDATION_RULES.md, GENESIS_QUANT_ROADMAP.md.
+- Files created: `src/components/crypto/QuantReadinessPanel.tsx`, `src/services/quantClient.ts`, `docs/GENESIS_QUANT_LAB_ARCHITECTURE.md`, `docs/GENESIS_QUANT_VALIDATION_RULES.md`, `docs/GENESIS_QUANT_ROADMAP.md`
+- Files modified: `src/components/crypto/RightPanel.tsx`
+- Verification: `npm run typecheck` clean, `npm run build` ok
+
+## 2026-06-11 - Claude (Quant Lab Core — FASE 2–7)
+
+- Branch: `claude/genesis-prediction-markets-5qmflo`
+- Summary: Built the Quant Lab core pipeline answering "do we have validated edge, yes or no?". Created `server/quant/` with 5 modules: Strategy Registry (unified catalog, 7 strategies, PROMOTION_CRITERIA), Validation Gate (pure `validateStrategyProfile` + DB-backed `runSystemValidation`), Portfolio Allocation Engine (capital sizing with safe-mode and daily-loss-cap blocks), Quant State aggregator, and Quant Report generator. Added 5 GET endpoints to `server/index.mjs` (`/api/quant/status|strategies|validation|allocation|report`). Wrote 58 unit+integration tests across 4 test files. Fixed duplicate export in `strategyRegistry.mjs`.
+- Files created: `server/quant/alpha/strategyRegistry.mjs`, `server/quant/validation/validationGate.mjs`, `server/quant/portfolio/allocationEngine.mjs`, `server/quant/quantState.mjs`, `server/quant/quantReport.mjs`, `server/quant/index.mjs`, `server/tests/quantStrategyRegistry.test.mjs`, `server/tests/quantValidationGate.test.mjs`, `server/tests/quantAllocationEngine.test.mjs`, `server/tests/quantReport.test.mjs`
+- Files modified: `server/index.mjs`
+- Verification: `npm run typecheck` clean, `npm test` 988/988 pass, `npm run build` ok
+
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added the product foundation layer for the wallet-first SaaS path without enabling custody, fees, or live trading. The schema now supports users, verified wallets, wallet sessions, owner/admin audit logs, entitlements, future billing events, operation intents, support/risk flags, wallet snapshots, opt-in global learning, private user memory, global memory candidates, and per-user paper sandbox accounts. Added product safety contracts that keep fees/live trading disabled by default.
+- Files touched: `server/db/schema.sql`, `server/product/productFoundation.mjs`, `server/tests/productFoundation.test.mjs`, `docs/GENESIS_PRODUCT_FOUNDATION.md`, `docs/CHANGELOG_AI.md`
+- Verification: `node --test --test-concurrency=1 server/tests/productFoundation.test.mjs` ok; `npm run typecheck` ok; `npm test -- --test-concurrency=1` ok (817/817); `npm run build` ok
+
 ## 2026-06-09 - Codex
 
 - Branch: `feat/genesis-life-os`
@@ -663,3 +693,332 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Added a real per-profile futures supervisor with cooldown triggers, persisted recent futures cycle history into SQLite-backed `org_state`, and surfaced a live "today" block plus compact profile scoreboard/history in the futures desk.
 - Files touched: `server/crypto/futuresGovernor.mjs`, `server/strategies/futuresBreakoutEngine.mjs`, `server/crypto/futuresDesk.mjs`, `src/services/cryptoClient.ts`, `src/components/crypto/FuturesDeskPanel.tsx`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check server/crypto/futuresGovernor.mjs` ok; `node --check server/strategies/futuresBreakoutEngine.mjs` ok; `node --check server/crypto/futuresDesk.mjs` ok; `npm run build` ok; `npm run futures:once` ok; live snapshot at `2026-06-09T15:19:32.092Z` showed all 4 profiles active in `learning`, supervisor `live`, zero daily PnL since baseline, and cycle history persisted with `10` scans and `0` executions
+
+## 2026-06-09 Ã¢â‚¬â€ Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Moved the futures desk card to the top of the Crypto Lab `STATS` column so the production URL surfaces the futures controls first instead of burying them below telemetry and breakout diagnostics.
+- Files touched: `src/components/crypto/DeskPanel.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run build` ok; browser verification on `https://genesis-hq-lab.vercel.app/` confirmed `DESK DE FUTUROS` is present inside `Crypto Lab -> STATS`
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Hardened the futures desk manual cycle flow so `RUN CYCLE NOW` waits longer for the real backend cycle, keeps the last valid snapshot if refresh lags, and stops showing the false "backend did not return snapshot" state during slow live runs.
+- Files touched: `src/services/cryptoClient.ts`, `src/workflows/CryptoLabView.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run build` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added a dedicated futures PnL block with realized/unrealized/net-since-baseline values, exposed snapshot age in the desk, and wired a non-destructive baseline reset endpoint plus UI control so the operator can start futures reporting from zero without deleting historical losing trades.
+- Files touched: `server/crypto/futuresDesk.mjs`, `server/index.mjs`, `src/services/cryptoClient.ts`, `src/workflows/CryptoLabView.tsx`, `src/components/crypto/DeskPanel.tsx`, `src/components/crypto/FuturesDeskPanel.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/index.mjs` ok; `node --check server/crypto/futuresDesk.mjs` ok; `npm run build` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Replaced the stale scalp PnL headline with treasury-consistent capital metrics (`net`, `available`, `margin`, `open`) and switched the Crypto Lab header to live futures metrics so the UI reflects reserved capital from the 10k base instead of the legacy `-67` scalp figure. Also raised default futures profile sizing into more usable margin bands with configurable per-profile leverage.
+- Files touched: `.env.example`, `server/strategies/futuresBreakoutEngine.mjs`, `src/services/agentClient.ts`, `src/dashboard/hooks/useLiveTrading.ts`, `src/ui/TopBar.tsx`, `src/workflows/CryptoLabView.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/strategies/futuresBreakoutEngine.mjs` ok; `npm run build` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Shifted the Crypto Lab operator row into futures-first mode when the futures desk is present, so it reports futures scan/qualified/executed status instead of legacy scalp pause messaging. Added a dedicated `Capital flow` block in the futures desk to show base start, reserved margin, free capital, and live net in one place.
+- Files touched: `src/components/crypto/OperatorStatusBar.tsx`, `src/components/crypto/FuturesDeskPanel.tsx`, `src/workflows/CryptoLabView.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run build` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Made `Crypto Lab` futures-first end-to-end: the desk now hides legacy scalp telemetry panels when futures profiles are active, strips `SCALPING PAUSED` commentary from the live ticker/feed, and sets backend defaults toward futures-only operation with fee-aware futures breakout targets.
+- Files touched: `.env.example`, `server/agentRunner.mjs`, `src/components/crypto/DeskPanel.tsx`, `src/workflows/CryptoLabView.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/agentRunner.mjs` ok; `npm run build` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Hardened durable production boot by making the Supabase replicator add missing Postgres columns on startup instead of assuming a fresh schema, which fixes the live `trades.instrument_type` replication failure. Also pinned the Render blueprint env to futures-only mode with explicit TP/SL so production stops drifting back into mixed legacy crypto behavior.
+- Files touched: `server/persistence/dbReplicator.mjs`, `render.yaml`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/persistence/dbReplicator.mjs` ok; `npm run build` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added an economics gate to the futures breakout engine so setups are rejected when estimated net TP after fees/funding is too small or reward/risk is too weak, and upgraded the futures governor to promote strong profiles with more capital/leverage while keeping weaker ones constrained. Exposed the new desk thresholds and richer profile scoreboard metrics to the UI contract.
+- Files touched: `.env.example`, `server/crypto/futuresGovernor.mjs`, `server/crypto/futuresDesk.mjs`, `server/strategies/futuresBreakoutEngine.mjs`, `src/components/crypto/FuturesDeskPanel.tsx`, `src/services/cryptoClient.ts`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/futuresGovernor.mjs` ok; `node --check server/strategies/futuresBreakoutEngine.mjs` ok; `npm run build` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Fixed the production futures desk crash by restoring the missing `getFuturesGovernorSnapshot` import in the backend snapshot builder, which was causing `/api/crypto/futures-desk` to return HTTP 500 and hide live futures state/PnL from the UI.
+- Files touched: `server/crypto/futuresDesk.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/futuresDesk.mjs` ok; `npm run build` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Hardened the futures desk path so partial backend failures no longer crash the whole endpoint: the snapshot builder now captures per-section errors into warnings with safe fallbacks, the HTTP handler returns a degraded payload instead of 500, and the frontend renders that degraded state visibly instead of pretending there is no response.
+- Files touched: `server/crypto/futuresDesk.mjs`, `server/index.mjs`, `src/components/crypto/FuturesDeskPanel.tsx`, `src/services/cryptoClient.ts`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/futuresDesk.mjs` ok; `node --check server/index.mjs` ok; `npm run build` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Split the futures desk capital view from the global treasury so the panel reports futures-only reserved margin, available capital, equity, and PnL instead of inheriting stale legacy reservations from unrelated open trades. Kept the global treasury visible as secondary context so mismatches are explicit instead of silent.
+- Files touched: `server/crypto/futuresDesk.mjs`, `server/index.mjs`, `src/components/crypto/FuturesDeskPanel.tsx`, `src/services/cryptoClient.ts`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/futuresDesk.mjs` ok; `node --check server/index.mjs` ok; `npm run build` ok
+
+## 2026-06-09 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Recalibrated the futures breakout geometry per timeframe instead of forcing one 55-bar channel everywhere: `short_micro` now uses 20 bars, `short_alt` 12, `short_core` 34, and `long_probe` stays at 55. Added explicit channel-distance diagnostics to skipped `inside_channel` results so the operator can see how far each pair is from a real breakout trigger.
+- Files touched: `.env.example`, `render.yaml`, `server/strategies/futuresBreakoutEngine.mjs`, `src/components/crypto/FuturesDeskPanel.tsx`, `src/services/cryptoClient.ts`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/strategies/futuresBreakoutEngine.mjs` ok; `npm run build` ok; live probe showed `15m` short setups can now qualify with the tighter period while `5m/1h/4h` still respect current market structure.
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: In `FUTURES_ONLY_MODE`, startup reconciliation now expires and refunds any open paper trade that is not a managed futures position, so stale Polymarket/scalp inventory can no longer reserve the shared capital path used by the live futures desk.
+- Files touched: `server/memory/reconciliationEngine.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/memory/reconciliationEngine.mjs` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Fixed `/api/health` for the futures-only runtime by falling back to the shared scheduler heartbeat when the legacy `agent_heartbeat.json` file is absent, so the production status bar can report the live futures agent instead of showing a false offline state.
+- Files touched: `server/index.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/index.mjs` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Decoupled paper futures execution from the legacy treasury by introducing a dedicated futures capital ledger derived from futures trades only, and seeded the futures agent profiles so futures entries no longer fail on `agent_profiles` foreign keys.
+- Files touched: `server/crypto/futuresCapital.mjs`, `server/crypto/futuresDesk.mjs`, `server/trading/paperExecutionEngine.mjs`, `server/db/schema.sql`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/futuresCapital.mjs` ok; `node --check server/crypto/futuresDesk.mjs` ok; `node --check server/trading/paperExecutionEngine.mjs` ok; `npm run build` ok; local paper futures open/close validation succeeded with `crypto_futures_breakout_short_micro-02d5b1c6`
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Made the visible status layer futures-first in production: `/api/health` now reports futures open-count and futures capital in `FUTURES_ONLY_MODE`, `useLiveTrading` switches to the futures desk as the source of visible capital/margin/open metrics, and the top/tech status bars now label and render those values accordingly instead of mixing in the legacy treasury view.
+- Files touched: `server/index.mjs`, `src/services/agentClient.ts`, `src/dashboard/hooks/useLiveTrading.ts`, `src/ui/TopBar.tsx`, `src/ui/TechView.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/index.mjs` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Removed the remaining global-treasury line from the futures desk UI and added a futures break-even stop ratchet in the position monitor, so open futures trades can lock risk back to entry-plus-buffer once they have covered enough of the path toward TP.
+- Files touched: `src/components/crypto/FuturesDeskPanel.tsx`, `server/trading/positionMonitor.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/trading/positionMonitor.mjs` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Unified `/api/health` with the live futures mark-to-market path so the production status layer now reports the same real futures equity, unrealized PnL, and available capital as the futures desk instead of a stale zero-PnL snapshot.
+- Files touched: `server/crypto/futuresDesk.mjs`, `server/index.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/futuresDesk.mjs` ok; `node --check server/index.mjs` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Rebuilt the Crypto Lab chart surface for operator readability: expanded the terminal grid so panels stop clipping, added separate toggles for trade markers/entries/exits/labels, overlaid live trade badges directly on the candlestick chart, and upgraded the trade timeline + selected-trade card with real capital and leverage context from persisted trades.
+- Files touched: `server/crypto/tradeHistory.mjs`, `src/services/cryptoClient.ts`, `src/dashboard/charts/CandleChart.tsx`, `src/components/crypto/ChartStatsHeader.tsx`, `src/components/crypto/TradeTimeline.tsx`, `src/components/crypto/TradeStoryCard.tsx`, `src/index.css`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/crypto/tradeHistory.mjs` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Hardened the live office renderer without changing behavior: the pixel office now respects `VITE_USE_LIVE_TILE_OFFICE=false` to fall back to the previous SVG office, and sprite loading no longer fails all-or-nothing when one asset is missing. If the canvas renderer cannot initialize, HQ safely falls back to the legacy office instead of breaking.
+- Files touched: `src/animations/pixelCanvasRenderer.ts`, `src/animations/PixelOfficeCanvas.tsx`, `src/ui/views/HQView.tsx`, `src/vite-env.d.ts`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run build` ok; `npm run typecheck` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Merged the latest `origin/main` backend fixes together with Claude's live tile office branch, then resolved `HQView` so Genesis now prefers the new tile office when enabled, falls back safely to the pixel canvas if tile assets fail, and still degrades to the legacy office if the canvas renderer cannot initialize.
+- Files touched: `server/index.mjs`, `server/trading/positionMonitor.mjs`, `src/ui/views/HQView.tsx`, `public/assets/office/*`, `src/hooks/useLiveOfficeState.ts`, `src/office/*`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run build` ok; `npm run typecheck` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Upgraded the live office dialogue layer so agents now speak work-focused lines by role instead of generic filler, and the office bubbles follow the active `es/en` language without inventing trading outcomes.
+- Files touched: `src/office/officeTypes.ts`, `src/office/officeDialogueRules.ts`, `src/office/agentDialogue.ts`, `src/office/TileOffice.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Made office bubbles react to real system context instead of random chatter: the relevant desk now gets speaking priority when the engine degrades, risk rises, open positions exist, or commentary implies pause/breakout/momentum, and each role turns those signals into honest Spanish/English work speech.
+- Files touched: `src/office/agentDialogue.ts`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Tightened the app-shell and Crypto Lab layout so the interface fits normal desktop zoom better: the viewport now uses `dvh`, the sidebar scales down instead of staying oversized, and the terminal grid/chart use height-responsive tracks instead of large fixed minimums that forced users to zoom out.
+- Files touched: `src/App.tsx`, `src/ui/GenesisSidebar.tsx`, `src/index.css`, `src/dashboard/charts/CandleChart.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added a recommendation-only futures intelligence supervisor that builds missions from real futures/governor/lesson state, optionally runs a local Foundry Python worker offline, persists advisory policy packages, exposes latest/history/run APIs, and surfaces the latest unapplied recommendation in the Futures Desk without touching execution semantics.
+- Files touched: `server/db/schema.sql`, `server/crypto/futuresDesk.mjs`, `server/index.mjs`, `server/intelligence/missionBuilder.mjs`, `server/intelligence/policyEvaluator.mjs`, `server/intelligence/policyFoundryAdapter.mjs`, `server/intelligence/intelligenceSupervisor.mjs`, `server/persistence/dbReplicator.mjs`, `server/tests/intelligenceSupervisor.test.mjs`, `src/services/cryptoClient.ts`, `src/components/crypto/FuturesDeskPanel.tsx`, `src/components/crypto/DeskPanel.tsx`, `src/workflows/CryptoLabView.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/intelligence/missionBuilder.mjs` ok; `node --check server/intelligence/policyEvaluator.mjs` ok; `node --check server/intelligence/policyFoundryAdapter.mjs` ok; `node --check server/intelligence/intelligenceSupervisor.mjs` ok; `node --check server/index.mjs` ok; `node --test --test-concurrency=1 server/tests/intelligenceSupervisor.test.mjs` ok; `npm run typecheck` ok; `npm run build` ok; `npm test` failed on pre-existing suites including `alphaValidation.test.mjs`, `cryptoTruth.test.mjs`, `futuresBreakoutEngine` and reconciliation/scalp regressions
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Tightened the live futures desk to avoid low-value trades: raised the default breakout TP target, increased margin allocation on the main futures profiles, added per-profile minimum expected net-profit and reward/risk gates after fees, and delayed the futures break-even lock so positions have more room to reach meaningful gains instead of closing too early for tiny wins.
+- Files touched: `server/strategies/futuresBreakoutEngine.mjs`, `server/trading/positionMonitor.mjs`, `src/services/cryptoClient.ts`, `src/components/crypto/FuturesDeskPanel.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/strategies/futuresBreakoutEngine.mjs` ok; `node --check server/trading/positionMonitor.mjs` ok; `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Disabled the `short_micro` futures profile by default after confirming the only recorded micro close was a tiny losing timeout, so the desk now focuses by default on larger setups with more room to clear fees and produce meaningful net PnL.
+- Files touched: `server/strategies/futuresBreakoutEngine.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/strategies/futuresBreakoutEngine.mjs` ok; `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Promoted `short_core` as the main high-conviction futures profile by increasing its default size and leverage, tightening its minimum net-profit and reward/risk gates, shortening its timeout, and narrowing the default pair set to BTC/ETH/SOL so the desk prioritizes fewer but economically stronger core shorts.
+- Files touched: `server/strategies/futuresBreakoutEngine.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/strategies/futuresBreakoutEngine.mjs` ok; `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Fixed the real futures learning loop so closed futures trades now generate lessons from the centralized paper execution close path, and added a safe backfill pass for older closed futures rows missing `lesson_id`. This removed the gap where real futures closes could exist without feeding the learning engine.
+- Files touched: `server/trading/paperExecutionEngine.mjs`, `server/trading/positionMonitor.mjs`, `server/crypto/futuresLearningBackfill.mjs`, `server/crypto/futuresDesk.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/trading/paperExecutionEngine.mjs` ok; `node --check server/trading/positionMonitor.mjs` ok; `node --check server/crypto/futuresLearningBackfill.mjs` ok; backfill generated 1 real futures lesson; `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Hardened the futures learning pressure path: closed paper futures trades now also write `trade_outcomes`, timeout losses on futures are promoted from passive `info` to actionable `warning/timing`, and the futures backfill now upgrades old weak lessons into real warning-grade memory plus linked mistake patterns.
+- Files touched: `server/memory/learningEngine.mjs`, `server/trading/paperExecutionEngine.mjs`, `server/crypto/futuresLearningBackfill.mjs`, `server/crypto/futuresDesk.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/memory/learningEngine.mjs` ok; `node --check server/trading/paperExecutionEngine.mjs` ok; `node --check server/crypto/futuresLearningBackfill.mjs` ok; confirmed persisted futures lesson upgraded to `warning/timing`; confirmed linked `mistake_patterns` row and `trade_outcomes` row for the real futures close; `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Connected the futures intelligence supervisor to the real vendored `fractal-prompt-foundry` engine under `vendor/fractal-prompt-foundry`, made the adapter auto-discover that source by default, and executed a real supervisor run that produced a persisted `recommended` package from Foundry with score `1.003`.
+- Files touched: `server/intelligence/policyFoundryAdapter.mjs`, `vendor/fractal-prompt-foundry/*`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/intelligence/policyFoundryAdapter.mjs` ok; real `runIntelligenceSupervisor()` returned `status=recommended`, `source=foundry`, `providerStatus=ok`; `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added a safe `apply supervisor` path for the futures intelligence layer. Recommended runs now persist deterministic runtime changes, the operator can apply only a strict whitelist of futures overrides, those overrides are audited in SQLite and shown in the desk UI, and the futures breakout engine now reads runtime overrides dynamically so applied policy changes take effect without changing trades, governor state, or execution semantics.
+- Files touched: `server/intelligence/policyApplication.mjs`, `server/intelligence/intelligenceSupervisor.mjs`, `server/intelligence/policyFoundryAdapter.mjs`, `server/strategies/futuresBreakoutEngine.mjs`, `server/db/schema.sql`, `server/db/database.mjs`, `server/index.mjs`, `server/tests/intelligenceSupervisor.test.mjs`, `src/services/cryptoClient.ts`, `src/workflows/CryptoLabView.tsx`, `src/components/crypto/DeskPanel.tsx`, `src/components/crypto/FuturesDeskPanel.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/intelligence/policyApplication.mjs` ok; `node --check server/intelligence/policyFoundryAdapter.mjs` ok; `node --check server/strategies/futuresBreakoutEngine.mjs` ok; `node --test server/tests/intelligenceSupervisor.test.mjs` ok; `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-10 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Hardened the futures supervisor operations loop with expiring runtime overrides, manual rollback, before-vs-after impact comparison, and learning cohorts grouped by profile, pair, side, and exit reason. The desk now shows not only what policy is active, but when it expires, whether it helped, and which real futures cohorts are strongest or weakest.
+- Files touched: `server/intelligence/policyApplication.mjs`, `server/intelligence/intelligenceSupervisor.mjs`, `server/db/schema.sql`, `server/db/database.mjs`, `server/index.mjs`, `server/crypto/futuresDesk.mjs`, `server/tests/intelligenceSupervisor.test.mjs`, `src/services/cryptoClient.ts`, `src/workflows/CryptoLabView.tsx`, `src/components/crypto/DeskPanel.tsx`, `src/components/crypto/FuturesDeskPanel.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/intelligence/policyApplication.mjs` ok; `node --check server/crypto/futuresDesk.mjs` ok; `node --test server/tests/intelligenceSupervisor.test.mjs` ok; `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Fixed production Foundry availability by making the supervisor adapter prefer a repo-native bundled Foundry source under `server/intelligence/foundry/` and by adding a `python3/python` runtime fallback for Linux deploys such as Render. This removes the previous dependency on an untracked nested vendor repo that production could not see.
+- Files touched: `server/intelligence/policyFoundryAdapter.mjs`, `server/intelligence/foundry/fractal_prompt_foundry.py`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/intelligence/policyFoundryAdapter.mjs` ok; `node --test server/tests/intelligenceSupervisor.test.mjs` ok; `npm run build` ok
+
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Hardened supervisor freshness by marking backend JSON responses as non-cacheable and forcing the frontend supervisor fetches to use `no-store`, so the desk stops resurfacing stale degraded supervisor states after a successful Foundry run.
+- Files touched: `server/index.mjs`, `src/services/cryptoClient.ts`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run typecheck` ok; `npm run build` ok; `node --test server/tests/intelligenceSupervisor.test.mjs` ok
+
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Tightened the Crypto Lab chart zone so it fits normal browser zoom better: the terminal grid now compresses more intelligently across viewport heights, the chart header is denser, and trade event badges stay clamped inside the visible chart instead of drifting out of bounds.
+- Files touched: `src/index.css`, `src/components/crypto/ChartStatsHeader.tsx`, `src/dashboard/charts/CandleChart.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added a Vercel/Supabase contingency read path so the frontend can fall back from Render to same-origin serverless endpoints backed by replicated Postgres when the free Render backend is asleep or unavailable. The fallback serves real replicated data for health, system health, crypto overview, futures desk, trade stories, commentary, diagnostics, market intelligence, and supervisor latest without faking live execution.
+- Files touched: `api/_lib/http.js`, `api/_lib/postgres.js`, `api/_lib/cryptoFallback.js`, `api/health.js`, `api/system/health.js`, `api/crypto/overview.js`, `api/crypto/trades.js`, `api/crypto/commentary.js`, `api/crypto/diagnostics.js`, `api/crypto/futures-desk.js`, `api/crypto/market-intelligence.js`, `api/intelligence/supervisor/latest.js`, `src/services/apiBase.ts`, `src/services/cryptoClient.ts`, `src/services/agentClient.ts`, `src/hooks/useTruthLayer.ts`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check api/_lib/cryptoFallback.js` ok; `node --check api/health.js` ok; `node --check api/system/health.js` ok; `node --check api/crypto/overview.js` ok; `node --check api/crypto/trades.js` ok; `node --check api/crypto/commentary.js` ok; `node --check api/crypto/diagnostics.js` ok; `node --check api/crypto/futures-desk.js` ok; `node --check api/crypto/market-intelligence.js` ok; `node --check api/intelligence/supervisor/latest.js` ok; `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-10 - Claude
+
+- Branch: `claude/genesis-agent-visual-design-74o3bb`
+- Summary: Applied the owner-approved "Pantalla 1" industrial-dark visual direction to the live tile office: dark ambient cast over floors/walls (props and agents stay bright), terminal-style green zone tags (RESEARCH ZONE, TRADING DESK, RISK MANAGEMENT, PORTFOLIO MONITOR, SERVER ROOM, COFFEE AREA, MEETING ROOM), a wall-mounted MARKET WATCH screen with decorative numberless candle animation, dark server-room patch with extra LED bank, meeting-area carpet, restyled dialogue bubbles (dark slate plate + accent bar), and the status strip promoted to a top operations header (GENESIS HQ brand, engine, live agent count, positions, risk, activity, clock). All values remain real or honest placeholders; agent movement, dialogue sourcing, and data wiring untouched.
+- Files touched: `src/office/officeLayout.ts`, `src/office/TileOfficeRenderer.ts`, `src/office/OfficeStatusBar.tsx`, `src/office/TileOffice.tsx`, `src/office/DialogueBubble.tsx`, `docs/DESIGN_DIRECTION.md`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Hardened the Supabase futures runner and maintenance audit findings without changing trading decisions. The runner now requires `GENESIS_RUNNER_TOKEN` via header or bearer token, the GitHub workflow sends that secret, alpha validation reports blocked totals consistently, visual agent heartbeat no longer implies synthetic trading work, the regime backtest reads the full canonical crypto universe, and reconciliation tests clean dependent rows before deleting test trades.
+- Files touched: `supabase/functions/genesis-runner/index.ts`, `.github/workflows/futures-hosted-runner.yml`, `server/research/alphaValidationEngine.mjs`, `src/activity/AgentActivityFeed.tsx`, `server/crypto/backtest/regimeBiasBacktest.mjs`, `server/tests/reconciliation.test.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `npm test -- --test-concurrency=1` 810/810 ok; `npm run typecheck` ok; `npm run build` ok; `npx -y deno@latest check --config supabase/functions/genesis-runner/deno.json supabase/functions/genesis-runner/index.ts` ok; deployed Supabase Edge Function `genesis-runner` version 2; unauthenticated runner request returns `401 runner_auth_required`; GitHub Actions run `27364283522` succeeded with masked `GENESIS_RUNNER_TOKEN`, scanned 10 markets, executed 1 real paper futures position, and Vercel `/api/system/health` reported `agentAlive=true`, `totalCycles=5`
+
+## 2026-06-11 - Claude
+
+- Branch: `claude/genesis-agent-visual-design-74o3bb`
+- Summary: Hardened core trading-server logic by fixing two real production bugs found via the failing test suite (14 failures → 0, 787/787 green). (1) Treasury peak capital was cached at module level and never invalidated, so external writes (DB restore) left drawdownPct and the isPaused circuit breaker computing against a stale peak — getPeakCapital now re-reads org_state on every call with the cache demoted to last-known-good fallback. (2) capital_history.recorded_at mixes ISO and SQLite datetime formats, so ORDER BY recorded_at DESC could return an old row as "latest" ('T' > ' ' lexicographically) — all latest-capital readers now order by rowid (append-only, monotonic). Also: FUTURES_BREAKOUT_SHORT/LONG_ENABLED are now family master switches gating every profile on their side (previously short_alt kept trading XRP/DOGE with shorts "disabled"); runStartupReconciliation accepts an injectable { futuresOnly } option and gained two tests covering the futures-only reset path; the scalpV2 confidence invariant test now matches the documented regime-bias design (aligned regime may add up to +10 pts, ceiling 0.92, veto caps at 0.40).
+- Files touched: `server/trading/treasury.mjs`, `server/memory/tradingMemory.mjs`, `server/intelligence/confidenceEngine.mjs`, `server/memory/reconciliationEngine.mjs`, `server/strategies/futuresBreakoutEngine.mjs`, `server/tests/reconciliation.test.mjs`, `server/tests/futuresBreakoutEngine.test.mjs`, `server/tests/scalpV2.test.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `npm test` 787/787 ok; `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Replaced the failed Vercel Postgres contingency with a real Supabase Edge Function fallback and wired the public serverless API routes to use it first. This keeps `genesis-hq-lab.vercel.app` serving real health, overview, futures desk, commentary, trades, diagnostics, market intelligence, and supervisor data even while Render is suspended.
+- Files touched: `supabase/functions/genesis-fallback/index.ts`, `supabase/functions/genesis-fallback/deno.json`, `api/_lib/remoteFallback.js`, `api/health.js`, `api/system/health.js`, `api/crypto/overview.js`, `api/crypto/trades.js`, `api/crypto/commentary.js`, `api/crypto/diagnostics.js`, `api/crypto/futures-desk.js`, `api/crypto/market-intelligence.js`, `api/intelligence/supervisor/latest.js`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run typecheck` ok; `npm run build` ok; Supabase Edge Function `genesis-fallback` returns live JSON for `health`, `crypto-overview`, `crypto-futures-desk`, and `supervisor-latest`
+
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added a safe hosted futures runner path without touching trading logic. The repo now includes a one-shot hosted tick wrapper that restores from Supabase, runs the real futures slow-cycle, replicates back, and writes a durable heartbeat into `org_state`. A GitHub Actions schedule can execute that tick every 5 minutes, and the Vercel/Supabase fallback now reads the durable heartbeat so production can show the runner as live when hosted ticks are landing.
+- Files touched: `server/trading/hostedRunnerHeartbeat.mjs`, `scripts/runHostedFuturesTick.mjs`, `.github/workflows/futures-hosted-runner.yml`, `api/_lib/cryptoFallback.js`, `supabase/functions/genesis-fallback/index.ts`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check server/trading/hostedRunnerHeartbeat.mjs` ok; `node --check scripts/runHostedFuturesTick.mjs` ok; `node --check api/_lib/cryptoFallback.js` ok; `node scripts/runHostedFuturesTick.mjs` skips cleanly without `DATABASE_URL`; `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Hardened the hosted futures workflow without changing execution semantics. The workflow now validates that a database URL is actually injected before the tick starts and passes the secrets at step scope, which makes the failure mode explicit instead of silently reporting the runner as inactive.
+- Files touched: `.github/workflows/futures-hosted-runner.yml`, `docs/CHANGELOG_AI.md`
+- Verification: manual GitHub Actions rerun still reports both database env vars missing inside the job; no trading-engine files changed
+
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Bound the hosted futures workflow to the existing GitHub `Production` environment and copied the production Postgres URL into environment-scoped secrets. This keeps the runner wiring isolated to deployment infra and avoids touching the futures engine itself.
+- Files touched: `.github/workflows/futures-hosted-runner.yml`, `docs/CHANGELOG_AI.md`
+- Verification: environment secrets created for `Production`; pending rerun validation of the hosted workflow against those environment-scoped secrets
+
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Prevented the hosted futures workflow from marking Genesis unhealthy when no valid database URL exists. The cron now reports a warning and skips the hosted tick cleanly until a real Postgres connection string is configured, preserving Claude's trading/UI work and avoiding fake execution.
+- Files touched: `.github/workflows/futures-hosted-runner.yml`, `docs/CHANGELOG_AI.md`
+- Verification: GitHub Actions run `27360119564` completed successfully with the tick skipped because no valid DB URL is configured; Vercel `/api/health` and `/api/system/health` returned 200; no trading-engine files changed
+
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Replaced the degraded GitHub/Postgres runner path with a Supabase Edge runner. `genesis-runner` scans real Binance futures candles, closes paper futures positions on TP/SL/timeout, opens only qualifying paper breakout setups, writes cycle history, and refreshes the durable runner heartbeat that production reads.
+- Files touched: `supabase/functions/genesis-runner/index.ts`, `supabase/functions/genesis-runner/deno.json`, `.github/workflows/futures-hosted-runner.yml`, `docs/CHANGELOG_AI.md`
+- Verification: `npx -y deno@latest check --config supabase/functions/genesis-runner/deno.json supabase/functions/genesis-runner/index.ts` ok; Supabase Edge Function `genesis-runner` deployed version 1; live call returned `mode=executed`, `scanned=10`, `executed=0`, `closed=0`; GitHub Actions run `27361375836` completed successfully via `Run Supabase hosted futures tick`; Vercel `/api/system/health` reports `agentAlive=true`, `totalCycles=2`
+
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Installed the internal Genesis Maintainer Orchestrator protocol as a repo skill and documentation set. The protocol defines task classification, evidence gates, live proof expectations, permission boundaries, money-module guardrails, and required fix reporting.
+- Files touched: `.skills/maintainer-orchestrator/SKILL.md`, `docs/GENESIS_MAINTAINER_PROTOCOL.md`, `docs/GENESIS_FIX_REPORT_TEMPLATE.md`, `docs/GENESIS_LIVE_PROOF_CHECKLIST.md`, `README.md`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run build` ok

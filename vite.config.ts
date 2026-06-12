@@ -19,6 +19,8 @@ export default defineConfig({
       '@workflows':  alias('workflows'),
       '@ui':         alias('ui'),
       '@hooks':      alias('hooks'),
+      '@office':     alias('office'),
+      '@components': alias('components'),
     },
   },
   server: {

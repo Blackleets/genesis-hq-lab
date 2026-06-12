@@ -12,6 +12,9 @@ import { isSafeMode } from '../memory/reconciliationEngine.mjs';
 import { reserveCapital, settleTradeCapital } from './treasury.mjs';
 import { closeCryptoTrade } from '../crypto/cryptoExecution.mjs';
 import { computeCryptoTargets } from '../crypto/cryptoMath.mjs';
+import { reserveFuturesCapital } from '../crypto/futuresCapital.mjs';
+import { analyzeClosedTrade } from '../memory/learningEngine.mjs';
+import { createOutcomeRecord, saveOutcome } from '../learning/outcomeModel.mjs';
 import {
   cryptoSlippagePct,
   cryptoFuturesSlippagePct,
@@ -20,6 +23,11 @@ import {
   estimateFuturesMaintenanceMarginUsd,
 } from './costs.mjs';
 import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs';
+import {
+  consumeApprovedDecision,
+  attachTradeToDecision,
+  recordDecisionOutcome,
+} from '../crypto/decisionMemory.mjs';
 
 const TRAINING_MODE = ['1', 'true', 'yes'].includes((process.env.TRAINING_MODE ?? '').toLowerCase());
 
@@ -89,6 +97,18 @@ export async function openCryptoPosition(opts) {
     return { executed: false, reason: 'reconciliation_safe_mode', blocked: true };
   }
 
+  // ── Decision Council gate — NEVER bypass ──
+  // Every crypto position requires a fresh, approved, unconsumed council
+  // decision matching this exact pair/side/tradeType. Engines obtain it via
+  // decisionCouncil.evaluateTrade() before calling here.
+  const gate = consumeApprovedDecision(opts.councilDecisionId, { pair: asset.pair, side, tradeType });
+  if (!gate.ok) {
+    logEvent({ category: CATEGORY.EXECUTION, severity: SEVERITY.WARNING, subsystem: agentId,
+      reason: `BLOCKED (council gate ${gate.reason}): ${side} ${asset.symbol}`,
+      metadata: { asset: asset.symbol, side, tradeType, councilGate: gate.reason } });
+    return { executed: false, reason: `council_gate:${gate.reason}`, blocked: true };
+  }
+
   // ── Simulate latency ──
   await applyLatency();
 
@@ -96,7 +116,9 @@ export async function openCryptoPosition(opts) {
   const filledCapital = applyPartialFill(capitalUsed);
 
   // ── Reserve capital ──
-  const reservation = reserveCapital(filledCapital);
+  const reservation = instrumentType === 'futures'
+    ? reserveFuturesCapital(filledCapital)
+    : reserveCapital(filledCapital);
   if (!reservation.ok) {
     return { executed: false, reason: reservation.reason };
   }
@@ -187,6 +209,8 @@ export async function openCryptoPosition(opts) {
     });
   });
 
+  attachTradeToDecision(opts.councilDecisionId, id);
+
   const msg = `OPEN ${side} ${asset.symbol} @ $${effectiveEntryPrice.toFixed(2)} → TP $${tp.toFixed ? tp.toFixed(2) : tp} | SL $${sl.toFixed ? sl.toFixed(2) : sl} | capital $${effectiveCapital.toFixed(2)}`;
   logEvent({ category: CATEGORY.EXECUTION, severity: SEVERITY.INFO, subsystem: agentId, reason: msg,
     metadata: { tradeId: id, confidence, asset: asset.symbol, side, tradeType, type: 'open' } });
@@ -237,7 +261,9 @@ export async function closeCryptoPosition(tradeId, currentPrice, exitReason, age
   const closedTrade = closeCryptoTrade(tradeId, currentPrice, exitReason);
   if (!closedTrade) return null;
 
-  settleTradeCapital(trade.capital_used, closedTrade.pnl ?? 0);
+  if (trade.instrument_type !== 'futures') {
+    settleTradeCapital(trade.capital_used, closedTrade.pnl ?? 0);
+  }
 
   const won = (closedTrade.pnl ?? 0) > 0;
   const exitLabel = {
@@ -259,6 +285,33 @@ export async function closeCryptoPosition(tradeId, currentPrice, exitReason, age
 
   if (TRAINING_MODE) {
     console.log(`[paperExec][TRAINING] ${agentId ?? trade.agent_id}: ${exitLabel} ${trade.outcome} ${trade.asset_pair ?? ''} @ $${currentPrice.toFixed(2)} | PnL=$${(closedTrade.pnl ?? 0).toFixed(2)}`);
+  }
+
+  // Centralize learning at the execution close path so futures lessons are
+  // generated even when the caller forgets to trigger the learning engine.
+  if (!trade.lesson_id) {
+    try {
+      await analyzeClosedTrade(closedTrade);
+    } catch (error) {
+      console.warn(`[paperExec] Lesson extraction failed for ${tradeId}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  try {
+    saveOutcome(createOutcomeRecord({
+      ...closedTrade,
+      closed_at: closedTrade.closedAt ?? closedTrade.closed_at,
+    }));
+  } catch (error) {
+    console.warn(`[paperExec] Outcome recording failed for ${tradeId}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  // Close the council loop: write the real outcome (PnL, exit reason,
+  // bull/bear attribution, lesson) back onto the authorizing decision.
+  try {
+    recordDecisionOutcome({ ...closedTrade, id: tradeId });
+  } catch (error) {
+    console.warn(`[paperExec] Council outcome write-back failed for ${tradeId}: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   return closedTrade;

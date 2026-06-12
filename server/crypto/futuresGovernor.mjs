@@ -8,6 +8,8 @@ const PAUSE_WIN_RATE = parseFloat(process.env.FUTURES_GOV_PAUSE_WIN_RATE ?? '0.3
 const SUPERVISOR_MAX_DAILY_LOSS = parseFloat(process.env.FUTURES_SUPERVISOR_MAX_DAILY_LOSS ?? '120');
 const SUPERVISOR_MAX_CONSEC_LOSSES = parseInt(process.env.FUTURES_SUPERVISOR_MAX_CONSEC_LOSSES ?? '3', 10);
 const SUPERVISOR_COOLDOWN_HOURS = parseInt(process.env.FUTURES_SUPERVISOR_COOLDOWN_HOURS ?? '6', 10);
+const PROMOTE_MIN_SAMPLES = parseInt(process.env.FUTURES_GOV_PROMOTE_MIN_SAMPLES ?? '8', 10);
+const ATTACK_MIN_SAMPLES = parseInt(process.env.FUTURES_GOV_ATTACK_MIN_SAMPLES ?? '12', 10);
 
 const PROFILE_DEFS = [
   { id: 'short_micro', tradeType: 'crypto_futures_breakout_short_micro' },
@@ -109,6 +111,9 @@ function evaluateProfile(row) {
   const totalPnl = row?.totalPnl ?? 0;
   const avgPnl = row?.avgPnl ?? 0;
   const winRate = trades > 0 ? wins / trades : null;
+  const grossProfit = row?.grossProfit ?? 0;
+  const grossLoss = row?.grossLoss ?? 0;
+  const profitFactor = grossLoss > 0 ? (grossProfit / grossLoss) : (grossProfit > 0 ? Infinity : null);
 
   if (trades < DEGRADE_MIN_SAMPLES) {
     return {
@@ -134,6 +139,36 @@ function evaluateProfile(row) {
       capitalMultiplier: 0.5,
       leverageMultiplier: 0.67,
       reason: `${trades} trades, WR ${Math.round((winRate ?? 0) * 100)}%, avg $${round2(avgPnl)}`,
+    };
+  }
+
+  if (
+    trades >= ATTACK_MIN_SAMPLES
+    && totalPnl > 120
+    && (winRate ?? 0) >= 0.58
+    && avgPnl >= 12
+    && (profitFactor == null || profitFactor === Infinity || profitFactor >= 1.6)
+  ) {
+    return {
+      mode: 'active',
+      capitalMultiplier: 1.35,
+      leverageMultiplier: 1.15,
+      reason: `attack profile: ${trades} trades, WR ${Math.round((winRate ?? 0) * 100)}%, avg $${round2(avgPnl)}, PnL $${round2(totalPnl)}`,
+    };
+  }
+
+  if (
+    trades >= PROMOTE_MIN_SAMPLES
+    && totalPnl > 40
+    && (winRate ?? 0) >= 0.5
+    && avgPnl >= 5
+    && (profitFactor == null || profitFactor === Infinity || profitFactor >= 1.2)
+  ) {
+    return {
+      mode: 'active',
+      capitalMultiplier: 1.15,
+      leverageMultiplier: 1.05,
+      reason: `promoted profile: ${trades} trades, WR ${Math.round((winRate ?? 0) * 100)}%, avg $${round2(avgPnl)}, PnL $${round2(totalPnl)}`,
     };
   }
 

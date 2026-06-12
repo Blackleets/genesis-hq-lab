@@ -81,7 +81,7 @@ const INTERVAL_MS = 5 * 60 * 1000;  // 5 minutes
 const AGENT_ID = 'market-agent-1';
 const ONCE = process.argv.includes('--once');
 const VERBOSE = process.argv.includes('--verbose') || process.argv.includes('-v');
-const FUTURES_ONLY_MODE = ['1', 'true', 'yes', 'on'].includes((process.env.FUTURES_ONLY_MODE ?? '').toLowerCase());
+const FUTURES_ONLY_MODE = !['0', 'false', 'no', 'off'].includes((process.env.FUTURES_ONLY_MODE ?? 'true').toLowerCase());
 const PREDICTION_AGENT_ENABLED = !FUTURES_ONLY_MODE && !['0', 'false', 'no', 'off'].includes((process.env.PREDICTION_AGENT_ENABLED ?? 'true').toLowerCase());
 const LEGACY_CRYPTO_LOOP_ENABLED = !FUTURES_ONLY_MODE && !['0', 'false', 'no', 'off'].includes((process.env.LEGACY_CRYPTO_LOOP_ENABLED ?? 'true').toLowerCase());
 
@@ -345,6 +345,28 @@ if (!ONCE) {
   // Marketing agent every 6 hours
   setInterval(marketingTick, 6 * 60 * 60 * 1000);
   setTimeout(marketingTick, 10000); // initial run after 10s
+
+  // Intelligence supervisor — every 4 hours, advisory only, fire-and-forget.
+  // Uses Claude fallback when Python Foundry is unavailable (e.g. Render).
+  const SUPERVISOR_INTERVAL_MS = 4 * 60 * 60 * 1000;
+  async function supervisorTick() {
+    try {
+      const { runIntelligenceSupervisor } = await import('./intelligence/intelligenceSupervisor.mjs');
+      const result = await runIntelligenceSupervisor();
+      if (result?.status === 'recommended' || result?.status === 'draft') {
+        console.log(`[intelligenceSupervisor] Cycle OK — score=${result.score?.toFixed(2) ?? 'N/A'}`);
+      } else {
+        console.log(`[intelligenceSupervisor] Cycle stored — status=${result?.status ?? 'unknown'}`);
+      }
+    } catch (err) {
+      console.warn('[intelligenceSupervisor] Cycle error:', err?.message);
+    }
+  }
+  // Delay first run 2 min to let the trading cycle settle on boot
+  setTimeout(() => {
+    void supervisorTick();
+    setInterval(supervisorTick, SUPERVISOR_INTERVAL_MS);
+  }, 2 * 60 * 1000);
 
   console.log(`\n[agentRunner] Running. Next tick in ${INTERVAL_MS / 60000} min. Ctrl+C to stop.\n`);
 }

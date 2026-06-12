@@ -10,13 +10,16 @@
 //   - Persistent: state stored in org_state so diagnostics survive restarts
 //   - Testable: getStatusFn is injectable for unit tests
 
-import db from '../db/database.mjs';
+import db, { tx } from '../db/database.mjs';
 import { getMarketStatus } from '../marketScanner.mjs';
 import { closeTrade, getOpenTrades } from './tradingMemory.mjs';
 import { settleTradeCapital } from '../trading/treasury.mjs';
 import { analyzeClosedTrade } from './learningEngine.mjs';
 import { updateAfterTrade } from './agentScoring.mjs';
 import { processMarketResolution } from './decisionAccuracyEngine.mjs';
+
+const FUTURES_ONLY_MODE = !['0', 'false', 'no', 'off'].includes((process.env.FUTURES_ONLY_MODE ?? 'true').toLowerCase());
+const FUTURES_TRADE_TYPE_PREFIX = 'crypto_futures_';
 
 // ── Status constants ──────────────────────────────────────────────────────────
 
@@ -89,6 +92,36 @@ export function _resetReconciliationCacheForTest() {
   _state = null;
 }
 
+function isManagedFuturesTrade(trade) {
+  return trade?.instrument_type === 'futures'
+    || String(trade?.trade_type ?? '').startsWith(FUTURES_TRADE_TYPE_PREFIX);
+}
+
+function expireLegacyTradeForFuturesOnly(trade) {
+  let expired = false;
+
+  tx(() => {
+    const info = db.prepare(`
+      UPDATE trades
+      SET status = 'expired',
+          closed_at = datetime('now'),
+          exit_reason = 'futures_only_reset'
+      WHERE id = ? AND status = 'open'
+    `).run(trade.id);
+    expired = info.changes > 0;
+  });
+
+  if (expired) {
+    settleTradeCapital(trade.capital_used ?? 0, 0);
+    console.warn(
+      `[reconciliation] FUTURES_ONLY_RESET: expired non-futures trade ${trade.id} ` +
+      `(${trade.market_source ?? 'unknown'} / ${trade.trade_type ?? 'unknown'}) and refunded $${(trade.capital_used ?? 0).toFixed(2)}`
+    );
+  }
+
+  return expired;
+}
+
 // ── Startup reconciliation ────────────────────────────────────────────────────
 
 /**
@@ -96,12 +129,16 @@ export function _resetReconciliationCacheForTest() {
  *
  * @param {Function} getStatusFn  - injectable for tests (defaults to real getMarketStatus)
  * @param {Function} getTradesFn  - injectable for tests (defaults to real getOpenTrades)
+ * @param {object}   [options]    - { futuresOnly } — injectable for tests; defaults
+ *                                  to the FUTURES_ONLY_MODE env flag in production
  * @returns {Promise<object>} reconciliation state
  */
 export async function runStartupReconciliation(
   getStatusFn = getMarketStatus,
   getTradesFn = getOpenTrades,
+  options = {},
 ) {
+  const futuresOnly = options.futuresOnly ?? FUTURES_ONLY_MODE;
   const startMs = Date.now();
   console.log('[reconciliation] ── Startup position reconciliation ──────────────');
 
@@ -131,6 +168,23 @@ export async function runStartupReconciliation(
   let hasConflict = false;
 
   for (const trade of openTrades) {
+    if (futuresOnly && !isManagedFuturesTrade(trade)) {
+      try {
+        if (expireLegacyTradeForFuturesOnly(trade)) recovered++;
+      } catch (err) {
+        hasConflict = true;
+        unresolved++;
+        unresolvedCapital += trade.capital_used ?? 0;
+        issues.push({
+          type: 'futures_only_reset_failed',
+          tradeId: trade.id,
+          marketId: trade.market_id,
+          source: trade.market_source,
+          message: `Could not expire non-futures trade for futures-only mode: ${err?.message}`,
+        });
+      }
+      continue;
+    }
     // ── Case: Crypto paper trades ────────────────────────────────────────────
     // Crypto positions have no exchange API — managed by manageCryptoPositions().
     // Accept them as active; they will be closed by the 1-min loop.

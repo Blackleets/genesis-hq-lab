@@ -1,5 +1,5 @@
 // cryptoClient — read-only client for the crypto scalping engine.
-import { apiUrl } from '@services/apiBase';
+import { apiUrl, fetchApi } from '@services/apiBase';
 
 export interface CryptoParams {
   targetPct: number;
@@ -66,7 +66,7 @@ export interface CryptoOverview {
 }
 
 export async function loadCryptoOverview(): Promise<CryptoOverview> {
-  const res = await fetch(apiUrl('/api/crypto/overview'), { headers: { accept: 'application/json' } });
+  const res = await fetchApi('/api/crypto/overview', { headers: { accept: 'application/json' } });
   if (!res.ok) throw new Error(`Crypto overview failed: ${res.status}`);
   return res.json() as Promise<CryptoOverview>;
 }
@@ -76,6 +76,8 @@ export interface FuturesDeskConfig {
   regimeSmaPeriod: number;
   tpPct: number;
   slPct: number;
+  minExpectedNetUsd: number;
+  minRewardRisk: number;
   timeoutHours: number;
   maxMargin: number;
   leverage: number;
@@ -122,8 +124,11 @@ export interface FuturesDeskConfig {
     tradeType: string;
     tier: string;
     interval: string;
+    breakoutPeriod: number;
     maxMargin: number;
     timeoutHours: number;
+    minExpectedNetUsd: number;
+    minRewardRisk: number;
     pairs: string[];
   }>;
 }
@@ -142,6 +147,17 @@ export interface FuturesDeskTreasury {
   netWorth: number;
   drawdownPct: number | null;
   isPaused: boolean;
+}
+
+export interface FuturesDeskCapital {
+  startCapital: number | null;
+  reservedMargin: number | null;
+  realizedPnl: number | null;
+  unrealizedPnl: number | null;
+  netPnl: number | null;
+  equity: number | null;
+  available: number | null;
+  openPositions: number;
 }
 
 export interface FuturesDeskPosition {
@@ -227,6 +243,18 @@ export interface FuturesDeskCycleResult {
       detail: string;
       side?: 'LONG' | 'SHORT';
       price?: number;
+      economics?: {
+        notionalUsd: number;
+        slippagePct: number;
+        feePct: number;
+        fundingFeeUsd: number;
+        expectedHoldingHours: number;
+        targetPrice: number;
+        stopPrice: number;
+        tpNetUsd: number;
+        slNetUsd: number;
+        rewardRisk: number | null;
+      };
     }>;
   }>;
 }
@@ -280,6 +308,13 @@ export interface FuturesDeskProfileScore {
   losses: number;
   winRate: number | null;
   totalPnl: number;
+  expectancy: number | null;
+  profitFactor: number | null;
+  maxDrawdown: number | null;
+  rankScore: number | null;
+  mode: 'learning' | 'degraded' | 'paused' | 'active';
+  capitalMultiplier: number;
+  leverageMultiplier: number;
   pairs: FuturesDeskPairScore[];
 }
 
@@ -296,15 +331,160 @@ export interface FuturesGovernorJournalEntry {
   at: string;
 }
 
+export interface FuturesLearningCohortRow {
+  key: string;
+  tradeType: string;
+  pair: string;
+  side: 'LONG' | 'SHORT';
+  exitReason: string;
+  closedTrades: number;
+  wins: number;
+  losses: number;
+  winRate: number | null;
+  totalPnl: number;
+  avgPnl: number;
+  score: number | null;
+}
+
+export interface IntelligenceSupervisorCandidateSummary {
+  id: string;
+  source: string;
+  style: string;
+  score: number | null;
+  providerScore: number | null;
+  metrics: Record<string, number>;
+  summary: string | null;
+  critique: string[];
+  missingTerms: string[];
+  affectedProfiles: string[];
+  leaderboard: Array<{
+    candidate_id?: string;
+    candidateId?: string;
+    style?: string;
+    score?: number;
+    round?: number;
+  }>;
+}
+
+export interface IntelligenceSupervisorMission {
+  id: string;
+  generatedAt: string;
+  source: string;
+  scope: string;
+  targetObjective: string;
+  constraints: string[];
+  aggregate: {
+    closedTrades: number;
+    wins: number;
+    losses: number;
+    winRate: number | null;
+    totalPnl: number | null;
+    avgPnl: number | null;
+  };
+}
+
+export interface IntelligenceSupervisorRun {
+  id: string;
+  missionId: string;
+  source: string;
+  scope: string;
+  status: 'draft' | 'recommended' | 'archived' | 'rejected' | 'degraded' | 'failed';
+  advisoryOnly: boolean;
+  providerStatus: 'ok' | 'unknown' | 'unavailable' | 'failed' | string;
+  mission: IntelligenceSupervisorMission | null;
+  candidateSummary: IntelligenceSupervisorCandidateSummary | null;
+  recommendedPrompt: string | null;
+  recommendedRules: string[];
+  score: number | null;
+  riskNotes: string[];
+  justification: string[];
+  proposedChanges: Array<{
+    key: string;
+    label: string;
+    type: 'boolean' | 'number' | string;
+    profileId: string | null;
+    currentValue: boolean | number | null;
+    proposedValue: boolean | number | null;
+    reason: string;
+  }>;
+  artifacts: unknown;
+  createdAt: string;
+}
+
+export interface IntelligenceAppliedPolicyState {
+  active: boolean;
+  sourceRunId: string | null;
+  appliedAt: string | null;
+  appliedBy: string | null;
+  expiresAt: string | null;
+  overrides: Array<{
+    key: string;
+    label: string;
+    value: boolean | number | null;
+  }>;
+  latestApply: {
+    id: string;
+    scope: string;
+    runId: string;
+    status: string;
+    appliedBy: string;
+    appliedAt: string;
+    expiresAt: string | null;
+    overrides: Array<{
+      key: string;
+      label: string;
+      type: 'boolean' | 'number' | string;
+      profileId: string | null;
+      currentValue: boolean | number | null;
+      proposedValue: boolean | number | null;
+      reason: string;
+    }>;
+  } | null;
+  impact: {
+    comparisonWindowHours: number | null;
+    preWindow: {
+      closedTrades: number;
+      wins: number;
+      losses: number;
+      winRate: number | null;
+      totalPnl: number | null;
+      avgPnl: number | null;
+    };
+    postWindow: {
+      closedTrades: number;
+      wins: number;
+      losses: number;
+      winRate: number | null;
+      totalPnl: number | null;
+      avgPnl: number | null;
+    };
+    delta: {
+      closedTrades: number;
+      totalPnl: number | null;
+      avgPnl: number | null;
+      winRate: number | null;
+    };
+  } | null;
+}
+
+export interface IntelligenceSupervisorState {
+  scope: string;
+  latest: IntelligenceSupervisorRun | null;
+  latestAttempt: IntelligenceSupervisorRun | null;
+  appliedPolicy: IntelligenceAppliedPolicyState;
+}
+
 export interface FuturesDeskSnapshot {
   ok?: boolean;
   mode: 'status' | 'run';
   generatedAt: string;
+  warnings?: Array<{ section: string; error: string; at: string }>;
   config: FuturesDeskConfig;
   cycle: FuturesDeskCycleResult | null;
   governorJournal: FuturesGovernorJournalEntry[];
   baseline: FuturesDeskBaseline | null;
   treasury: FuturesDeskTreasury;
+  futuresCapital: FuturesDeskCapital;
   openPositions: FuturesDeskPosition[];
   closedSummary: FuturesDeskSummaryRow[];
   equityCurve: FuturesDeskEquityPoint[];
@@ -312,20 +492,146 @@ export interface FuturesDeskSnapshot {
   today: FuturesDeskToday;
   cycleHistory: FuturesDeskCycleHistoryRow[];
   profileScoreboard: FuturesDeskProfileScore[];
+  learningCohorts: {
+    strongest: FuturesLearningCohortRow[];
+    weakest: FuturesLearningCohortRow[];
+  };
+  supervisor: IntelligenceSupervisorState;
   recentEntries: FuturesDeskEntry[];
 }
 
-export async function loadFuturesDesk(runCycle = false): Promise<FuturesDeskSnapshot | null> {
+export async function loadFuturesDesk(runCycle = false, timeoutMs = runCycle ? 35_000 : 5_000): Promise<FuturesDeskSnapshot | null> {
   try {
     const query = runCycle ? '?run=1' : '';
-    const res = await fetch(apiUrl(`/api/crypto/futures-desk${query}`), {
-      signal: AbortSignal.timeout(5000),
+    const res = await fetchApi(`/api/crypto/futures-desk${query}`, {
+      signal: AbortSignal.timeout(timeoutMs),
       headers: { accept: 'application/json' },
     });
     if (!res.ok) return null;
     const data = await res.json() as { ok: boolean } & FuturesDeskSnapshot;
-    return data.ok ? data : null;
+    return data;
   } catch { return null; }
+}
+
+export async function resetFuturesDeskBaseline(note = 'Manual futures PnL baseline reset'): Promise<FuturesDeskBaseline | null> {
+  try {
+    const res = await fetch(apiUrl('/api/crypto/futures-baseline/reset'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ resetBy: 'operator', note }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json() as { ok: boolean; baseline?: FuturesDeskBaseline };
+    return data.ok ? (data.baseline ?? null) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function loadIntelligenceSupervisorLatest(timeoutMs = 8_000): Promise<IntelligenceSupervisorState | null> {
+  try {
+    const res = await fetchApi('/api/intelligence/supervisor/latest', {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(timeoutMs),
+      headers: { accept: 'application/json' },
+    });
+    if (!res.ok) return null;
+    const data = await res.json() as { ok: boolean } & IntelligenceSupervisorState;
+    if (!data.ok) return null;
+    return {
+      scope: data.scope,
+      latest: data.latest ?? null,
+      latestAttempt: data.latestAttempt ?? null,
+      appliedPolicy: data.appliedPolicy ?? {
+        active: false,
+        sourceRunId: null,
+        appliedAt: null,
+        appliedBy: null,
+        expiresAt: null,
+        overrides: [],
+        latestApply: null,
+        impact: null,
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function runIntelligenceSupervisor(timeoutMs = 40_000): Promise<{ ok: boolean; state: IntelligenceSupervisorState | null; error?: string | null } | null> {
+  try {
+    const res = await fetch(apiUrl('/api/intelligence/supervisor/run'), {
+      method: 'POST',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ advisoryOnly: true }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    const data = await res.json() as {
+      ok: boolean;
+      state?: IntelligenceSupervisorState | null;
+      error?: string | null;
+    };
+    return {
+      ok: Boolean(data.ok),
+      state: data.state ?? null,
+      error: data.error ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function applyIntelligenceSupervisorRun(
+  runId: string,
+  timeoutMs = 15_000,
+): Promise<{ ok: boolean; state: IntelligenceSupervisorState | null; error?: string | null } | null> {
+  try {
+    const res = await fetch(apiUrl(`/api/intelligence/supervisor/${runId}/apply`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ appliedBy: 'operator' }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    const data = await res.json() as {
+      ok: boolean;
+      state?: IntelligenceSupervisorState | null;
+      error?: string | null;
+    };
+    return {
+      ok: Boolean(data.ok),
+      state: data.state ?? null,
+      error: data.error ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function rollbackIntelligenceSupervisor(
+  timeoutMs = 15_000,
+): Promise<{ ok: boolean; state: IntelligenceSupervisorState | null; error?: string | null } | null> {
+  try {
+    const res = await fetch(apiUrl('/api/intelligence/supervisor/rollback'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ appliedBy: 'operator', reason: 'manual rollback' }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    const data = await res.json() as {
+      ok: boolean;
+      state?: IntelligenceSupervisorState | null;
+      error?: string | null;
+    };
+    return {
+      ok: Boolean(data.ok),
+      state: data.state ?? null,
+      error: data.error ?? null,
+    };
+  } catch {
+    return null;
+  }
 }
 
 // ─── AI Commentary ────────────────────────────────────────────────────────────
@@ -342,7 +648,7 @@ export interface CommentaryItem {
 
 export async function loadCommentary(limit = 40): Promise<CommentaryItem[]> {
   try {
-    const res = await fetch(apiUrl(`/api/crypto/commentary?limit=${limit}`), {
+    const res = await fetchApi(`/api/crypto/commentary?limit=${limit}`, {
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return [];
@@ -371,7 +677,7 @@ export interface MarketIntel {
 
 export async function loadMarketIntelligence(): Promise<MarketIntel | null> {
   try {
-    const res = await fetch(apiUrl('/api/crypto/market-intelligence'), {
+    const res = await fetchApi('/api/crypto/market-intelligence', {
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
@@ -419,8 +725,8 @@ export interface DepthData {
 
 export async function loadDepth(pair = 'BTCUSDT', levels = 20): Promise<DepthData | null> {
   try {
-    const res = await fetch(
-      apiUrl(`/api/crypto/depth?pair=${pair}&levels=${levels}`),
+    const res = await fetchApi(
+      `/api/crypto/depth?pair=${pair}&levels=${levels}`,
       { signal: AbortSignal.timeout(5000) }
     );
     if (!res.ok) return null;
@@ -457,8 +763,8 @@ export interface ProValidation {
 
 export async function loadProValidation(pair = 'BTCUSDT'): Promise<ProValidation | null> {
   try {
-    const res = await fetch(
-      apiUrl(`/api/crypto/pro-validation?pair=${pair}`),
+    const res = await fetchApi(
+      `/api/crypto/pro-validation?pair=${pair}`,
       { signal: AbortSignal.timeout(8000) }
     );
     if (!res.ok) return null;
@@ -475,6 +781,10 @@ export interface TradeStory {
   id:           string;
   pair:         string;
   side:         'LONG' | 'SHORT';
+  agent_id?:    string | null;
+  trade_type?:  string | null;
+  capital_used?: number | null;
+  leverage?:     number | null;
   entry_price:  number;
   exit_price:   number | null;
   target_price: number | null;
@@ -493,7 +803,7 @@ export interface TradeStory {
 export async function loadTradeStories(limit = 40, pair?: string): Promise<TradeStory[]> {
   try {
     const q = pair ? `?limit=${limit}&pair=${pair}` : `?limit=${limit}`;
-    const res = await fetch(apiUrl(`/api/crypto/trades${q}`), { signal: AbortSignal.timeout(5000) });
+    const res = await fetchApi(`/api/crypto/trades${q}`, { signal: AbortSignal.timeout(5000) });
     if (!res.ok) return [];
     const data = await res.json() as { ok: boolean; trades: TradeStory[] };
     return data.trades ?? [];
@@ -662,7 +972,7 @@ export interface ExecutionDiagnostics {
 
 export async function loadDiagnostics(): Promise<ExecutionDiagnostics | null> {
   try {
-    const res = await fetch(apiUrl('/api/crypto/diagnostics'), { signal: AbortSignal.timeout(5000) });
+    const res = await fetchApi('/api/crypto/diagnostics', { signal: AbortSignal.timeout(5000) });
     if (!res.ok) return null;
     const data = await res.json() as { ok: boolean } & ExecutionDiagnostics;
     return data.ok ? data : null;
@@ -700,7 +1010,7 @@ export interface ShadowCandidateDiagnostics {
 
 export async function loadShadowCandidateDiagnostics(): Promise<ShadowCandidateDiagnostics | null> {
   try {
-    const res = await fetch(apiUrl('/api/crypto/shadow-candidate'), { signal: AbortSignal.timeout(5000) });
+    const res = await fetchApi('/api/crypto/shadow-candidate', { signal: AbortSignal.timeout(5000) });
     if (!res.ok) return null;
     const data = await res.json() as { ok: boolean } & ShadowCandidateDiagnostics;
     return data.ok ? data : null;
@@ -766,7 +1076,7 @@ export interface BreakoutShadowDiagnostics {
 
 export async function loadBreakoutShadow(): Promise<BreakoutShadowDiagnostics | null> {
   try {
-    const res = await fetch(apiUrl('/api/crypto/breakout-shadow'), { signal: AbortSignal.timeout(8000) });
+    const res = await fetchApi('/api/crypto/breakout-shadow', { signal: AbortSignal.timeout(8000) });
     if (!res.ok) return null;
     const data = await res.json() as { ok: boolean } & BreakoutShadowDiagnostics;
     return data.ok ? data : null;
@@ -784,5 +1094,89 @@ export async function analyzeCopilot(pair: string, side: 'LONG' | 'SHORT'): Prom
     if (!res.ok) return null;
     const data = await res.json() as { ok: boolean; analysis: CopilotAnalysis };
     return data.ok ? data.analysis : null;
+  } catch { return null; }
+}
+
+// ── Decision Council (multi-agent trade approval) ─────────────────────────────
+
+export interface CouncilDecision {
+  decision_id: string;
+  timestamp: string;
+  symbol: string;
+  asset_pair: string | null;
+  strategy: string;
+  trade_type: string | null;
+  agent_id: string | null;
+  side: 'long' | 'short' | 'no_trade';
+  entry: number | null;
+  stop_loss: number | null;
+  take_profit: number | null;
+  risk_reward: number | null;
+  position_size: number | null;
+  risk_usd: number | null;
+  fees_estimated: number | null;
+  spread_estimated: number | null;
+  slippage_estimated: number | null;
+  expected_value: number | null;
+  profit_factor: number | null;
+  win_rate: number | null;
+  confidence: number | null;
+  market_regime: string | null;
+  technical_report: string | null;
+  sentiment_report: string | null;
+  bull_case: string | null;
+  bear_case: string | null;
+  trader_summary: string | null;
+  risk_manager_verdict: 'approved' | 'rejected';
+  portfolio_manager_verdict: 'approved' | 'rejected';
+  final_decision: 'approved' | 'rejected';
+  rejection_reason: string;
+  lessons_from_similar_trades: string[];
+  trade_id: string | null;
+  outcome: {
+    pnl: number | null;
+    fees: number | null;
+    exitReason: string | null;
+    bullWasRight: boolean | null;
+    bearWasRight: boolean | null;
+    lesson: string | null;
+    recordedAt: string;
+  } | null;
+}
+
+export interface CouncilPerformanceRow {
+  bucket: string;
+  samples: number;
+  winRate: number | null;
+  profitFactor: number;
+  netPnl: number;
+  avgEv: number | null;
+}
+
+export interface CouncilSnapshot {
+  state: 'HUNTING' | 'REVIEWING' | 'APPROVED' | 'REJECTED' | 'EXECUTING';
+  latest: CouncilDecision | null;
+  recent: CouncilDecision[];
+  stats: {
+    approved: number;
+    rejected: number;
+    topRejectionReasons: { reason: string; count: number }[];
+  };
+  config: Record<string, number>;
+  performance: {
+    byStrategy: CouncilPerformanceRow[];
+    bySymbol: CouncilPerformanceRow[];
+    byRegime: CouncilPerformanceRow[];
+    bySetup: CouncilPerformanceRow[];
+  };
+  blockedSetups: CouncilPerformanceRow[];
+}
+
+export async function loadCouncil(limit = 20): Promise<CouncilSnapshot | null> {
+  try {
+    const res = await fetch(apiUrl(`/api/crypto/council?limit=${limit}`), { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    const data = await res.json() as { ok: boolean } & CouncilSnapshot;
+    return data.ok ? data : null;
   } catch { return null; }
 }

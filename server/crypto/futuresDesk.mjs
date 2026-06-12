@@ -3,18 +3,52 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runFuturesBreakoutCycle, futuresBreakoutEngineConfig, getLastFuturesBreakoutCycle } from '../strategies/futuresBreakoutEngine.mjs';
-import { syncFuturesGovernorJournal } from './futuresGovernor.mjs';
+import { getFuturesGovernorSnapshot, syncFuturesGovernorJournal } from './futuresGovernor.mjs';
 import { getCurrentPrice } from './priceFeeder.mjs';
+import { getFuturesCapitalState } from './futuresCapital.mjs';
 import { getTreasuryAsync } from '../trading/treasury.mjs';
+import { getIntelligenceSupervisorLatest } from '../intelligence/intelligenceSupervisor.mjs';
+import {
+  backfillMissingFuturesLessons,
+  backfillMissingFuturesOutcomes,
+  promoteFuturesTimeoutLossLessons,
+} from './futuresLearningBackfill.mjs';
 
 const FUTURES_TYPES = ['crypto_futures_breakout_short_micro', 'crypto_futures_breakout_short', 'crypto_futures_breakout_short_alt', 'crypto_futures_breakout_long'];
 const __dir = dirname(fileURLToPath(import.meta.url));
 const FUTURES_CYCLE_PATH = join(__dir, '..', '..', 'data', 'futures-last-cycle.json');
 const FUTURES_BASELINE_KEY = 'futures_pnl_baseline';
 const FUTURES_CYCLE_HISTORY_KEY = 'futures_cycle_history';
+const FUTURES_DESK_START_CAPITAL = parseFloat(process.env.FUTURES_DESK_START_CAPITAL ?? '10000');
 
 function round2(value) {
   return value == null ? null : Math.round(value * 100) / 100;
+}
+
+function captureSection(warnings, label, fallback, fn) {
+  try {
+    return fn();
+  } catch (error) {
+    warnings.push({
+      section: label,
+      error: error?.message ?? String(error),
+      at: new Date().toISOString(),
+    });
+    return fallback;
+  }
+}
+
+async function captureSectionAsync(warnings, label, fallback, fn) {
+  try {
+    return await fn();
+  } catch (error) {
+    warnings.push({
+      section: label,
+      error: error?.message ?? String(error),
+      at: new Date().toISOString(),
+    });
+    return fallback;
+  }
 }
 
 function listToSql(list) {
@@ -45,6 +79,21 @@ function readBaseline() {
   } catch {
     return null;
   }
+}
+
+export function resetFuturesPnlBaseline({ resetBy = 'operator', note = 'Futures PnL reporting baseline reset' } = {}) {
+  const baseline = {
+    baselineAt: new Date().toISOString(),
+    resetBy,
+    note,
+  };
+
+  db.prepare(`
+    INSERT OR REPLACE INTO org_state (key, value, updated_at)
+    VALUES (?, ?, datetime('now'))
+  `).run(FUTURES_BASELINE_KEY, JSON.stringify(baseline));
+
+  return baseline;
 }
 
 function buildClosedAtClause(baseline) {
@@ -97,6 +146,16 @@ async function buildOpenPositions() {
       liquidationPrice: round2(row.liquidation_price),
     };
   }));
+}
+
+function buildFuturesCapital(openPositions) {
+  const unrealizedPnl = round2(openPositions.reduce((sum, row) => sum + (row.grossMarkPnlApproxUsd ?? 0), 0)) ?? 0;
+  return getFuturesCapitalState({ unrealizedPnl });
+}
+
+export async function getLiveFuturesCapitalSnapshot() {
+  const openPositions = await buildOpenPositions();
+  return buildFuturesCapital(openPositions);
 }
 
 function buildClosedSummary(baseline) {
@@ -228,6 +287,8 @@ function buildTodaySummary(baseline) {
 }
 
 function buildProfileScoreboard(baseline) {
+  const governor = getFuturesGovernorSnapshot();
+  const governorByTradeType = new Map(governor.profiles.map((profile) => [profile.tradeType, profile]));
   const rows = db.prepare(`
     SELECT
       trade_type AS tradeType,
@@ -269,6 +330,7 @@ function buildProfileScoreboard(baseline) {
   }
 
   return Array.from(byProfile.entries()).map(([tradeType, pairs]) => {
+    const governorProfile = governorByTradeType.get(tradeType);
     const summary = pairs.reduce((acc, pair) => ({
       closedTrades: acc.closedTrades + pair.closedTrades,
       wins: acc.wins + pair.wins,
@@ -283,32 +345,150 @@ function buildProfileScoreboard(baseline) {
       losses: summary.losses,
       winRate: summary.closedTrades > 0 ? round2(summary.wins / summary.closedTrades) : null,
       totalPnl: round2(summary.totalPnl),
+      expectancy: governorProfile?.expectancy ?? null,
+      profitFactor: governorProfile?.profitFactor ?? null,
+      maxDrawdown: governorProfile?.maxDrawdown ?? null,
+      rankScore: governorProfile?.rankScore ?? null,
+      mode: governorProfile?.mode ?? 'learning',
+      capitalMultiplier: governorProfile?.capitalMultiplier ?? 1,
+      leverageMultiplier: governorProfile?.leverageMultiplier ?? 1,
       pairs,
     };
   }).sort((a, b) => (b.totalPnl ?? 0) - (a.totalPnl ?? 0));
 }
 
+function buildLearningCohorts(baseline) {
+  const rows = db.prepare(`
+    SELECT
+      trade_type AS tradeType,
+      asset_pair AS pair,
+      outcome AS side,
+      COALESCE(exit_reason, 'unavailable') AS exitReason,
+      COUNT(*) AS closedTrades,
+      SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) AS wins,
+      COALESCE(SUM(pnl), 0) AS totalPnl,
+      COALESCE(AVG(pnl), 0) AS avgPnl
+    FROM trades
+    WHERE status = 'closed'
+      AND pnl IS NOT NULL
+      AND trade_type IN ${listToSql(FUTURES_TYPES)}${buildClosedAtClause(baseline)}
+    GROUP BY trade_type, asset_pair, outcome, COALESCE(exit_reason, 'unavailable')
+    HAVING COUNT(*) >= 1
+    ORDER BY COUNT(*) DESC, totalPnl DESC
+  `).all().map((row) => {
+    const closedTrades = row.closedTrades ?? 0;
+    const wins = row.wins ?? 0;
+    const winRate = closedTrades > 0 ? wins / closedTrades : null;
+    const score = (row.avgPnl ?? 0) + ((winRate ?? 0) * 20) + Math.min(12, closedTrades);
+    return {
+      key: `${row.tradeType}:${row.pair}:${row.side}:${row.exitReason}`,
+      tradeType: row.tradeType,
+      pair: row.pair,
+      side: row.side,
+      exitReason: row.exitReason,
+      closedTrades,
+      wins,
+      losses: Math.max(0, closedTrades - wins),
+      winRate: round2(winRate),
+      totalPnl: round2(row.totalPnl),
+      avgPnl: round2(row.avgPnl),
+      score: round2(score),
+    };
+  });
+
+  const strongest = [...rows].sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, 6);
+  const weakest = [...rows].sort((a, b) => (a.score ?? 0) - (b.score ?? 0)).slice(0, 6);
+  return { strongest, weakest };
+}
+
 export async function getFuturesDeskSnapshot({ runCycle = false } = {}) {
   const startedAt = new Date().toISOString();
-  const config = futuresBreakoutEngineConfig();
+  const warnings = [];
+  await captureSectionAsync(warnings, 'futuresLessonBackfill', { scanned: 0, generated: 0 }, () => backfillMissingFuturesLessons());
+  captureSection(warnings, 'futuresOutcomeBackfill', { scanned: 0, generated: 0 }, () => backfillMissingFuturesOutcomes());
+  captureSection(warnings, 'futuresLessonPromotion', { scanned: 0, promoted: 0, patternsCreated: 0 }, () => promoteFuturesTimeoutLossLessons());
+  const config = captureSection(warnings, 'config', {
+    breakoutPeriod: null,
+    regimeSmaPeriod: null,
+    tpPct: null,
+    slPct: null,
+    minExpectedNetUsd: null,
+    minRewardRisk: null,
+    timeoutHours: null,
+    maxMargin: null,
+    leverage: null,
+    governor: { profiles: [], journal: [] },
+    profiles: [],
+  }, () => futuresBreakoutEngineConfig());
   const cycle = runCycle
-    ? await runFuturesBreakoutCycle()
-    : getLastFuturesBreakoutCycle() ?? readPersistedCycle();
+    ? await captureSectionAsync(warnings, 'cycle.run', null, () => runFuturesBreakoutCycle())
+    : captureSection(warnings, 'cycle.status', null, () => getLastFuturesBreakoutCycle() ?? readPersistedCycle());
   if (runCycle && cycle) persistCycle(cycle);
-  const governorJournal = cycle?.governorJournal ?? syncFuturesGovernorJournal(config.governor);
-  const baseline = readBaseline();
-  const treasury = await getTreasuryAsync();
-  const openPositions = await buildOpenPositions();
-  const closedSummary = buildClosedSummary(baseline);
-  const equityCurve = buildEquityCurve(baseline);
-  const recentLifecycle = buildRecentLifecycle(baseline);
-  const today = buildTodaySummary(baseline);
-  const cycleHistory = readCycleHistory();
-  const profileScoreboard = buildProfileScoreboard(baseline);
+  const governorJournal = captureSection(
+    warnings,
+    'governorJournal',
+    cycle?.governorJournal ?? [],
+    () => cycle?.governorJournal ?? syncFuturesGovernorJournal(config.governor),
+  );
+  const baseline = captureSection(warnings, 'baseline', null, () => readBaseline());
+  const treasury = await captureSectionAsync(warnings, 'treasury', {
+    total: 10000,
+    available: 10000,
+    inTrades: 0,
+    unrealizedPnl: 0,
+    netWorth: 10000,
+    drawdownPct: 0,
+    isPaused: false,
+  }, () => getTreasuryAsync());
+  const openPositions = await captureSectionAsync(warnings, 'openPositions', [], () => buildOpenPositions());
+  const closedSummary = captureSection(warnings, 'closedSummary', [], () => buildClosedSummary(baseline));
+  const futuresCapital = captureSection(warnings, 'futuresCapital', {
+    startCapital: round2(FUTURES_DESK_START_CAPITAL),
+    reservedMargin: 0,
+    realizedPnl: 0,
+    unrealizedPnl: 0,
+    netPnl: 0,
+    equity: round2(FUTURES_DESK_START_CAPITAL),
+    available: round2(FUTURES_DESK_START_CAPITAL),
+    openPositions: 0,
+  }, () => buildFuturesCapital(openPositions));
+  const equityCurve = captureSection(warnings, 'equityCurve', [], () => buildEquityCurve(baseline));
+  const recentLifecycle = captureSection(warnings, 'recentLifecycle', [], () => buildRecentLifecycle(baseline));
+  const today = captureSection(warnings, 'today', {
+    openCount: 0,
+    closedTrades: 0,
+    wins: 0,
+    losses: 0,
+    winRate: null,
+    totalPnl: 0,
+    avgPnl: 0,
+  }, () => buildTodaySummary(baseline));
+  const cycleHistory = captureSection(warnings, 'cycleHistory', [], () => readCycleHistory());
+  const profileScoreboard = captureSection(warnings, 'profileScoreboard', [], () => buildProfileScoreboard(baseline));
+  const learningCohorts = captureSection(warnings, 'learningCohorts', { strongest: [], weakest: [] }, () => buildLearningCohorts(baseline));
+  const supervisor = captureSection(warnings, 'supervisor', {
+    scope: 'futures_supervisor',
+    latest: null,
+    latestAttempt: null,
+    appliedPolicy: {
+      active: false,
+      sourceRunId: null,
+      appliedAt: null,
+      appliedBy: null,
+      expiresAt: null,
+      overrides: [],
+      latestApply: null,
+      impact: null,
+    },
+  }, () => getIntelligenceSupervisorLatest());
+  const recentEntries = runCycle
+    ? captureSection(warnings, 'recentEntries', [], () => buildRecentEntries(startedAt))
+    : [];
 
   return {
     mode: runCycle ? 'run' : 'status',
     generatedAt: new Date().toISOString(),
+    warnings,
     config,
     cycle,
     governorJournal,
@@ -322,6 +502,7 @@ export async function getFuturesDeskSnapshot({ runCycle = false } = {}) {
       drawdownPct: round2(treasury.drawdownPct),
       isPaused: treasury.isPaused,
     },
+    futuresCapital,
     openPositions,
     closedSummary,
     equityCurve,
@@ -329,6 +510,8 @@ export async function getFuturesDeskSnapshot({ runCycle = false } = {}) {
     today,
     cycleHistory,
     profileScoreboard,
-    recentEntries: runCycle ? buildRecentEntries(startedAt) : [],
+    learningCohorts,
+    supervisor,
+    recentEntries,
   };
 }

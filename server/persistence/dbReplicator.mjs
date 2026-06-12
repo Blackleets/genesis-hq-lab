@@ -24,6 +24,7 @@ const DURABLE = [
   { table: 'mistake_patterns', pk: 'id',  mode: 'full'   },
   { table: 'agent_profiles',   pk: 'id',  mode: 'full'   },
   { table: 'skill_versions',   pk: 'id',  mode: 'full'   },
+  { table: 'intelligence_runs', pk: 'id', mode: 'cursor', cursorExpr: 'created_at' },
   { table: 'org_state',        pk: 'key', mode: 'full'   },
 ];
 
@@ -184,6 +185,17 @@ export async function ensurePgSchema() {
     const defs = cols.map(c => `"${c.name}" ${pgType(c.type)}`).join(', ');
     const sql = `CREATE TABLE IF NOT EXISTS "${cfg.table}" (${defs}, PRIMARY KEY ("${cfg.pk}"))`;
     await pool.query(sql);
+    const existingColsRes = await pool.query(
+      `SELECT column_name
+         FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = $1`,
+      [cfg.table],
+    );
+    const existingCols = new Set(existingColsRes.rows.map((row) => row.column_name));
+    for (const col of cols) {
+      if (existingCols.has(col.name)) continue;
+      await pool.query(`ALTER TABLE "${cfg.table}" ADD COLUMN "${col.name}" ${pgType(col.type)}`);
+    }
   }
   _stats.schemaReady = true;
   _stats.pgConnected = true;

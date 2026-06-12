@@ -52,10 +52,13 @@ function TradingEngineStatus({ lang }: { lang: string }) {
     return null;
   }
 
-  const capital = health.agent?.capital ?? 0;
-  const openTrades = health.agent?.openTrades ?? 0;
+  const futuresMode = health.futuresMode === true;
+  const capital = futuresMode ? (health.futuresCapital?.equity ?? 0) : (health.agent?.capital ?? 0);
+  const openTrades = futuresMode ? (health.futuresCapital?.openPositions ?? 0) : (health.agent?.openTrades ?? 0);
+  const available = futuresMode ? (health.futuresCapital?.available ?? 0) : capital;
   const totalCycles = health.agent?.totalCycles ?? 0;
   const claudeEnabled = health.agent?.claudeEnabled ?? false;
+  const agentAlive = health.agent?.agentAlive ?? false;
   const lastTickAt = health.agent?.lastTickAt ? new Date(health.agent.lastTickAt) : null;
   const now = health.now ? new Date(health.now) : new Date();
 
@@ -85,6 +88,11 @@ function TradingEngineStatus({ lang }: { lang: string }) {
           <div>
             <div className="gx-overline">{lang === 'es' ? 'Capital disponible' : 'Available capital'}</div>
             <div className="font-mono text-[16px] font-bold text-emerald-400 mt-1">{capitalFormatted}</div>
+            {futuresMode && (
+              <div className="font-mono text-[9px] text-zinc-500 mt-1">
+                {lang === 'es' ? 'libre' : 'free'} {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(available)}
+              </div>
+            )}
           </div>
           <div>
             <div className="gx-overline">{lang === 'es' ? 'Trades abiertos' : 'Open trades'}</div>
@@ -106,6 +114,12 @@ function TradingEngineStatus({ lang }: { lang: string }) {
         <div>
           <div className="gx-overline">{lang === 'es' ? 'Último tick' : 'Last tick'}</div>
           <div className="font-mono text-[13px] text-zinc-300 mt-1">{timeSinceLastTick}</div>
+        </div>
+        <div>
+          <div className="gx-overline">{lang === 'es' ? 'Estado agente' : 'Agent status'}</div>
+          <div className="font-mono text-[13px] mt-1" style={{ color: agentAlive ? '#00ff9c' : '#ff4757' }}>
+            {agentAlive ? (lang === 'es' ? 'En linea' : 'Live') : (lang === 'es' ? 'Caido' : 'Offline')}
+          </div>
         </div>
       </div>
     </div>

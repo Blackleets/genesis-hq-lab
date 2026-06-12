@@ -6,6 +6,14 @@ import { fileURLToPath } from 'node:url';
 const __dir = dirname(fileURLToPath(import.meta.url));
 import { WebSocketServer } from 'ws';
 import { fetchPolymarketEventsSnapshot, fetchPolymarketHealth } from './polymarket.mjs';
+import { handlePredictionMarketsRoute } from './predictionMarkets/index.mjs';
+import {
+  getStrategyRegistry, runSystemValidation,
+  computeAllocation, getQuantState, generateQuantReport,
+  getWfCache, isWfCacheStale, executeWalkForward, isWfRunning,
+  startWfScheduler, getWfSchedulerStatus,
+  getTransitionHistory, setStatusOverride, clearStatusOverride, getAllOverrides,
+} from './quant/index.mjs';
 import { generateClaudePlan } from './claudePlanner.mjs';
 import { getSnapshot, getCapital, getTrades, getLessons, getAgentStats, addHumanOrder } from './memoryStore.mjs';
 import { getDashboardMetrics, computeEdgeScorecard } from './trading/analytics.mjs';
@@ -76,9 +84,23 @@ import { getBreakoutShadowDiagnostics }                 from './crypto/breakoutS
 import { getCommentary }                                  from './ai/commentaryEngine.mjs';
 import { getTradeStories }                                from './crypto/tradeHistory.mjs';
 import { analyzeTrade, assertTradeAllowed }               from './crypto/copilot.mjs';
-import { getFuturesDeskSnapshot }                         from './crypto/futuresDesk.mjs';
+import { getFuturesDeskSnapshot, getLiveFuturesCapitalSnapshot, resetFuturesPnlBaseline } from './crypto/futuresDesk.mjs';
+import {
+  applyIntelligenceSupervisorRun,
+  getIntelligenceSupervisorHistory,
+  getIntelligenceSupervisorLatest,
+  getIntelligenceSupervisorRunById,
+  rollbackIntelligenceSupervisorOverrides,
+  runIntelligenceSupervisor,
+}                                                         from './intelligence/intelligenceSupervisor.mjs';
 import { scalpConfig, getLastScanSnapshot, getScalpV2Diagnostics } from './strategies/scalpingEngine.mjs';
 import { getAutopsy }                                     from './crypto/autoVeto.mjs';
+import { getCouncilConfig }                               from './crypto/decisionCouncil.mjs';
+import {
+  getLatestDecision as getLatestCouncilDecision,
+  getRecentDecisions as getRecentCouncilDecisions,
+  getCouncilStats, getCouncilPerformance, getBlockedSetups,
+} from './crypto/decisionMemory.mjs';
 import { getFatigueIntelligenceSummary }                  from './intelligence/setupFatigue.mjs';
 import { getDbHealth, startReplication }                  from './persistence/dbReplicator.mjs';
 import { readHeartbeat }                                  from './trading/schedulerHeartbeat.mjs';
@@ -128,6 +150,7 @@ startMarketAnalyst(broadcast);
 
 const HOST = process.env.HOST || '127.0.0.1';
 const PORT = Number(process.env.PORT || 8787);
+const FUTURES_ONLY_MODE = !['0', 'false', 'no', 'off'].includes((process.env.FUTURES_ONLY_MODE ?? 'true').toLowerCase());
 
 function applyCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -137,7 +160,12 @@ function applyCors(res) {
 
 function sendJson(res, status, payload) {
   applyCors(res);
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store, no-cache, must-revalidate',
+    Pragma: 'no-cache',
+    Expires: '0',
+  });
   res.end(JSON.stringify(payload));
 }
 
@@ -156,6 +184,14 @@ function notFound(res) {
     error: 'not_found',
     message: 'Route not found',
   });
+}
+
+function latestIso(...values) {
+  const valid = values.filter(Boolean);
+  if (valid.length === 0) return null;
+  return valid.reduce((latest, current) => (
+    new Date(current).getTime() > new Date(latest).getTime() ? current : latest
+  ));
 }
 
 const server = createServer(async (req, res) => {
@@ -223,6 +259,128 @@ const server = createServer(async (req, res) => {
           ok: false,
           error: isKeyMissing ? 'api_key_missing' : 'plan_failed',
           message,
+        });
+      }
+    });
+    return;
+  }
+
+  if (url.pathname === '/api/crypto/futures-baseline/reset' && req.method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const parsed = body ? JSON.parse(body) : {};
+        const baseline = resetFuturesPnlBaseline({
+          resetBy: typeof parsed.resetBy === 'string' && parsed.resetBy.trim() ? parsed.resetBy.trim().slice(0, 80) : 'operator',
+          note: typeof parsed.note === 'string' && parsed.note.trim() ? parsed.note.trim().slice(0, 200) : 'Manual futures PnL baseline reset',
+        });
+        sendJson(res, 200, { ok: true, baseline });
+      } catch (error) {
+        sendJson(res, 500, { ok: false, error: error instanceof Error ? error.message : 'baseline_reset_failed' });
+      }
+    });
+    return;
+  }
+
+  if (url.pathname === '/api/intelligence/supervisor/run' && req.method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', async () => {
+      try {
+        const parsed = body ? JSON.parse(body) : {};
+        if (parsed?.apply === true) {
+          sendJson(res, 400, {
+            ok: false,
+            error: 'apply_not_supported',
+            message: 'Supervisor v1 is advisory only and cannot apply recommendations.',
+          });
+          return;
+        }
+        const result = await runIntelligenceSupervisor();
+        sendJson(res, result.ok ? 200 : 503, {
+          ok: result.ok,
+          advisoryOnly: true,
+          applied: false,
+          run: result.run,
+          state: result.state,
+          error: result.error ?? null,
+        });
+      } catch (error) {
+        sendJson(res, 500, {
+          ok: false,
+          advisoryOnly: true,
+          applied: false,
+          error: error instanceof Error ? error.message : 'supervisor_run_failed',
+        });
+      }
+    });
+    return;
+  }
+
+  const intelligenceApplyMatch = url.pathname.match(/^\/api\/intelligence\/supervisor\/([^/]+)\/apply$/);
+  if (intelligenceApplyMatch && req.method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const parsed = body ? JSON.parse(body) : {};
+        const result = applyIntelligenceSupervisorRun(
+          intelligenceApplyMatch[1],
+          typeof parsed.appliedBy === 'string' && parsed.appliedBy.trim()
+            ? parsed.appliedBy.trim().slice(0, 80)
+            : 'operator',
+        );
+        sendJson(res, 200, {
+          ok: true,
+          advisoryOnly: false,
+          applied: true,
+          result,
+          state: getIntelligenceSupervisorLatest(),
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'supervisor_apply_failed';
+        const status = ['supervisor_run_not_found', 'supervisor_run_not_recommended', 'no_applicable_changes'].includes(message) ? 400 : 500;
+        sendJson(res, status, {
+          ok: false,
+          advisoryOnly: false,
+          applied: false,
+          error: message,
+        });
+      }
+    });
+    return;
+  }
+
+  if (url.pathname === '/api/intelligence/supervisor/rollback' && req.method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const parsed = body ? JSON.parse(body) : {};
+        const result = rollbackIntelligenceSupervisorOverrides(
+          typeof parsed.appliedBy === 'string' && parsed.appliedBy.trim()
+            ? parsed.appliedBy.trim().slice(0, 80)
+            : 'operator',
+          typeof parsed.reason === 'string' && parsed.reason.trim()
+            ? parsed.reason.trim().slice(0, 160)
+            : 'manual rollback',
+        );
+        sendJson(res, 200, {
+          ok: true,
+          advisoryOnly: false,
+          applied: false,
+          result,
+          state: getIntelligenceSupervisorLatest(),
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'supervisor_rollback_failed';
+        const status = message === 'no_active_overrides' ? 400 : 500;
+        sendJson(res, status, {
+          ok: false,
+          advisoryOnly: false,
+          applied: false,
+          error: message,
         });
       }
     });
@@ -522,7 +680,109 @@ const server = createServer(async (req, res) => {
       const runCycle = ['1', 'true', 'yes', 'on'].includes((url.searchParams.get('run') ?? '').toLowerCase());
       const snapshot = await getFuturesDeskSnapshot({ runCycle });
       sendJson(res, 200, { ok: true, ...snapshot });
-    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    } catch (e) {
+      sendJson(res, 200, {
+        ok: false,
+        mode: 'status',
+        generatedAt: new Date().toISOString(),
+        warnings: [{ section: 'handler', error: e.message, at: new Date().toISOString() }],
+        config: {
+          breakoutPeriod: null,
+          regimeSmaPeriod: null,
+          tpPct: null,
+          slPct: null,
+          minExpectedNetUsd: null,
+          minRewardRisk: null,
+          timeoutHours: null,
+          maxMargin: null,
+          leverage: null,
+          governor: { profiles: [], journal: [] },
+          profiles: [],
+        },
+        cycle: null,
+        governorJournal: [],
+        baseline: null,
+        treasury: {
+          total: 10000,
+          available: 10000,
+          inTrades: 0,
+          unrealizedPnl: 0,
+          netWorth: 10000,
+          drawdownPct: 0,
+          isPaused: false,
+        },
+        futuresCapital: {
+          startCapital: 10000,
+          reservedMargin: 0,
+          realizedPnl: 0,
+          unrealizedPnl: 0,
+          netPnl: 0,
+          equity: 10000,
+          available: 10000,
+          openPositions: 0,
+        },
+        openPositions: [],
+        closedSummary: [],
+        equityCurve: [],
+        recentLifecycle: [],
+        today: { openCount: 0, closedTrades: 0, wins: 0, losses: 0, winRate: null, totalPnl: 0, avgPnl: 0 },
+        cycleHistory: [],
+        profileScoreboard: [],
+        supervisor: {
+          scope: 'futures_supervisor',
+          latest: null,
+          latestAttempt: null,
+          appliedPolicy: {
+            active: false,
+            sourceRunId: null,
+            appliedAt: null,
+            appliedBy: null,
+            expiresAt: null,
+            overrides: [],
+            latestApply: null,
+            impact: null,
+          },
+        },
+        recentEntries: [],
+        error: e.message,
+      });
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/intelligence/supervisor/latest') {
+    try {
+      const state = getIntelligenceSupervisorLatest();
+      sendJson(res, 200, { ok: true, advisoryOnly: true, applied: Boolean(state.appliedPolicy?.active), ...state });
+    } catch (e) {
+      sendJson(res, 500, { ok: false, error: e.message });
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/intelligence/supervisor/history') {
+    try {
+      const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') ?? '20', 10)));
+      const history = getIntelligenceSupervisorHistory(limit);
+      sendJson(res, 200, { ok: true, advisoryOnly: true, applied: false, history });
+    } catch (e) {
+      sendJson(res, 500, { ok: false, error: e.message });
+    }
+    return;
+  }
+
+  const intelligenceRunMatch = url.pathname.match(/^\/api\/intelligence\/supervisor\/([^/]+)$/);
+  if (intelligenceRunMatch) {
+    try {
+      const run = getIntelligenceSupervisorRunById(intelligenceRunMatch[1]);
+      if (!run) {
+        sendJson(res, 404, { ok: false, error: 'supervisor_run_not_found' });
+        return;
+      }
+      sendJson(res, 200, { ok: true, advisoryOnly: true, applied: false, run });
+    } catch (e) {
+      sendJson(res, 500, { ok: false, error: e.message });
+    }
     return;
   }
 
@@ -681,6 +941,45 @@ const server = createServer(async (req, res) => {
   if (url.pathname === '/api/db/health') {
     try {
       sendJson(res, 200, { ok: true, ...getDbHealth() });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  // GET /api/crypto/council — Decision Council: latest decision, verdicts,
+  // approval stats, per-setup performance and blocked setups. Read-only.
+  if (url.pathname === '/api/crypto/council') {
+    try {
+      const latest = getLatestCouncilDecision();
+      const recent = getRecentCouncilDecisions(parseInt(url.searchParams.get('limit') ?? '20', 10));
+      // Desk state for the dashboard badge:
+      //   HUNTING   — no decision yet / last decision older than 10 min
+      //   EXECUTING — latest approved decision has an open trade attached
+      //   APPROVED / REJECTED — latest decision verdict (recent)
+      let state = 'HUNTING';
+      if (latest) {
+        const ageMs = Date.now() - new Date(latest.timestamp).getTime();
+        if (latest.final_decision === 'approved' && latest.trade_id) {
+          const open = db.prepare("SELECT 1 FROM trades WHERE id = ? AND status = 'open'").get(latest.trade_id);
+          state = open ? 'EXECUTING' : (ageMs < 600_000 ? 'APPROVED' : 'HUNTING');
+        } else if (ageMs < 600_000) {
+          state = latest.final_decision === 'approved' ? 'APPROVED' : 'REJECTED';
+        }
+      }
+      sendJson(res, 200, {
+        ok: true,
+        state,
+        latest,
+        recent,
+        stats: getCouncilStats(),
+        config: getCouncilConfig(),
+        performance: {
+          byStrategy: getCouncilPerformance('strategy'),
+          bySymbol: getCouncilPerformance('symbol'),
+          byRegime: getCouncilPerformance('market_regime'),
+          bySetup: getCouncilPerformance('setup'),
+        },
+        blockedSetups: getBlockedSetups(),
+      });
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;
   }
@@ -1231,7 +1530,11 @@ const server = createServer(async (req, res) => {
   if (url.pathname === '/api/health') {
     try {
       const treasury = getTreasury();
-      const openTrades = getRecentTrades(500).filter((t) => t.status === 'open').length;
+      const openTrades = FUTURES_ONLY_MODE
+        ? (db.prepare(`SELECT COUNT(*) AS n FROM trades WHERE status = 'open' AND trade_type LIKE 'crypto_futures_%'`).get()?.n ?? 0)
+        : getRecentTrades(500).filter((t) => t.status === 'open').length;
+      const futuresCapital = FUTURES_ONLY_MODE ? await getLiveFuturesCapitalSnapshot() : null;
+      const schedulerHeartbeat = readHeartbeat();
       let heartbeat = null;
       try {
         const { readFile } = await import('node:fs/promises');
@@ -1242,23 +1545,45 @@ const server = createServer(async (req, res) => {
           await readFile(join(__hdir, '..', 'data', 'memory', 'agent_heartbeat.json'), 'utf8')
         );
       } catch { /* heartbeat not written yet — first boot */ }
-      const lastTickAt = heartbeat?.lastTickAt ?? null;
+      const schedulerLastTickAt = latestIso(
+        schedulerHeartbeat?.lastRun?.slow,
+        schedulerHeartbeat?.lastRun?.mid,
+        schedulerHeartbeat?.lastRun?.fast,
+      );
+      const lastTickAt = heartbeat?.lastTickAt ?? schedulerLastTickAt ?? null;
+      const schedulerAlive = schedulerLastTickAt
+        ? (Date.now() - new Date(schedulerLastTickAt).getTime()) < 10 * 60 * 1000
+        : false;
       const agentAlive = lastTickAt
         ? (Date.now() - new Date(lastTickAt).getTime()) < 10 * 60 * 1000
-        : false;
+        : schedulerAlive;
       sendJson(res, 200, {
         ok: true,
         service: 'genesis-hq-lab-backend',
         now: new Date().toISOString(),
         agent: {
-          capital: treasury.total,
+          capital: FUTURES_ONLY_MODE ? (futuresCapital?.equity ?? treasury.total) : treasury.total,
           isPaused: treasury.isPaused ?? false,
           openTrades,
           lastTickAt,
           agentAlive,
-          totalCycles: heartbeat?.totalCycles ?? 0,
-          claudeEnabled: heartbeat?.claudeEnabled ?? false,
+          totalCycles: heartbeat?.totalCycles
+            ?? schedulerHeartbeat?.ticks?.slow
+            ?? schedulerHeartbeat?.ticks?.fast
+            ?? 0,
+          claudeEnabled: heartbeat?.claudeEnabled ?? !!process.env.ANTHROPIC_API_KEY,
         },
+        futuresMode: FUTURES_ONLY_MODE,
+        futuresCapital: futuresCapital ? {
+          startCapital: futuresCapital.startCapital,
+          reservedMargin: futuresCapital.reservedMargin,
+          realizedPnl: futuresCapital.realizedPnl,
+          unrealizedPnl: futuresCapital.unrealizedPnl,
+          netPnl: futuresCapital.netPnl,
+          equity: futuresCapital.equity,
+          available: futuresCapital.available,
+          openPositions: futuresCapital.openPositions,
+        } : null,
         optimizer: getOptimizerHeartbeat(),
       });
     } catch {
@@ -1322,6 +1647,194 @@ const server = createServer(async (req, res) => {
   if (url.pathname === '/api/kalshi/status') {
     sendJson(res, 200, getKalshiStatus());
     return;
+  }
+
+  // ── Quant Lab routes (/api/quant/*) ──────────────────────────────────────────
+  if (url.pathname === '/api/quant/status') {
+    try {
+      const state = getQuantState();
+      sendJson(res, 200, { ok: true, ...state.edgeVerdict, updatedAt: state.updatedAt, errors: state.errors });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/quant/strategies') {
+    try {
+      sendJson(res, 200, { ok: true, ...getStrategyRegistry() });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/quant/validation') {
+    try {
+      sendJson(res, 200, { ok: true, ...runSystemValidation() });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/quant/allocation') {
+    try {
+      sendJson(res, 200, { ok: true, ...computeAllocation() });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/quant/report') {
+    try {
+      sendJson(res, 200, { ok: true, ...generateQuantReport() });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/quant/wf/status') {
+    const cache = getWfCache();
+    sendJson(res, 200, {
+      ok: true,
+      running: isWfRunning(),
+      stale: isWfCacheStale(24),
+      cache: cache
+        ? { completedAt: cache.completedAt, startedAt: cache.startedAt, durationMs: cache.durationMs }
+        : null,
+      summary: cache?.summary ?? null,
+      scheduler: getWfSchedulerStatus(),
+    });
+    return;
+  }
+
+  if (url.pathname === '/api/quant/wf/run') {
+    if (isWfRunning()) {
+      sendJson(res, 200, { ok: true, running: true, message: 'Walk-forward already in progress' });
+      return;
+    }
+    // Fire-and-forget — do not await
+    executeWalkForward().catch(err =>
+      console.error('[WF] background run failed:', err.message)
+    );
+    sendJson(res, 202, { ok: true, running: true, message: 'Walk-forward started' });
+    return;
+  }
+
+  if (url.pathname === '/api/quant/diagnostics') {
+    try {
+      // Trade counts
+      const total  = db.prepare(`SELECT COUNT(*) as n FROM trades`).get()?.n ?? 0;
+      const open   = db.prepare(`SELECT COUNT(*) as n FROM trades WHERE status = 'open'`).get()?.n ?? 0;
+      const closed = db.prepare(`SELECT COUNT(*) as n FROM trades WHERE status = 'closed'`).get()?.n ?? 0;
+      const byType = db.prepare(`
+        SELECT trade_type, status, COUNT(*) as n
+        FROM trades GROUP BY trade_type, status ORDER BY n DESC LIMIT 20
+      `).all();
+      const recentClosed = db.prepare(`
+        SELECT trade_type, exit_reason, pnl, closed_at
+        FROM trades WHERE status = 'closed'
+        ORDER BY closed_at DESC LIMIT 10
+      `).all();
+
+      // Futures cycle history from org_state
+      let cycleHistory = [];
+      try {
+        const row = db.prepare(`SELECT value FROM org_state WHERE key = 'futures_cycle_history'`).get();
+        if (row?.value) cycleHistory = JSON.parse(row.value).slice(-5);
+      } catch { /* non-fatal */ }
+
+      sendJson(res, 200, {
+        ok: true,
+        trades: { total, open, closed, byType, recentClosed },
+        wf: {
+          running: isWfRunning(),
+          stale: isWfCacheStale(24),
+          scheduler: getWfSchedulerStatus(),
+        },
+        futuresCycles: cycleHistory,
+        gate: (() => {
+          try {
+            const v = runSystemValidation();
+            return { approved: v.approved, status: v.status, checks: v.checks?.map(c => ({ name: c.name, pass: c.pass, code: c.code })) };
+          } catch (e) {
+            return { error: e.message };
+          }
+        })(),
+      });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  // GET /api/quant/strategy-log?strategyId=<id>&limit=50 — transition history
+  if (url.pathname === '/api/quant/strategy-log') {
+    try {
+      const strategyId = url.searchParams.get('strategyId') || undefined;
+      const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get('limit') ?? '50', 10)));
+      const history = getTransitionHistory({ strategyId, limit });
+      const overrides = getAllOverrides();
+      sendJson(res, 200, { ok: true, history, overrides });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  // POST /api/quant/strategy-override — set a manual status override
+  // Body: { strategyId, status, reason? }
+  if (url.pathname === '/api/quant/strategy-override' && req.method === 'POST') {
+    if (!requireAuth(req, res)) return;
+    let raw = '';
+    req.on('data', (chunk) => { raw += chunk; });
+    req.on('end', () => {
+      try {
+        const { strategyId, status, reason } = JSON.parse(raw || '{}');
+        const VALID_STATUSES = ['RESEARCH', 'BACKTESTING', 'PAPER', 'PROMOTED', 'REJECTED', 'DISABLED'];
+        if (!strategyId || typeof strategyId !== 'string') {
+          sendJson(res, 400, { ok: false, error: 'strategyId required' });
+          return;
+        }
+        if (!VALID_STATUSES.includes(status)) {
+          sendJson(res, 400, { ok: false, error: `status must be one of: ${VALID_STATUSES.join(', ')}` });
+          return;
+        }
+        setStatusOverride(strategyId, status, { reason: reason ?? null, setBy: 'operator-api' });
+        sendJson(res, 200, { ok: true, strategyId, status, reason: reason ?? null });
+      } catch (err) {
+        sendJson(res, 500, { ok: false, error: err.message });
+      }
+    });
+    return;
+  }
+
+  // DELETE /api/quant/strategy-override/:strategyId — clear a manual override
+  if (url.pathname.startsWith('/api/quant/strategy-override/') && req.method === 'DELETE') {
+    if (!requireAuth(req, res)) return;
+    try {
+      const strategyId = decodeURIComponent(url.pathname.slice('/api/quant/strategy-override/'.length));
+      if (!strategyId) {
+        sendJson(res, 400, { ok: false, error: 'strategyId required in path' });
+        return;
+      }
+      clearStatusOverride(strategyId);
+      sendJson(res, 200, { ok: true, strategyId, cleared: true });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: err.message });
+    }
+    return;
+  }
+
+  // ── Prediction Markets module routes (/api/prediction-markets/*) ─────────────
+  if (url.pathname.startsWith('/api/prediction-markets')) {
+    const handled = await handlePredictionMarketsRoute(req, res, url, {
+      apiSecret: process.env.API_SECRET?.trim() || null,
+    });
+    if (handled) return;
   }
 
   if (url.pathname === '/api/polymarket/health') {
@@ -1391,6 +1904,9 @@ server.listen(PORT, HOST, () => {
 
   // Hybrid persistence — async replication of SQLite → Supabase (no-op without DATABASE_URL).
   startReplication();
+
+  // Walk-forward auto-scheduler: refreshes OOS evidence every hour when trades ≥ 30.
+  startWfScheduler();
 
   // Keep Render free tier awake — ping own /api/health every 4 min
   const renderUrl = process.env.RENDER_EXTERNAL_URL;

@@ -1,6 +1,3 @@
-// TradeStoryCard.tsx — floating story overlay for a selected trade on the chart.
-// Shows only real, persisted per-trade data. risk/regime are not persisted → shown "—".
-
 import type { TradeStory } from '@services/cryptoClient';
 
 const EXIT_BADGE: Record<string, { label: string; color: string }> = {
@@ -19,11 +16,15 @@ function durationLabel(open: string, close: string | null): string {
     if (m < 60) return `${m}m`;
     const h = Math.floor(m / 60);
     return h < 24 ? `${h}h ${m % 60}m` : `${Math.floor(h / 24)}d`;
-  } catch { return '—'; }
+  } catch {
+    return '--';
+  }
 }
 
 function fmt(n: number): string {
-  return n >= 1000 ? n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : n.toFixed(4);
+  return n >= 1000
+    ? n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : n.toFixed(4);
 }
 
 interface Props {
@@ -32,7 +33,7 @@ interface Props {
 }
 
 export function TradeStoryCard({ trade, onClose }: Props) {
-  const sym  = trade.pair.replace('USDT', '');
+  const symbol = trade.pair.replace('USDT', '');
   const isLong = trade.side === 'LONG';
   const sideColor = isLong ? '#22c55e' : '#a855f7';
   const badge = trade.exit_kind ? EXIT_BADGE[trade.exit_kind] ?? EXIT_BADGE.EXIT : null;
@@ -40,76 +41,114 @@ export function TradeStoryCard({ trade, onClose }: Props) {
   const pnlColor = pnl == null ? '#6b7280' : pnl >= 0 ? '#22c55e' : '#ef4444';
 
   return (
-    <div style={{
-      position: 'absolute', top: 8, right: 8, width: 236, zIndex: 5,
-      background: 'rgba(10,14,26,0.94)', border: '1px solid #1e2a3a', borderRadius: 8,
-      boxShadow: '0 8px 24px rgba(0,0,0,0.5)', fontFamily: 'monospace',
-      backdropFilter: 'blur(4px)',
-    }}>
-      {/* Header */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px',
-        borderBottom: '1px solid #1e2a3a',
-      }}>
+    <div
+      style={{
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        width: 252,
+        zIndex: 5,
+        background: 'rgba(10,14,26,0.94)',
+        border: '1px solid #1e2a3a',
+        borderRadius: 8,
+        boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+        fontFamily: 'monospace',
+        backdropFilter: 'blur(4px)',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          padding: '7px 10px',
+          borderBottom: '1px solid #1e2a3a',
+        }}
+      >
         <span style={{ color: sideColor, fontSize: 11, fontWeight: 800, letterSpacing: 0.5 }}>
           {isLong ? '▲' : '▼'} {trade.side}
         </span>
-        <span style={{ color: '#e5e7eb', fontSize: 11, fontWeight: 700 }}>{sym}</span>
-        {badge && (
-          <span style={{
-            marginLeft: 'auto', fontSize: 7, fontWeight: 700, letterSpacing: 0.5,
-            padding: '2px 5px', borderRadius: 3, background: `${badge.color}1a`, color: badge.color,
-          }}>
+        <span style={{ color: '#e5e7eb', fontSize: 11, fontWeight: 700 }}>{symbol}</span>
+        {badge ? (
+          <span
+            style={{
+              marginLeft: 'auto',
+              fontSize: 7,
+              fontWeight: 700,
+              letterSpacing: 0.5,
+              padding: '2px 5px',
+              borderRadius: 3,
+              background: `${badge.color}1a`,
+              color: badge.color,
+            }}
+          >
             {badge.label}
           </span>
+        ) : (
+          <span style={{ marginLeft: 'auto', fontSize: 8, color: '#3b82f6' }}>OPEN</span>
         )}
-        {!badge && <span style={{ marginLeft: 'auto', fontSize: 8, color: '#3b82f6' }}>OPEN</span>}
-        <button type="button" onClick={onClose} style={{
-          marginLeft: 4, background: 'transparent', border: 'none',
-          color: '#4b5563', cursor: 'pointer', fontSize: 12, lineHeight: 1, padding: 0,
-        }}>✕</button>
+        <button
+          type="button"
+          onClick={onClose}
+          style={{
+            marginLeft: 4,
+            background: 'transparent',
+            border: 'none',
+            color: '#4b5563',
+            cursor: 'pointer',
+            fontSize: 12,
+            lineHeight: 1,
+            padding: 0,
+          }}
+        >
+          x
+        </button>
       </div>
 
-      {/* Price flow + pnl */}
-      <div style={{ padding: '7px 10px', borderBottom: '1px solid #111827', display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div
+        style={{
+          padding: '7px 10px',
+          borderBottom: '1px solid #111827',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+        }}
+      >
         <span style={{ color: '#9ca3af', fontSize: 10 }}>${fmt(trade.entry_price)}</span>
-        <span style={{ color: '#374151', fontSize: 10 }}>→</span>
+        <span style={{ color: '#374151', fontSize: 10 }}>to</span>
         <span style={{ color: '#9ca3af', fontSize: 10 }}>
-          {trade.exit_price != null ? `$${fmt(trade.exit_price)}` : '…'}
+          {trade.exit_price != null ? `$${fmt(trade.exit_price)}` : '...'}
         </span>
         <span style={{ marginLeft: 'auto', color: pnlColor, fontSize: 11, fontWeight: 800 }}>
-          {pnl == null ? '—' : pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`}
+          {pnl == null ? '--' : pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`}
         </span>
       </div>
 
-      {/* AI context grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: '#111827' }}>
         <Cell label="CONFIDENCE" value={`${Math.round((trade.confidence ?? 0) * 100)}%`} color="#60a5fa" />
         <Cell label="DURATION" value={durationLabel(trade.opened_at, trade.closed_at)} color="#9ca3af" />
-        <Cell label="RISK" value="—" color="#4b5563" />
-        <Cell label="REGIME" value="—" color="#4b5563" />
+        <Cell label="CAPITAL" value={trade.capital_used != null ? `$${Math.round(trade.capital_used)}` : '--'} color="#fbbf24" />
+        <Cell label="LEV" value={trade.leverage != null ? `x${trade.leverage}` : '--'} color="#c084fc" />
       </div>
 
-      {/* Reason (the thesis) */}
-      {trade.reason && (
+      {trade.reason ? (
         <div style={{ padding: '7px 10px', borderTop: '1px solid #111827' }}>
           <div style={{ color: '#4b5563', fontSize: 8, letterSpacing: 0.8, marginBottom: 3 }}>REASON</div>
           <div style={{ color: '#cbd5e1', fontSize: 10, lineHeight: '14px' }}>{trade.reason}</div>
         </div>
-      )}
+      ) : null}
 
-      {/* Evidence */}
-      {trade.evidence.length > 0 && (
+      {trade.evidence.length > 0 ? (
         <div style={{ padding: '0 10px 8px' }}>
           <div style={{ color: '#4b5563', fontSize: 8, letterSpacing: 0.8, margin: '4px 0 3px' }}>EVIDENCE</div>
           {trade.evidence.slice(0, 3).map((e, i) => (
             <div key={i} style={{ color: '#6b7280', fontSize: 9, lineHeight: '13px', display: 'flex', gap: 4 }}>
-              <span style={{ color: '#374151' }}>·</span>
+              <span style={{ color: '#374151' }}>-</span>
               <span style={{ flex: 1 }}>{e}</span>
             </div>
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

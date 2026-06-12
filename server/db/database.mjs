@@ -93,6 +93,30 @@ function migrateObservability() {
 
 migrateObservability();
 
+function migrateIntelligenceSupervisor() {
+  const stmts = [
+    `ALTER TABLE intelligence_runs ADD COLUMN proposed_changes TEXT`,
+    `ALTER TABLE intelligence_policy_applies ADD COLUMN expires_at TEXT`,
+    `CREATE TABLE IF NOT EXISTS intelligence_policy_applies (
+      id TEXT PRIMARY KEY,
+      run_id TEXT NOT NULL,
+      scope TEXT NOT NULL,
+      status TEXT NOT NULL,
+      applied_overrides TEXT NOT NULL,
+      applied_by TEXT NOT NULL DEFAULT 'operator',
+      created_at TEXT NOT NULL,
+      expires_at TEXT
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_intelligence_policy_applies_scope_created
+      ON intelligence_policy_applies(scope, created_at DESC)`,
+  ];
+  for (const stmt of stmts) {
+    try { db.prepare(stmt).run(); } catch { /* idempotent */ }
+  }
+}
+
+migrateIntelligenceSupervisor();
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /** Execute a write operation in a transaction */

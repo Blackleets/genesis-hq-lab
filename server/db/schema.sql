@@ -329,7 +329,11 @@ VALUES
   ('scalping-engine-1', 'Scalping Engine',   'trader', 'crypto_scalping',    1, datetime('now')),
   ('swing-engine-1',    'Swing Engine',      'trader', 'crypto_scalping',    1, datetime('now')),
   ('breakout-engine-1', 'Breakout Engine',   'trader', 'crypto_scalping',    1, datetime('now')),
-  ('event-alpha-1',     'Event Alpha Engine','trader', 'prediction_markets', 1, datetime('now'));
+  ('event-alpha-1',     'Event Alpha Engine','trader', 'prediction_markets', 1, datetime('now')),
+  ('futures-breakout-short-0', 'Futures Breakout Micro', 'trader', 'crypto_futures', 1, datetime('now')),
+  ('futures-breakout-short-1', 'Futures Breakout Core',  'trader', 'crypto_futures', 1, datetime('now')),
+  ('futures-breakout-short-2', 'Futures Breakout Alt',   'trader', 'crypto_futures', 1, datetime('now')),
+  ('futures-breakout-long-1',  'Futures Breakout Long',  'trader', 'crypto_futures', 1, datetime('now'));
 
 -- Seed initial operating rules from Constitution
 INSERT OR IGNORE INTO operating_rules (id, rule_text, rule_type, scope, priority, source, created_at)
@@ -369,6 +373,46 @@ CREATE TABLE IF NOT EXISTS org_state (
   value      TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+
+-- —— INTELLIGENCE SUPERVISOR RUNS — recommendation-only policy packages ——
+CREATE TABLE IF NOT EXISTS intelligence_runs (
+  id                TEXT PRIMARY KEY,
+  mission_id        TEXT NOT NULL,
+  source            TEXT NOT NULL,
+  scope             TEXT NOT NULL,
+  status            TEXT NOT NULL,          -- 'draft' | 'recommended' | 'archived' | 'rejected' | 'degraded' | 'failed'
+  advisory_only     INTEGER NOT NULL DEFAULT 1,
+  provider_status   TEXT NOT NULL DEFAULT 'unknown',
+  mission           TEXT NOT NULL,          -- JSON mission snapshot
+  candidate_summary TEXT,                   -- JSON best candidate summary
+  recommended_prompt TEXT,
+  recommended_rules TEXT,                   -- JSON string[]
+  score             REAL,
+  risk_notes        TEXT,                   -- JSON string[]
+  justification     TEXT,                   -- JSON string[]
+  proposed_changes  TEXT,                   -- JSON proposed runtime changes
+  artifacts         TEXT,                   -- JSON provider artifacts
+  created_at        TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_intelligence_runs_scope_created
+  ON intelligence_runs(scope, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_intelligence_runs_scope_status_created
+  ON intelligence_runs(scope, status, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS intelligence_policy_applies (
+  id                TEXT PRIMARY KEY,
+  run_id            TEXT NOT NULL,
+  scope             TEXT NOT NULL,
+  status            TEXT NOT NULL,          -- 'applied'
+  applied_overrides TEXT NOT NULL,          -- JSON changes applied
+  applied_by        TEXT NOT NULL DEFAULT 'operator',
+  created_at        TEXT NOT NULL,
+  expires_at        TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_intelligence_policy_applies_scope_created
+  ON intelligence_policy_applies(scope, created_at DESC);
 
 -- ─── AGENT DECISIONS — full audit trail of every signal emitted ───────────────
 -- Populated by MarketAnalystAgent (and future agents) on every BUY/SELL signal.
@@ -477,3 +521,277 @@ CREATE TABLE IF NOT EXISTS operator_events (
 CREATE INDEX IF NOT EXISTS idx_opevents_ts       ON operator_events(ts);
 CREATE INDEX IF NOT EXISTS idx_opevents_category ON operator_events(category);
 CREATE INDEX IF NOT EXISTS idx_opevents_severity ON operator_events(severity);
+
+-- Product foundation: wallet-first identity, owner console, billing hooks,
+-- paper sandbox accounts, and global learning consent. These tables do not
+-- enable fees, live trading, or custody; they only create audited structure.
+
+CREATE TABLE IF NOT EXISTS users (
+  id                TEXT PRIMARY KEY,
+  display_name      TEXT,
+  status            TEXT NOT NULL DEFAULT 'active',
+  role              TEXT NOT NULL DEFAULT 'user',
+  primary_wallet_id TEXT,
+  created_at        TEXT NOT NULL,
+  last_seen_at      TEXT,
+  metadata          TEXT NOT NULL DEFAULT '{}'
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
+CREATE INDEX IF NOT EXISTS idx_users_role   ON users(role);
+
+CREATE TABLE IF NOT EXISTS user_wallets (
+  id                    TEXT PRIMARY KEY,
+  user_id               TEXT NOT NULL REFERENCES users(id),
+  chain                 TEXT NOT NULL,
+  address               TEXT NOT NULL,
+  address_normalized    TEXT NOT NULL,
+  label                 TEXT,
+  verified_by_signature INTEGER NOT NULL DEFAULT 0,
+  verified_at           TEXT,
+  last_seen_at          TEXT,
+  revoked_at            TEXT,
+  metadata              TEXT NOT NULL DEFAULT '{}',
+  UNIQUE(chain, address_normalized)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_wallets_user  ON user_wallets(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_wallets_chain ON user_wallets(chain, address_normalized);
+
+CREATE TABLE IF NOT EXISTS wallet_sessions (
+  id              TEXT PRIMARY KEY,
+  user_id         TEXT NOT NULL REFERENCES users(id),
+  wallet_id       TEXT NOT NULL REFERENCES user_wallets(id),
+  nonce_hash      TEXT NOT NULL,
+  issued_at       TEXT NOT NULL,
+  expires_at      TEXT NOT NULL,
+  revoked_at      TEXT,
+  ip_hash         TEXT,
+  user_agent_hash TEXT,
+  metadata        TEXT NOT NULL DEFAULT '{}'
+);
+
+CREATE INDEX IF NOT EXISTS idx_wallet_sessions_user_expires ON wallet_sessions(user_id, expires_at);
+CREATE INDEX IF NOT EXISTS idx_wallet_sessions_wallet       ON wallet_sessions(wallet_id);
+
+CREATE TABLE IF NOT EXISTS admin_users (
+  id         TEXT PRIMARY KEY,
+  user_id    TEXT NOT NULL REFERENCES users(id),
+  role       TEXT NOT NULL DEFAULT 'owner',
+  status     TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL,
+  revoked_at TEXT,
+  UNIQUE(user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_users_status ON admin_users(status);
+
+CREATE TABLE IF NOT EXISTS admin_audit_logs (
+  id              TEXT PRIMARY KEY,
+  admin_user_id   TEXT NOT NULL REFERENCES admin_users(id),
+  target_user_id  TEXT REFERENCES users(id),
+  action          TEXT NOT NULL,
+  reason          TEXT NOT NULL,
+  metadata        TEXT NOT NULL DEFAULT '{}',
+  created_at      TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_audit_created ON admin_audit_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_admin_audit_target  ON admin_audit_logs(target_user_id, created_at);
+
+CREATE TABLE IF NOT EXISTS user_entitlements (
+  id            TEXT PRIMARY KEY,
+  user_id       TEXT NOT NULL REFERENCES users(id),
+  plan          TEXT NOT NULL DEFAULT 'free',
+  status        TEXT NOT NULL DEFAULT 'active',
+  features      TEXT NOT NULL DEFAULT '[]',
+  limits_json   TEXT NOT NULL DEFAULT '{}',
+  billing_mode  TEXT NOT NULL DEFAULT 'free',
+  fee_policy    TEXT NOT NULL DEFAULT 'disabled',
+  created_at    TEXT NOT NULL,
+  updated_at    TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_entitlements_user ON user_entitlements(user_id, status);
+
+CREATE TABLE IF NOT EXISTS billing_events (
+  id               TEXT PRIMARY KEY,
+  user_id          TEXT NOT NULL REFERENCES users(id),
+  wallet_id        TEXT REFERENCES user_wallets(id),
+  event_type       TEXT NOT NULL,
+  billing_mode     TEXT NOT NULL DEFAULT 'free',
+  fee_policy       TEXT NOT NULL DEFAULT 'disabled',
+  amount_usd       REAL NOT NULL DEFAULT 0,
+  currency         TEXT NOT NULL DEFAULT 'USD',
+  status           TEXT NOT NULL DEFAULT 'recorded',
+  external_ref     TEXT,
+  metadata         TEXT NOT NULL DEFAULT '{}',
+  created_at       TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_billing_events_user_created ON billing_events(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_billing_events_status       ON billing_events(status);
+
+CREATE TABLE IF NOT EXISTS operation_intents (
+  id                  TEXT PRIMARY KEY,
+  user_id             TEXT NOT NULL REFERENCES users(id),
+  wallet_id           TEXT REFERENCES user_wallets(id),
+  mode                TEXT NOT NULL DEFAULT 'paper',
+  operation_type      TEXT NOT NULL,
+  status              TEXT NOT NULL DEFAULT 'draft',
+  requested_amount_usd REAL,
+  max_loss_usd        REAL,
+  fee_quote_json      TEXT NOT NULL DEFAULT '{}',
+  consent_required    INTEGER NOT NULL DEFAULT 1,
+  consented_at        TEXT,
+  executed_at         TEXT,
+  metadata            TEXT NOT NULL DEFAULT '{}',
+  created_at          TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_operation_intents_user_created ON operation_intents(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_operation_intents_mode_status  ON operation_intents(mode, status);
+
+CREATE TABLE IF NOT EXISTS support_cases (
+  id             TEXT PRIMARY KEY,
+  user_id        TEXT NOT NULL REFERENCES users(id),
+  status         TEXT NOT NULL DEFAULT 'open',
+  severity       TEXT NOT NULL DEFAULT 'normal',
+  subject        TEXT NOT NULL,
+  notes          TEXT NOT NULL DEFAULT '',
+  created_at     TEXT NOT NULL,
+  updated_at     TEXT NOT NULL,
+  resolved_at    TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_support_cases_user_status ON support_cases(user_id, status);
+
+CREATE TABLE IF NOT EXISTS risk_flags (
+  id             TEXT PRIMARY KEY,
+  user_id        TEXT NOT NULL REFERENCES users(id),
+  wallet_id      TEXT REFERENCES user_wallets(id),
+  flag_type      TEXT NOT NULL,
+  severity       TEXT NOT NULL DEFAULT 'info',
+  status         TEXT NOT NULL DEFAULT 'active',
+  reason         TEXT NOT NULL,
+  metadata       TEXT NOT NULL DEFAULT '{}',
+  created_at     TEXT NOT NULL,
+  resolved_at    TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_risk_flags_user_status ON risk_flags(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_risk_flags_severity    ON risk_flags(severity, status);
+
+CREATE TABLE IF NOT EXISTS wallet_snapshots (
+  id             TEXT PRIMARY KEY,
+  user_id        TEXT NOT NULL REFERENCES users(id),
+  wallet_id      TEXT NOT NULL REFERENCES user_wallets(id),
+  chain          TEXT NOT NULL,
+  source         TEXT NOT NULL,
+  balances_json  TEXT NOT NULL DEFAULT '[]',
+  total_usd      REAL,
+  captured_at    TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_wallet_snapshots_wallet_time ON wallet_snapshots(wallet_id, captured_at DESC);
+
+CREATE TABLE IF NOT EXISTS memory_consent (
+  id             TEXT PRIMARY KEY,
+  user_id        TEXT NOT NULL REFERENCES users(id),
+  consent_type   TEXT NOT NULL DEFAULT 'global_learning',
+  status         TEXT NOT NULL DEFAULT 'opt_out',
+  scope          TEXT NOT NULL DEFAULT 'anonymous_aggregate',
+  granted_at     TEXT,
+  revoked_at     TEXT,
+  metadata       TEXT NOT NULL DEFAULT '{}',
+  UNIQUE(user_id, consent_type)
+);
+
+CREATE TABLE IF NOT EXISTS user_memory (
+  id             TEXT PRIMARY KEY,
+  user_id        TEXT NOT NULL REFERENCES users(id),
+  source_id      TEXT,
+  source_type    TEXT NOT NULL,
+  memory_type    TEXT NOT NULL,
+  summary        TEXT NOT NULL,
+  metrics_json   TEXT NOT NULL DEFAULT '{}',
+  visibility     TEXT NOT NULL DEFAULT 'private',
+  created_at     TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_memory_user_created ON user_memory(user_id, created_at);
+
+CREATE TABLE IF NOT EXISTS global_memory_candidates (
+  id               TEXT PRIMARY KEY,
+  source_user_id   TEXT REFERENCES users(id),
+  source_memory_id TEXT REFERENCES user_memory(id),
+  anonymized_key   TEXT NOT NULL,
+  setup_key        TEXT NOT NULL,
+  sample_size      INTEGER NOT NULL DEFAULT 0,
+  expectancy       REAL,
+  profit_factor    REAL,
+  max_drawdown     REAL,
+  score            REAL NOT NULL DEFAULT 0,
+  status           TEXT NOT NULL DEFAULT 'candidate',
+  reasons_json     TEXT NOT NULL DEFAULT '[]',
+  created_at       TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_global_memory_candidates_status_score ON global_memory_candidates(status, score DESC);
+
+CREATE TABLE IF NOT EXISTS global_memory (
+  id              TEXT PRIMARY KEY,
+  candidate_id    TEXT REFERENCES global_memory_candidates(id),
+  setup_key       TEXT NOT NULL,
+  rule_text       TEXT NOT NULL,
+  evidence_json   TEXT NOT NULL DEFAULT '{}',
+  status          TEXT NOT NULL DEFAULT 'active',
+  created_at      TEXT NOT NULL,
+  deprecated_at   TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_global_memory_setup_status ON global_memory(setup_key, status);
+
+CREATE TABLE IF NOT EXISTS paper_accounts (
+  id                TEXT PRIMARY KEY,
+  user_id           TEXT NOT NULL REFERENCES users(id),
+  wallet_id         TEXT REFERENCES user_wallets(id),
+  label             TEXT,
+  currency          TEXT NOT NULL DEFAULT 'USDT',
+  start_balance     REAL NOT NULL DEFAULT 10000,
+  current_equity    REAL NOT NULL DEFAULT 10000,
+  max_balance       REAL NOT NULL DEFAULT 1000000,
+  status            TEXT NOT NULL DEFAULT 'active',
+  mode              TEXT NOT NULL DEFAULT 'paper',
+  settings_json     TEXT NOT NULL DEFAULT '{}',
+  created_at        TEXT NOT NULL,
+  reset_at          TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_paper_accounts_user_status ON paper_accounts(user_id, status);
+
+CREATE TABLE IF NOT EXISTS paper_universe (
+  id               TEXT PRIMARY KEY,
+  user_id          TEXT NOT NULL REFERENCES users(id),
+  paper_account_id TEXT NOT NULL REFERENCES paper_accounts(id),
+  symbol           TEXT NOT NULL,
+  exchange         TEXT NOT NULL DEFAULT 'binance',
+  enabled          INTEGER NOT NULL DEFAULT 1,
+  created_at       TEXT NOT NULL,
+  UNIQUE(paper_account_id, exchange, symbol)
+);
+
+CREATE TABLE IF NOT EXISTS paper_agent_runs (
+  id               TEXT PRIMARY KEY,
+  user_id          TEXT NOT NULL REFERENCES users(id),
+  paper_account_id TEXT NOT NULL REFERENCES paper_accounts(id),
+  agent_id         TEXT,
+  status           TEXT NOT NULL DEFAULT 'queued',
+  mode             TEXT NOT NULL DEFAULT 'paper',
+  summary_json     TEXT NOT NULL DEFAULT '{}',
+  started_at       TEXT,
+  finished_at      TEXT,
+  created_at       TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_paper_agent_runs_user_created ON paper_agent_runs(user_id, created_at);

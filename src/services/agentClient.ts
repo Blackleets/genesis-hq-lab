@@ -1,11 +1,11 @@
 // agentClient — fetches live agent runner data from the backend.
 // All endpoints are read-only. Errors return null so UI degrades gracefully.
 
-import { apiUrl } from '@services/apiBase';
+import { apiUrl, fetchApi } from '@services/apiBase';
 
 async function get<T>(path: string): Promise<T | null> {
   try {
-    const res = await fetch(apiUrl(path), {
+    const res = await fetchApi(path, {
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
@@ -105,6 +105,7 @@ export interface TradingDashboard {
     inTrades: number;
     unrealizedPnl: number;
     netWorth: number;
+    startingCapital: number;
     totalReturn: number;
     drawdownPct: number;
     isPaused: boolean;
@@ -157,11 +158,23 @@ export interface HealthStatus {
   ok: boolean;
   service?: string;
   now?: string;
+  futuresMode?: boolean;
+  futuresCapital?: {
+    startCapital: number;
+    reservedMargin: number;
+    realizedPnl: number;
+    unrealizedPnl: number;
+    netPnl: number;
+    equity: number;
+    available: number;
+    openPositions: number;
+  } | null;
   agent?: {
     capital: number;
     isPaused: boolean;
     openTrades: number;
     lastTickAt?: string;
+    agentAlive?: boolean;
     totalCycles?: number;
     claudeEnabled?: boolean;
   };

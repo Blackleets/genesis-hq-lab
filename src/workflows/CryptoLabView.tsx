@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useLanguage } from '@core/i18n/languageStore';
 import {
-  loadCryptoOverview, loadTradeStories, loadCommentary, loadDiagnostics, loadShadowCandidateDiagnostics, loadBreakoutShadow, loadFuturesDesk,
+  applyIntelligenceSupervisorRun, loadCryptoOverview, loadTradeStories, loadCommentary, loadDiagnostics, loadShadowCandidateDiagnostics, loadBreakoutShadow, loadFuturesDesk, resetFuturesDeskBaseline, rollbackIntelligenceSupervisor, runIntelligenceSupervisor,
   type CryptoOverview, type TradeStory, type CommentaryItem, type ExecutionDiagnostics, type ShadowCandidateDiagnostics, type BreakoutShadowDiagnostics, type FuturesDeskSnapshot,
 } from '@services/cryptoClient';
 import CandleChart from '@dashboard/charts/CandleChart';
@@ -34,6 +34,10 @@ export default function CryptoLabView() {
   const [futuresDesk, setFuturesDesk] = useState<FuturesDeskSnapshot | null>(null);
   const [futuresCycleBusy, setFuturesCycleBusy] = useState(false);
   const [futuresCycleStatus, setFuturesCycleStatus] = useState<string | null>(null);
+  const [futuresBaselineBusy, setFuturesBaselineBusy] = useState(false);
+  const [supervisorBusy, setSupervisorBusy] = useState(false);
+  const [supervisorApplyBusy, setSupervisorApplyBusy] = useState(false);
+  const [supervisorRollbackBusy, setSupervisorRollbackBusy] = useState(false);
 
   const fetchOverview = useCallback(async () => {
     try {
@@ -64,14 +68,21 @@ export default function CryptoLabView() {
   }, []);
   const fetchFuturesDesk = useCallback(async () => {
     const desk = await loadFuturesDesk();
-    if (desk) setFuturesDesk(desk);
+    if (desk) {
+      setFuturesDesk(desk);
+      setFuturesCycleStatus((prev) =>
+        prev && /backend no devolvio|backend did not return|no se pudo refrescar|could not refresh/i.test(prev)
+          ? null
+          : prev
+      );
+    }
   }, []);
 
   const handleRunFuturesCycle = useCallback(async () => {
     setFuturesCycleBusy(true);
     setFuturesCycleStatus(es ? 'Ejecutando ciclo real de futuros...' : 'Running real futures cycle...');
     try {
-      const desk = await loadFuturesDesk(true);
+      const desk = await loadFuturesDesk(true, 35_000);
       if (desk) {
         setFuturesDesk(desk);
         await Promise.all([fetchOverview(), fetchTrades(), fetchDiagnostics()]);
@@ -83,7 +94,21 @@ export default function CryptoLabView() {
             : `Cycle completed: ${executed} entries, ${qualified} qualified setups`
         );
       } else {
-        setFuturesCycleStatus(es ? 'El backend no devolvio snapshot de futuros.' : 'Backend did not return futures snapshot.');
+        const latestDesk = await loadFuturesDesk(false, 10_000);
+        if (latestDesk) {
+          setFuturesDesk(latestDesk);
+          setFuturesCycleStatus(
+            es
+              ? 'Ciclo lanzado, pero el snapshot tardo mas de lo esperado. Manteniendo el ultimo estado valido.'
+              : 'Cycle launched, but the snapshot took longer than expected. Keeping the last valid state.'
+          );
+        } else {
+          setFuturesCycleStatus(
+            es
+              ? 'No se pudo refrescar el snapshot de futuros. El desk sigue vivo, pero sin confirmacion nueva.'
+              : 'Could not refresh the futures snapshot. The desk is still live, but without a fresh confirmation.'
+          );
+        }
       }
     } catch {
       setFuturesCycleStatus(es ? 'Fallo el ciclo manual de futuros.' : 'Manual futures cycle failed.');
@@ -91,6 +116,122 @@ export default function CryptoLabView() {
       setFuturesCycleBusy(false);
     }
   }, [es, fetchDiagnostics, fetchOverview, fetchTrades]);
+
+  const handleResetFuturesBaseline = useCallback(async () => {
+    setFuturesBaselineBusy(true);
+    setFuturesCycleStatus(es ? 'Reiniciando baseline de PnL de futuros...' : 'Resetting futures PnL baseline...');
+    try {
+      const baseline = await resetFuturesDeskBaseline();
+      if (baseline) {
+        const latestDesk = await loadFuturesDesk(false, 10_000);
+        if (latestDesk) setFuturesDesk(latestDesk);
+        await Promise.all([fetchOverview(), fetchTrades(), fetchDiagnostics()]);
+        setFuturesCycleStatus(
+          es
+            ? `Baseline reiniciado en ${baseline.baselineAt}. El historial queda intacto.`
+            : `Baseline reset at ${baseline.baselineAt}. Historical trades remain intact.`
+        );
+      } else {
+        setFuturesCycleStatus(es ? 'No se pudo reiniciar el baseline de futuros.' : 'Could not reset the futures baseline.');
+      }
+    } catch {
+      setFuturesCycleStatus(es ? 'Fallo el reinicio del baseline de futuros.' : 'Futures baseline reset failed.');
+    } finally {
+      setFuturesBaselineBusy(false);
+    }
+  }, [es, fetchDiagnostics, fetchOverview, fetchTrades]);
+
+  const handleRunSupervisor = useCallback(async () => {
+    setSupervisorBusy(true);
+    setFuturesCycleStatus(es ? 'Ejecutando supervisor advisory de futuros...' : 'Running futures advisory supervisor...');
+    try {
+      const result = await runIntelligenceSupervisor(40_000);
+      const latestDesk = await loadFuturesDesk(false, 10_000);
+      if (latestDesk) setFuturesDesk(latestDesk);
+
+      if (!result) {
+        setFuturesCycleStatus(es ? 'No hubo respuesta del supervisor.' : 'Supervisor did not return a response.');
+      } else if (result.ok) {
+        const latest = result.state?.latest ?? result.state?.latestAttempt ?? null;
+        setFuturesCycleStatus(
+          latest?.score != null
+            ? (es ? `Supervisor listo: score ${latest.score.toFixed(3)} advisory only.` : `Supervisor ready: score ${latest.score.toFixed(3)} advisory only.`)
+            : (es ? 'Supervisor ejecutado en modo advisory.' : 'Supervisor completed in advisory mode.')
+        );
+      } else {
+        setFuturesCycleStatus(
+          es
+            ? `Supervisor degradado: ${result.error ?? 'proveedor no disponible'}`
+            : `Supervisor degraded: ${result.error ?? 'provider unavailable'}`
+        );
+      }
+    } catch {
+      setFuturesCycleStatus(es ? 'Fallo el supervisor advisory.' : 'Advisory supervisor failed.');
+    } finally {
+      setSupervisorBusy(false);
+    }
+  }, [es]);
+
+  const handleApplySupervisor = useCallback(async () => {
+    const runId = futuresDesk?.supervisor?.latest?.id ?? futuresDesk?.supervisor?.latestAttempt?.id ?? null;
+    if (!runId) {
+      setFuturesCycleStatus(es ? 'No hay recomendacion aplicable.' : 'No applicable recommendation exists.');
+      return;
+    }
+    setSupervisorApplyBusy(true);
+    setFuturesCycleStatus(es ? 'Aplicando overrides seguros del supervisor...' : 'Applying safe supervisor overrides...');
+    try {
+      const result = await applyIntelligenceSupervisorRun(runId, 15_000);
+      const latestDesk = await loadFuturesDesk(false, 10_000);
+      if (latestDesk) setFuturesDesk(latestDesk);
+
+      if (!result) {
+        setFuturesCycleStatus(es ? 'No hubo respuesta al aplicar el supervisor.' : 'No response while applying the supervisor.');
+      } else if (result.ok) {
+        const count = result.state?.appliedPolicy?.overrides?.length ?? 0;
+        setFuturesCycleStatus(
+          es
+            ? `Supervisor aplicado: ${count} override(s) activos en runtime.`
+            : `Supervisor applied: ${count} runtime override(s) active.`
+        );
+      } else {
+        setFuturesCycleStatus(
+          es
+            ? `No se pudo aplicar: ${result.error ?? 'error desconocido'}`
+            : `Could not apply: ${result.error ?? 'unknown error'}`
+        );
+      }
+    } catch {
+      setFuturesCycleStatus(es ? 'Fallo la aplicacion del supervisor.' : 'Supervisor apply failed.');
+    } finally {
+      setSupervisorApplyBusy(false);
+    }
+  }, [es, futuresDesk]);
+
+  const handleRollbackSupervisor = useCallback(async () => {
+    setSupervisorRollbackBusy(true);
+    setFuturesCycleStatus(es ? 'Revirtiendo overrides del supervisor...' : 'Rolling back supervisor overrides...');
+    try {
+      const result = await rollbackIntelligenceSupervisor(15_000);
+      const latestDesk = await loadFuturesDesk(false, 10_000);
+      if (latestDesk) setFuturesDesk(latestDesk);
+      if (!result) {
+        setFuturesCycleStatus(es ? 'No hubo respuesta al revertir.' : 'No response while rolling back.');
+      } else if (result.ok) {
+        setFuturesCycleStatus(es ? 'Overrides del supervisor revertidos.' : 'Supervisor overrides rolled back.');
+      } else {
+        setFuturesCycleStatus(
+          es
+            ? `No se pudo revertir: ${result.error ?? 'error desconocido'}`
+            : `Could not roll back: ${result.error ?? 'unknown error'}`
+        );
+      }
+    } catch {
+      setFuturesCycleStatus(es ? 'Fallo el rollback del supervisor.' : 'Supervisor rollback failed.');
+    } finally {
+      setSupervisorRollbackBusy(false);
+    }
+  }, [es]);
 
   useEffect(() => {
     fetchOverview(); fetchTrades(); fetchCommentary(); fetchDiagnostics(); fetchShadowCandidate(); fetchBreakoutShadow(); fetchFuturesDesk();
@@ -138,6 +279,14 @@ export default function CryptoLabView() {
   }
 
   const pnl = data?.pnl;
+  const futuresTreasury = futuresDesk?.treasury ?? null;
+  const futuresClosedPnl = futuresDesk?.closedSummary.reduce((sum, row) => sum + (row.totalPnl ?? 0), 0) ?? 0;
+  const futuresNetPnl = futuresTreasury ? futuresClosedPnl + (futuresTreasury.unrealizedPnl ?? 0) : futuresClosedPnl;
+  const futuresOpenCount = futuresDesk?.openPositions.length ?? 0;
+  const futuresOnlyView = (futuresDesk?.config.profiles.length ?? 0) > 0;
+  const filteredCommentary = futuresOnlyView
+    ? commentary.filter((item) => !/SCALPING PAUSED|negative edge recommendation|PAUSE NOW/i.test(`${item.text} ${item.detail}`))
+    : commentary;
 
   return (
     <main className="flex-1 min-w-0 min-h-0 flex flex-col bg-carbon-300 overflow-hidden">
@@ -148,7 +297,18 @@ export default function CryptoLabView() {
           <div className="flex items-center gap-3">
             <span className="inline-block w-2 h-2 rounded-full animate-pulse" style={{ background: ACCENT }} />
             <span className="font-mono text-xs uppercase tracking-wider text-zinc-500">Genesis HQ · Crypto Terminal</span>
-            {pnl && (
+            {futuresTreasury ? (
+              <div className="flex gap-4 ml-4">
+                <span className="font-mono text-xs" style={{ color: futuresNetPnl >= 0 ? '#22c55e' : '#ef4444' }}>
+                  Futures {usd(futuresNetPnl)}
+                </span>
+                <span className="font-mono text-xs text-zinc-400">
+                  Avail {usd(futuresTreasury.available)}
+                </span>
+                <span className="font-mono text-xs text-amber-400">margin {usd(futuresTreasury.inTrades)}</span>
+                <span className="font-mono text-xs text-zinc-500">{futuresOpenCount} open</span>
+              </div>
+            ) : pnl && (
               <div className="flex gap-4 ml-4">
                 <span className="font-mono text-xs" style={{ color: pnl.closed.totalPnl >= 0 ? '#22c55e' : '#ef4444' }}>
                   PnL {usd(pnl.closed.totalPnl)}
@@ -171,7 +331,7 @@ export default function CryptoLabView() {
 
         {/* Row 2 — live activity strip (priority-aware) */}
         <div className="border-t border-zinc-800/60">
-          <LiveActivityStrip items={commentary} />
+          <LiveActivityStrip items={filteredCommentary} />
         </div>
 
         {/* Row 3 — operator status bar (counter + training + heartbeat) */}
@@ -179,6 +339,7 @@ export default function CryptoLabView() {
           diagnostics={diagnostics}
           openCount={pnl?.open.count ?? 0}
           today={today}
+          futuresDesk={futuresDesk}
         />
       </div>
 
@@ -202,7 +363,7 @@ export default function CryptoLabView() {
 
         {/* AI Commentary (bottom-left) */}
         <div className="crypto-zone-commentary">
-          <CommentaryFeed items={commentary} />
+          <CommentaryFeed items={filteredCommentary} />
         </div>
 
         {/* Desk panel — positions + stats + trades (bottom-center) */}
@@ -218,7 +379,15 @@ export default function CryptoLabView() {
             breakoutShadow={breakoutShadow}
             futuresDesk={futuresDesk}
             onRunFuturesCycle={handleRunFuturesCycle}
+            onResetFuturesBaseline={handleResetFuturesBaseline}
+            onRunSupervisor={handleRunSupervisor}
+            onApplySupervisor={handleApplySupervisor}
+            onRollbackSupervisor={handleRollbackSupervisor}
             futuresCycleBusy={futuresCycleBusy}
+            futuresBaselineBusy={futuresBaselineBusy}
+            supervisorBusy={supervisorBusy}
+            supervisorApplyBusy={supervisorApplyBusy}
+            supervisorRollbackBusy={supervisorRollbackBusy}
             futuresCycleStatus={futuresCycleStatus}
           />
         </div>

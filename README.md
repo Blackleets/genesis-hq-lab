@@ -57,6 +57,10 @@ genesis-hq-lab/
 
 Full rules: `AGENTS.md`.
 
+## Genesis Maintainer Orchestrator
+
+Este repo usa un protocolo interno de mantenimiento para evitar fixes incompletos, demos falsas y cambios sin evidencia. Antes de declarar un cambio como listo, todo fix critico debe incluir diagnostico, tests, build, evidencia y live proof cuando aplique.
+
 ## Status
 
 Operational lab: backend agent + UI wired to **real SQLite trades** (not local mock positions).

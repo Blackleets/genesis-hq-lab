@@ -70,7 +70,7 @@ function deterministicLesson(trade, evidence = []) {
   const category = exitReason === 'stop_loss'
     ? 'timing'
     : exitReason === 'timeout'
-      ? 'signal'
+      ? isFutures ? 'timing' : 'signal'
       : confidence >= 0.8
         ? 'confidence'
         : 'pattern';
@@ -94,7 +94,7 @@ function deterministicLesson(trade, evidence = []) {
       ? `If ${pair} ${side} futures closes negative by ${exitReason}, tighten the profile until fresh winners repair the edge.`
       : `If the setup loses by ${exitReason}, demand stronger confirmation before re-entry.`,
     category,
-    severity: exitReason === 'stop_loss' ? 'warning' : 'info',
+    severity: exitReason === 'stop_loss' || (isFutures && exitReason === 'timeout') ? 'warning' : 'info',
   };
 }
 

@@ -1,7 +1,7 @@
 // GenesisSidebar — left-rail nav with division groups.
 // Modules are organized into 5 themed sections to reflect the company structure.
 
-import { Building2, Boxes, Sparkles, Users, BrainCircuit, Activity, FileText, Settings, Gauge, Wallet, Megaphone, Code, Terminal, Workflow, Bot, TrendingUp, Bitcoin, HeartPulse, ScrollText, FlaskConical } from 'lucide-react';
+import { Building2, Boxes, Sparkles, Users, BrainCircuit, Activity, FileText, Settings, Gauge, Wallet, Megaphone, Code, Terminal, Workflow, Bot, TrendingUp, Bitcoin, HeartPulse, ScrollText, FlaskConical, BarChart3 } from 'lucide-react';
 import GenesisLockup from '@ui/GenesisLogo';
 import { useT, useLanguage } from '@core/i18n/languageStore';
 import { MODULES, type ModuleId } from '@core/data/moduleRegistry';
@@ -27,12 +27,13 @@ const ICONS: Record<ModuleId, typeof Building2> = {
   tech:         Code,
   console:      Terminal,
   integrations: Workflow,
-  'agents-live': Bot,
-  edge:          TrendingUp,
-  crypto:        Bitcoin,
-  system:        HeartPulse,
-  operator:      ScrollText,
-  alpha:         FlaskConical,
+  'agents-live':  Bot,
+  edge:           TrendingUp,
+  crypto:         Bitcoin,
+  system:         HeartPulse,
+  operator:       ScrollText,
+  alpha:          FlaskConical,
+  'pred-markets': BarChart3,
 };
 
 interface SidebarGroup {
@@ -53,7 +54,7 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
     labelEs: 'Trading & Riesgo',
     labelEn: 'Trading & Risk',
     color: '#00ff9c',
-    modules: ['markets', 'decisions', 'edge', 'crypto'],
+    modules: ['markets', 'decisions', 'edge', 'crypto', 'pred-markets'],
   },
   {
     labelEs: 'Negocios',
@@ -83,7 +84,7 @@ export default function GenesisSidebar({ currentModule, onSelect }: Props) {
   const lang = useLanguage();
 
   return (
-    <aside className="w-[196px] shrink-0 bg-[#0b0e14] border-r border-[#242b3a] flex flex-col">
+    <aside className="w-[clamp(168px,14vw,196px)] shrink-0 bg-[#0b0e14] border-r border-[#242b3a] flex flex-col">
       {/* Company identity */}
       <div className="px-3.5 py-3 border-b border-[#242b3a] bg-[#0f131c]">
         <GenesisLockup size="sm" markSize={26} showTagline />

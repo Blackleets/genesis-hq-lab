@@ -29,9 +29,10 @@ interface Props {
   scale: number;
   onAgentHover: (agent: Agent | null, screenX: number, screenY: number) => void;
   onRoomClick?: (room: RoomId) => void;
+  onRendererDegraded?: () => void;
 }
 
-export default function PixelOfficeCanvas({ scale, onAgentHover, onRoomClick }: Props) {
+export default function PixelOfficeCanvas({ scale, onAgentHover, onRoomClick, onRendererDegraded }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const hitboxesRef = useRef<PixelOfficeHitbox[]>([]);
   const runtimeRef = useRef(createPixelLifeRuntime());
@@ -81,10 +82,16 @@ export default function PixelOfficeCanvas({ scale, onAgentHover, onRoomClick }: 
     let active = true;
     loadPixelSprites()
       .then((loaded) => {
-        if (active) setSprites(loaded);
+        if (!active) return;
+        if (Object.keys(loaded).length === 0) {
+          onRendererDegraded?.();
+          return;
+        }
+        setSprites(loaded);
       })
       .catch(() => {
-        if (active) setSprites({});
+        if (!active) return;
+        onRendererDegraded?.();
       });
     return () => {
       active = false;
@@ -95,7 +102,10 @@ export default function PixelOfficeCanvas({ scale, onAgentHover, onRoomClick }: 
     const canvas = canvasRef.current;
     if (!canvas || !sprites) return;
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    if (!ctx) {
+      onRendererDegraded?.();
+      return;
+    }
 
     let frameId = 0;
 
@@ -197,7 +207,7 @@ export default function PixelOfficeCanvas({ scale, onAgentHover, onRoomClick }: 
     return () => {
       window.cancelAnimationFrame(frameId);
     };
-  }, [sprites]);
+  }, [sprites, onRendererDegraded]);
 
   function toInternalCoords(event: React.MouseEvent<HTMLCanvasElement>) {
     const rect = event.currentTarget.getBoundingClientRect();

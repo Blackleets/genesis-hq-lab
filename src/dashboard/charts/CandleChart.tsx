@@ -34,14 +34,64 @@ function toUnix(iso: string | null): number | null {
   return Number.isNaN(ms) ? null : Math.floor(ms / 1000);
 }
 
+type OverlayEvent = {
+  key: string;
+  tradeId: string;
+  side: 'LONG' | 'SHORT';
+  kind: 'ENTRY' | 'EXIT';
+  time: UTCTimestamp;
+  price: number;
+  x: number;
+  y: number;
+  accent: string;
+  avatar: string;
+  title: string;
+  subtitle: string;
+  selected: boolean;
+};
+
+function tradeActor(trade: TradeStory): string {
+  const type = `${trade.trade_type ?? ''}`.toLowerCase();
+  if (type.includes('micro')) return 'M';
+  if (type.includes('alt')) return 'A';
+  if (type.includes('long')) return 'L';
+  if (type.includes('short')) return 'S';
+  return 'AI';
+}
+
+function tradeBadgeTitle(trade: TradeStory, kind: 'ENTRY' | 'EXIT'): string {
+  if (kind === 'ENTRY') return trade.side === 'LONG' ? 'Long in' : 'Short in';
+  if (trade.exit_kind === 'TP') return 'Take profit';
+  if (trade.exit_kind === 'SL') return 'Stop loss';
+  if (trade.exit_kind === 'TIMEOUT') return 'Timeout';
+  if (trade.exit_kind === 'CONFIDENCE') return 'Confidence';
+  return 'Exit';
+}
+
+function tradeBadgeSubtitle(trade: TradeStory, kind: 'ENTRY' | 'EXIT'): string {
+  if (kind === 'ENTRY') {
+    const capital = trade.capital_used != null ? `$${Math.round(trade.capital_used)}` : 'live';
+    const leverage = trade.leverage && trade.leverage > 1 ? ` x${trade.leverage}` : '';
+    return `${trade.pair.replace('USDT', '')} ${capital}${leverage}`;
+  }
+  if (trade.pnl == null) return trade.pair.replace('USDT', '');
+  return `${trade.pnl >= 0 ? '+' : '-'}$${Math.abs(trade.pnl).toFixed(2)}`;
+}
+
 // Build entry + exit markers for the trades on the current pair.
-function buildMarkers(trades: TradeStory[], pair: string, selectedId: string | null): SeriesMarker<Time>[] {
+function buildMarkers(
+  trades: TradeStory[],
+  pair: string,
+  selectedId: string | null,
+  showEntries: boolean,
+  showExits: boolean,
+): SeriesMarker<Time>[] {
   const markers: SeriesMarker<Time>[] = [];
   for (const t of trades) {
     if (t.pair !== pair) continue;
     const sel = t.id === selectedId;
     const entryT = toUnix(t.opened_at);
-    if (entryT != null) {
+    if (showEntries && entryT != null) {
       const isLong = t.side === 'LONG';
       markers.push({
         time: entryT as UTCTimestamp,
@@ -53,7 +103,7 @@ function buildMarkers(trades: TradeStory[], pair: string, selectedId: string | n
       });
     }
     const exitT = toUnix(t.closed_at);
-    if (exitT != null && t.exit_kind) {
+    if (showExits && exitT != null && t.exit_kind) {
       const col = EXIT_COLOR[t.exit_kind] ?? '#9ca3af';
       const kind = t.exit_kind === 'TP' ? 'TP' : t.exit_kind === 'SL' ? 'SL' : 'EXIT';
       const pnlTxt = t.pnl != null ? ` ${t.pnl >= 0 ? '+' : ''}$${Math.abs(t.pnl).toFixed(1)}` : '';
@@ -137,6 +187,12 @@ export default function CandleChart({
   const [showEma9, setShowEma9] = useState(true);
   const [showEma21, setShowEma21] = useState(true);
   const [showTrades, setShowTrades] = useState(false);
+  const [showEntries, setShowEntries] = useState(true);
+  const [showExits, setShowExits] = useState(true);
+  const [showTradeLabels, setShowTradeLabels] = useState(true);
+  const [overlayEvents, setOverlayEvents] = useState<OverlayEvent[]>([]);
+  const [viewportVersion, setViewportVersion] = useState(0);
+  const [overlayBounds, setOverlayBounds] = useState({ width: 0, height: 0 });
 
   // Co-pilot pre-trade state
   const [copilotSide, setCopilotSide]         = useState<'LONG' | 'SHORT' | null>(null);
@@ -196,6 +252,7 @@ export default function CandleChart({
 
     // Trade markers primitive (v5) — attached to the candlestick series
     markersRef.current = createSeriesMarkers(csRef.current, []);
+    const bumpViewport = () => window.requestAnimationFrame(() => setViewportVersion(v => v + 1));
 
     // Click → select the nearest trade marker (entry or exit) by time
     chart.subscribeClick((param) => {
@@ -215,17 +272,35 @@ export default function CandleChart({
       // Toggle off if re-clicking the already-selected trade
       onSelectRef.current(best ? (best.id === selectedRef.current ? null : best.id) : null);
     });
+    chart.timeScale().subscribeVisibleTimeRangeChange(bumpViewport);
 
     // Responsive width + height — chart fills its container cell
     const ro = new ResizeObserver(() => {
-      if (wrapRef.current) chart.applyOptions({
-        width:  wrapRef.current.clientWidth,
-        height: wrapRef.current.clientHeight || 380,
-      });
+      if (wrapRef.current) {
+        chart.applyOptions({
+          width:  wrapRef.current.clientWidth,
+          height: wrapRef.current.clientHeight || 380,
+        });
+        setOverlayBounds({
+          width: wrapRef.current.clientWidth,
+          height: wrapRef.current.clientHeight || 380,
+        });
+      }
+      bumpViewport();
     });
     ro.observe(wrapRef.current);
+    setOverlayBounds({
+      width: wrapRef.current.clientWidth,
+      height: wrapRef.current.clientHeight || 380,
+    });
 
-    return () => { ro.disconnect(); chart.remove(); chartRef.current = null; markersRef.current = null; };
+    return () => {
+      ro.disconnect();
+      chart.timeScale().unsubscribeVisibleTimeRangeChange(bumpViewport);
+      chart.remove();
+      chartRef.current = null;
+      markersRef.current = null;
+    };
   }, []);
 
   // ── Load candles whenever pair or tf changes ────────────────────────────────
@@ -323,8 +398,93 @@ export default function CandleChart({
     const visibleTrades = showTrades || selectedTradeId
       ? tradeStories.filter(t => showTrades || t.id === selectedTradeId)
       : [];
-    markersRef.current.setMarkers(buildMarkers(visibleTrades, pair, selectedTradeId));
-  }, [tradeStories, pair, selectedTradeId, showTrades, candlesLoadedAt]);
+    markersRef.current.setMarkers(buildMarkers(visibleTrades, pair, selectedTradeId, showEntries, showExits));
+  }, [tradeStories, pair, selectedTradeId, showTrades, showEntries, showExits, candlesLoadedAt]);
+
+  useEffect(() => {
+    const chart = chartRef.current;
+    const candleSeries = csRef.current;
+    if (!chart || !candleSeries || (!showTrades && !selectedTradeId) || !showTradeLabels) {
+      setOverlayEvents([]);
+      return;
+    }
+
+    const visibleTrades = tradeStories
+      .filter((trade) => trade.pair === pair)
+      .filter((trade) => showTrades || trade.id === selectedTradeId)
+      .sort((a, b) => (toUnix(b.opened_at) ?? 0) - (toUnix(a.opened_at) ?? 0))
+      .slice(0, 16);
+
+    const nextEvents: OverlayEvent[] = [];
+    for (const trade of visibleTrades) {
+      const actor = tradeActor(trade);
+      const selected = trade.id === selectedTradeId;
+      const entryTime = toUnix(trade.opened_at);
+      if (showEntries && entryTime != null) {
+        const x = chart.timeScale().timeToCoordinate(entryTime as UTCTimestamp);
+        const y = candleSeries.priceToCoordinate(trade.entry_price);
+        if (x != null && y != null && x >= -24) {
+          nextEvents.push({
+            key: `${trade.id}:entry`,
+            tradeId: trade.id,
+            side: trade.side,
+            kind: 'ENTRY',
+            time: entryTime as UTCTimestamp,
+            price: trade.entry_price,
+            x,
+            y,
+            accent: trade.side === 'LONG' ? '#22c55e' : '#a855f7',
+            avatar: actor,
+            title: tradeBadgeTitle(trade, 'ENTRY'),
+            subtitle: tradeBadgeSubtitle(trade, 'ENTRY'),
+            selected,
+          });
+        }
+      }
+
+      const exitTime = toUnix(trade.closed_at);
+      const exitPrice = trade.exit_price ?? trade.target_price ?? trade.stop_price;
+      if (showExits && exitTime != null && exitPrice != null) {
+        const x = chart.timeScale().timeToCoordinate(exitTime as UTCTimestamp);
+        const y = candleSeries.priceToCoordinate(exitPrice);
+        const accent = trade.exit_kind === 'TP'
+          ? '#22c55e'
+          : trade.exit_kind === 'SL'
+            ? '#ef4444'
+            : '#f59e0b';
+        if (x != null && y != null && x >= -24) {
+          nextEvents.push({
+            key: `${trade.id}:exit`,
+            tradeId: trade.id,
+            side: trade.side,
+            kind: 'EXIT',
+            time: exitTime as UTCTimestamp,
+            price: exitPrice,
+            x,
+            y,
+            accent,
+            avatar: actor,
+            title: tradeBadgeTitle(trade, 'EXIT'),
+            subtitle: tradeBadgeSubtitle(trade, 'EXIT'),
+            selected,
+          });
+        }
+      }
+    }
+
+    nextEvents.sort((a, b) => a.time - b.time);
+    setOverlayEvents(nextEvents);
+  }, [
+    tradeStories,
+    pair,
+    selectedTradeId,
+    showTrades,
+    showEntries,
+    showExits,
+    showTradeLabels,
+    candlesLoadedAt,
+    viewportVersion,
+  ]);
 
   useEffect(() => {
     e9Ref.current?.applyOptions({ visible: showEma9 });
@@ -413,6 +573,7 @@ export default function CandleChart({
   // ── Derived ────────────────────────────────────────────────────────────────
   const symbol   = pair.replace('USDT', '');
   const myPos    = positions.filter(p => p.pair === pair);
+  const visibleTradeCount = tradeStories.filter((trade) => trade.pair === pair).length;
 
   return (
     <div className="gx-card overflow-hidden h-full flex flex-col min-h-0">
@@ -430,11 +591,18 @@ export default function CandleChart({
         showEma9={showEma9}
         showEma21={showEma21}
         showTrades={showTrades}
+        showEntries={showEntries}
+        showExits={showExits}
+        showLabels={showTradeLabels}
+        visibleTradeCount={visibleTradeCount}
         onPair={setPair}
         onTf={setTf}
         onToggleEma9={() => setShowEma9(v => !v)}
         onToggleEma21={() => setShowEma21(v => !v)}
         onToggleTrades={() => setShowTrades(v => !v)}
+        onToggleEntries={() => setShowEntries(v => !v)}
+        onToggleExits={() => setShowExits(v => !v)}
+        onToggleLabels={() => setShowTradeLabels(v => !v)}
       />
 
       {/* ── Error state ─────────────────────────────────────────────────── */}
@@ -464,12 +632,56 @@ export default function CandleChart({
       )}
 
       {/* ── Chart canvas — flex-fills the remaining card height ─────────── */}
-      <div className="relative w-full flex-1 min-h-0" style={{ minHeight: 260 }}>
+      <div className="relative w-full flex-1 min-h-0" style={{ minHeight: 220 }}>
         <div ref={wrapRef} className="absolute inset-0" />
         <div className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center">
           <div className="font-mono text-[72px] md:text-[96px] font-black tracking-[-0.08em] text-zinc-500/10 select-none">
             {symbol}
           </div>
+        </div>
+        <div className="pointer-events-none absolute inset-0 z-[3] overflow-hidden">
+          {overlayEvents.map((event, index) => {
+            const isEntry = event.kind === 'ENTRY';
+            const laneOffset = (index % 3) * 16;
+            const badgeWidth = overlayBounds.width < 640 ? 144 : 188;
+            const badgeHeight = 36;
+            const rawTop = (event.y ?? 0) + (isEntry ? 14 + laneOffset : -52 - laneOffset);
+            const rawLeft = (event.x ?? 0) - 22;
+            const maxLeft = Math.max(10, overlayBounds.width - badgeWidth - 10);
+            const maxTop = Math.max(10, overlayBounds.height - badgeHeight - 10);
+            const top = Math.max(10, Math.min(rawTop, maxTop));
+            const left = Math.max(10, Math.min(rawLeft, maxLeft));
+            return (
+              <button
+                key={event.key}
+                type="button"
+                onClick={() => onSelectTrade?.(event.tradeId === selectedTradeId ? null : event.tradeId)}
+                className="pointer-events-auto absolute flex items-center gap-2 rounded-full border px-2 py-1 text-left shadow-[0_10px_24px_rgba(0,0,0,0.35)] backdrop-blur-sm transition-transform hover:scale-[1.02]"
+                style={{
+                  top,
+                  left,
+                  maxWidth: badgeWidth,
+                  background: event.selected ? 'rgba(9,12,18,0.96)' : 'rgba(9,12,18,0.84)',
+                  borderColor: `${event.accent}${event.selected ? 'cc' : '66'}`,
+                }}
+              >
+                <span
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-mono text-[10px] font-bold"
+                  style={{ background: `${event.accent}22`, color: event.accent }}
+                >
+                  {event.avatar}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate font-mono text-[10px] font-bold leading-none text-zinc-100">
+                    {event.title}
+                  </span>
+                  <span className="block truncate font-mono text-[9px] leading-none text-zinc-400 mt-0.5">
+                    {event.subtitle}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
         </div>
         {selectedTrade && !copilotSide && (
           <TradeStoryCard trade={selectedTrade} onClose={() => onSelectTrade?.(null)} />

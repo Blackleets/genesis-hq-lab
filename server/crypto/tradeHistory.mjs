@@ -35,7 +35,8 @@ function parseEvidence(raw) {
  */
 export function getTradeStories({ limit = 40, pair = null } = {}) {
   let sql = `
-    SELECT id, asset_pair, outcome, entry_price, exit_price, target_price, stop_price,
+    SELECT id, asset_pair, outcome, agent_id, trade_type, capital_used, leverage,
+           entry_price, exit_price, target_price, stop_price,
            pnl, confidence, reason, evidence, exit_reason, opened_at, closed_at, status
     FROM trades
     WHERE trade_type IN ${ALL_CRYPTO_TRADE_TYPES_SQL}`;
@@ -55,6 +56,10 @@ export function getTradeStories({ limit = 40, pair = null } = {}) {
     id:           r.id,
     pair:         r.asset_pair ?? '',
     side:         r.outcome === 'SHORT' ? 'SHORT' : 'LONG',
+    agent_id:     r.agent_id ?? null,
+    trade_type:   r.trade_type ?? null,
+    capital_used: r.capital_used ?? null,
+    leverage:     r.leverage ?? null,
     entry_price:  r.entry_price,
     exit_price:   r.exit_price ?? null,
     target_price: r.target_price ?? null,
