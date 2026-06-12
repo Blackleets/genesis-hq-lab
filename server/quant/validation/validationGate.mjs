@@ -76,6 +76,33 @@ function checkDrawdown(dd) {
   return { pass: true, code: 'DRAWDOWN_OK', detail: `Max drawdown ${(dd * 100).toFixed(1)}%` };
 }
 
+function checkRollingEdge(rollingPf, aggregatePf) {
+  if (rollingPf == null || !Number.isFinite(rollingPf)) {
+    return { pass: true, code: 'ROLLING_PF_UNKNOWN', detail: 'Rolling PF (last 15 trades) not available (<5 recent trades)' };
+  }
+  // Warn if edge is degrading: recent PF < 1.0 but aggregate passes
+  if (rollingPf < 1.0 && aggregatePf != null && aggregatePf >= GATE_RULES.minProfitFactor) {
+    return {
+      pass: false,
+      code: 'ROLLING_EDGE_DEGRADING',
+      detail: `Rolling PF (last 15) = ${rollingPf.toFixed(2)} < 1.0 — edge degrading recently despite aggregate PF ${aggregatePf.toFixed(2)}`,
+    };
+  }
+  return { pass: true, code: 'ROLLING_EDGE_OK', detail: `Rolling PF (last 15) = ${Number.isFinite(rollingPf) ? rollingPf.toFixed(2) : '∞'}` };
+}
+
+function checkConsecutiveLosses(streak) {
+  if (streak == null) return { pass: true, code: 'STREAK_UNKNOWN', detail: 'Consecutive loss streak not available' };
+  if (streak >= 8) {
+    return {
+      pass: false,
+      code: 'STREAK_TOO_HIGH',
+      detail: `Max consecutive losses = ${streak} — sustained losing run signals regime change or broken edge`,
+    };
+  }
+  return { pass: true, code: 'STREAK_OK', detail: `Max consecutive loss streak = ${streak}` };
+}
+
 function checkSafeMode() {
   if (isGlobalSafeMode()) {
     return { pass: false, code: 'GLOBAL_SAFE_MODE', detail: 'Global risk engine has activated safe mode' };
@@ -139,11 +166,15 @@ export function runSystemValidation() {
     return buildResult(false, 'INSUFFICIENT_DATA', checks, [`getAlphaReport failed: ${err.message}`], {}, [], 'Fix DB connection', null);
   }
 
-  const tradeCount = report?.totalTrades ?? 0;
-  const expectancy = report?.expectancy?.expectancyPerTrade ?? null;
-  const winRate    = report?.expectancy?.winRate ?? null;
-  const pf         = report?.expectancy?.profitFactor ?? null;
-  const maxDD      = report?.expectancy?.maxDrawdown ?? null;
+  const tradeCount    = report?.tradeHistory ?? 0;
+  const expectancy    = report?.expectancy?.expectancyPerTrade ?? null;
+  const winRate       = report?.expectancy?.winRate ?? null;
+  const pf            = report?.expectancy?.profitFactor ?? null;
+  const maxDD         = report?.expectancy?.maxDrawdownPct ?? null;
+  const sharpeProxy   = report?.expectancy?.sharpeProxy ?? null;
+  const sortinoProxy  = report?.expectancy?.sortinoProxy ?? null;
+  const rollingPf15   = report?.expectancy?.rollingPf15 ?? null;
+  const maxLossStreak = report?.expectancy?.maxLossStreak ?? null;
 
   // ── 3. Trade count ────────────────────────────────────────────────────────
   const tradeCheck = checkTradeCount(tradeCount);
@@ -170,7 +201,17 @@ export function runSystemValidation() {
   checks.push({ name: 'drawdown', ...ddCheck });
   if (!ddCheck.pass) reasons.push(ddCheck.detail);
 
-  // ── 8. Per-strategy governor data ────────────────────────────────────────
+  // ── 8. Rolling edge (last 15 trades) ──────────────────────────────────────────
+  const rollingCheck = checkRollingEdge(rollingPf15, pf);
+  checks.push({ name: 'rolling_edge', ...rollingCheck });
+  if (!rollingCheck.pass) reasons.push(rollingCheck.detail);
+
+  // ── 9. Consecutive loss streak ─────────────────────────────────────────────────
+  const streakCheck = checkConsecutiveLosses(maxLossStreak);
+  checks.push({ name: 'loss_streak', ...streakCheck });
+  if (!streakCheck.pass) reasons.push(streakCheck.detail);
+
+  // ── 10. Per-strategy governor data ────────────────────────────────────────
   let promotedStrategies = [];
   try {
     const govSnap = getFuturesGovernorSnapshot();
@@ -201,6 +242,10 @@ export function runSystemValidation() {
     profitFactor:   pf,
     expectancy,
     maxDrawdown:    maxDD,
+    sharpeProxy,
+    sortinoProxy,
+    rollingPf15,
+    maxLossStreak,
     promotedCount:  promotedStrategies.length,
     alphaVerdict:   report?.verdict?.summary ?? null,
   };

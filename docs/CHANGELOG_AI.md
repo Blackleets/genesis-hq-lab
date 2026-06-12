@@ -1,5 +1,12 @@
 # CHANGELOG_AI
 
+## 2026-06-12 - Claude (Data Pipeline — métricas y bugs críticos)
+
+- Branch: `claude/genesis-prediction-markets-5qmflo`
+- Summary: Fuerza bruta en el pipeline de datos. Fixed 2 critical bugs in validationGate: (1) `report?.totalTrades` → `report?.tradeHistory` (field name wrong, tradeCount always 0), (2) `report?.expectancy?.maxDrawdown` → `report?.expectancy?.maxDrawdownPct` (field never existed, drawdown check always null/pass). Added 4 new metrics to `computeExpectancy()`: maxDrawdownPct (equity curve), sortinoProxy (mean PnL / downside std), rollingPf15 (PF over last 15 trades), maxLossStreak. Added 2 new gate checks: ROLLING_EDGE_DEGRADING (blocks if recent PF < 1.0 but aggregate passes), STREAK_TOO_HIGH (blocks if max consecutive losses ≥ 8). Added 6 tests for new metrics.
+- Files modified: `server/research/alphaValidationEngine.mjs`, `server/quant/validation/validationGate.mjs`, `server/tests/alphaValidation.test.mjs`
+- Verification: `npm test` 993/993 pass, `npm run typecheck` clean
+
 ## 2026-06-11 - Claude (Quant Lab UI + Docs — FASE 8–9)
 
 - Branch: `claude/genesis-prediction-markets-5qmflo`
