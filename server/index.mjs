@@ -11,6 +11,7 @@ import {
   getStrategyRegistry, runSystemValidation,
   computeAllocation, getQuantState, generateQuantReport,
   getWfCache, isWfCacheStale, executeWalkForward, isWfRunning,
+  startWfScheduler, getWfSchedulerStatus,
 } from './quant/index.mjs';
 import { generateClaudePlan } from './claudePlanner.mjs';
 import { getSnapshot, getCapital, getTrades, getLessons, getAgentStats, addHumanOrder } from './memoryStore.mjs';
@@ -1704,6 +1705,7 @@ const server = createServer(async (req, res) => {
         ? { completedAt: cache.completedAt, startedAt: cache.startedAt, durationMs: cache.durationMs }
         : null,
       summary: cache?.summary ?? null,
+      scheduler: getWfSchedulerStatus(),
     });
     return;
   }
@@ -1796,6 +1798,9 @@ server.listen(PORT, HOST, () => {
 
   // Hybrid persistence — async replication of SQLite → Supabase (no-op without DATABASE_URL).
   startReplication();
+
+  // Walk-forward auto-scheduler: refreshes OOS evidence every hour when trades ≥ 30.
+  startWfScheduler();
 
   // Keep Render free tier awake — ping own /api/health every 4 min
   const renderUrl = process.env.RENDER_EXTERNAL_URL;
