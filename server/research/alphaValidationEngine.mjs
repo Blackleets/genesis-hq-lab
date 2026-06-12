@@ -159,6 +159,40 @@ export function computeExpectancy(trades = null) {
   const stdPnl = Math.sqrt(variance);
   const sharpeProxy = stdPnl > 0 ? meanPnl / stdPnl : null;
 
+  // Sortino proxy: mean PnL / downside std (only negative returns)
+  const downsidePnls = pnls.filter(p => p < 0);
+  const downsideVariance = downsidePnls.length > 0
+    ? downsidePnls.reduce((s, p) => s + p ** 2, 0) / downsidePnls.length
+    : 0;
+  const downsideStd = Math.sqrt(downsideVariance);
+  const sortinoProxy = downsideStd > 0 ? meanPnl / downsideStd : null;
+
+  // Max drawdown (equity curve): chronological order required
+  const chronological = [...closed].sort((a, b) =>
+    new Date(a.closed_at ?? a.opened_at).getTime() - new Date(b.closed_at ?? b.opened_at).getTime()
+  );
+  let equity = 0, peak = 0, maxDrawdownAbs = 0;
+  for (const t of chronological) {
+    equity += t.pnl_realized ?? t.pnl ?? 0;
+    if (equity > peak) peak = equity;
+    const dd = peak > 0 ? (peak - equity) / peak : 0;
+    if (dd > maxDrawdownAbs) maxDrawdownAbs = dd;
+  }
+  const maxDrawdownPct = round2(maxDrawdownAbs);
+
+  // Rolling profit factor over last 15 trades (most recent — trades are DESC)
+  const recent15 = closed.slice(0, 15);
+  const r15wins  = recent15.filter(t => (t.pnl_realized ?? t.pnl ?? 0) > 0);
+  const r15loss  = recent15.filter(t => (t.pnl_realized ?? t.pnl ?? 0) < 0);
+  const r15gw    = r15wins.reduce((s, t) => s + (t.pnl_realized ?? t.pnl ?? 0), 0);
+  const r15gl    = r15loss.reduce((s, t) => s + Math.abs(t.pnl_realized ?? t.pnl ?? 0), 0);
+  const rollingPf15 = recent15.length >= 5
+    ? (r15gl > 0 ? round2(r15gw / r15gl) : (r15gw > 0 ? Infinity : null))
+    : null;
+
+  // Max consecutive loss streak
+  const maxLossStreak = computeMaxLossStreak(closed);
+
   return {
     expectancyPerTrade: round2(expectancyPerTrade),
     winRate:            round2(winRate),
@@ -168,7 +202,11 @@ export function computeExpectancy(trades = null) {
     totalPnl:           round2(totalPnl),
     tradeCount:         n,
     profitFactor:       profitFactor !== null ? round2(profitFactor) : null,
-    sharpeProxy:        sharpeProxy !== null ? round2(sharpeProxy) : null,
+    sharpeProxy:        sharpeProxy  !== null ? round2(sharpeProxy)  : null,
+    sortinoProxy:       sortinoProxy !== null ? round2(sortinoProxy) : null,
+    maxDrawdownPct,
+    rollingPf15,
+    maxLossStreak,
     dataQuality,
   };
 }

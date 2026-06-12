@@ -139,6 +139,61 @@ describe('Expectancy calculation', () => {
     // profitFactor should be Infinity or very high (no losses)
     assert.ok(result.profitFactor === Infinity || result.profitFactor === null || result.profitFactor > 10);
   });
+
+  test('new metrics are present in return value', () => {
+    const trades = Array.from({ length: 10 }, (_, i) => ({
+      pnl: i % 3 === 0 ? -5 : 8, pnl_realized: i % 3 === 0 ? -5 : 8,
+      confidence: 0.7, opened_at: `2024-01-${String(i + 1).padStart(2, '0')}T00:00:00Z`,
+      closed_at:  `2024-01-${String(i + 1).padStart(2, '0')}T01:00:00Z`,
+    }));
+    const result = computeExpectancy(trades);
+    assert.ok('sortinoProxy'  in result, 'missing sortinoProxy');
+    assert.ok('maxDrawdownPct' in result, 'missing maxDrawdownPct');
+    assert.ok('rollingPf15'   in result, 'missing rollingPf15');
+    assert.ok('maxLossStreak' in result, 'missing maxLossStreak');
+  });
+
+  test('maxDrawdownPct is between 0 and 1 for mixed pnl trades', () => {
+    const trades = [
+      { pnl: 10, pnl_realized: 10, confidence: 0.7, opened_at: '2024-01-01T00:00:00Z', closed_at: '2024-01-01T01:00:00Z' },
+      { pnl: -8, pnl_realized: -8, confidence: 0.7, opened_at: '2024-01-02T00:00:00Z', closed_at: '2024-01-02T01:00:00Z' },
+      { pnl:  5, pnl_realized:  5, confidence: 0.7, opened_at: '2024-01-03T00:00:00Z', closed_at: '2024-01-03T01:00:00Z' },
+    ];
+    const result = computeExpectancy(trades);
+    assert.ok(typeof result.maxDrawdownPct === 'number');
+    assert.ok(result.maxDrawdownPct >= 0, 'drawdown should be non-negative');
+    assert.ok(result.maxDrawdownPct <= 1, 'drawdown should be ≤ 1 (percentage)');
+  });
+
+  test('sortinoProxy is null when no losing trades', () => {
+    const trades = [
+      { pnl: 5, pnl_realized: 5, confidence: 0.8, opened_at: '2024-01-01T00:00:00Z', closed_at: '2024-01-01T01:00:00Z' },
+      { pnl: 8, pnl_realized: 8, confidence: 0.8, opened_at: '2024-01-02T00:00:00Z', closed_at: '2024-01-02T01:00:00Z' },
+    ];
+    const result = computeExpectancy(trades);
+    assert.equal(result.sortinoProxy, null, 'no losses → downside std = 0 → sortinoProxy should be null');
+  });
+
+  test('maxLossStreak counts consecutive losses correctly', () => {
+    const trades = [
+      { pnl:  5, pnl_realized:  5, confidence: 0.7, opened_at: '2024-01-01T00:00:00Z', closed_at: '2024-01-01T01:00:00Z' },
+      { pnl: -3, pnl_realized: -3, confidence: 0.7, opened_at: '2024-01-02T00:00:00Z', closed_at: '2024-01-02T01:00:00Z' },
+      { pnl: -4, pnl_realized: -4, confidence: 0.7, opened_at: '2024-01-03T00:00:00Z', closed_at: '2024-01-03T01:00:00Z' },
+      { pnl: -2, pnl_realized: -2, confidence: 0.7, opened_at: '2024-01-04T00:00:00Z', closed_at: '2024-01-04T01:00:00Z' },
+      { pnl:  6, pnl_realized:  6, confidence: 0.7, opened_at: '2024-01-05T00:00:00Z', closed_at: '2024-01-05T01:00:00Z' },
+    ];
+    const result = computeExpectancy(trades);
+    assert.equal(result.maxLossStreak, 3, 'should detect 3 consecutive losses');
+  });
+
+  test('rollingPf15 is null when fewer than 5 recent trades', () => {
+    const trades = [
+      { pnl: 5, pnl_realized: 5, confidence: 0.7 },
+      { pnl: 3, pnl_realized: 3, confidence: 0.7 },
+    ];
+    const result = computeExpectancy(trades);
+    assert.equal(result.rollingPf15, null);
+  });
 });
 
 // ── 2. Calibration scoring ────────────────────────────────────────────────────
