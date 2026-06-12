@@ -14,6 +14,7 @@
 //   { approved, status, reasons, metrics, dataMode, nextAction }
 
 import { getAlphaReport, MIN_TRADES_FOR_EDGE } from '../../research/alphaValidationEngine.mjs';
+import { getWfCache, isWfCacheStale } from '../wfCache.mjs';
 import { isGlobalSafeMode, refreshGlobalRiskScore, getGlobalRiskDiagnostics } from '../../risk/globalRiskEngine.mjs';
 import { isSafeMode } from '../../memory/reconciliationEngine.mjs';
 import { getFuturesGovernorSnapshot } from '../../crypto/futuresGovernor.mjs';
@@ -75,6 +76,50 @@ function checkDrawdown(dd) {
   }
   return { pass: true, code: 'DRAWDOWN_OK', detail: `Max drawdown ${(dd * 100).toFixed(1)}%` };
 }
+
+function checkWalkForward() {
+  const cache = getWfCache();
+
+  if (!cache) {
+    return {
+      pass: true,
+      code: 'WF_NOT_RUN',
+      detail: 'Walk-forward not yet run — call GET /api/quant/wf/run to generate OOS evidence',
+    };
+  }
+
+  const stale = isWfCacheStale(24);
+  const { summary } = cache;
+  const robustShort    = summary?.robustShort    ?? false;
+  const robustCombined = summary?.robustCombined ?? false;
+  const judged         = summary?.combinedJudgedWindows ?? 0;
+  const positive       = summary?.combinedPositiveWindows ?? 0;
+  const completedAt    = cache.completedAt ?? cache.cachedAt ?? 'unknown';
+
+  if (stale) {
+    return {
+      pass: true,
+      code: 'WF_STALE',
+      detail: `Walk-forward cache is >24h old (ran ${completedAt}). Re-run for fresh OOS evidence.`,
+    };
+  }
+
+  if (!robustCombined && !robustShort) {
+    return {
+      pass: false,
+      code: 'WF_NOT_ROBUST',
+      detail: `Walk-forward: combined edge positive in ${positive}/${judged} windows — not robust. Need positive in ALL judged windows.`,
+    };
+  }
+
+  const which = robustCombined ? 'COMBINED' : 'SHORT';
+  return {
+    pass: true,
+    code: 'WF_ROBUST',
+    detail: `Walk-forward ${which} edge robust (${positive}/${judged} windows positive, ran ${completedAt})`,
+  };
+}
+
 
 function checkRollingEdge(rollingPf, aggregatePf) {
   if (rollingPf == null || !Number.isFinite(rollingPf)) {
@@ -211,7 +256,12 @@ export function runSystemValidation() {
   checks.push({ name: 'loss_streak', ...streakCheck });
   if (!streakCheck.pass) reasons.push(streakCheck.detail);
 
-  // ── 10. Per-strategy governor data ────────────────────────────────────────
+  // ── 10. Walk-forward OOS validation ────────────────────────────────────────
+  const wfCheck = checkWalkForward();
+  checks.push({ name: 'walk_forward', ...wfCheck });
+  if (!wfCheck.pass) reasons.push(wfCheck.detail);
+
+  // ── 11. Per-strategy governor data ────────────────────────────────────────
   let promotedStrategies = [];
   try {
     const govSnap = getFuturesGovernorSnapshot();
@@ -236,6 +286,7 @@ export function runSystemValidation() {
 
   const nextAction = buildNextAction(status, tradeCount, pf, expectancy, promotedStrategies);
 
+  const wfCache = getWfCache();
   const metrics = {
     totalTrades:    tradeCount,
     winRate,
@@ -246,6 +297,9 @@ export function runSystemValidation() {
     sortinoProxy,
     rollingPf15,
     maxLossStreak,
+    wfRobustShort:    wfCache?.summary?.robustShort    ?? null,
+    wfRobustCombined: wfCache?.summary?.robustCombined ?? null,
+    wfRunAt:          wfCache?.completedAt             ?? null,
     promotedCount:  promotedStrategies.length,
     alphaVerdict:   report?.verdict?.summary ?? null,
   };

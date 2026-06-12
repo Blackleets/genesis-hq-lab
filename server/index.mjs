@@ -10,6 +10,7 @@ import { handlePredictionMarketsRoute } from './predictionMarkets/index.mjs';
 import {
   getStrategyRegistry, runSystemValidation,
   computeAllocation, getQuantState, generateQuantReport,
+  getWfCache, isWfCacheStale, executeWalkForward, isWfRunning,
 } from './quant/index.mjs';
 import { generateClaudePlan } from './claudePlanner.mjs';
 import { getSnapshot, getCapital, getTrades, getLessons, getAgentStats, addHumanOrder } from './memoryStore.mjs';
@@ -1690,6 +1691,33 @@ const server = createServer(async (req, res) => {
     } catch (err) {
       sendJson(res, 500, { ok: false, error: err.message });
     }
+    return;
+  }
+
+  if (url.pathname === '/api/quant/wf/status') {
+    const cache = getWfCache();
+    sendJson(res, 200, {
+      ok: true,
+      running: isWfRunning(),
+      stale: isWfCacheStale(24),
+      cache: cache
+        ? { completedAt: cache.completedAt, startedAt: cache.startedAt, durationMs: cache.durationMs }
+        : null,
+      summary: cache?.summary ?? null,
+    });
+    return;
+  }
+
+  if (url.pathname === '/api/quant/wf/run') {
+    if (isWfRunning()) {
+      sendJson(res, 200, { ok: true, running: true, message: 'Walk-forward already in progress' });
+      return;
+    }
+    // Fire-and-forget — do not await
+    executeWalkForward().catch(err =>
+      console.error('[WF] background run failed:', err.message)
+    );
+    sendJson(res, 202, { ok: true, running: true, message: 'Walk-forward started' });
     return;
   }
 
