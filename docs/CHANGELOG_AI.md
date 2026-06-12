@@ -1,6 +1,21 @@
 # CHANGELOG_AI
 
-## 2026-06-12 - Claude (Data Pipeline — métricas y bugs críticos)
+## 2026-06-12 — Claude (Groq priority-1 LLM + merge to main — PR #21)
+
+- Branch: `claude/genesis-prediction-markets-5qmflo`
+- Summary: Added Groq as first-class LLM provider (free tier, fastest inference). Priority chain is now Groq → Gemini → Claude across all AI callers. Supervisor uses `llama-3.3-70b-versatile`, commentary uses `gemma2-9b-it`. Full cascade fallback on API error. `GROQ_API_KEY` slot added to render.yaml.
+- Files modified: `server/agents/providerRouter.mjs`, `server/ai/commentaryEngine.mjs`, `server/intelligence/policyFoundryAdapter.mjs`, `render.yaml`
+- Verification: CI green (Vercel preview ok), merged via squash to main
+
+## 2026-06-12 — Claude (render.yaml branch fix + Gemini + Supervisor 4h + WF scheduler — PRs #19–#20)
+
+- Branch: `claude/genesis-prediction-markets-5qmflo`
+- Summary: Critical fix — render.yaml was pointing to `feat/genesis-life-os` instead of `main`, so zero quant improvements had ever deployed. Fixed to `main`. Added 4h Intelligence Supervisor auto-trigger in agentRunner (lazy import to avoid circular deps). Added Gemini Flash as free-tier LLM fallback (Gemini → Claude). Replaced hardcoded Claude fetch in commentaryEngine and policyFoundryAdapter with `routeToProvider()`. Expanded breakout signal surface: short_micro now enabled by default with SOL; short_alt adds SOL+BNB; long_probe adds SOL — total 14 pair-slots (was 7). Added WF scheduler env vars to render.yaml. Added OPTIMIZER, governor, risk-control, and economics params to render.yaml. Added promotion audit trail and manual override API (strategy_transitions + strategy_overrides SQLite tables, 3 endpoints).
+- Files modified: `render.yaml`, `server/agentRunner.mjs`, `server/ai/commentaryEngine.mjs`, `server/intelligence/policyFoundryAdapter.mjs`, `server/strategies/futuresBreakoutEngine.mjs`, `server/quant/alpha/strategyRegistry.mjs`, `server/quant/index.mjs`, `server/index.mjs`
+- Files created: `server/quant/alpha/promotionAudit.mjs`, `server/tests/quantPromotionAudit.test.mjs`
+- Verification: PRs #19 and #20 merged to main; CI green
+
+
 
 - Branch: `claude/genesis-prediction-markets-5qmflo`
 - Summary: Fuerza bruta en el pipeline de datos. Fixed 2 critical bugs in validationGate: (1) `report?.totalTrades` → `report?.tradeHistory` (field name wrong, tradeCount always 0), (2) `report?.expectancy?.maxDrawdown` → `report?.expectancy?.maxDrawdownPct` (field never existed, drawdown check always null/pass). Added 4 new metrics to `computeExpectancy()`: maxDrawdownPct (equity curve), sortinoProxy (mean PnL / downside std), rollingPf15 (PF over last 15 trades), maxLossStreak. Added 2 new gate checks: ROLLING_EDGE_DEGRADING (blocks if recent PF < 1.0 but aggregate passes), STREAK_TOO_HIGH (blocks if max consecutive losses ≥ 8). Added 6 tests for new metrics.

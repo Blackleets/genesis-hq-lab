@@ -148,4 +148,19 @@ SQLite DB is created automatically at `data/genesis.db` when the server starts.
 
 ---
 
-_Last updated: 2026-06-02._
+---
+
+## Current architecture snapshot (2026-06-12)
+
+| Layer | What's running |
+|---|---|
+| Trading engine | 4 futures breakout profiles: short_micro (5m, SOL/BTC/ETH), short_core (1h, BTC/ETH/SOL/BNB), short_alt (15m, XRP/DOGE/SOL/BNB), long_probe (4h, BTC/ETH/SOL). 14 pair-slots total. Paper only. |
+| Persistence | SQLite hot-path + async Supabase Postgres replication every 5s (`DB_MODE=hybrid`). On boot, `restore.mjs` repopulates SQLite from Postgres. |
+| Walk-forward | Auto-scheduler checks every 60min; runs OOS validation if data >24h stale and ≥30 trades exist. Results cached in `wf_cache` table. |
+| Intelligence Supervisor | Runs every 4h in agentRunner. Analyzes governor profiles + closed trades + lessons. LLM chain: Groq `llama-3.3-70b-versatile` → Gemini `gemini-2.0-flash` → Claude `claude-haiku-4-5-20251001`. |
+| Commentary engine | DESK_SUMMARY refreshed every 5min max. LLM chain: Groq `gemma2-9b-it` → Gemini → Claude. All other events are deterministic (no API cost). |
+| LLM routing | `server/agents/providerRouter.mjs` — supports claude/openai/gemini/groq/custom. `isProviderConfigured()` reads env vars: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `GROQ_API_KEY`. |
+| Promotion audit | `server/quant/alpha/promotionAudit.mjs` — SQLite tables `strategy_transitions` + `strategy_overrides`. REST: `GET /api/quant/strategy-log`, `POST /api/quant/strategy-override`, `DELETE /api/quant/strategy-override/:id`. |
+| Render deploy | Branch: `main`. Free tier. `npm run start:render` = db:restore + concurrently server+agent+optimizer. Health: `/api/health`. Env vars set in Render dashboard (not in render.yaml). |
+
+_Last updated: 2026-06-12._
