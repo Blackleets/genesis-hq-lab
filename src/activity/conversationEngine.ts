@@ -126,7 +126,89 @@ const CHATTER: Record<string, { es: string[]; en: string[] }> = {
   },
   'visual-hr-evaluator': {
     es: ['El equipo rinde bien esta semana.', '¿Contratamos otro analista?', 'Buen ratio de aciertos últimamente.', 'Evaluando el desempeño de todos.'],
-    en: ['The team is performing well this week.', 'Should we hire another analyst?', 'Good hit rate lately.', 'Evaluating everyone’s performance.'],
+    en: ["The team is performing well this week.", "Should we hire another analyst?", "Good hit rate lately.", "Evaluating everyone’s performance."],
+  },
+
+  // ── Trading specialists ────────────────────────────────────────────────────
+  'trading-scalping-hunter': {
+    es: [
+      'Escaneando cruz EMA9/EMA21 en BTC.',
+      'RSI en zona de entrada — monitoreando.',
+      'Spike de volumen detectado en SOL.',
+      'Score 67 — necesito confirmación de tendencia.',
+      'Patrón de breakout en ETH, esperando vela.',
+    ],
+    en: [
+      'Scanning EMA9/EMA21 cross on BTC.',
+      'RSI in entry zone — monitoring.',
+      'Volume spike detected on SOL.',
+      'Score 67 — need trend confirmation.',
+      'Breakout pattern on ETH, waiting for candle.',
+    ],
+  },
+  'trading-risk-sentinel': {
+    es: [
+      'Exposición en 34% — dentro de límites.',
+      'Drawdown diario -1.2%, controlado.',
+      'Stop-loss activo en todas las posiciones.',
+      'Sin disparador de safe mode. Sistema verde.',
+      'Monitoreando correlación de riesgo de cartera.',
+    ],
+    en: [
+      'Exposure at 34% — within limits.',
+      'Daily drawdown -1.2%, controlled.',
+      'Stop-loss active on all positions.',
+      'No safe mode trigger. System green.',
+      'Monitoring portfolio risk correlation.',
+    ],
+  },
+  'trading-market-analyst': {
+    es: [
+      'Correlación BTC-ETH se debilita en 4h.',
+      'Régimen trending, momentum positivo.',
+      'Volatilidad implícita subiendo en SOL.',
+      'Detectando divergencia MACD en BTC.',
+      'Rotación de capital hacia mid-caps.',
+    ],
+    en: [
+      'BTC-ETH correlation weakening on 4h.',
+      'Trending regime, positive momentum.',
+      'Implied volatility rising on SOL.',
+      'Detecting MACD divergence on BTC.',
+      'Capital rotating toward mid-caps.',
+    ],
+  },
+  'trading-backtest-engineer': {
+    es: [
+      'EMA+RSI: 64% win rate en 247 backtests.',
+      'Hipótesis: edge de 0.8R en trending markets.',
+      'Analizando errores del último ciclo.',
+      'Parámetros validados — deploy listo.',
+      'Prueba forward: resultados consistentes con histórico.',
+    ],
+    en: [
+      'EMA+RSI: 64% win rate across 247 backtests.',
+      'Hypothesis: 0.8R edge in trending markets.',
+      'Analyzing last cycle errors.',
+      'Parameters validated — deploy ready.',
+      'Forward test: results consistent with history.',
+    ],
+  },
+  'trading-capital-manager': {
+    es: [
+      'Capital heat en 22% — capacidad disponible.',
+      'Fracción Kelly óptima: 4.7% por trade.',
+      'Diversificación activa en 3 activos.',
+      'Balance del portafolio dentro del rango.',
+      'Ajustando tamaño por régimen de mercado.',
+    ],
+    en: [
+      'Capital heat at 22% — capacity available.',
+      'Optimal Kelly fraction: 4.7% per trade.',
+      'Diversification active across 3 assets.',
+      'Portfolio balance within range.',
+      'Sizing adjusted for market regime.',
+    ],
   },
 };
 
