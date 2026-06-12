@@ -2,6 +2,7 @@ import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { computeAllocation } from '../quant/portfolio/allocationEngine.mjs';
 import { _resetGlobalRiskForTest } from '../risk/globalRiskEngine.mjs';
+import db from '../db/database.mjs';
 
 // Uses real dependencies (no module mocking) — DB safe mode is off by default.
 // Pass `availableCapital` explicitly to skip the treasury DB lookup.
@@ -183,6 +184,88 @@ describe('computeAllocation — capital math', () => {
       for (const p of paper) {
         assert.equal(p.maxPositionUsd, 0, 'PAPER strategy should get $0 when capital is 0');
       }
+    }
+  });
+});
+
+describe('computeAllocation — daily loss cap (real DB query)', () => {
+  before(() => _resetGlobalRiskForTest());
+  after(() => _resetGlobalRiskForTest());
+
+  test('result includes dailyLossToday and dailyLossCap fields', () => {
+    const result = computeAllocation({ availableCapital: CAPITAL });
+    if (!result.blocked) {
+      assert.ok('dailyLossToday' in result, 'missing dailyLossToday');
+      assert.ok('dailyLossCap'   in result, 'missing dailyLossCap');
+    }
+  });
+
+  test('dailyLossToday is a non-negative number', () => {
+    const result = computeAllocation({ availableCapital: CAPITAL });
+    if (!result.blocked) {
+      assert.ok(typeof result.dailyLossToday === 'number');
+      assert.ok(result.dailyLossToday >= 0, 'dailyLossToday should be non-negative');
+    }
+  });
+});
+
+describe('computeAllocation — portfolio notional cap', () => {
+  before(() => _resetGlobalRiskForTest());
+
+  after(() => {
+    db.pragma('foreign_keys = OFF');
+    db.prepare(`DELETE FROM trades WHERE id LIKE 'test-notional-%'`).run();
+    db.pragma('foreign_keys = ON');
+    _resetGlobalRiskForTest();
+  });
+
+  test('result includes openNotional and maxNotionalUsd fields', () => {
+    const result = computeAllocation({ availableCapital: CAPITAL });
+    if (!result.blocked) {
+      assert.ok('openNotional'   in result, 'missing openNotional');
+      assert.ok('maxNotionalUsd' in result, 'missing maxNotionalUsd');
+    }
+  });
+
+  test('openNotional is 0 when no open futures trades', () => {
+    const result = computeAllocation({ availableCapital: CAPITAL });
+    if (!result.blocked) {
+      assert.equal(result.openNotional, 0);
+    }
+  });
+
+  test('blocks with NOTIONAL_CAP when open futures notional exceeds 2× capital', () => {
+    // Insert a fake open futures trade with notional > 2× test capital (100)
+    db.pragma('foreign_keys = OFF');
+    const info = db.prepare(`
+      INSERT OR REPLACE INTO trades
+        (id, agent_id, market_id, market_source, market_question, outcome,
+         entry_price, shares, capital_used, confidence, reason, evidence, status, opened_at,
+         instrument_type, notional_usd)
+      VALUES
+        ('test-notional-1', 'test-agent', 'test-mkt-notional', 'crypto',
+         'Will BTC rise?', 'LONG', 100, 1, 50, 0.7, 'test', '{}', 'open', datetime('now'),
+         'futures', 300)
+    `).run();
+    db.pragma('foreign_keys = ON');
+
+    if (info.changes === 0) {
+      // Schema may not support notional_usd yet — skip rather than false-fail
+      return;
+    }
+
+    const result = computeAllocation({ availableCapital: 100 }); // maxNotional = 200
+    assert.equal(result.blocked, true);
+    assert.equal(result.reason, 'NOTIONAL_CAP');
+    assert.equal(result.allocations.length, 0);
+  });
+
+  test('does not block when open notional is within 2× capital', () => {
+    // 300 notional with 200 capital = exceeds, but with 10_000 capital it's fine
+    const result = computeAllocation({ availableCapital: CAPITAL }); // 10k capital → 20k max
+    // 300 notional < 20000 cap → should not block on notional alone
+    if (result.blocked) {
+      assert.notEqual(result.reason, 'NOTIONAL_CAP', 'should not block on notional with large capital');
     }
   });
 });
