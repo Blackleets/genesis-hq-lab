@@ -30,7 +30,8 @@ export type ModuleId =
   | 'system'
   | 'operator'
   | 'alpha'
-  | 'pred-markets';
+  | 'pred-markets'
+  | 'solana-alpha';
 
 export type ModuleState =
   | 'ready'
@@ -418,6 +419,24 @@ export const MODULES: ModuleEntry[] = [
     relation: {
       es: 'Los agentes de Marketing y Tech usan estas integraciones para ejecutar trabajo en plataformas externas.',
       en: 'Marketing and Tech agents use these integrations to execute work on external platforms.',
+    },
+  },
+  {
+    id: 'solana-alpha',
+    navKey: 'nav.solana-alpha',
+    state: 'ready',
+    description: {
+      es: 'Lab de Solana Alpha: smart money tracking, detección de patrones en Pump.fun y paper trading con 100 SOL virtuales. live_mode = false siempre.',
+      en: 'Solana Alpha Lab: smart money tracking, Pump.fun pattern detection, and paper trading with 100 virtual SOL. live_mode = false always.',
+    },
+    futureActions: [
+      { es: 'Smart money ranking de wallets rentables.', en: 'Smart money ranking of profitable wallets.' },
+      { es: 'Señales de alpha en tokens nuevos de Pump.fun.', en: 'Alpha signals on new Pump.fun tokens.' },
+      { es: 'Paper trading paper con SL/TP automáticos.', en: 'Paper trading with automatic SL/TP.' },
+    ],
+    relation: {
+      es: 'Módulo aislado — no modifica Crypto Lab ni Kalshi Lab ni PnL global.',
+      en: 'Isolated module — does not modify Crypto Lab, Kalshi Lab, or global PnL.',
     },
   },
   {
