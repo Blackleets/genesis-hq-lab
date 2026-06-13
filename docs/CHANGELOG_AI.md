@@ -1,5 +1,12 @@
 # CHANGELOG_AI
 
+## 2026-06-13 — Claude (fix false STALLED + Kalshi UI noise)
+
+- Branch: `fix/futures-heartbeat-and-noise`
+- Summary: Fixed root cause of the agent reporting STALLED while actively trading. In FUTURES_ONLY_MODE the prediction `tick()` never runs, and `tick()` was the only writer of `agent_heartbeat.json` — so the heartbeat froze and `/api/health` falsely flagged the agent stalled even though the futures scheduler trades every 5s. Extracted `writeHeartbeat()` helper and added a dedicated 2-min heartbeat driven by `getSchedulerStatus()` tick counts (real liveness signal). Also de-noised the System Health UI: Kalshi (prediction-market venue, idle in futures-only mode) now renders a single neutral "Idle — futures-only desk" row instead of red MISSING/DISCONNECTED alarms; the Kalshi-key issue is suppressed when not in use (`kalshi.inUse` flag from truthLayer). Relabeled "Claude enabled: No" → "LLM provider: GROQ/GEMINI/CLAUDE" computed from env so the free-tier stack reads correctly.
+- Files modified: `server/agentRunner.mjs`, `server/truthLayer.mjs`, `src/hooks/useTruthLayer.ts`, `src/ui/views/SystemHealthView.tsx`
+- Verification: `node --check` on both server files ok; `npm run typecheck` clean; `npm run build` ok; `node --test cryptoTruth` 11/11 pass
+
 ## 2026-06-12 — Claude (Groq priority-1 LLM + merge to main — PR #21)
 
 - Branch: `claude/genesis-prediction-markets-5qmflo`

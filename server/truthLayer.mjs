@@ -127,6 +127,16 @@ function probeAgentRunner() {
       });
     }
 
+    // Active LLM provider — Groq/Gemini are the free-tier default; Claude is paid.
+    // Reported directly from env so it stays accurate regardless of heartbeat age.
+    const llmProvider = process.env.GROQ_API_KEY
+      ? 'groq'
+      : process.env.GEMINI_API_KEY
+        ? 'gemini'
+        : process.env.ANTHROPIC_API_KEY
+          ? 'claude'
+          : 'none';
+
     return {
       ok: agentAlive || lastTickAt === null,  // null = first boot, not stalled
       openTrades,
@@ -135,6 +145,7 @@ function probeAgentRunner() {
       msSinceLastTick,
       totalCycles: heartbeat?.totalCycles ?? 0,
       claudeEnabled: heartbeat?.claudeEnabled ?? false,
+      llmProvider,
       neverStarted: lastTickAt === null,
     };
   } catch (err) {
@@ -144,6 +155,12 @@ function probeAgentRunner() {
 }
 
 function probeKalshi() {
+  // Kalshi is a prediction-market venue. In FUTURES_ONLY_MODE the desk never touches
+  // it, so a missing key / disconnected WS is expected — not a fault. The flag lets the
+  // UI render those rows as neutral "not in use" instead of red alarms.
+  const futuresOnlyMode = !['0', 'false', 'no', 'off'].includes(
+    (process.env.FUTURES_ONLY_MODE ?? 'true').toLowerCase(),
+  );
   try {
     const status = getKalshiStatus();
     return {
@@ -151,10 +168,11 @@ function probeKalshi() {
       hasApiKey: status.hasApiKey ?? false,
       wsConnected: status.wsConnected ?? false,
       mode: status.mode ?? 'unknown',
+      inUse: !futuresOnlyMode,
     };
   } catch (err) {
     _log.error('kalshi', 'Kalshi probe failed', err);
-    return { ok: false, error: err.message };
+    return { ok: false, error: err.message, inUse: !futuresOnlyMode };
   }
 }
 
@@ -367,7 +385,9 @@ function detectStaleState(checks) {
     });
   }
 
-  if (!checks.kalshi.hasApiKey) {
+  // Only surface the Kalshi key gap when the desk actually uses Kalshi. In
+  // FUTURES_ONLY_MODE it's intentionally idle, so this would be pure noise.
+  if (checks.kalshi.inUse && !checks.kalshi.hasApiKey) {
     issues.push({
       severity: 'info',
       system: 'kalshi',
