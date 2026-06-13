@@ -113,20 +113,18 @@ import {
   getPredictionOnlyWhere,
 }                                                         from './crypto/cryptoTradeUniverse.mjs';
 import { getCryptoLlmStatus }                             from './crypto/cryptoLlmStatus.mjs';
-import {
-  setBroadcast as solanaSetBroadcast,
-  initSolanaAlpha,
-  getSolanaStatus,
-  getSolanaTokens,
-  getSolanaWallets,
-  getSolanaSignals,
-  getOpenPaperPositions  as getSolanaOpenPositions,
-  getClosedPaperTrades   as getSolanaClosedTrades,
-  getPaperStats          as getSolanaPaperStats,
-  getEquityCurve         as getSolanaEquityCurve,
-  resetPaperBalance      as resetSolanaPaperBalance,
-  getWalletSummary       as getSolanaWalletSummary,
-} from './solana-alpha/index.mjs';
+// Solana Alpha Lab — loaded dynamically so a module error never crashes the main server.
+let _solana = null;
+let _solanaError = null;
+(async () => {
+  try {
+    _solana = await import('./solana-alpha/index.mjs');
+    console.log('[solana-alpha] module loaded OK');
+  } catch (err) {
+    _solanaError = err.message;
+    console.error('[solana-alpha] module FAILED to load:', err.message);
+  }
+})();
 
 // In-memory SkillOpt job state (single concurrent job)
 const skilloptJob = { running: false, lastResult: null, startedAt: null, agent: null };
@@ -159,8 +157,7 @@ function broadcast(event) {
 agentSetBroadcast(broadcast);
 // Give Kalshi adapter access to the broadcast channel
 kalshiSetBroadcast(broadcast);
-// Give Solana Alpha module access to the broadcast channel
-solanaSetBroadcast(broadcast);
+// Solana Alpha broadcast wired after dynamic import resolves (in listen callback)
 // Start MarketAnalystAgent (subscribes to internal market_update bus)
 startMarketAnalyst(broadcast);
 
@@ -1884,64 +1881,65 @@ const server = createServer(async (req, res) => {
 
   // ── Solana Alpha Lab routes (/api/solana/*) ───────────────────────────────────
 
-  if (url.pathname === '/api/solana/status') {
-    try { sendJson(res, 200, { ok: true, ...getSolanaStatus() }); } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
-    return;
-  }
+  if (url.pathname.startsWith('/api/solana')) {
+    if (!_solana) {
+      sendJson(res, 503, { ok: false, error: _solanaError ?? 'solana module loading', loading: !_solanaError });
+      return;
+    }
 
-  if (url.pathname === '/api/solana/tokens') {
-    try {
-      const limit = Math.min(200, parseInt(url.searchParams.get('limit') ?? '50', 10));
-      sendJson(res, 200, { ok: true, tokens: getSolanaTokens(limit) });
-    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
-    return;
-  }
-
-  if (url.pathname === '/api/solana/wallets') {
-    try {
-      const limit = Math.min(200, parseInt(url.searchParams.get('limit') ?? '50', 10));
-      sendJson(res, 200, { ok: true, wallets: getSolanaWallets(limit), summary: getSolanaWalletSummary() });
-    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
-    return;
-  }
-
-  if (url.pathname === '/api/solana/signals') {
-    try {
-      const limit = Math.min(100, parseInt(url.searchParams.get('limit') ?? '30', 10));
-      sendJson(res, 200, { ok: true, signals: getSolanaSignals(limit) });
-    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
-    return;
-  }
-
-  if (url.pathname === '/api/solana/paper/stats') {
-    try { sendJson(res, 200, { ok: true, ...getSolanaPaperStats() }); } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
-    return;
-  }
-
-  if (url.pathname === '/api/solana/paper/positions') {
-    try { sendJson(res, 200, { ok: true, positions: getSolanaOpenPositions() }); } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
-    return;
-  }
-
-  if (url.pathname === '/api/solana/paper/trades') {
-    try {
-      const limit = Math.min(200, parseInt(url.searchParams.get('limit') ?? '50', 10));
-      sendJson(res, 200, { ok: true, trades: getSolanaClosedTrades(limit) });
-    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
-    return;
-  }
-
-  if (url.pathname === '/api/solana/paper/equity') {
-    try {
-      const limit = Math.min(500, parseInt(url.searchParams.get('limit') ?? '200', 10));
-      sendJson(res, 200, { ok: true, curve: getSolanaEquityCurve(limit) });
-    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
-    return;
-  }
-
-  if (url.pathname === '/api/solana/paper/reset' && req.method === 'POST') {
-    if (!requireAuth(req, res)) return;
-    try { sendJson(res, 200, { ok: true, ...resetSolanaPaperBalance() }); } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    if (url.pathname === '/api/solana/status') {
+      try { sendJson(res, 200, { ok: true, ..._solana.getSolanaStatus() }); } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+      return;
+    }
+    if (url.pathname === '/api/solana/tokens') {
+      try {
+        const limit = Math.min(200, parseInt(url.searchParams.get('limit') ?? '50', 10));
+        sendJson(res, 200, { ok: true, tokens: _solana.getSolanaTokens(limit) });
+      } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+      return;
+    }
+    if (url.pathname === '/api/solana/wallets') {
+      try {
+        const limit = Math.min(200, parseInt(url.searchParams.get('limit') ?? '50', 10));
+        sendJson(res, 200, { ok: true, wallets: _solana.getSolanaWallets(limit), summary: _solana.getWalletSummary() });
+      } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+      return;
+    }
+    if (url.pathname === '/api/solana/signals') {
+      try {
+        const limit = Math.min(100, parseInt(url.searchParams.get('limit') ?? '30', 10));
+        sendJson(res, 200, { ok: true, signals: _solana.getSolanaSignals(limit) });
+      } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+      return;
+    }
+    if (url.pathname === '/api/solana/paper/stats') {
+      try { sendJson(res, 200, { ok: true, ..._solana.getPaperStats() }); } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+      return;
+    }
+    if (url.pathname === '/api/solana/paper/positions') {
+      try { sendJson(res, 200, { ok: true, positions: _solana.getOpenPaperPositions() }); } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+      return;
+    }
+    if (url.pathname === '/api/solana/paper/trades') {
+      try {
+        const limit = Math.min(200, parseInt(url.searchParams.get('limit') ?? '50', 10));
+        sendJson(res, 200, { ok: true, trades: _solana.getClosedPaperTrades(limit) });
+      } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+      return;
+    }
+    if (url.pathname === '/api/solana/paper/equity') {
+      try {
+        const limit = Math.min(500, parseInt(url.searchParams.get('limit') ?? '200', 10));
+        sendJson(res, 200, { ok: true, curve: _solana.getEquityCurve(limit) });
+      } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+      return;
+    }
+    if (url.pathname === '/api/solana/paper/reset' && req.method === 'POST') {
+      if (!requireAuth(req, res)) return;
+      try { sendJson(res, 200, { ok: true, ..._solana.resetPaperBalance() }); } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+      return;
+    }
+    notFound(res);
     return;
   }
 
@@ -1980,7 +1978,20 @@ server.on('upgrade', (req, socket, head) => {
 server.listen(PORT, HOST, () => {
   console.log(`[genesis-hq-lab-backend] listening on http://${HOST}:${PORT}`);
   kalshiStartWS();
-  initSolanaAlpha();
+  // Wire solana broadcast + init once the dynamic import resolves
+  (async () => {
+    let attempts = 0;
+    while (!_solana && !_solanaError && attempts < 20) {
+      await new Promise(r => setTimeout(r, 500));
+      attempts++;
+    }
+    if (_solana) {
+      _solana.setBroadcast(broadcast);
+      _solana.initSolanaAlpha();
+    } else {
+      console.error('[solana-alpha] init skipped:', _solanaError ?? 'timeout');
+    }
+  })();
 
   // Hybrid persistence — async replication of SQLite → Supabase (no-op without DATABASE_URL).
   startReplication();
