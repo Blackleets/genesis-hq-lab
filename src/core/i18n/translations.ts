@@ -37,7 +37,7 @@ export const TRANSLATIONS = {
   'nav.operator':        { es: 'Operador Timeline',            en: 'Operator Timeline' },
   'nav.alpha':           { es: 'Alpha Validation',             en: 'Alpha Validation' },
   'nav.pred-markets':    { es: 'Prediction Markets Lab',        en: 'Prediction Markets Lab' },
-  'nav.solana-alpha':   { es: 'Solana Alpha Lab',               en: 'Solana Alpha Lab' },
+  'nav.solana-alpha':   { es: '💊 Pump.fun Alpha',               en: '💊 Pump.fun Alpha' },
 
   // ---------------- MODULE STATES ----------------
   'state.ready':             { es: 'listo',                        en: 'ready' },

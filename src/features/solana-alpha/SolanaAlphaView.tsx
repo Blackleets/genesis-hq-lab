@@ -124,23 +124,49 @@ export default function SolanaAlphaView() {
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: '#050810', padding: 12, gap: 8 }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#e2e8f0', letterSpacing: 0.5 }}>
-            SOLANA ALPHA LAB
-          </div>
-          <div style={{ fontSize: 10, color: '#374151', marginTop: 1 }}>
-            Pump.fun smart money · paper trading · 100 SOL virtual
+        {/* Pump.fun pill badge */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          background: 'linear-gradient(135deg, #1a0533 0%, #2d0a5e 100%)',
+          border: '1px solid #7c3aed', borderRadius: 8, padding: '5px 10px',
+        }}>
+          <span style={{ fontSize: 18, lineHeight: 1 }}>💊</span>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 800, color: '#c4b5fd', letterSpacing: 1 }}>
+              PUMP.FUN ALPHA
+            </div>
+            <div style={{ fontSize: 9, color: '#6d28d9', marginTop: 1 }}>
+              smart money · paper trading · 100 SOL
+            </div>
           </div>
         </div>
+
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+          {/* Live feed status */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 5, fontSize: 10,
             color: status.connected ? '#22c55e' : '#6b7280',
-            background: '#0a0e1a', border: '1px solid #1e2a3a', borderRadius: 4, padding: '3px 8px',
+            background: '#0a0e1a', border: `1px solid ${status.connected ? '#14532d' : '#1e2a3a'}`, borderRadius: 4, padding: '3px 8px',
           }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: status.connected ? '#22c55e' : '#374151', display: 'inline-block' }} />
-            {status.wsStatus}
+            <span style={{
+              width: 6, height: 6, borderRadius: '50%',
+              background: status.connected ? '#22c55e' : '#374151',
+              display: 'inline-block',
+              boxShadow: status.connected ? '0 0 5px #22c55e' : 'none',
+              animation: status.connected ? 'pulse 2s infinite' : 'none',
+            }} />
+            {status.connected ? `LIVE · ${status.subscribedTokens} tokens` : status.wsStatus}
           </div>
+
+          {/* Paper badge */}
+          <div style={{
+            fontSize: 9, fontWeight: 700, color: '#f59e0b',
+            background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)',
+            borderRadius: 4, padding: '3px 7px',
+          }}>
+            PAPER ONLY · live_mode=false
+          </div>
+
           {error && (
             <div style={{ fontSize: 9, color: '#ef4444', background: 'rgba(239,68,68,0.1)', borderRadius: 4, padding: '3px 8px' }}>
               {error}
