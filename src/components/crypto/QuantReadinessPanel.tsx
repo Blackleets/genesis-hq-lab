@@ -42,15 +42,25 @@ function StatusBadge({ status }: { status: QuantStrategyEntry['status'] }) {
 }
 
 function EdgeBanner({ answer, headline }: { answer: string; headline: string }) {
-  const color = answer === 'YES' ? '#22c55e' : answer === 'NO' ? '#ef4444' : '#f59e0b';
-  const bg    = answer === 'YES' ? '#052e1622' : answer === 'NO' ? '#450a0a22' : '#451a0322';
+  const color = answer === 'YES'          ? '#22c55e'
+              : answer === 'WF_VALIDATED' ? '#f59e0b'
+              : answer === 'NO'           ? '#ef4444'
+              : '#9ca3af';
+  const bg    = answer === 'YES'          ? '#052e1622'
+              : answer === 'WF_VALIDATED' ? '#451a0322'
+              : answer === 'NO'           ? '#450a0a22'
+              : '#11111122';
+  const label = answer === 'YES'          ? '✓ EDGE VALIDADO'
+              : answer === 'WF_VALIDATED' ? '⚡ OOS EDGE HISTÓRICO VALIDADO'
+              : answer === 'NO'           ? '✗ SIN EDGE'
+              : '? EDGE DESCONOCIDO';
   return (
     <div
       style={{ background: bg, border: `1px solid ${color}44`, borderRadius: 6 }}
       className="mb-3 px-3 py-2"
     >
       <div style={{ color }} className="font-mono text-[10px] font-bold uppercase tracking-widest">
-        {answer === 'YES' ? '✓ EDGE VALIDADO' : answer === 'NO' ? '✗ SIN EDGE' : '? EDGE DESCONOCIDO'}
+        {label}
       </div>
       <div className="mt-0.5 font-mono text-[9px] text-zinc-400 leading-tight">{headline}</div>
     </div>
@@ -81,17 +91,29 @@ function StrategyRow({ s }: { s: QuantStrategyEntry }) {
   );
 }
 
-function BlockerList({ blockers }: { blockers: { reason: string; code: string }[] }) {
+function BlockerList({ blockers, wfValidated }: { blockers: { reason: string; code: string }[]; wfValidated?: boolean }) {
   if (blockers.length === 0) return null;
+  const hardBlockers = blockers.filter(b => !(wfValidated && b.code === 'INSUFFICIENT_TRADES'));
+  const softBlockers = blockers.filter(b =>   wfValidated && b.code === 'INSUFFICIENT_TRADES');
   return (
     <div className="mb-3">
-      <div className="font-mono text-[8px] uppercase tracking-widest text-red-500 mb-1">
-        Blockers ({blockers.length})
-      </div>
-      {blockers.map((b, i) => (
-        <div key={i} className="flex gap-2 items-start py-0.5">
-          <span className="font-mono text-[8px] text-red-500 shrink-0">[{b.code}]</span>
-          <span className="font-mono text-[8px] text-zinc-400 leading-tight">{b.reason}</span>
+      {hardBlockers.length > 0 && (
+        <>
+          <div className="font-mono text-[8px] uppercase tracking-widest text-red-500 mb-1">
+            Blockers ({hardBlockers.length})
+          </div>
+          {hardBlockers.map((b, i) => (
+            <div key={i} className="flex gap-2 items-start py-0.5">
+              <span className="font-mono text-[8px] text-red-500 shrink-0">[{b.code}]</span>
+              <span className="font-mono text-[8px] text-zinc-400 leading-tight">{b.reason}</span>
+            </div>
+          ))}
+        </>
+      )}
+      {softBlockers.map((b, i) => (
+        <div key={`soft-${i}`} className="flex gap-2 items-start py-0.5">
+          <span className="font-mono text-[8px] text-amber-500 shrink-0">⏳</span>
+          <span className="font-mono text-[8px] text-amber-600 leading-tight">Acumulando trades paper para confirmación live · {b.reason}</span>
         </div>
       ))}
     </div>
@@ -211,7 +233,7 @@ export function QuantReadinessPanel({ es = true }: { es?: boolean }) {
           <EdgeBanner answer={report.edgeAnswer} headline={report.headline} />
 
           {/* Blockers */}
-          <BlockerList blockers={report.blockers} />
+          <BlockerList blockers={report.blockers} wfValidated={report.edgeAnswer === 'WF_VALIDATED'} />
 
           {/* Allocation */}
           {report.allocation && <AllocationSummary allocation={report.allocation} />}

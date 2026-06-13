@@ -71,6 +71,7 @@ function buildHeadline(edgeVerdict, allocation) {
     const usd = allocation?.totalAllocatedUsd ?? 0;
     return `EDGE VALIDATED — ${edgeVerdict.promotedCount} strategy promoted. Recommended paper capital: ${(pct * 100).toFixed(1)}% ($${usd}).`;
   }
-  if (ans === 'NO') return `NO EDGE YET — ${edgeVerdict.reason}`;
-  return 'EDGE UNKNOWN — insufficient data or engine error.';
+  if (ans === 'WF_VALIDATED') return `OOS EDGE HISTÓRICO VALIDADO — ${edgeVerdict.reason}`;
+  if (ans === 'NO') return `SIN EDGE — ${edgeVerdict.reason}`;
+  return 'EDGE DESCONOCIDO — datos insuficientes o error del motor.';
 }

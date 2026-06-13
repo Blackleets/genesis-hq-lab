@@ -42,9 +42,23 @@ function deriveEdgeVerdict(validation, registry) {
   }
   if (validation.status === 'INSUFFICIENT_DATA') {
     const n = validation.metrics?.totalTrades ?? 0;
+    const wfRobustShort    = validation.metrics?.wfRobustShort    ?? null;
+    const wfRobustCombined = validation.metrics?.wfRobustCombined ?? null;
+    const wfRunAt          = validation.metrics?.wfRunAt          ?? null;
+    if (wfRobustShort || wfRobustCombined) {
+      const which = wfRobustCombined ? 'COMBINED+SHORT' : 'SHORT';
+      return {
+        answer:        'WF_VALIDATED',
+        reason:        `OOS edge histórico validado (${which}) en 730d de datos Binance. Acumulando ${n}/30 trades paper para confirmación live.`,
+        missingTrades: Math.max(0, 30 - n),
+        wfRobustShort,
+        wfRobustCombined,
+        wfRunAt,
+      };
+    }
     return {
       answer: 'NO',
-      reason: `Only ${n}/30 closed trades — insufficient data to assess edge`,
+      reason: `Solo ${n}/30 trades cerrados — datos insuficientes para evaluar edge`,
       missingTrades: Math.max(0, 30 - n),
     };
   }

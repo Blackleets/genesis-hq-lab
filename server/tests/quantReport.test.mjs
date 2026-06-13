@@ -67,9 +67,14 @@ describe('generateQuantReport — headline content', () => {
     if (report.edgeAnswer === 'YES') {
       assert.ok(report.headline.includes('VALIDATED') || report.headline.includes('YES'),
         'YES answer should have positive headline');
+    } else if (report.edgeAnswer === 'WF_VALIDATED') {
+      assert.ok(report.headline.includes('EDGE'),
+        'WF_VALIDATED answer should reference EDGE in headline');
     } else if (report.edgeAnswer === 'NO') {
-      assert.ok(report.headline.includes('NO EDGE') || report.headline.includes('YET'),
-        'NO answer should have negative headline');
+      assert.ok(
+        report.headline.includes('NO EDGE') || report.headline.includes('YET') || report.headline.includes('SIN EDGE'),
+        'NO answer should have negative headline',
+      );
     }
   });
 });

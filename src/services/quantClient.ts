@@ -53,7 +53,7 @@ export interface QuantMetrics {
 
 export interface QuantReport {
   headline:    string;
-  edgeAnswer:  'YES' | 'NO' | 'UNKNOWN';
+  edgeAnswer:  'YES' | 'WF_VALIDATED' | 'NO' | 'UNKNOWN';
   edgeReason:  string | null;
   strategies:  QuantStrategyEntry[];
   blockers:    QuantBlocker[];
