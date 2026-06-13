@@ -66,16 +66,22 @@ function rebalanceAllocations() {
       if (e.trades >= 5) rates[e.tradeType] = e.winRate ?? 0;
     }
 
-    // Map trade_type to allocation key
+    // Map trade_type ↔ allocation key (both directions).
     const typeToKey = { scalp_v2: 'fast_alpha', swing_v1: 'swing', 'event-alpha': 'event_alpha' };
+    const keyToType = { fast_alpha: 'scalp_v2', swing: 'swing_v1', event_alpha: 'event-alpha' };
     const keys = Object.keys(_allocation);
 
-    // If any engine outperforms by 15%+ → shift 5% toward it
+    // If any engine outperforms by 15%+ → shift 5% toward it.
     for (const [type, rate] of Object.entries(rates)) {
       const key = typeToKey[type];
       if (!key) continue;
       const others = keys.filter(k => k !== key);
-      const avgOther = others.reduce((s, k) => s + (rates[typeToKey[k]] ?? 0), 0) / others.length;
+      // `others` are allocation keys; map each back to its trade_type to read its rate.
+      // (Previously indexed rates by an allocation key → always undefined → avgOther=0,
+      //  so any engine with WR>15% rebalanced every cycle regardless of the others.)
+      const rated = others.map(k => rates[keyToType[k]]).filter(r => r != null);
+      if (rated.length === 0) continue; // no comparable peer with enough trades — don't shift blind
+      const avgOther = rated.reduce((s, r) => s + r, 0) / rated.length;
       if (rate - avgOther > 0.15) {
         const delta = 0.05;
         _allocation[key] = clampAllocation(_allocation[key] + delta);
@@ -127,10 +133,14 @@ async function runFast() {
     _stats.fastTicks++;
     _stats.lastFastAt = new Date().toISOString();
 
-    // Position monitor on every fast tick (no momentum check — keeps it fast)
+    // Position monitor on every fast tick (no momentum check — keeps it fast).
+    // Fire-and-forget but MUST catch: an unhandled rejection here can take down the
+    // whole agent process (Node default) → the real cause of a silently stalled agent.
     if (!_running.monitor) {
       _running.monitor = true;
-      monitorPositions({ checkMomentum: false }).finally(() => { _running.monitor = false; });
+      monitorPositions({ checkMomentum: false })
+        .catch((err) => console.error('[scheduler] position monitor error (fast):', err?.message))
+        .finally(() => { _running.monitor = false; });
     }
 
     const result = await runScalpingCycle();
@@ -173,8 +183,16 @@ async function runMid() {
     _stats.midTicks++;
     _stats.lastMidAt = new Date().toISOString();
 
-    // Position monitor with momentum check on mid tick
-    await monitorPositions({ checkMomentum: true });
+    // Position monitor with momentum check on mid tick. Share the same lock as the
+    // fast-tick monitor so the two never run concurrently on the same positions.
+    if (!_running.monitor) {
+      _running.monitor = true;
+      try {
+        await monitorPositions({ checkMomentum: true });
+      } finally {
+        _running.monitor = false;
+      }
+    }
 
     const result = await runEventAlphaCycle();
     if (result.executed > 0 || result.evPositive > 0) {
