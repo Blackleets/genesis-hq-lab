@@ -121,16 +121,30 @@ export default function SystemHealthView() {
           <Row label="Agent alive" value={<StatusDot ok={truth.execution.agentAlive} label={truth.execution.agentAlive ? 'Active' : (truth.agentRunner.neverStarted ? 'Never started' : 'Stalled')} />} />
           <Row label="Last agent tick" value={fmtMs(truth.agentRunner.msSinceLastTick)} muted={!truth.agentRunner.lastTickAt} />
           <Row label="Total cycles" value={truth.agentRunner.totalCycles ?? 0} muted />
-          <Row label="Claude enabled" value={truth.agentRunner.claudeEnabled ? 'Yes' : 'No'} muted={!truth.agentRunner.claudeEnabled} />
+          <Row
+            label="LLM provider"
+            value={
+              truth.agentRunner.llmProvider && truth.agentRunner.llmProvider !== 'none'
+                ? truth.agentRunner.llmProvider.toUpperCase()
+                : (truth.agentRunner.claudeEnabled ? 'CLAUDE' : 'None')
+            }
+            muted={(truth.agentRunner.llmProvider ?? 'none') === 'none' && !truth.agentRunner.claudeEnabled}
+          />
         </Section>
 
         {/* Connectivity */}
         <Section title="Connectivity">
           <Row label="WebSocket clients" value={truth.websocket.connectedClients} />
           <Row label="WebSocket active" value={<StatusDot ok={truth.websocket.active} label={truth.websocket.active ? 'Connected' : 'No clients'} />} />
-          <Row label="Kalshi API key" value={<StatusDot ok={truth.kalshi.hasApiKey ?? false} label={truth.kalshi.hasApiKey ? 'Set' : 'Missing'} />} />
-          <Row label="Kalshi WS" value={<StatusDot ok={truth.kalshi.wsConnected ?? false} label={truth.kalshi.wsConnected ? 'Connected' : 'Disconnected'} />} />
-          <Row label="Kalshi mode" value={truth.kalshi.mode ?? '—'} muted />
+          {truth.kalshi.inUse === false ? (
+            <Row label="Kalshi" value="Idle — futures-only desk" muted />
+          ) : (
+            <>
+              <Row label="Kalshi API key" value={<StatusDot ok={truth.kalshi.hasApiKey ?? false} label={truth.kalshi.hasApiKey ? 'Set' : 'Missing'} />} />
+              <Row label="Kalshi WS" value={<StatusDot ok={truth.kalshi.wsConnected ?? false} label={truth.kalshi.wsConnected ? 'Connected' : 'Disconnected'} />} />
+              <Row label="Kalshi mode" value={truth.kalshi.mode ?? '—'} muted />
+            </>
+          )}
         </Section>
 
         {/* Execution Diagnostics */}
