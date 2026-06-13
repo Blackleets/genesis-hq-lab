@@ -76,6 +76,16 @@ services:
         value: BTCUSDT,ETHUSDT,SOLUSDT
 
       # ── Breakout parameters ────────────────────────────────────────────────
+      # Days of klines fetched per pair per profile. 14d is sufficient warmup for
+      # SMA50 on all timeframes (5m needs 50×5m=250min < 14d; 4h needs 50×4h=200h < 14d)
+      # and cuts cold-start from ~160 API requests to ~25.
+      - key: FUTURES_BREAKOUT_DAYS
+        value: "14"
+      # Regime SMA: 50 is reactive (flips in 2-3 day trends) vs 200 (multi-month trend).
+      # Lower value = more signals in both bull/bear markets. 200 was blocking all signals
+      # when price sat above SMA200 (uptrend), generating zero shorts for weeks.
+      - key: FUTURES_BREAKOUT_SMA
+        value: "50"
       - key: FUTURES_BREAKOUT_TP_PCT
         value: "0.12"
       - key: FUTURES_BREAKOUT_SL_PCT
