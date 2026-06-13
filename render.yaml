@@ -122,8 +122,9 @@ services:
         value: "60"
       - key: WF_MAX_AGE_HOURS
         value: "24"
+      # 0 = run on boot against real Binance klines (730d), no paper trade accumulation needed
       - key: WF_MIN_TRADES_GATE
-        value: "30"
+        value: "0"
       - key: WF_PAIRS
         value: BTCUSDT,ETHUSDT,SOLUSDT
       - key: WF_WINDOWS
