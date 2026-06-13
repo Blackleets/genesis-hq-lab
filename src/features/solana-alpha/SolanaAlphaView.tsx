@@ -3,6 +3,7 @@
 // Polls REST every 10s; also listens on WebSocket for real-time events.
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { wsUrl } from '@services/apiBase';
 import {
   fetchSolanaStatus, fetchSolanaTokens, fetchSolanaWallets,
   fetchSolanaSignals, fetchPaperStats, fetchPaperPositions,
@@ -78,10 +79,9 @@ export default function SolanaAlphaView() {
     timerRef.current = setInterval(loadAll, POLL_MS);
 
     // WebSocket live events (add new tokens/signals to top of list)
-    const wsBase = (import.meta.env.VITE_API_URL ?? '').replace(/^http/, 'ws');
     let ws: WebSocket | null = null;
     try {
-      ws = new WebSocket(`${wsBase}/ws`);
+      ws = new WebSocket(wsUrl('/ws'));
       ws.onmessage = (e) => {
         try {
           const msg = JSON.parse(e.data);

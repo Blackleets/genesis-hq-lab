@@ -16,6 +16,18 @@ export function apiUrl(path: string): string {
   return origin ? `${origin}${p}` : p;
 }
 
+/**
+ * WebSocket URL para el backend, ej. `wss://host/ws`.
+ * Dev: devuelve la ruta relativa (`/ws`) para que el proxy de Vite la reenvíe.
+ * Prod: deriva ws/wss del mismo origen que la API (VITE_API_BASE).
+ */
+export function wsUrl(path: string): string {
+  const p = path.startsWith('/') ? path : `/${path}`;
+  const origin = getApiOrigin();
+  if (!origin) return p; // dev: relativo → proxy Vite (/ws)
+  return `${origin.replace(/^http/, 'ws')}${p}`; // http→ws, https→wss
+}
+
 function localApiUrl(path: string): string {
   return path.startsWith('/') ? path : `/${path}`;
 }

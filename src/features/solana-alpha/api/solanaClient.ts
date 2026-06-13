@@ -1,6 +1,9 @@
 // solanaClient.ts — typed API client for the Solana Alpha Lab backend.
 
-const BASE = import.meta.env.VITE_API_URL ?? '';
+import { getApiOrigin } from '@services/apiBase';
+
+// Same origin as the rest of the app (VITE_API_BASE). '' in dev → Vite proxies /api.
+const BASE = getApiOrigin();
 
 async function get<T>(path: string): Promise<T> {
   const r = await fetch(`${BASE}${path}`, { cache: 'no-store' });
