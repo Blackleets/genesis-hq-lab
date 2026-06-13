@@ -69,3 +69,45 @@ export async function fetchQuantReport(): Promise<QuantReport> {
   if (!res.ok) throw new Error(`quant/report ${res.status}`);
   return res.json() as Promise<QuantReport>;
 }
+
+export interface WfSummary {
+  shortJudgedWindows:    number;
+  shortPositiveWindows:  number;
+  combinedJudgedWindows: number;
+  combinedPositiveWindows: number;
+  robustShort:    boolean;
+  robustCombined: boolean;
+}
+
+export interface WfStatus {
+  ok:      boolean;
+  running: boolean;
+  stale:   boolean;
+  cache: {
+    completedAt: string;
+    startedAt:   string;
+    durationMs:  number;
+  } | null;
+  summary:   WfSummary | null;
+  scheduler: {
+    started:          boolean;
+    checkIntervalMin: number;
+    maxAgeHours:      number;
+    minTrades:        number;
+    closedTrades:     number;
+    cacheStale:       boolean;
+    running:          boolean;
+  };
+}
+
+export async function fetchWfStatus(): Promise<WfStatus> {
+  const res = await fetchApi(apiUrl('/api/quant/wf/status'));
+  if (!res.ok) throw new Error(`wf/status ${res.status}`);
+  return res.json() as Promise<WfStatus>;
+}
+
+export async function triggerWalkForward(): Promise<{ ok: boolean; running: boolean; message: string }> {
+  const res = await fetchApi(apiUrl('/api/quant/wf/run'), { method: 'GET' });
+  if (!res.ok) throw new Error(`wf/run ${res.status}`);
+  return res.json();
+}
