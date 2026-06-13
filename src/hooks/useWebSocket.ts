@@ -6,7 +6,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 export type WsMessage = {
   type:
     | 'agent:tick' | 'trade:executed' | 'trade:resolved' | 'lesson:learned' | 'capital:updated'
-    | 'agent:status' | 'agent:log' | 'agent:completed';
+    | 'agent:status' | 'agent:log' | 'agent:completed'
+    | 'signal_generated' | 'consensus_decision' | 'market_update';
   [key: string]: unknown;
 };
 

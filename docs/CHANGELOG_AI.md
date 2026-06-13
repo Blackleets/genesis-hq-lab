@@ -1,5 +1,19 @@
 # CHANGELOG_AI
 
+## 2026-06-13 — Claude (scheduler crash-safety + allocation rebalance bug + Render keep-alive)
+
+- Branch: `fix/scheduler-bugs-and-keepalive`
+- Summary: Bug sweep of the core trading path found and fixed two real bugs in `executionScheduler.mjs`. (1) CRASH RISK: the fast-tick `monitorPositions()` was fired without a `.catch()` — an unhandled rejection there can take down the whole agent process (Node default), a real cause of a silently stalled agent; added `.catch()`, and put the mid-tick monitor under the same `_running.monitor` lock so the two never run concurrently on the same positions. (2) ALLOCATION REBALANCE: `avgOther` was computed by indexing `rates` (keyed by trade_type) with an allocation key → always `undefined` → `avgOther` always 0, so any engine with win-rate >15% grabbed +5% allocation every cycle regardless of peers; fixed with a `keyToType` inverse map and a guard that skips rebalancing when no comparable peer has ≥5 trades. Also added a committed GitHub Actions keep-alive (`keep-render-awake.yml`, every 10 min) that pings Render's `/api/health` from GitHub infra so the free-tier dyno stays warm — fixes the "Backend no disponible" sleep without an external UptimeRobot account.
+- Files modified: `server/trading/executionScheduler.mjs`, `.github/workflows/keep-render-awake.yml` (new)
+- Verification: `node --check` ok; `node --test cryptoExecution` 7/7 pass
+
+## 2026-06-13 — Claude (fix false STALLED + Kalshi UI noise)
+
+- Branch: `fix/futures-heartbeat-and-noise`
+- Summary: Fixed root cause of the agent reporting STALLED while actively trading. In FUTURES_ONLY_MODE the prediction `tick()` never runs, and `tick()` was the only writer of `agent_heartbeat.json` — so the heartbeat froze and `/api/health` falsely flagged the agent stalled even though the futures scheduler trades every 5s. Extracted `writeHeartbeat()` helper and added a dedicated 2-min heartbeat driven by `getSchedulerStatus()` tick counts (real liveness signal). Also de-noised the System Health UI: Kalshi (prediction-market venue, idle in futures-only mode) now renders a single neutral "Idle — futures-only desk" row instead of red MISSING/DISCONNECTED alarms; the Kalshi-key issue is suppressed when not in use (`kalshi.inUse` flag from truthLayer). Relabeled "Claude enabled: No" → "LLM provider: GROQ/GEMINI/CLAUDE" computed from env so the free-tier stack reads correctly.
+- Files modified: `server/agentRunner.mjs`, `server/truthLayer.mjs`, `src/hooks/useTruthLayer.ts`, `src/ui/views/SystemHealthView.tsx`
+- Verification: `node --check` on both server files ok; `npm run typecheck` clean; `npm run build` ok; `node --test cryptoTruth` 11/11 pass
+
 ## 2026-06-12 — Claude (Groq priority-1 LLM + merge to main — PR #21)
 
 - Branch: `claude/genesis-prediction-markets-5qmflo`

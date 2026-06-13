@@ -33,10 +33,11 @@ export interface SystemTruth {
     msSinceLastTick?: number | null;
     totalCycles?: number;
     claudeEnabled?: boolean;
+    llmProvider?: 'groq' | 'gemini' | 'claude' | 'none';
     neverStarted?: boolean;
     error?: string;
   };
-  kalshi: { ok: boolean; hasApiKey?: boolean; wsConnected?: boolean; mode?: string; error?: string };
+  kalshi: { ok: boolean; hasApiKey?: boolean; wsConnected?: boolean; mode?: string; inUse?: boolean; error?: string };
   optimizer: { ok: boolean; [key: string]: unknown };
   learning: {
     ok: boolean;

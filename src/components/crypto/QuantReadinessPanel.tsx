@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
-import type { QuantReport, QuantStrategyEntry } from '@services/quantClient';
-import { fetchQuantReport } from '@services/quantClient';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import type { QuantReport, QuantStrategyEntry, WfStatus } from '@services/quantClient';
+import { fetchQuantReport, fetchWfStatus, triggerWalkForward } from '@services/quantClient';
 
 const BG     = '#0a0a06';
 const BORDER = '#1f1f10';
@@ -164,16 +164,23 @@ function AllocationSummary({ allocation }: { allocation: NonNullable<QuantReport
 }
 
 export function QuantReadinessPanel({ es = true }: { es?: boolean }) {
-  const [report, setReport]   = useState<QuantReport | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState<string | null>(null);
+  const [report, setReport]       = useState<QuantReport | null>(null);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState<string | null>(null);
   const [lastFetch, setLastFetch] = useState<number | null>(null);
+  const [wfStatus, setWfStatus]   = useState<WfStatus | null>(null);
+  const [wfTrigering, setWfTriggering] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const loadWf = useCallback(async () => {
+    try { setWfStatus(await fetchWfStatus()); } catch { /* non-fatal */ }
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const r = await fetchQuantReport();
+      const [r] = await Promise.all([fetchQuantReport(), loadWf()]);
       setReport(r);
       setLastFetch(Date.now());
     } catch (e) {
@@ -181,9 +188,35 @@ export function QuantReadinessPanel({ es = true }: { es?: boolean }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadWf]);
 
-  useEffect(() => { void load(); }, [load]);
+  // Poll WF status every 5s while running, otherwise 2 min full reload
+  useEffect(() => {
+    void load();
+    pollRef.current = setInterval(async () => {
+      const wf = await fetchWfStatus().catch(() => null);
+      setWfStatus(wf);
+      if (wf && !wf.running) void load(); // refresh report once WF settles
+    }, 2 * 60 * 1000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [load]);
+
+  // Fast-poll every 5s while WF is running
+  useEffect(() => {
+    if (!wfStatus?.running) return;
+    const id = setInterval(() => void loadWf(), 5000);
+    return () => clearInterval(id);
+  }, [wfStatus?.running, loadWf]);
+
+  const handleRunWf = useCallback(async () => {
+    setWfTriggering(true);
+    try {
+      await triggerWalkForward();
+      await loadWf();
+    } catch { /* non-fatal */ } finally {
+      setWfTriggering(false);
+    }
+  }, [loadWf]);
 
   const label = (en: string, sp: string) => (es ? sp : en);
 
@@ -203,6 +236,14 @@ export function QuantReadinessPanel({ es = true }: { es?: boolean }) {
               {ago(new Date(lastFetch).toISOString())}
             </span>
           )}
+          <button
+            onClick={handleRunWf}
+            disabled={wfTrigering || wfStatus?.running}
+            title="Run walk-forward OOS validation against 730d Binance data"
+            className="font-mono text-[8px] text-blue-500 hover:text-blue-300 disabled:opacity-40 border border-blue-900 px-1.5 py-px rounded"
+          >
+            {wfStatus?.running ? 'WF…' : 'Run WF'}
+          </button>
           <button
             onClick={() => void load()}
             disabled={loading}
@@ -231,6 +272,56 @@ export function QuantReadinessPanel({ es = true }: { es?: boolean }) {
         <>
           {/* Edge banner */}
           <EdgeBanner answer={report.edgeAnswer} headline={report.headline} />
+
+          {/* Walk-forward OOS section */}
+          {wfStatus && (
+            <div
+              style={{ border: `1px solid ${BORDER}`, borderRadius: 4 }}
+              className="mb-3 px-2 py-1.5"
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-mono text-[8px] uppercase tracking-widest text-zinc-500">
+                  Walk-Forward OOS · 730d Binance
+                </span>
+                {wfStatus.running && (
+                  <span className="font-mono text-[7px] text-blue-400 animate-pulse">corriendo…</span>
+                )}
+                {wfStatus.cache && !wfStatus.running && (
+                  <span className="font-mono text-[7px] text-zinc-700">
+                    {ago(wfStatus.cache.completedAt)} · {Math.round(wfStatus.cache.durationMs / 1000)}s
+                  </span>
+                )}
+              </div>
+              {wfStatus.summary ? (
+                <div className="flex flex-wrap gap-3">
+                  <div className="flex items-center gap-1">
+                    <span className="font-mono text-[7px] text-zinc-600">SHORT</span>
+                    <span className="font-mono text-[9px]" style={{ color: wfStatus.summary.robustShort ? '#22c55e' : '#ef4444' }}>
+                      {wfStatus.summary.robustShort ? '✓' : '✗'}
+                      {' '}{wfStatus.summary.shortPositiveWindows}/{wfStatus.summary.shortJudgedWindows}w
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="font-mono text-[7px] text-zinc-600">COMB</span>
+                    <span className="font-mono text-[9px]" style={{ color: wfStatus.summary.robustCombined ? '#22c55e' : '#ef4444' }}>
+                      {wfStatus.summary.robustCombined ? '✓' : '✗'}
+                      {' '}{wfStatus.summary.combinedPositiveWindows}/{wfStatus.summary.combinedJudgedWindows}w
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="font-mono text-[7px] text-zinc-600">EDGE</span>
+                    <span className="font-mono text-[9px]" style={{ color: (wfStatus.summary.robustShort || wfStatus.summary.robustCombined) ? '#22c55e' : '#ef4444' }}>
+                      {(wfStatus.summary.robustShort || wfStatus.summary.robustCombined) ? 'VALIDADO' : 'NO ROBUSTO'}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="font-mono text-[8px] text-amber-500">
+                  {wfStatus.running ? 'Analizando 730d de datos Binance…' : 'Sin resultados — pulsa "Run WF" para analizar edge real'}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Blockers */}
           <BlockerList blockers={report.blockers} wfValidated={report.edgeAnswer === 'WF_VALIDATED'} />
@@ -317,19 +408,6 @@ export function QuantReadinessPanel({ es = true }: { es?: boolean }) {
                 </span>
               </div>
             )}
-            {/* Walk-forward OOS status */}
-            <div className="flex items-center gap-1">
-              <span className="font-mono text-[7px] text-zinc-600">WF-OOS</span>
-              {report.metrics.wfRunAt == null ? (
-                <span className="font-mono text-[8px] text-amber-500">sin datos</span>
-              ) : report.metrics.wfRobustCombined || report.metrics.wfRobustShort ? (
-                <span className="font-mono text-[8px] text-green-400">
-                  {report.metrics.wfRobustCombined ? 'COMBINADO ✓' : 'CORTO ✓'}
-                </span>
-              ) : (
-                <span className="font-mono text-[8px] text-red-400">NO ROBUSTO</span>
-              )}
-            </div>
           </div>
 
           {/* Strategy list */}

@@ -28,7 +28,7 @@ import { refreshGlobalRiskScore, getGlobalRiskDiagnostics } from './risk/globalR
 import { getDashboardMetrics } from './trading/analytics.mjs';
 import { getOrgState, processExpiredSchedules, getRiskSettings, isDeptActive } from './command/orgState.mjs';
 import { runCryptoTradingCycle, manageCryptoPositions } from './crypto/cryptoWorkflow.mjs';
-import { startScheduler, triggerSlow } from './trading/executionScheduler.mjs';
+import { startScheduler, triggerSlow, getSchedulerStatus } from './trading/executionScheduler.mjs';
 import { appendFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join as pathJoin, dirname as pathDirname } from 'node:path';
 import { fileURLToPath as pathFromUrl } from 'node:url';
@@ -227,25 +227,36 @@ async function summarize(startMs) {
   }
 
   // Write heartbeat so /api/health can confirm agent is ticking
+  await writeHeartbeat({ totalCycles: ++_tickCount });
+}
+
+// ─── Heartbeat counter ───────────────────────────────────────────────────────
+let _tickCount = 0;
+
+// ─── Heartbeat writer ─────────────────────────────────────────────────────────
+// Single source of truth for the liveness file read by /api/health (truthLayer).
+// In FUTURES_ONLY_MODE the prediction tick() never runs, so this is also called on
+// its own interval from the futures scheduler block below — otherwise the agent
+// would falsely report STALLED even while the breakout engine trades every 5s.
+async function writeHeartbeat({ totalCycles } = {}) {
   try {
-    const { writeFile } = await import('node:fs/promises');
+    const { writeFile, mkdir } = await import('node:fs/promises');
     const { join, dirname } = await import('node:path');
     const { fileURLToPath } = await import('node:url');
     const __dir = dirname(fileURLToPath(import.meta.url));
+    const memDir = join(__dir, '..', 'data', 'memory');
+    await mkdir(memDir, { recursive: true });
     await writeFile(
-      join(__dir, '..', 'data', 'memory', 'agent_heartbeat.json'),
+      join(memDir, 'agent_heartbeat.json'),
       JSON.stringify({
         lastTickAt: new Date().toISOString(),
-        totalCycles: ++_tickCount,
+        totalCycles: totalCycles ?? _tickCount,
         claudeEnabled: !!process.env.ANTHROPIC_API_KEY,
       }),
       'utf8'
     );
   } catch { /* never block the agent loop */ }
 }
-
-// ─── Heartbeat counter ───────────────────────────────────────────────────────
-let _tickCount = 0;
 
 // ─── Main loop ────────────────────────────────────────────────────────────────
 
@@ -302,6 +313,23 @@ if (!ONCE) {
   // immediately so crypto paper training begins on boot, independent of the
   // prediction-market cycle.
   startScheduler();
+
+  // Heartbeat from the futures scheduler — the real liveness signal in
+  // FUTURES_ONLY_MODE, where the prediction tick() (and its heartbeat) never run.
+  // Without this the agent falsely reports STALLED while the breakout engine is
+  // actively trading. Every 2 min stays well inside truthLayer's 10-min threshold.
+  const writeFuturesHeartbeat = async () => {
+    let cycles = _tickCount;
+    try {
+      const st = getSchedulerStatus();
+      const t = st?.ticks ?? {};
+      cycles = (t.fast ?? 0) + (t.mid ?? 0) + (t.slow ?? 0);
+    } catch { /* fall back to _tickCount */ }
+    await writeHeartbeat({ totalCycles: cycles });
+  };
+  setTimeout(writeFuturesHeartbeat, 15_000);             // initial, once scheduler warms up
+  setInterval(writeFuturesHeartbeat, 2 * 60 * 1000);     // every 2 min < 10-min stall threshold
+  console.log('[agentRunner] Futures heartbeat active — agent liveness from scheduler ticks');
 
   // Crypto scalping loop — every 1 minute (legacy path, also position management)
   if (LEGACY_CRYPTO_LOOP_ENABLED) {

@@ -12,6 +12,7 @@
 // dataQuality.sufficient = false when data is too sparse to draw conclusions.
 
 import db from '../db/database.mjs';
+import { MODERN_CRYPTO_TRADE_TYPES_SQL } from '../crypto/cryptoTradeUniverse.mjs';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -71,6 +72,43 @@ function loadClosedTrades() {
       NULL AS pnl_pct, NULL AS duration_hours, NULL AS outcome_result
     FROM trades
     WHERE status = 'closed'
+    ORDER BY closed_at DESC
+  `).all();
+}
+
+/**
+ * Load only modern crypto trades (scalp_v2, swing_v1, breakout_v1).
+ * Excludes prediction-market trades and old crypto_scalp so metrics reflect
+ * the actual scalping strategy performance in isolation.
+ */
+function loadClosedCryptoTrades() {
+  const fromOutcomes = db.prepare(`
+    SELECT
+      t.id, t.agent_id, t.market_category, t.market_source,
+      t.confidence, t.entry_price, t.capital_used, t.pnl,
+      t.opened_at, t.closed_at, t.days_to_close,
+      t.outcome, t.resolved_outcome, t.exit_reason,
+      t.entry_volume24h,
+      o.confidence_band, o.pnl_realized, o.pnl_pct,
+      o.duration_hours, o.outcome_result
+    FROM trades t
+    LEFT JOIN trade_outcomes o ON o.trade_id = t.id
+    WHERE t.status = 'closed' AND t.trade_type IN ${MODERN_CRYPTO_TRADE_TYPES_SQL}
+    ORDER BY t.closed_at DESC
+  `).all();
+
+  if (fromOutcomes.length > 0) return fromOutcomes;
+
+  return db.prepare(`
+    SELECT
+      id, agent_id, market_category, market_source,
+      confidence, entry_price, capital_used, pnl,
+      opened_at, closed_at, days_to_close,
+      outcome, resolved_outcome, exit_reason, entry_volume24h,
+      NULL AS confidence_band, pnl AS pnl_realized,
+      NULL AS pnl_pct, NULL AS duration_hours, NULL AS outcome_result
+    FROM trades
+    WHERE status = 'closed' AND trade_type IN ${MODERN_CRYPTO_TRADE_TYPES_SQL}
     ORDER BY closed_at DESC
   `).all();
 }
@@ -585,9 +623,10 @@ export function computeDecisionQuality(trades = null) {
  * This is the single function called by the API endpoints.
  */
 export function getAlphaReport() {
-  let closed;
+  let closed, cryptoClosed;
   try {
-    closed = loadClosedTrades();
+    closed       = loadClosedTrades();
+    cryptoClosed = loadClosedCryptoTrades();
   } catch (err) {
     return {
       ok: false,
@@ -597,11 +636,15 @@ export function getAlphaReport() {
     };
   }
 
-  const expectancy     = computeExpectancy(closed);
-  const calibration    = computeCalibration(closed);
-  const agentEdge      = computeAgentEdgeScores(closed);
-  const regimes        = computeRegimeAnalysis(closed);
+  const expectancy      = computeExpectancy(closed);
+  const calibration     = computeCalibration(closed);
+  const agentEdge       = computeAgentEdgeScores(closed);
+  const regimes         = computeRegimeAnalysis(closed);
   const decisionQuality = computeDecisionQuality(closed);
+
+  // Crypto-only expectancy: scalp_v2 + swing_v1 + breakout_v1 (excludes prediction market)
+  const cryptoExpectancy = computeExpectancy(cryptoClosed);
+  const cryptoVerdict    = deriveVerdict(cryptoExpectancy, computeCalibration(cryptoClosed), cryptoClosed.length);
 
   // Overall edge verdict (institutional-grade honesty)
   const verdict = deriveVerdict(expectancy, calibration, closed.length);
@@ -620,6 +663,15 @@ export function getAlphaReport() {
     agentEdge,
     regimes,
     decisionQuality,
+
+    // Isolated crypto strategy edge (scalp_v2 / swing_v1 / breakout_v1 only)
+    cryptoExpectancy: {
+      ...cryptoExpectancy,
+      tradeCount:   cryptoClosed.length,
+      hasEdge:      cryptoVerdict.hasEdge,
+      verdict:      cryptoVerdict.label,
+      verdictReason: cryptoVerdict.reason,
+    },
 
     // Quick-access summary for truthLayer
     summary: {
