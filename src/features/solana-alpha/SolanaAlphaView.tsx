@@ -78,7 +78,10 @@ function signalActedOn(signal: Partial<SolanaSignal> & { actedOn?: boolean }) {
 
 function wsCandidates() {
   const primary = wsUrl('/ws');
-  return primary === '/ws' ? ['ws://127.0.0.1:8788/ws', primary] : [primary];
+  if (primary !== '/ws') return [primary];
+  const host = typeof window !== 'undefined' ? window.location.hostname : '';
+  const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '';
+  return isLocal ? ['ws://127.0.0.1:8788/ws', primary] : [];
 }
 
 function ActivityTape({ tokens, signals, positions }: { tokens: SolanaToken[]; signals: SolanaSignal[]; positions: PaperPosition[] }) {
@@ -265,7 +268,8 @@ export default function SolanaAlphaView() {
       }
     };
 
-    connectWs(wsCandidates());
+    const candidates = wsCandidates();
+    if (candidates.length > 0) connectWs(candidates);
 
     return () => {
       stopped = true;
