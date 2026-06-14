@@ -19,7 +19,7 @@ import type { Agent } from '@core/types/genesis';
 import CapitalChart from '@dashboard/charts/CapitalChart';
 import AgentPerformanceChart from '@dashboard/charts/AgentPerformanceChart';
 import AgentLivePanel from '@dashboard/AgentLivePanel';
-import { FuturesDeskPanel } from '@components/crypto/FuturesDeskPanel';
+import FuturesSummaryPanel from '@dashboard/FuturesSummaryPanel';
 import SkillsPanel from '@dashboard/SkillsPanel';
 import ResearchSignalsPanel from '@dashboard/ResearchSignalsPanel';
 import { OFFICE_ROOMS } from '@animations/officeRooms';
@@ -186,7 +186,7 @@ export default function GenesisDashboard({ onOpenHQ }: Props) {
             <div className="flex-1 h-px bg-trim" />
           </div>
           {live.futuresMode
-            ? <FuturesDeskPanel futuresDesk={live.futuresDesk} es={lang === 'es'} />
+            ? <FuturesSummaryPanel futuresDesk={live.futuresDesk} es={lang === 'es'} />
             : <AgentLivePanel />}
         </section>
 
