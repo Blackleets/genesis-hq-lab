@@ -52,6 +52,27 @@ export function describeSystemStatus(truth: SystemTruth | null): SystemStatusSum
   }
 
   if (!truth.execution.agentAlive) {
+    // The production runner is the Supabase edge function, driven by a
+    // best-effort cron (target ~5 min, but GitHub Actions can lag to ~1h). The
+    // edge's 10-min agentAlive flag is too aggressive for that cadence, so a
+    // fresh-enough heartbeat is reported calmly as "low-frequency / cron-driven"
+    // rather than alarming "stalled". Only a genuinely old heartbeat is a stall.
+    const ms = truth.agentRunner?.msSinceLastTick ?? null;
+    const mins = ms != null ? Math.round(ms / 60_000) : null;
+    const STALL_MIN = 90;
+    if (mins != null && mins < STALL_MIN) {
+      return {
+        tone: 'muted',
+        label: {
+          es: 'Backend online - runner por cron',
+          en: 'Backend online - cron-driven runner',
+        },
+        detail: {
+          es: `El runner corre por cron (no es continuo). Última señal hace ${mins} min — dentro de lo esperado.`,
+          en: `The runner is cron-driven (not continuous). Last tick ${mins} min ago — within the expected window.`,
+        },
+      };
+    }
     return {
       tone: 'warn',
       label: {
@@ -59,8 +80,12 @@ export function describeSystemStatus(truth: SystemTruth | null): SystemStatusSum
         en: 'Backend online - runner stalled',
       },
       detail: {
-        es: 'La API responde, pero el runner no hace tick hace mas de 10 minutos.',
-        en: 'The API responds, but the runner has not ticked in more than 10 minutes.',
+        es: mins != null
+          ? `La API responde, pero el runner no hace tick hace ${mins} min.`
+          : 'La API responde, pero el runner no ha hecho su primer tick.',
+        en: mins != null
+          ? `The API responds, but the runner has not ticked in ${mins} min.`
+          : 'The API responds, but the runner has not produced a tick yet.',
       },
     };
   }
