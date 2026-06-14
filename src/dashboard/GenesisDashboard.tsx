@@ -190,11 +190,16 @@ export default function GenesisDashboard({ onOpenHQ }: Props) {
             : <AgentLivePanel />}
         </section>
 
-        {/* Research signals + agent skills (live from backend) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          <ResearchSignalsPanel />
-          <SkillsPanel />
-        </div>
+        {/* Research signals + agent skills — legacy prediction-market agent only.
+            These read /api/agent/signals and /api/agent/skills, which don't exist
+            in the serverless prod deploy, so hide them in futures mode instead of
+            showing a permanently-empty "no signals yet" shell. */}
+        {!live.futuresMode && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <ResearchSignalsPanel />
+            <SkillsPanel />
+          </div>
+        )}
 
         {/* 4 Division cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
