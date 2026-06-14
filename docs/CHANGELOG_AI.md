@@ -3,9 +3,9 @@
 ## 2026-06-14 - Codex
 
 - Branch: `feat/genesis-life-os`
-- Summary: Fixed Pump.fun Alpha on Vercel by adding read-only `/api/solana/*` serverless routes backed by the replicated Supabase snapshot, adding `solana_*` tables to durable replication, and replacing the infinite "Connecting" empty state with honest production snapshot/provider status.
-- Files touched: `api/_lib/solanaFallback.js`, `api/solana/status.js`, `api/solana/tokens.js`, `api/solana/wallets.js`, `api/solana/signals.js`, `api/solana/paper/stats.js`, `api/solana/paper/positions.js`, `api/solana/paper/trades.js`, `api/solana/paper/equity.js`, `api/solana/paper/reset.js`, `server/persistence/dbReplicator.mjs`, `src/features/solana-alpha/SolanaAlphaView.tsx`, `src/features/solana-alpha/components/LiveTokenFeed.tsx`, `docs/CHANGELOG_AI.md`
-- Verification: `node --check` on new Solana Vercel routes ok; `npm run typecheck` ok; `npm run build` ok
+- Summary: Fixed Pump.fun Alpha on Vercel by adding one read-only `/api/solana/[...path]` serverless route backed by the replicated Supabase snapshot, adding `solana_*` tables to durable replication, and replacing the infinite "Connecting" empty state with honest production snapshot/provider status. Deleted the first individual Solana route files because they exceeded the Vercel Hobby serverless function limit.
+- Files touched: `api/_lib/solanaFallback.js`, `api/solana/[...path].js`, removed individual `api/solana/*` route files, `server/persistence/dbReplicator.mjs`, `src/features/solana-alpha/SolanaAlphaView.tsx`, `src/features/solana-alpha/components/LiveTokenFeed.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check` on Solana Vercel catch-all route ok; `npm run typecheck` ok; `npm run build` ok; first Vercel deploy failed on function count, consolidated to one route
 
 ## 2026-06-14 - Codex
 
