@@ -2010,12 +2010,14 @@ server.listen(PORT, HOST, () => {
   // Walk-forward auto-scheduler: refreshes OOS evidence every hour when trades ≥ 30.
   startWfScheduler();
 
-  // Keep Render free tier awake — ping own /api/health every 4 min
-  const renderUrl = process.env.RENDER_EXTERNAL_URL;
-  if (renderUrl) {
-    console.log(`[keepalive] Self-ping active → ${renderUrl}/api/health every 4 min`);
+  // Self-ping to stay alive on Railway / Render free tiers
+  const selfUrl = process.env.RAILWAY_PUBLIC_DOMAIN
+    ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+    : process.env.RENDER_EXTERNAL_URL;
+  if (selfUrl) {
+    console.log(`[keepalive] Self-ping active → ${selfUrl}/api/health every 4 min`);
     setInterval(() => {
-      fetch(`${renderUrl}/api/health`, { signal: AbortSignal.timeout(10000) })
+      fetch(`${selfUrl}/api/health`, { signal: AbortSignal.timeout(10000) })
         .then(() => {})
         .catch(() => {});
     }, 4 * 60 * 1000);

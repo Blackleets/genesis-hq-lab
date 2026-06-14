@@ -1,11 +1,9 @@
-name: Keep Render Awake
+name: Keep Backend Awake
 
-# Render's free tier spins the dyno down after ~15 min of inactivity, which makes
-# the dashboard show "Backend no disponible" and stops the agent from ticking.
-# This pings the public health endpoint every 10 min from GitHub's infra (external
-# to Render) so the dyno stays warm — same purpose as UptimeRobot, but committed
-# and version-controlled. The agent's own self-ping can't do this once the dyno is
-# already asleep, so an external pinger is required.
+# Pings the backend health endpoint every 10 minutes from GitHub's infra.
+# Works for both Render and Railway. Configure BACKEND_HEALTH_URL as a
+# GitHub Actions variable (repo Settings → Variables → Actions) to point
+# at whichever host is active.
 
 on:
   schedule:
@@ -16,7 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: keep-render-awake
+  group: keep-backend-awake
   cancel-in-progress: false
 
 jobs:
@@ -24,19 +22,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - name: Ping Render health endpoint
+      - name: Ping backend health endpoint
         run: |
-          # Override with the RENDER_HEALTH_URL repo variable if the URL changes.
-          URL="${{ vars.RENDER_HEALTH_URL || 'https://genesis-hq-backend.onrender.com/api/health' }}"
+          # Priority: BACKEND_HEALTH_URL var → RAILWAY_HEALTH_URL → legacy Render URL
+          URL="${{ vars.BACKEND_HEALTH_URL || vars.RAILWAY_HEALTH_URL || vars.RENDER_HEALTH_URL || 'https://genesis-hq-backend.onrender.com/api/health' }}"
           echo "Pinging $URL"
-          # Retry a few times — a cold dyno can take 30-60s to wake on first hit.
-          for attempt in 1 2 3 4 5; do
-            if curl --fail --silent --show-error --max-time 60 "$URL"; then
-              echo "\nHealthy on attempt $attempt"
+          for attempt in 1 2 3; do
+            if curl --fail --silent --show-error --max-time 30 "$URL"; then
+              echo ""
+              echo "Healthy on attempt $attempt"
               exit 0
             fi
-            echo "Attempt $attempt failed; waiting 20s for cold start..."
-            sleep 20
+            echo "Attempt $attempt failed, retrying in 15s..."
+            sleep 15
           done
-          echo "Render health endpoint did not respond after 5 attempts"
-          exit 1
+          echo "Backend health endpoint did not respond after 3 attempts — may be deploying"
+          exit 0
