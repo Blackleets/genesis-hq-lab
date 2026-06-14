@@ -309,28 +309,6 @@ if (!ONCE) {
     console.log('[agentRunner] Self-ping active → keeping Render awake every 10 min');
   }
 
-  // Drive the Supabase edge futures runner from this always-on process instead of
-  // relying on the GitHub Actions cron. GitHub's `*/5` schedule is best-effort and
-  // in practice fires every 1–4h, so the `external_runner_heartbeat` the public
-  // dashboard reads (via the genesis-fallback edge fn) goes stale and the UI shows
-  // "runner estancado" even while this host is healthy. A 5-min interval from a
-  // 24/7 host keeps that heartbeat well inside the 10-min stall threshold. The edge
-  // fn self-throttles (MIN_INTERVAL_MS) so overlapping GitHub pings are harmless.
-  const _edgeRunnerUrl = process.env.GENESIS_RUNNER_URL
-    || 'https://swgixcbwyhxttnmrglbk.supabase.co/functions/v1/genesis-runner';
-  const _edgeRunnerToken = process.env.GENESIS_RUNNER_TOKEN?.trim();
-  if (_edgeRunnerToken) {
-    const pingEdgeRunner = () => {
-      fetch(_edgeRunnerUrl, { headers: { 'x-genesis-runner-token': _edgeRunnerToken } })
-        .catch((err) => console.warn('[agentRunner] Edge runner ping failed:', err?.message));
-    };
-    setTimeout(pingEdgeRunner, 20_000);                 // early tick after boot settles
-    setInterval(pingEdgeRunner, 5 * 60 * 1000);         // every 5 min < 10-min stall threshold
-    console.log('[agentRunner] Edge runner heartbeat active → driving Supabase tick every 5 min');
-  } else {
-    console.warn('[agentRunner] GENESIS_RUNNER_TOKEN not set — external heartbeat left to GitHub cron (may show STALLED between runs)');
-  }
-
   // Phase 6A — tiered execution scheduler (FAST 5s / MID 30s / SLOW 5min). Starts
   // immediately so crypto paper training begins on boot, independent of the
   // prediction-market cycle.
