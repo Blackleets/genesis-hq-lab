@@ -1,4 +1,4 @@
-import { sendJson, sendMethodNotAllowed } from '../_lib/http.js';
+import { sendJson, sendMethodNotAllowed } from './_lib/http.js';
 import {
   solanaEquityCurve,
   solanaLimit,
@@ -9,16 +9,20 @@ import {
   solanaStatus,
   solanaTokens,
   solanaWallets,
-} from '../_lib/solanaFallback.js';
+} from './_lib/solanaFallback.js';
 
-function parts(req) {
+// Single Solana route. The catch-all api/solana/[...path].js did not route
+// reliably on Vercel (sub-paths 404'd, the path param arrived empty), so the
+// whole Pump.fun feed was dead in prod. This consolidates to one function fed by
+// a vercel.json rewrite: /api/solana/:path*  ->  /api/solana?path=:path*
+function routeKey(req) {
   const raw = req.query?.path;
-  return Array.isArray(raw) ? raw : String(raw ?? '').split('/').filter(Boolean);
+  if (Array.isArray(raw)) return raw.join('/');
+  return String(raw ?? '').replace(/^\/+/, '');
 }
 
 export default async function handler(req, res) {
-  const path = parts(req);
-  const key = path.join('/');
+  const key = routeKey(req);
 
   if (req.method === 'GET') {
     if (key === 'status') return sendJson(res, 200, await solanaStatus());
