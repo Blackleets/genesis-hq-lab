@@ -32,6 +32,11 @@ function localApiUrl(path: string): string {
   return path.startsWith('/') ? path : `/${path}`;
 }
 
+function localAltApiUrl(path: string): string {
+  const p = path.startsWith('/') ? path : `/${path}`;
+  return `http://127.0.0.1:8788${p}`;
+}
+
 export async function fetchApi(
   path: string,
   init?: RequestInit,
@@ -39,11 +44,17 @@ export async function fetchApi(
 ): Promise<Response> {
   const primary = apiUrl(path);
   const fallbackToLocal = options?.fallbackToLocal !== false && typeof window !== 'undefined' && getApiOrigin() !== '';
+  const fallbackToAltLocal = options?.fallbackToLocal !== false && typeof window !== 'undefined' && getApiOrigin() === '';
   try {
     const res = await fetch(primary, init);
+    const contentType = res.headers.get('content-type') ?? '';
+    if (res.ok && primary.startsWith('/api') && contentType && !contentType.includes('application/json') && fallbackToAltLocal) {
+      return fetch(localAltApiUrl(path), init);
+    }
     if (res.ok || !fallbackToLocal) return res;
     if (res.status < 500) return res;
   } catch (error) {
+    if (fallbackToAltLocal) return fetch(localAltApiUrl(path), init);
     if (!fallbackToLocal) throw error;
   }
   return fetch(localApiUrl(path), init);

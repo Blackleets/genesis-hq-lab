@@ -13,6 +13,8 @@ import {
 import type { TaskType } from '@core/types/task';
 import type { RoomId } from '@core/types/office';
 import { agentClient } from '@services/agentClient';
+import { useTruthLayer } from '@hooks/useTruthLayer';
+import { describeSystemStatus } from '@ui/systemStatus';
 
 const EXAMPLE_COMMANDS = [
   'Escanear mercados ahora',
@@ -110,6 +112,8 @@ function HistoryItem({
 
 export default function CommandConsole() {
   const lang = useLanguage();
+  const { truth } = useTruthLayer();
+  const systemStatus = describeSystemStatus(truth);
   const agents = useActiveAgents();
   const allTasks = useTasks();
   const history = useCommandHistory();
@@ -246,6 +250,26 @@ export default function CommandConsole() {
             ? 'Escribe qué quieres lograr. Los agentes lo ejecutan de inmediato.'
             : 'Write what you want to achieve. Agents execute it immediately.'}
         </p>
+        <div
+          className="mt-3 border px-3 py-2 font-mono text-[11px] leading-snug"
+          style={{
+            borderColor: systemStatus.tone === 'live' ? 'rgba(0,255,156,0.28)' : systemStatus.tone === 'warn' ? 'rgba(251,191,36,0.28)' : 'rgba(255,71,87,0.28)',
+            background: systemStatus.tone === 'live' ? 'rgba(0,255,156,0.05)' : systemStatus.tone === 'warn' ? 'rgba(251,191,36,0.06)' : 'rgba(255,71,87,0.07)',
+            color: systemStatus.tone === 'live' ? '#b6f7da' : systemStatus.tone === 'warn' ? '#fde68a' : '#fecaca',
+          }}
+        >
+          <div className="uppercase tracking-[0.16em] text-[10px] mb-1">
+            {lang === 'es' ? 'Modo de consola' : 'Console mode'}
+          </div>
+          <div>{systemStatus.label[lang]}</div>
+          <div className="text-zinc-400 mt-1">
+            {!truth
+              ? (lang === 'es'
+                ? 'Si ejecutas ahora, Genesis solo crea tareas visuales locales. No hay escritura real al backend.'
+                : 'If you execute now, Genesis only creates local visual tasks. No real backend write will happen.')
+              : systemStatus.detail[lang]}
+          </div>
+        </div>
       </div>
 
       <div className="flex-1 min-h-0 flex overflow-hidden">

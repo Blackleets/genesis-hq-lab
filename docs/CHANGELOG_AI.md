@@ -1,5 +1,40 @@
 # CHANGELOG_AI
 
+## 2026-06-14 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Finished the interrupted Genesis Life OS pass by validating the pending operational-status UI and Solana Alpha free-tier changes. Fixed the missing PumpPortal paywall warning state in `feed.mjs` and added a reserve-price fallback so launch signals can open paper trades even when pump.fun's public oracle lags a few seconds.
+- Files touched: `server/solana-alpha/feed.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check` on Solana Alpha modules ok; `npm run typecheck` ok; `npm run build` ok; local server on `PORT=8788` loaded `/api/solana/*` and opened one 1 SOL virtual paper trade from an 81-confidence launch signal; `npm run lint` failed on pre-existing React purity/set-state and Supabase `any` debt
+
+## 2026-06-14 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Gave Pump.fun Alpha a live radar treatment instead of a static generic grid: real launch tape, animated bonding-curve bars, signal confidence bars, open paper-trade progress, and local fallback to `8788` when `8787` is occupied by another project. No fake token data was added.
+- Files touched: `src/features/solana-alpha/SolanaAlphaView.tsx`, `src/features/solana-alpha/api/solanaClient.ts`, `src/features/solana-alpha/components/LiveTokenFeed.tsx`, `src/features/solana-alpha/components/AlphaSignals.tsx`, `src/features/solana-alpha/components/PaperPortfolio.tsx`, `src/hooks/useWebSocket.ts`, `src/services/apiBase.ts`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run typecheck` ok; `npm run build` ok; Playwright opened Pump.fun Alpha with backend on `PORT=8788` and showed live launches, signals, and paper positions
+
+## 2026-06-14 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Fixed Pump.fun Alpha layout compression/overlap. The main grid now has controlled viewport-based height, scrolls only when the screen is too short, and supports both desktop and narrower layouts without panels covering each other. Also fixed live WebSocket signals showing `NaNh`.
+- Files touched: `src/features/solana-alpha/SolanaAlphaView.tsx`, `src/features/solana-alpha/components/AlphaSignals.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run typecheck` ok; `npm run build` ok; Playwright screenshots checked at `1440x900` and `1440x720`
+
+## 2026-06-14 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Reworked Pump.fun Alpha from the old six-panel grid into a command-center layout: large live token feed, large alpha signal tape, and a right-side trading/risk/equity stack. Moved wallet intelligence below the fold so the first viewport focuses on what makes money now.
+- Files touched: `src/features/solana-alpha/SolanaAlphaView.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run typecheck` ok; `npm run build` ok; Playwright screenshot checked at `1440x900`
+
+## 2026-06-14 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Fixed Crypto Lab blank/crash state. `EngineTelemetry` now tolerates partial diagnostics payloads where scan assets have only `symbol` and `reason`, instead of crashing on missing `asset.missing`.
+- Files touched: `src/components/crypto/EngineTelemetry.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run typecheck` ok; `npm run build` ok; Playwright opened Crypto Lab and confirmed the chart/terminal rendered instead of ErrorBoundary
+
 ## 2026-06-13 — Claude (scheduler crash-safety + allocation rebalance bug + Render keep-alive)
 
 - Branch: `fix/scheduler-bugs-and-keepalive`
@@ -51,6 +86,13 @@
 - Files created: `server/quant/alpha/strategyRegistry.mjs`, `server/quant/validation/validationGate.mjs`, `server/quant/portfolio/allocationEngine.mjs`, `server/quant/quantState.mjs`, `server/quant/quantReport.mjs`, `server/quant/index.mjs`, `server/tests/quantStrategyRegistry.test.mjs`, `server/tests/quantValidationGate.test.mjs`, `server/tests/quantAllocationEngine.test.mjs`, `server/tests/quantReport.test.mjs`
 - Files modified: `server/index.mjs`
 - Verification: `npm run typecheck` clean, `npm test` 988/988 pass, `npm run build` ok
+
+## 2026-06-11 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Clarified operational status across the app so `backend offline`, `runner stalled`, `safe mode`, and `live` are no longer conflated. Dashboard, header, top bar, command console, live runner panel, wallet messaging, and decisions now explain whether the API is down, the runner never started, the runner stalled, or a separate debate backend is missing.
+- Files touched: `src/ui/systemStatus.ts`, `src/ui/GenesisHeader.tsx`, `src/ui/TopBar.tsx`, `src/dashboard/GenesisDashboard.tsx`, `src/dashboard/AgentLivePanel.tsx`, `src/workflows/CommandConsole.tsx`, `src/workflows/DecisionsView.tsx`, `src/ui/WalletView.tsx`, `src/core/data/moduleRegistry.ts`, `docs/CHANGELOG_AI.md`
+- Verification: `npm run typecheck` ok; `npm run build` ok
 
 ## 2026-06-11 - Codex
 
