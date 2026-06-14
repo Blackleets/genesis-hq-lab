@@ -78,7 +78,19 @@ export default function CryptoLabView() {
     }
   }, []);
 
+  // In the serverless prod deploy the futures desk is a read-only Supabase
+  // snapshot (the edge fn flags this in `warnings`). Write actions (run cycle,
+  // baseline reset, supervisor run/apply/rollback, manual orders) hit endpoints
+  // that don't exist there and 404. Detect snapshot mode so handlers can refuse
+  // with a clear message instead of a silent failure.
+  const isSnapshot = (futuresDesk?.warnings ?? []).some((w) =>
+    /snapshot|fallback|unavailable|render backend/i.test(w.error));
+  const snapshotMsg = es
+    ? 'Modo snapshot (solo lectura): acción no disponible en producción.'
+    : 'Snapshot mode (read-only): action unavailable in production.';
+
   const handleRunFuturesCycle = useCallback(async () => {
+    if (isSnapshot) { setFuturesCycleStatus(snapshotMsg); return; }
     setFuturesCycleBusy(true);
     setFuturesCycleStatus(es ? 'Ejecutando ciclo real de futuros...' : 'Running real futures cycle...');
     try {
@@ -115,9 +127,10 @@ export default function CryptoLabView() {
     } finally {
       setFuturesCycleBusy(false);
     }
-  }, [es, fetchDiagnostics, fetchOverview, fetchTrades]);
+  }, [es, fetchDiagnostics, fetchOverview, fetchTrades, isSnapshot, snapshotMsg]);
 
   const handleResetFuturesBaseline = useCallback(async () => {
+    if (isSnapshot) { setFuturesCycleStatus(snapshotMsg); return; }
     setFuturesBaselineBusy(true);
     setFuturesCycleStatus(es ? 'Reiniciando baseline de PnL de futuros...' : 'Resetting futures PnL baseline...');
     try {
@@ -139,9 +152,10 @@ export default function CryptoLabView() {
     } finally {
       setFuturesBaselineBusy(false);
     }
-  }, [es, fetchDiagnostics, fetchOverview, fetchTrades]);
+  }, [es, fetchDiagnostics, fetchOverview, fetchTrades, isSnapshot, snapshotMsg]);
 
   const handleRunSupervisor = useCallback(async () => {
+    if (isSnapshot) { setFuturesCycleStatus(snapshotMsg); return; }
     setSupervisorBusy(true);
     setFuturesCycleStatus(es ? 'Ejecutando supervisor advisory de futuros...' : 'Running futures advisory supervisor...');
     try {
@@ -170,9 +184,10 @@ export default function CryptoLabView() {
     } finally {
       setSupervisorBusy(false);
     }
-  }, [es]);
+  }, [es, isSnapshot, snapshotMsg]);
 
   const handleApplySupervisor = useCallback(async () => {
+    if (isSnapshot) { setFuturesCycleStatus(snapshotMsg); return; }
     const runId = futuresDesk?.supervisor?.latest?.id ?? futuresDesk?.supervisor?.latestAttempt?.id ?? null;
     if (!runId) {
       setFuturesCycleStatus(es ? 'No hay recomendacion aplicable.' : 'No applicable recommendation exists.');
@@ -206,9 +221,10 @@ export default function CryptoLabView() {
     } finally {
       setSupervisorApplyBusy(false);
     }
-  }, [es, futuresDesk]);
+  }, [es, futuresDesk, isSnapshot, snapshotMsg]);
 
   const handleRollbackSupervisor = useCallback(async () => {
+    if (isSnapshot) { setFuturesCycleStatus(snapshotMsg); return; }
     setSupervisorRollbackBusy(true);
     setFuturesCycleStatus(es ? 'Revirtiendo overrides del supervisor...' : 'Rolling back supervisor overrides...');
     try {
@@ -231,7 +247,7 @@ export default function CryptoLabView() {
     } finally {
       setSupervisorRollbackBusy(false);
     }
-  }, [es]);
+  }, [es, isSnapshot, snapshotMsg]);
 
   useEffect(() => {
     fetchOverview(); fetchTrades(); fetchCommentary(); fetchDiagnostics(); fetchShadowCandidate(); fetchBreakoutShadow(); fetchFuturesDesk();
@@ -259,6 +275,7 @@ export default function CryptoLabView() {
   }, [tradeStories]);
 
   async function handleManualOrder(side: 'LONG' | 'SHORT', pair: string) {
+    if (isSnapshot) { setOrderStatus(snapshotMsg); return; }
     setOrderStatus(`Enviando ${side} ${pair.replace('USDT', '')}…`);
     try {
       const res = await fetch(apiUrl('/api/crypto/order'), {
