@@ -3,6 +3,13 @@
 ## 2026-06-14 - Codex
 
 - Branch: `feat/genesis-life-os`
+- Summary: Fixed Pump.fun Alpha on Vercel by adding read-only `/api/solana/*` serverless routes backed by the replicated Supabase snapshot, adding `solana_*` tables to durable replication, and replacing the infinite "Connecting" empty state with honest production snapshot/provider status.
+- Files touched: `api/_lib/solanaFallback.js`, `api/solana/status.js`, `api/solana/tokens.js`, `api/solana/wallets.js`, `api/solana/signals.js`, `api/solana/paper/stats.js`, `api/solana/paper/positions.js`, `api/solana/paper/trades.js`, `api/solana/paper/equity.js`, `api/solana/paper/reset.js`, `server/persistence/dbReplicator.mjs`, `src/features/solana-alpha/SolanaAlphaView.tsx`, `src/features/solana-alpha/components/LiveTokenFeed.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check` on new Solana Vercel routes ok; `npm run typecheck` ok; `npm run build` ok
+
+## 2026-06-14 - Codex
+
+- Branch: `feat/genesis-life-os`
 - Summary: Finished the interrupted Genesis Life OS pass by validating the pending operational-status UI and Solana Alpha free-tier changes. Fixed the missing PumpPortal paywall warning state in `feed.mjs` and added a reserve-price fallback so launch signals can open paper trades even when pump.fun's public oracle lags a few seconds.
 - Files touched: `server/solana-alpha/feed.mjs`, `docs/CHANGELOG_AI.md`
 - Verification: `node --check` on Solana Alpha modules ok; `npm run typecheck` ok; `npm run build` ok; local server on `PORT=8788` loaded `/api/solana/*` and opened one 1 SOL virtual paper trade from an 81-confidence launch signal; `npm run lint` failed on pre-existing React purity/set-state and Supabase `any` debt

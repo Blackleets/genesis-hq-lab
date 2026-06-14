@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import type { SolanaToken } from '../api/solanaClient';
+import type { SolanaStatus, SolanaToken } from '../api/solanaClient';
 
 interface Props {
   tokens: SolanaToken[];
+  status: SolanaStatus;
 }
 
 function ago(ts: number) {
@@ -19,7 +20,7 @@ function bc(pct: number) {
   return '#4b5563';
 }
 
-export function LiveTokenFeed({ tokens }: Props) {
+export function LiveTokenFeed({ tokens, status }: Props) {
   const [flash, setFlash] = useState<string | null>(null);
   const prevLen = useRef(tokens.length);
 
@@ -41,8 +42,13 @@ export function LiveTokenFeed({ tokens }: Props) {
       </div>
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {tokens.length === 0 ? (
-          <div style={{ padding: '20px 12px', textAlign: 'center', color: '#374151', fontSize: 11 }}>
-            Connecting to Pump.fun...
+          <div style={{ padding: '20px 12px', textAlign: 'center', color: '#64748b', fontSize: 11, lineHeight: 1.5 }}>
+            <div style={{ color: status.wsStatus === 'Provider not configured' ? '#ffb547' : '#94a3b8', fontWeight: 800 }}>
+              {status.wsStatus || 'Pump.fun feed offline'}
+            </div>
+            <div style={{ marginTop: 6, color: '#475569', fontSize: 10 }}>
+              Production reads the real Solana Alpha snapshot from Supabase. No simulated launches.
+            </div>
           </div>
         ) : tokens.map((t, i) => (
           <div key={t.mint} style={{

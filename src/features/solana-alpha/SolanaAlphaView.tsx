@@ -90,7 +90,7 @@ function ActivityTape({ tokens, signals, positions }: { tokens: SolanaToken[]; s
   if (events.length === 0) {
     return (
       <div style={{ color: '#64748b', fontSize: 10, fontFamily: 'monospace' }}>
-        No live Solana events yet. Start this backend on port 8788 if 8787 is occupied.
+        No Solana Alpha events in the production snapshot yet. No simulated launches.
       </div>
     );
   }
@@ -367,7 +367,7 @@ export default function SolanaAlphaView() {
 
       <div className="solana-alpha-main">
         <div className="solana-alpha-feed-column">
-          <LiveTokenFeed tokens={tokens} />
+          <LiveTokenFeed tokens={tokens} status={status} />
         </div>
         <div className="solana-alpha-signal-column">
           <AlphaSignals signals={signals} />
