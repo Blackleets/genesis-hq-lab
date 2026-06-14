@@ -5,6 +5,10 @@ logs/
 /data/
 *.log
 *.png
+# …but keep the public PNG sprites/tilesets the app serves at runtime
+# (office furniture, kenney tilemaps). Without this they 404 in prod and the
+# office view renders broken-image icons.
+!public/**/*.png
 tmp-*.json
 .playwright-mcp/
 .tunnel/
