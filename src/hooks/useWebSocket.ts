@@ -18,15 +18,15 @@ interface UseWebSocketReturn {
   connectionStatus: ConnectionStatus;
 }
 
-const WS_URL = (() => {
+const WS_URLS = (() => {
   try {
     const base = import.meta.env?.VITE_API_BASE ?? '';
     if (base) {
-      return base.replace(/^http/, 'ws') + '/ws';
+      return [base.replace(/^http/, 'ws') + '/ws'];
     }
-    return `ws://${window.location.hostname}:8787/ws`;
+    return [`ws://${window.location.hostname}:8787/ws`, `ws://${window.location.hostname}:8788/ws`];
   } catch {
-    return 'ws://localhost:8787/ws';
+    return ['ws://localhost:8787/ws', 'ws://localhost:8788/ws'];
   }
 })();
 
@@ -41,18 +41,20 @@ export function useWebSocket(): UseWebSocketReturn {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const unmountedRef = useRef(false);
   const connectRef = useRef<() => void>(() => { });
+  const urlIndexRef = useRef(0);
 
   const connect = useCallback(() => {
     if (unmountedRef.current) return;
     setConnectionStatus('connecting');
 
     try {
-      const ws = new WebSocket(WS_URL);
+      const ws = new WebSocket(WS_URLS[urlIndexRef.current] ?? WS_URLS[0]);
       wsRef.current = ws;
 
       ws.onopen = () => {
         if (unmountedRef.current) { ws.close(); return; }
         retryCountRef.current = 0;
+        urlIndexRef.current = 0;
         setConnectionStatus('open');
       };
 
@@ -69,6 +71,7 @@ export function useWebSocket(): UseWebSocketReturn {
         wsRef.current = null;
         // Exponential backoff, capped at MAX_RETRIES
         if (retryCountRef.current < MAX_RETRIES) {
+          urlIndexRef.current = (urlIndexRef.current + 1) % WS_URLS.length;
           const delay = BASE_DELAY_MS * Math.pow(2, retryCountRef.current);
           retryCountRef.current++;
           timeoutRef.current = setTimeout(() => connectRef.current(), delay);

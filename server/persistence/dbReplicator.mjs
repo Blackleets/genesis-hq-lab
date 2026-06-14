@@ -26,6 +26,11 @@ const DURABLE = [
   { table: 'skill_versions',   pk: 'id',  mode: 'full'   },
   { table: 'intelligence_runs', pk: 'id', mode: 'cursor', cursorExpr: 'created_at' },
   { table: 'org_state',        pk: 'key', mode: 'full'   },
+  { table: 'solana_tokens',     pk: 'mint', mode: 'cursor', cursorExpr: 'updated_at' },
+  { table: 'solana_wallets',    pk: 'address', mode: 'cursor', cursorExpr: 'last_active' },
+  { table: 'solana_signals',    pk: 'id', mode: 'cursor', cursorExpr: 'created_at' },
+  { table: 'solana_paper_trades', pk: 'id', mode: 'cursor', cursorExpr: "COALESCE(closed_at, opened_at)" },
+  { table: 'solana_equity_snapshots', pk: 'id', mode: 'rowid' },
 ];
 
 // ── Mode + enablement ─────────────────────────────────────────────────────────

@@ -40,6 +40,7 @@ function WhyNoTrade({ asset }: { asset: ScanAsset }) {
   const sym = asset.symbol;
   const accepted = asset.reason === 'ACCEPTED';
   const color = accepted ? '#22c55e' : asset.reason === 'LOW_CONFIDENCE' ? '#f59e0b' : '#6b7280';
+  const missing = Array.isArray(asset.missing) ? asset.missing : [];
 
   return (
     <div style={{
@@ -78,10 +79,10 @@ function WhyNoTrade({ asset }: { asset: ScanAsset }) {
           {asset.confidence} &lt; required {asset.gate}
         </div>
       )}
-      {!accepted && asset.missing.length > 0 && (
+      {!accepted && missing.length > 0 && (
         <div style={{ marginTop: 2 }}>
           <span style={{ color: '#4b5563', fontSize: 8 }}>Missing confluences:</span>
-          {asset.missing.map((m, i) => (
+          {missing.map((m, i) => (
             <div key={i} style={{ color: '#6b7280', fontSize: 9, display: 'flex', gap: 4 }}>
               <span style={{ color: '#ef4444' }}>·</span><span>{m}</span>
             </div>

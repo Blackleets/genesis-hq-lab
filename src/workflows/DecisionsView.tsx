@@ -80,7 +80,9 @@ function AgentDebatesPanel() {
 
       {/* Offline */}
       {offline && (
-        <p className="font-mono text-[12px] text-zinc-500">Conectando con el agente...</p>
+        <p className="font-mono text-[12px] text-zinc-500">
+          Backend de debates no disponible. Esta vista depende del feed de /api/trading/debates.
+        </p>
       )}
 
       {/* Loading */}
@@ -170,8 +172,8 @@ function DecisionCard({ d }: { d: DecisionRecord }) {
       const online = await checkMiroFishHealth();
       if (!online) {
         setDebateError(lang === 'es'
-          ? 'MiroFish no está activo. Ejecuta: cd MiroFish && npm run backend'
-          : 'MiroFish is offline. Run: cd MiroFish && npm run backend');
+          ? 'MiroFish esta offline. Es un backend separado del backend principal de Genesis.'
+          : 'MiroFish is offline. It is a separate backend from the main Genesis backend.');
         return;
       }
       const context = `Option A: ${d.optionA}. Option B: ${d.optionB}. ${d.context ?? ''}`;

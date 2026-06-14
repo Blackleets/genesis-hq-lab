@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useLanguage } from '@core/i18n/languageStore';
 import { useLiveTrading } from '@dashboard/hooks/useLiveTrading';
 import { useActiveAgents, useOnboardingAgents, useWallet } from '@core/store/genesisStore';
+import { useTruthLayer } from '@hooks/useTruthLayer';
+import { describeSystemStatus } from '@ui/systemStatus';
 
 function truncateAddress(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
@@ -10,6 +12,8 @@ function truncateAddress(addr: string): string {
 export default function TopBar() {
   const lang = useLanguage();
   const live = useLiveTrading();
+  const { truth } = useTruthLayer();
+  const systemStatus = describeSystemStatus(truth);
   const activeAgents = useActiveAgents();
   const onboardingAgents = useOnboardingAgents();
   const wallet = useWallet();
@@ -28,6 +32,11 @@ export default function TopBar() {
   const pnlLabel = live.futuresMode ? 'P&L fut' : 'P&L cap';
   const marginLabel = live.futuresMode ? (lang === 'es' ? 'Margen fut' : 'Fut margin') : (lang === 'es' ? 'Margen' : 'Margin');
   const openLabel = live.futuresMode ? (lang === 'es' ? 'Fut abiertas' : 'Fut open') : (lang === 'es' ? 'Abiertas' : 'Open');
+  const statusColor = systemStatus.tone === 'live'
+    ? '#00ff9c'
+    : systemStatus.tone === 'warn'
+      ? '#fbbf24'
+      : '#ff4757';
 
   return (
     <div className="shrink-0 h-8 bg-carbon-200 border-b border-trim flex items-center px-4 gap-4 font-mono text-[10px] uppercase tracking-wider overflow-hidden">
@@ -65,8 +74,8 @@ export default function TopBar() {
           </span>
         </>
       ) : (
-        <span className="text-amber-400/90 shrink-0">
-          {lang === 'es' ? 'Backend offline — npm run start' : 'Backend offline — npm run start'}
+        <span className="shrink-0" style={{ color: statusColor }}>
+          {systemStatus.label[lang]}
         </span>
       )}
       <span className="text-zinc-700">|</span>
@@ -83,10 +92,11 @@ export default function TopBar() {
       <span className="text-zinc-700 ml-auto">|</span>
       <span
         className="flex items-center gap-1.5 shrink-0"
-        style={{ color: live.online ? (livePulse ? '#00ff9c' : '#4a5568') : '#ff4757' }}
+        style={{ color: systemStatus.tone === 'live' ? (livePulse ? '#00ff9c' : '#4a5568') : statusColor }}
+        title={systemStatus.detail[lang]}
       >
         <span className="inline-block w-1.5 h-1.5 rounded-full bg-current" />
-        {live.online ? 'LIVE' : 'OFFLINE'}
+        {systemStatus.tone === 'live' ? 'LIVE' : systemStatus.tone === 'warn' ? 'WARN' : 'OFFLINE'}
       </span>
     </div>
   );
