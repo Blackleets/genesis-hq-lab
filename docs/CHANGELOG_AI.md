@@ -87,6 +87,13 @@
 - Files modified: `server/index.mjs`
 - Verification: `npm run typecheck` clean, `npm test` 988/988 pass, `npm run build` ok
 
+## 2026-06-14 - Codex
+
+- Branch: `feat/genesis-life-os`
+- Summary: Added Vercel/Git ignore hygiene so the preview deploy ships the actual app bundle and excludes local `vendor/` artifacts, logs, build output, screenshots, and temp capture files.
+- Files touched: `.vercelignore`, `.gitignore`, `docs/CHANGELOG_AI.md`
+- Verification: pending Vercel preview deploy
+
 ## 2026-06-11 - Codex
 
 - Branch: `feat/genesis-life-os`
