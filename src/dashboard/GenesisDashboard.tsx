@@ -19,6 +19,7 @@ import type { Agent } from '@core/types/genesis';
 import CapitalChart from '@dashboard/charts/CapitalChart';
 import AgentPerformanceChart from '@dashboard/charts/AgentPerformanceChart';
 import AgentLivePanel from '@dashboard/AgentLivePanel';
+import { FuturesDeskPanel } from '@components/crypto/FuturesDeskPanel';
 import SkillsPanel from '@dashboard/SkillsPanel';
 import ResearchSignalsPanel from '@dashboard/ResearchSignalsPanel';
 import { OFFICE_ROOMS } from '@animations/officeRooms';
@@ -174,7 +175,9 @@ export default function GenesisDashboard({ onOpenHQ }: Props) {
           </div>
         )}
 
-        {/* Live agent runner — datos reales del backend SQLite */}
+        {/* Live trading — futures desk in production (futures-only / serverless
+            snapshot), legacy prediction-market agent panel when that runner is
+            active (local dev). useLiveTrading().futuresMode is the mode signal. */}
         <section>
           <div className="flex items-center gap-2 mb-2">
             <span className="gx-overline">
@@ -182,7 +185,9 @@ export default function GenesisDashboard({ onOpenHQ }: Props) {
             </span>
             <div className="flex-1 h-px bg-trim" />
           </div>
-          <AgentLivePanel />
+          {live.futuresMode
+            ? <FuturesDeskPanel futuresDesk={live.futuresDesk} es={lang === 'es'} />
+            : <AgentLivePanel />}
         </section>
 
         {/* Research signals + agent skills (live from backend) */}

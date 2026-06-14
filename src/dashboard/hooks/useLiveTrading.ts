@@ -23,6 +23,7 @@ export interface LiveTradingMetrics {
   drawdownPct: number;
   capitalHistory: { at: string; value: number }[];
   futuresMode: boolean;
+  futuresDesk: FuturesDeskSnapshot | null;
 }
 
 export function useLiveTrading(): LiveTradingMetrics {
@@ -77,6 +78,7 @@ export function useLiveTrading(): LiveTradingMetrics {
       drawdownPct: treasury?.drawdownPct ?? 0,
       capitalHistory,
       futuresMode,
+      futuresDesk,
     };
   }, [dashboard, trades, online, lastSync, futuresDesk]);
 }
