@@ -1540,6 +1540,17 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === '/api/version') {
+    sendJson(res, 200, {
+      ok: true,
+      commit: process.env.RENDER_GIT_COMMIT ?? 'local',
+      deployedAt: process.env.RENDER_SERVICE_INSTANCE_ID ?? 'dev',
+      solanaModule: _solana ? 'loaded' : (_solanaError ? `error: ${_solanaError}` : 'loading'),
+      node: process.version,
+    });
+    return;
+  }
+
   if (url.pathname === '/api/health') {
     try {
       const treasury = getTreasury();

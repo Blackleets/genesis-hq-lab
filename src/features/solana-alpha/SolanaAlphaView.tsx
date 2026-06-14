@@ -21,7 +21,8 @@ import { PaperPortfolio }     from './components/PaperPortfolio';
 import { RiskMonitor }        from './components/RiskMonitor';
 import { EquityCurve }        from './components/EquityCurve';
 
-const POLL_MS = 10_000;
+const POLL_CONNECTED_MS  = 10_000;
+const POLL_RETRY_MS      = 4_000;   // faster retry when disconnected
 
 const DEFAULT_STATUS: SolanaStatus = {
   connected: false, wsStatus: 'disconnected', subscribedTokens: 0,
@@ -44,7 +45,9 @@ export default function SolanaAlphaView() {
   const [trades, setTrades]       = useState<PaperTrade[]>([]);
   const [curve, setCurve]         = useState<EquityPoint[]>([]);
   const [error, setError]         = useState<string | null>(null);
+  const [loading, setLoading]     = useState(true);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollMsRef = useRef(POLL_RETRY_MS);
 
   const loadAll = useCallback(async () => {
     try {
@@ -69,14 +72,29 @@ export default function SolanaAlphaView() {
       setTrades(tr.trades);
       setCurve(eq.curve);
       setError(null);
+      setLoading(false);
+      // slow down polling once connected
+      pollMsRef.current = POLL_CONNECTED_MS;
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load');
+      const msg = e instanceof Error ? e.message : 'Failed to load';
+      // 503 = module still loading on backend, retry fast
+      const is503 = msg.includes('503');
+      setError(is503 ? 'backend iniciando módulo...' : msg);
+      setLoading(is503);
+      pollMsRef.current = POLL_RETRY_MS;
     }
   }, []);
 
   useEffect(() => {
     loadAll();
-    timerRef.current = setInterval(loadAll, POLL_MS);
+    // self-adjusting poll: fast (4s) when not connected, slow (10s) when live
+    const schedulePoll = () => {
+      timerRef.current = setTimeout(async () => {
+        await loadAll();
+        schedulePoll();
+      }, pollMsRef.current);
+    };
+    schedulePoll();
 
     // WebSocket live events (add new tokens/signals to top of list)
     let ws: WebSocket | null = null;
@@ -105,7 +123,7 @@ export default function SolanaAlphaView() {
     } catch { /* WS optional */ }
 
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (timerRef.current) clearTimeout(timerRef.current);
       if (ws) ws.close();
     };
   }, [loadAll]);
@@ -167,8 +185,13 @@ export default function SolanaAlphaView() {
             PAPER ONLY · live_mode=false
           </div>
 
+          {loading && !error && (
+            <div style={{ fontSize: 9, color: '#f59e0b', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 4, padding: '3px 8px' }}>
+              ⟳ conectando...
+            </div>
+          )}
           {error && (
-            <div style={{ fontSize: 9, color: '#ef4444', background: 'rgba(239,68,68,0.1)', borderRadius: 4, padding: '3px 8px' }}>
+            <div style={{ fontSize: 9, color: loading ? '#f59e0b' : '#ef4444', background: loading ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)', border: `1px solid ${loading ? 'rgba(245,158,11,0.2)' : 'rgba(239,68,68,0.2)'}`, borderRadius: 4, padding: '3px 8px' }}>
               {error}
             </div>
           )}

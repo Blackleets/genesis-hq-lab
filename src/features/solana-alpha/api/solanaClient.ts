@@ -7,7 +7,11 @@ const BASE = getApiOrigin();
 
 async function get<T>(path: string): Promise<T> {
   const r = await fetch(`${BASE}${path}`, { cache: 'no-store' });
-  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  if (!r.ok) {
+    const body = await r.json().catch(() => ({})) as Record<string, unknown>;
+    const msg = typeof body?.error === 'string' ? body.error : `${r.status} ${r.statusText}`;
+    throw new Error(msg);
+  }
   return r.json() as Promise<T>;
 }
 
