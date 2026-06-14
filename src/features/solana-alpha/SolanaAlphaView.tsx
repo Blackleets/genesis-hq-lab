@@ -279,6 +279,12 @@ export default function SolanaAlphaView() {
   }, [loadAll]);
 
   const handleReset = async () => {
+    // In production the Solana feed is a read-only snapshot (liveMode=false);
+    // paper/reset 409s there. Refuse early instead of surfacing a red error.
+    if (!stats.liveMode) {
+      setError('Solo lectura: el reset requiere el backend en vivo, no el snapshot de producción.');
+      return;
+    }
     if (!confirm('Reset paper balance to 100 SOL and close all positions?')) return;
     try {
       await resetPaperBalance();

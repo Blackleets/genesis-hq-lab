@@ -34,10 +34,12 @@ export function PaperPortfolio({ stats, positions, trades, onReset }: Props) {
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#0a0e1a', border: '1px solid #1e2a3a', borderRadius: 8, overflow: 'hidden', boxShadow: 'inset 0 1px 0 rgba(255,210,74,.08)' }}>
       <div style={{ padding: '8px 12px', borderBottom: '1px solid #1e2a3a', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         <span style={{ fontSize: 10, color: '#ffd24a', fontWeight: 800, letterSpacing: 1.2 }}>PAPER PORTFOLIO</span>
-        <span style={{ fontSize: 9, color: '#64748b', background: '#111827', borderRadius: 3, padding: '1px 5px' }}>live_mode=false</span>
+        <span style={{ fontSize: 9, color: '#64748b', background: '#111827', borderRadius: 3, padding: '1px 5px' }}>live_mode={String(stats.liveMode)}</span>
         <button
           onClick={onReset}
-          style={{ marginLeft: 'auto', fontSize: 9, color: '#94a3b8', background: '#111827', border: '1px solid #1e2a3a', borderRadius: 3, padding: '2px 6px', cursor: 'pointer' }}
+          disabled={!stats.liveMode}
+          title={stats.liveMode ? 'Reset paper balance' : 'Solo lectura: el reset requiere el backend en vivo, no el snapshot de producción.'}
+          style={{ marginLeft: 'auto', fontSize: 9, color: stats.liveMode ? '#94a3b8' : '#475569', background: '#111827', border: '1px solid #1e2a3a', borderRadius: 3, padding: '2px 6px', cursor: stats.liveMode ? 'pointer' : 'not-allowed' }}
         >
           Reset
         </button>
