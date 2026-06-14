@@ -90,9 +90,9 @@
 ## 2026-06-14 - Codex
 
 - Branch: `feat/genesis-life-os`
-- Summary: Added Vercel/Git ignore hygiene so the preview deploy ships the actual app bundle and excludes local `vendor/` artifacts, logs, build output, screenshots, and temp capture files.
+- Summary: Added Vercel/Git ignore hygiene so the preview deploy ships the actual app bundle and excludes local `vendor/` artifacts, logs, build output, screenshots, temp capture files, and only the root SQLite data folder.
 - Files touched: `.vercelignore`, `.gitignore`, `docs/CHANGELOG_AI.md`
-- Verification: pending Vercel preview deploy
+- Verification: `npm run build` ok; first Vercel preview failed because `data/` excluded `src/*/data`, fixed to `/data/`; preview redeploy pending
 
 ## 2026-06-11 - Codex
 
