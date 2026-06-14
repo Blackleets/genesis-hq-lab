@@ -50,10 +50,12 @@ export function useLiveTrading(): LiveTradingMetrics {
     const closedTrades = trades.filter((t) => t.status === 'closed');
     const treasury = dashboard?.treasury;
     const perf = dashboard?.performance;
-    const capitalHistory = (dashboard?.capitalHistory ?? []).map((h) => ({
-      at: h.recorded_at,
-      value: h.total,
-    }));
+    // In futures mode (serverless prod) the legacy dashboard.capitalHistory is
+    // null, but the futures snapshot carries a real equity curve — use it so the
+    // capital chart isn't permanently stuck on "waiting for history".
+    const capitalHistory = futuresMode
+      ? (futuresDesk?.equityCurve ?? []).map((p) => ({ at: p.ts, value: p.equity }))
+      : (dashboard?.capitalHistory ?? []).map((h) => ({ at: h.recorded_at, value: h.total }));
     const futuresCapital = futuresDesk?.futuresCapital ?? null;
     const futuresTodayPnl = futuresDesk?.today?.totalPnl ?? 0;
     const futuresNetWorth = futuresCapital?.equity ?? 0;
