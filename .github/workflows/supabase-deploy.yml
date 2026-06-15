@@ -43,9 +43,10 @@ jobs:
           PGSSLMODE: require
         run: |
           set -euo pipefail
+          echo "len(POSTGRES_URL)=${#POSTGRES_URL} len(DATABASE_URL)=${#DATABASE_URL}"
           CONN="${POSTGRES_URL:-$DATABASE_URL}"
           if [ -z "$CONN" ]; then
-            echo "::error::Falta el secret POSTGRES_URL / DATABASE_URL"; exit 1
+            echo "::error::Falta el secret POSTGRES_URL / DATABASE_URL (ambos vacíos para este job)"; exit 1
           fi
           for f in $(ls supabase/migrations/*.sql | sort); do
             echo "── aplicando $f"
