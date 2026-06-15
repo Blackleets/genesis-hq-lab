@@ -99,6 +99,116 @@ async function countRows(table: string) {
   return count ?? 0;
 }
 
+// ── Solana Alpha (PumpFun) read routes ──────────────────────────────────────
+// Mirror the shape of api/_lib/solanaFallback.js so the frontend client is
+// agnostic to whether it hit Vercel Postgres or this edge fallback. Each helper
+// degrades gracefully (empty) if the solana_* tables don't exist yet.
+
+const SOLANA_DEFAULT_BALANCE = 100;
+
+async function solanaSafeRows(table: string, select: string, build?: (q: any) => any): Promise<any[]> {
+  try {
+    return await fetchRows(table, select, build);
+  } catch {
+    return [];
+  }
+}
+
+async function getSolanaBalance(): Promise<number> {
+  const rows = await solanaSafeRows("org_state", "value", (q) => q.eq("key", "solana_paper_balance").limit(1));
+  const raw = rows[0]?.value;
+  const n = Number(typeof raw === "string" ? raw.replace(/^"|"$/g, "") : raw);
+  return Number.isFinite(n) ? n : SOLANA_DEFAULT_BALANCE;
+}
+
+async function getSolanaStatus() {
+  const tokens = await solanaSafeRows("solana_tokens", "mint,updated_at");
+  const open = await solanaSafeRows("solana_paper_trades", "status");
+  const total = tokens.length;
+  const lastSeen = tokens.reduce((acc: string | null, r: any) => (!acc || (r.updated_at ?? "") > acc ? (r.updated_at ?? acc) : acc), null as string | null);
+  return {
+    ok: true,
+    connected: total > 0,
+    wsStatus: total > 0 ? `snapshot online | ${total} launches` : "Pump.fun feed offline",
+    subscribedTokens: total,
+    startedAt: lastSeen,
+    paperBalance: await getSolanaBalance(),
+    stats: {
+      tradesOpened: open.filter((r: any) => r.status === "open").length,
+      tradesClosed: open.filter((r: any) => r.status !== "open").length,
+    },
+  };
+}
+
+async function getSolanaTokens(limit: number) {
+  const rows = await solanaSafeRows("solana_tokens", "*", (q) => q.order("updated_at", { ascending: false }).limit(limit));
+  const tokens = rows.map((r: any) => ({
+    mint: r.mint, name: r.name, symbol: r.symbol, creator: r.creator,
+    createdTs: Number(r.created_ts ?? 0), marketCapSol: Number(r.market_cap_sol ?? 0),
+    bondingCurvePct: Number(r.bonding_curve_pct ?? 0), lastPriceSol: Number(r.last_price_sol ?? 0),
+    tradeCount: Number(r.trade_count ?? 0), uniqueWallets: Number(r.unique_wallets ?? 0),
+    updatedAt: r.updated_at,
+  }));
+  return { ok: true, tokens };
+}
+
+async function getSolanaSignals(limit: number) {
+  const signals = await solanaSafeRows("solana_signals", "*", (q) => q.order("created_at", { ascending: false }).limit(limit));
+  return { ok: true, signals };
+}
+
+async function getSolanaPaperPositions() {
+  const positions = await solanaSafeRows("solana_paper_trades", "*", (q) => q.eq("status", "open").order("opened_at", { ascending: false }));
+  return { ok: true, positions };
+}
+
+async function getSolanaPaperTrades(limit: number) {
+  const trades = await solanaSafeRows("solana_paper_trades", "*", (q) => q.neq("status", "open").order("closed_at", { ascending: false }).limit(limit));
+  return { ok: true, trades };
+}
+
+async function getSolanaPaperStats() {
+  const balance = await getSolanaBalance();
+  const closed = await solanaSafeRows("solana_paper_trades", "pnl_sol", (q) => q.neq("status", "open"));
+  const open = await solanaSafeRows("solana_paper_trades", "remaining_tokens,tokens,current_price_sol,entry_price_sol", (q) => q.eq("status", "open"));
+  const openValue = open.reduce((sum: number, r: any) => {
+    const tok = Number(r.remaining_tokens ?? r.tokens ?? 0);
+    const price = Number(r.current_price_sol ?? r.entry_price_sol ?? 0);
+    return sum + tok * price;
+  }, 0);
+  const pnls = closed.map((r: any) => Number(r.pnl_sol ?? 0));
+  const totalTrades = closed.length;
+  const wins = pnls.filter((p) => p > 0).length;
+  const totalPnl = pnls.reduce((s, v) => s + v, 0);
+  return {
+    ok: true,
+    balance: Math.round(balance * 10000) / 10000,
+    openValue: Math.round(openValue * 10000) / 10000,
+    totalSol: Math.round((balance + openValue) * 10000) / 10000,
+    totalPnlSol: Math.round(totalPnl * 10000) / 10000,
+    totalTrades,
+    wins,
+    winRate: totalTrades > 0 ? Math.round((wins / totalTrades) * 1000) / 10 : 0,
+    avgPnlSol: totalTrades > 0 ? Math.round((totalPnl / totalTrades) * 10000) / 10000 : 0,
+    openPositions: open.length,
+    liveMode: false,
+  };
+}
+
+async function getSolanaEquity(limit: number) {
+  const rows = await solanaSafeRows("solana_equity_snapshots", "ts,balance_sol,open_value_sol,total_sol", (q) => q.order("ts", { ascending: false }).limit(limit));
+  return { ok: true, curve: rows.reverse() };
+}
+
+async function getSolanaWallets(limit: number) {
+  const rows = await solanaSafeRows("solana_wallets", "*", (q) => q.order("score", { ascending: false }).limit(limit));
+  return {
+    ok: true,
+    wallets: rows,
+    summary: { total: rows.length, smart: rows.filter((r: any) => Number(r.score ?? 0) >= 65).length },
+  };
+}
+
 function aggregateClosedTrades(rows: Array<Record<string, unknown>>) {
   const total = rows.length;
   const wins = rows.filter((row) => Number(row.pnl ?? 0) > 0).length;
@@ -882,6 +992,14 @@ Deno.serve(async (req: Request) => {
       case "crypto-futures-desk": return json(await getFuturesDesk());
       case "crypto-market-intelligence": return json(await getMarketIntelligence());
       case "supervisor-latest": return json({ ok: true, advisoryOnly: true, applied: false, ...(await getSupervisorLatest()) });
+      case "solana-status": return json(await getSolanaStatus());
+      case "solana-tokens": return json(await getSolanaTokens(limit));
+      case "solana-wallets": return json(await getSolanaWallets(limit));
+      case "solana-signals": return json(await getSolanaSignals(limit));
+      case "solana-paper-stats": return json(await getSolanaPaperStats());
+      case "solana-paper-positions": return json(await getSolanaPaperPositions());
+      case "solana-paper-trades": return json(await getSolanaPaperTrades(limit));
+      case "solana-paper-equity": return json(await getSolanaEquity(limit));
       default: return json({ ok: false, error: "route_not_found" }, 404);
     }
   } catch (error) {

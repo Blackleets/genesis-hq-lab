@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { runSolanaAlphaTick } from "./solanaAlpha.ts";
 
 const FUTURES_TYPES = [
   "crypto_futures_breakout_short_micro",
@@ -386,9 +387,17 @@ async function runTick() {
       blockReason: p.blockReason ?? null,
     })),
   });
-  await writeHeartbeat({ ok: true, scanned: result.scanned, qualified: result.qualified, executed: result.executed, skipped: result.skipped, closed: result.closed });
+  // PumpFun (Solana Alpha) feeder — isolated: never breaks the futures tick.
+  let solana: Record<string, unknown> = { ok: false, skipped: true };
+  try {
+    solana = await runSolanaAlphaTick(supabase);
+  } catch (error) {
+    solana = { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+
+  await writeHeartbeat({ ok: true, scanned: result.scanned, qualified: result.qualified, executed: result.executed, skipped: result.skipped, closed: result.closed, solana });
   await logEvent("SUPABASE EDGE FUTURES TICK", { scanned: result.scanned, qualified: result.qualified, executed: result.executed, closed: result.closed });
-  return { ok: true, mode: "executed", cycle };
+  return { ok: true, mode: "executed", cycle: { ...cycle, solana } };
 }
 
 Deno.serve(async (req: Request) => {
