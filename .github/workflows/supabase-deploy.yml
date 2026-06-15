@@ -1,19 +1,19 @@
-name: Supabase Deploy (migrations + edge functions)
+name: Supabase Deploy (edge functions)
 
-# Despliega el área Solana/PumpFun en la arquitectura serverless:
-#  1. Aplica las migraciones SQL contra Postgres usando el secret POSTGRES_URL
-#     (que YA existe en el repo) — no requiere credenciales nuevas.
-#  2. Despliega las edge functions genesis-runner (feeder pump.fun) y
-#     genesis-fallback (rutas de lectura solana-*). Esto requiere UN secret nuevo:
-#     SUPABASE_ACCESS_TOKEN (Supabase → Account → Access Tokens). Si no está
-#     presente, el paso de deploy se omite y solo corre la migración.
+# Despliega las edge functions del área Solana/PumpFun:
+#   - genesis-runner  : feeder pump.fun + paper trading (crea sus tablas solo
+#     vía SUPABASE_DB_URL en el primer tick, no necesita migración externa).
+#   - genesis-fallback: rutas de lectura solana-*.
+#
+# Requisito: UN secret nuevo en GitHub → SUPABASE_ACCESS_TOKEN
+# (Supabase dashboard → Account → Access Tokens → Generate new token).
+# Sin él, el deploy se omite con un aviso (no falla el resto del repo).
 
 on:
   workflow_dispatch:
   push:
     branches: [feat/genesis-life-os]
     paths:
-      - 'supabase/migrations/**'
       - 'supabase/functions/**'
       - '.github/workflows/supabase-deploy.yml'
 
@@ -32,32 +32,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # Los secrets de DB (POSTGRES_URL/DATABASE_URL) viven en el environment
-    # Production (creados por la integración de Vercel). Sin esto llegan vacíos.
-    environment: Production
     steps:
       - uses: actions/checkout@v4
 
-      # ── 1. Migración SQL (usa POSTGRES_URL existente) ─────────────────────
-      - name: Apply SQL migrations
-        env:
-          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          PGSSLMODE: require
-        run: |
-          set -euo pipefail
-          echo "DBG len(POSTGRES_URL)=${#POSTGRES_URL} len(DATABASE_URL)=${#DATABASE_URL}"
-          CONN="${POSTGRES_URL:-$DATABASE_URL}"
-          if [ -z "$CONN" ]; then
-            echo "::error::Falta el secret POSTGRES_URL / DATABASE_URL (ambos vacíos para este job)"; exit 1
-          fi
-          for f in $(ls supabase/migrations/*.sql | sort); do
-            echo "── aplicando $f"
-            psql "$CONN" -v ON_ERROR_STOP=1 -f "$f"
-          done
-          echo "Migraciones aplicadas."
-
-      # ── 2. Deploy de edge functions (requiere SUPABASE_ACCESS_TOKEN) ──────
       - name: Setup Supabase CLI
         if: env.SUPABASE_ACCESS_TOKEN != ''
         uses: supabase/setup-cli@v1
@@ -75,5 +52,8 @@ jobs:
       - name: Aviso si falta el token
         if: env.SUPABASE_ACCESS_TOKEN == ''
         run: |
-          echo "::warning::SUPABASE_ACCESS_TOKEN no está configurado: se aplicó la migración pero NO se desplegaron las edge functions."
-          echo "Agregá el secret en GitHub → Settings → Secrets and variables → Actions → New repository secret."
+          echo "::warning::Falta el secret SUPABASE_ACCESS_TOKEN — no se desplegaron las edge functions."
+          echo "GitHub → Settings → Secrets and variables → Actions → New repository secret:"
+          echo "  Name:  SUPABASE_ACCESS_TOKEN"
+          echo "  Value: token de https://supabase.com/dashboard/account/tokens"
+          exit 1
