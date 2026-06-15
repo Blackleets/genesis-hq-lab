@@ -32,6 +32,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Los secrets de DB (POSTGRES_URL/DATABASE_URL) viven en el environment
+    # Production (creados por la integración de Vercel). Sin esto llegan vacíos.
+    environment: Production
     steps:
       - uses: actions/checkout@v4
 
@@ -43,7 +46,6 @@ jobs:
           PGSSLMODE: require
         run: |
           set -euo pipefail
-          echo "len(POSTGRES_URL)=${#POSTGRES_URL} len(DATABASE_URL)=${#DATABASE_URL}"
           CONN="${POSTGRES_URL:-$DATABASE_URL}"
           if [ -z "$CONN" ]; then
             echo "::error::Falta el secret POSTGRES_URL / DATABASE_URL (ambos vacíos para este job)"; exit 1
