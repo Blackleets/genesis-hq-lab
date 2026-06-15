@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import postgres from "npm:postgres@3.4.5";
 import { runSolanaAlphaTick } from "./solanaAlpha.ts";
 
 const FUTURES_TYPES = [
@@ -297,7 +298,56 @@ async function writeCycleHistory(cycle: Record<string, unknown>) {
   await writeOrgState("futures_cycle_history", history.slice(-80));
 }
 
+// Self-bootstrap a reliable pg_cron tick (every 5 min) from inside Postgres, so
+// the runner no longer depends on GitHub Actions' flaky scheduled workflows.
+// Uses SUPABASE_DB_URL (auto-injected) + the runner's own GENESIS_RUNNER_TOKEN.
+// Runs once per cold start; best-effort (a failure never blocks the tick).
+let cronReady = false;
+async function ensureRunnerCron() {
+  if (cronReady) return;
+  const dbUrl = Deno.env.get("SUPABASE_DB_URL");
+  const token = Deno.env.get("GENESIS_RUNNER_TOKEN")?.trim();
+  if (!dbUrl || !token) { cronReady = true; return; }
+  const sql = postgres(dbUrl, { ssl: "require", max: 1, idle_timeout: 5, connect_timeout: 8 });
+  try {
+    await sql.unsafe("create extension if not exists pg_cron;");
+    await sql.unsafe("create extension if not exists pg_net;");
+    // Upsert the runner token into Vault (the cron job reads it at fire time).
+    const existing = await sql`select id from vault.secrets where name = 'genesis_runner_token'`;
+    if (existing.length > 0) {
+      await sql`select vault.update_secret(${existing[0].id}, ${token})`;
+    } else {
+      await sql`select vault.create_secret(${token}, 'genesis_runner_token')`;
+    }
+    // (Re)create the 5-minute job idempotently.
+    await sql.unsafe(`
+      select cron.unschedule('genesis-runner-tick')
+      where exists (select 1 from cron.job where jobname = 'genesis-runner-tick');
+    `);
+    await sql.unsafe(`
+      select cron.schedule('genesis-runner-tick', '*/5 * * * *', $cron$
+        select net.http_post(
+          url := 'https://swgixcbwyhxttnmrglbk.supabase.co/functions/v1/genesis-runner',
+          headers := jsonb_build_object(
+            'content-type', 'application/json',
+            'x-genesis-runner-token',
+              (select decrypted_secret from vault.decrypted_secrets where name = 'genesis_runner_token')
+          ),
+          timeout_milliseconds := 8000
+        );
+      $cron$);
+    `);
+    console.log("[genesis-runner] pg_cron tick scheduled (*/5)");
+  } catch (error) {
+    console.error("[genesis-runner] ensureRunnerCron failed:", error instanceof Error ? error.message : error);
+  } finally {
+    cronReady = true; // best-effort: don't hammer on every cold start
+    await sql.end({ timeout: 5 });
+  }
+}
+
 async function runTick() {
+  await ensureRunnerCron(); // self-schedule the reliable 5-min cron (once per cold start)
   const heartbeat = await readHeartbeat();
   if (heartbeat.msSinceLastTick != null && heartbeat.msSinceLastTick < MIN_INTERVAL_MS) {
     return { ok: true, mode: "throttled", lastTickAt: heartbeat.lastTickAt, msSinceLastTick: heartbeat.msSinceLastTick };
