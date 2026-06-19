@@ -4,6 +4,7 @@ name: Keep Backend Awake
 # 1. Pings the backend health endpoint (keeps Railway/Render warm).
 # 2. Ticks the Supabase genesis-runner edge function (keeps runner heartbeat
 #    fresh so the dashboard never shows RUNNER ESTANCADO due to cron delays).
+# 3. Runs genesis-alerts for Telegram notifications.
 
 on:
   schedule:
@@ -16,6 +17,9 @@ permissions:
 concurrency:
   group: keep-backend-awake
   cancel-in-progress: false
+
+env:
+  GENESIS_RUNNER_TOKEN: ${{ secrets.GENESIS_RUNNER_TOKEN }}
 
 jobs:
   ping:
@@ -40,12 +44,12 @@ jobs:
           exit 0
 
       - name: Tick genesis-runner (keep heartbeat alive)
-        if: ${{ secrets.GENESIS_RUNNER_TOKEN != '' }}
+        if: env.GENESIS_RUNNER_TOKEN != ''
         run: |
           RESP=$(curl --silent --show-error --max-time 20 \
             -X POST \
             -H "Content-Type: application/json" \
-            -H "x-genesis-runner-token: ${{ secrets.GENESIS_RUNNER_TOKEN }}" \
+            -H "x-genesis-runner-token: $GENESIS_RUNNER_TOKEN" \
             "https://swgixcbwyhxttnmrglbk.supabase.co/functions/v1/genesis-runner" \
             -w "\n%{http_code}" || echo "curl_failed")
           STATUS=$(echo "$RESP" | tail -1)
@@ -53,12 +57,12 @@ jobs:
           exit 0
 
       - name: Run genesis-alerts (Telegram notifications)
-        if: ${{ secrets.GENESIS_RUNNER_TOKEN != '' }}
+        if: env.GENESIS_RUNNER_TOKEN != ''
         run: |
           RESP=$(curl --silent --show-error --max-time 20 \
             -X POST \
             -H "Content-Type: application/json" \
-            -H "x-genesis-runner-token: ${{ secrets.GENESIS_RUNNER_TOKEN }}" \
+            -H "x-genesis-runner-token: $GENESIS_RUNNER_TOKEN" \
             "https://swgixcbwyhxttnmrglbk.supabase.co/functions/v1/genesis-alerts" \
             -w "\n%{http_code}" || echo "curl_failed")
           STATUS=$(echo "$RESP" | tail -1)
