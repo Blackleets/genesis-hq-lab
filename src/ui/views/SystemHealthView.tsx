@@ -112,7 +112,7 @@ export default function SystemHealthView() {
         )}
 
         {/* Execution state */}
-        <Section title="Execution State">
+        {truth.execution && <><Section title="Execution State">
           <Row label="Capital (total)" value={`$${Math.round(truth.execution.capital).toLocaleString()}`} />
           <Row label="Capital (available)" value={`$${Math.round(truth.execution.available).toLocaleString()}`} />
           <Row label="Open trades" value={truth.execution.openTrades} />
@@ -248,7 +248,7 @@ export default function SystemHealthView() {
                 : '—'
             } muted />
           </Section>
-        )}
+        )}</>}
 
         {/* Database */}
         <Section title="Database">
