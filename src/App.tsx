@@ -33,6 +33,7 @@ import AlphaValidationView from '@workflows/AlphaValidationView';
 import PredictionMarketsLab from '@workflows/PredictionMarketsLab';
 import SolanaAlphaView from './features/solana-alpha/SolanaAlphaView';
 import { actions, useSelectedModule } from '@core/store/genesisStore';
+import { useLearningSync } from '@hooks/useLearningSync';
 import type { ModuleId } from '@core/data/moduleRegistry';
 
 const TICK_MS = 5000;
@@ -69,6 +70,9 @@ function ModuleRenderer({ module, setModule }: { module: ModuleId; setModule: (m
 function AppShell() {
   const currentModule = useSelectedModule();
   const { open: openCommandBar } = useCommandBar();
+
+  // Sync agent learning scores from backend every 30 seconds
+  useLearningSync();
 
   useEffect(() => {
     actions.tick();

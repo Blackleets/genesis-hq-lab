@@ -2013,3 +2013,20 @@ export function useConnectors(): ConnectorConfig[] {
   const s = useGenesisState();
   return s.connectors;
 }
+
+// Learning sync: update agent learningScore from real backend data
+export function updateAgentLearning(agentId: string, newScore: number) {
+  const current = getState();
+  const agent = current.agents[agentId];
+  if (!agent) return;
+
+  const clamped = Math.max(0, Math.min(1, newScore));
+  const next = {
+    ...current,
+    agents: {
+      ...current.agents,
+      [agentId]: { ...agent, learningScore: clamped },
+    },
+  };
+  commit(next);
+}
