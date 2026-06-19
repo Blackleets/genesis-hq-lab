@@ -23,7 +23,7 @@ export function describeSystemStatus(truth: SystemTruth | null): SystemStatusSum
     };
   }
 
-  if (truth.execution.startupReconciliation?.safeMode) {
+  if (truth.execution?.startupReconciliation?.safeMode) {
     return {
       tone: 'warn',
       label: {
@@ -51,7 +51,7 @@ export function describeSystemStatus(truth: SystemTruth | null): SystemStatusSum
     };
   }
 
-  if (!truth.execution.agentAlive) {
+  if (!truth.execution?.agentAlive) {
     return {
       tone: 'warn',
       label: {
