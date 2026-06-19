@@ -59,8 +59,11 @@ export function EquityCurve({ curve }: Props) {
       </div>
 
       <div style={{ padding: '4px 12px', borderTop: '1px solid #1e2a3a', display: 'flex', justifyContent: 'space-between', flexShrink: 0 }}>
-        <span style={{ fontSize: 9, color: '#374151' }}>{curve.length} snapshots</span>
         <span style={{ fontSize: 9, color: '#374151' }}>start: 100 SOL</span>
+        <span style={{ fontSize: 9, color: pnlColor }}>
+          {last >= first ? '+' : ''}{(last - first).toFixed(2)} SOL
+        </span>
+        <span style={{ fontSize: 9, color: '#374151' }}>{curve.length} pts</span>
       </div>
     </div>
   );

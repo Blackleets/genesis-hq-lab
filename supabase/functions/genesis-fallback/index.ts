@@ -67,7 +67,7 @@ async function getHostedRunnerHeartbeat() {
     claudeEnabled: Boolean(payload?.claudeEnabled),
     lastResult: payload?.lastResult ?? null,
     msSinceLastTick: Number.isFinite(msSinceLastTick) ? msSinceLastTick : null,
-    agentAlive: Number.isFinite(msSinceLastTick) ? msSinceLastTick < 10 * 60 * 1000 : false,
+    agentAlive: Number.isFinite(msSinceLastTick) ? msSinceLastTick < 30 * 60 * 1000 : false,
     neverStarted: !lastTickAt,
     updatedAt: row?.updated_at ?? null,
   };
