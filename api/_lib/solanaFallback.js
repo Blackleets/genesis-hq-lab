@@ -167,17 +167,65 @@ export async function solanaPaperTrades(limit = 50) {
 }
 
 export async function solanaPaperStats() {
-  const [balance, closed, wins, open] = await Promise.all([
+  const [balance, closed, wins, open, pf, equity, recent] = await Promise.all([
     safeQuery("SELECT value FROM org_state WHERE key = 'solana_paper_balance' LIMIT 1"),
-    safeQuery("SELECT COUNT(*)::int AS total, COALESCE(SUM(pnl_sol), 0)::float8 AS total_pnl, COALESCE(AVG(pnl_sol), 0)::float8 AS avg_pnl FROM solana_paper_trades WHERE status != 'open'"),
+    safeQuery(`
+      SELECT
+        COUNT(*)::int AS total,
+        COALESCE(SUM(pnl_sol), 0)::float8 AS total_pnl,
+        COALESCE(AVG(pnl_sol), 0)::float8 AS avg_pnl,
+        COALESCE(AVG(pnl_sol) FILTER (WHERE pnl_sol > 0), 0)::float8 AS avg_win,
+        COALESCE(AVG(pnl_sol) FILTER (WHERE pnl_sol < 0), 0)::float8 AS avg_loss
+      FROM solana_paper_trades WHERE status != 'open'
+    `),
     safeQuery("SELECT COUNT(*)::int AS wins FROM solana_paper_trades WHERE pnl_sol > 0"),
     safeQuery("SELECT COUNT(*)::int AS open_positions, COALESCE(SUM(COALESCE(remaining_tokens, tokens) * COALESCE(current_price_sol, entry_price_sol)), 0)::float8 AS open_value FROM solana_paper_trades WHERE status = 'open'"),
+    safeQuery(`
+      SELECT
+        COALESCE(SUM(pnl_sol) FILTER (WHERE pnl_sol > 0), 0)::float8 AS gross_wins,
+        ABS(COALESCE(SUM(pnl_sol) FILTER (WHERE pnl_sol < 0), 0))::float8 AS gross_losses
+      FROM solana_paper_trades WHERE status != 'open'
+    `),
+    safeQuery('SELECT total_sol FROM solana_equity_snapshots ORDER BY ts ASC LIMIT 500'),
+    safeQuery("SELECT pnl_sol FROM solana_paper_trades WHERE status != 'open' ORDER BY closed_at DESC LIMIT 20"),
   ]);
 
   const bal = n(balance.rows[0]?.value, DEFAULT_BALANCE);
   const openValue = n(open.rows[0]?.open_value);
   const totalTrades = n(closed.rows[0]?.total);
   const winCount = n(wins.rows[0]?.wins);
+
+  const grossWins = n(pf.rows[0]?.gross_wins);
+  const grossLosses = n(pf.rows[0]?.gross_losses);
+  const profitFactor = grossLosses > 0
+    ? Math.round((grossWins / grossLosses) * 100) / 100
+    : grossWins > 0 ? 9.99 : 0;
+
+  let maxDrawdownPct = 0;
+  if (equity.rows.length > 1) {
+    let peak = -Infinity;
+    for (const row of equity.rows) {
+      const v = n(row.total_sol);
+      if (v > peak) peak = v;
+      if (peak > 0) {
+        const dd = (peak - v) / peak * 100;
+        if (dd > maxDrawdownPct) maxDrawdownPct = dd;
+      }
+    }
+    maxDrawdownPct = Math.round(maxDrawdownPct * 10) / 10;
+  }
+
+  let streak = 0;
+  const recentPnls = recent.rows.map(r => n(r.pnl_sol));
+  if (recentPnls.length > 0) {
+    const isWin = recentPnls[0] > 0;
+    for (const pnl of recentPnls) {
+      if ((pnl > 0) === isWin) streak++;
+      else break;
+    }
+    if (!isWin) streak = -streak;
+  }
+
   return {
     ok: true,
     balance: bal,
@@ -188,8 +236,13 @@ export async function solanaPaperStats() {
     wins: winCount,
     winRate: totalTrades > 0 ? Math.round((winCount / totalTrades) * 1000) / 10 : 0,
     avgPnlSol: Math.round(n(closed.rows[0]?.avg_pnl) * 10000) / 10000,
+    avgWinSol: Math.round(n(closed.rows[0]?.avg_win) * 10000) / 10000,
+    avgLossSol: Math.round(n(closed.rows[0]?.avg_loss) * 10000) / 10000,
     openPositions: n(open.rows[0]?.open_positions),
     liveMode: false,
+    profitFactor,
+    maxDrawdownPct,
+    streak,
   };
 }
 

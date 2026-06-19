@@ -17,8 +17,10 @@ function StatusDot({ ok }: { ok: boolean }) {
 }
 
 export function RiskMonitor({ status, stats }: Props) {
-  const drawdownPct = Math.max(0, ((100 - stats.totalSol) / 100) * 100);
-  const drawdownOk = drawdownPct < 20;
+  const drawdownPct = stats.maxDrawdownPct > 0
+    ? stats.maxDrawdownPct
+    : Math.max(0, ((100 - stats.totalSol) / 100) * 100);
+  const drawdownOk = drawdownPct < 15;
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#0a0e1a', border: '1px solid #1e2a3a', borderRadius: 8, overflow: 'hidden' }}>
@@ -66,7 +68,7 @@ export function RiskMonitor({ status, stats }: Props) {
             <div style={{ width: `${Math.min(100, drawdownPct)}%`, height: '100%', background: drawdownOk ? '#22c55e' : '#ef4444', borderRadius: 2 }} />
           </div>
           <div style={{ fontSize: 9, color: '#4b5563', marginTop: 3 }}>
-            max 20% before alert
+            {stats.maxDrawdownPct > 0 ? 'peak-to-trough · max 15%' : 'from start · max 15%'}
           </div>
         </div>
 

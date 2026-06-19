@@ -29,7 +29,9 @@ const DEFAULT_STATUS: SolanaStatus = {
 const DEFAULT_STATS: PaperStats = {
   balance: 100, openValue: 0, totalSol: 100, totalPnlSol: 0,
   totalTrades: 0, wins: 0, winRate: 0, avgPnlSol: 0,
+  avgWinSol: 0, avgLossSol: 0,
   openPositions: 0, liveMode: false,
+  profitFactor: 0, maxDrawdownPct: 0, streak: 0,
 };
 
 export default function SolanaAlphaView() {

@@ -104,8 +104,13 @@ export interface PaperStats {
   wins: number;
   winRate: number;
   avgPnlSol: number;
+  avgWinSol: number;
+  avgLossSol: number;
   openPositions: number;
   liveMode: boolean;
+  profitFactor: number;
+  maxDrawdownPct: number;
+  streak: number;
 }
 
 export interface EquityPoint {

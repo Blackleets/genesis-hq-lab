@@ -39,13 +39,27 @@ export function PaperPortfolio({ stats, positions, trades, onReset }: Props) {
         </button>
       </div>
 
-      {/* Stats bar */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 1, background: '#111827', flexShrink: 0 }}>
+      {/* Stats bar — 2 rows × 3 cols */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 1, background: '#111827', flexShrink: 0 }}>
         {[
           { label: 'Balance', value: `${stats.balance.toFixed(2)} SOL` },
           { label: 'Total PnL', value: fmt(stats.totalPnlSol), color: pnlColor(stats.totalPnlSol) },
-          { label: 'Win Rate', value: `${stats.winRate}%`, color: stats.winRate >= 50 ? '#22c55e' : '#ef4444' },
           { label: 'Trades', value: `${stats.totalTrades}` },
+          {
+            label: 'Win Rate',
+            value: stats.totalTrades > 0 ? `${stats.winRate}%` : '—',
+            color: stats.totalTrades > 0 ? (stats.winRate >= 50 ? '#22c55e' : '#ef4444') : '#6b7280',
+          },
+          {
+            label: 'Profit Factor',
+            value: stats.totalTrades > 0 ? stats.profitFactor.toFixed(2) : '—',
+            color: stats.profitFactor >= 1.5 ? '#22c55e' : stats.profitFactor >= 1 ? '#f59e0b' : stats.profitFactor > 0 ? '#ef4444' : '#6b7280',
+          },
+          {
+            label: 'Max Drawdown',
+            value: stats.totalTrades > 0 ? `${stats.maxDrawdownPct}%` : '—',
+            color: stats.maxDrawdownPct > 20 ? '#ef4444' : stats.maxDrawdownPct > 10 ? '#f59e0b' : '#22c55e',
+          },
         ].map(s => (
           <div key={s.label} style={{ padding: '6px 8px', background: '#0a0e1a' }}>
             <div style={{ fontSize: 9, color: '#374151' }}>{s.label}</div>
@@ -53,6 +67,28 @@ export function PaperPortfolio({ stats, positions, trades, onReset }: Props) {
           </div>
         ))}
       </div>
+
+      {/* Avg win / loss strip */}
+      {stats.totalTrades > 0 && (
+        <div style={{ display: 'flex', gap: 1, background: '#111827', flexShrink: 0 }}>
+          <div style={{ flex: 1, padding: '4px 8px', background: '#0a0e1a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 9, color: '#374151' }}>Avg Win</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#22c55e' }}>{stats.avgWinSol > 0 ? `+${stats.avgWinSol.toFixed(4)}` : '—'}</span>
+          </div>
+          <div style={{ flex: 1, padding: '4px 8px', background: '#0a0e1a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 9, color: '#374151' }}>Avg Loss</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#ef4444' }}>{stats.avgLossSol < 0 ? stats.avgLossSol.toFixed(4) : '—'}</span>
+          </div>
+          {stats.streak !== 0 && (
+            <div style={{ flex: 1, padding: '4px 8px', background: '#0a0e1a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 9, color: '#374151' }}>Streak</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: stats.streak > 0 ? '#22c55e' : '#ef4444' }}>
+                {stats.streak > 0 ? `+${stats.streak}W` : `${Math.abs(stats.streak)}L`}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {/* Open positions */}
