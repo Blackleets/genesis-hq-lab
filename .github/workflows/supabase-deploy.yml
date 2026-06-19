@@ -53,18 +53,18 @@ jobs:
             local file="supabase/functions/$slug/index.ts"
             echo "→ deploying $slug"
             BODY=$(python3 -c "import json,sys; print(json.dumps(open('$file').read()))")
-            STATUS=$(curl -sf -o /tmp/deploy_out.json -w "%{http_code}" -X POST \
+            STATUS=$(curl -s -o /tmp/deploy_out.json -w "%{http_code}" -X POST \
               "https://api.supabase.com/v1/projects/$PROJECT_REF/functions" \
               -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
               -H "Content-Type: application/json" \
-              -d "{\"slug\":\"$slug\",\"name\":\"$slug\",\"verify_jwt\":false,\"body\":$BODY}" 2>/dev/null)
+              -d "{\"slug\":\"$slug\",\"name\":\"$slug\",\"verify_jwt\":false,\"body\":$BODY}")
             if [ "$STATUS" = "409" ]; then
               # already exists — PATCH instead
-              STATUS=$(curl -sf -o /tmp/deploy_out.json -w "%{http_code}" -X PATCH \
+              STATUS=$(curl -s -o /tmp/deploy_out.json -w "%{http_code}" -X PATCH \
                 "https://api.supabase.com/v1/projects/$PROJECT_REF/functions/$slug" \
                 -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
                 -H "Content-Type: application/json" \
-                -d "{\"verify_jwt\":false,\"body\":$BODY}" 2>/dev/null)
+                -d "{\"verify_jwt\":false,\"body\":$BODY}")
             fi
             echo "$slug → HTTP $STATUS: $(cat /tmp/deploy_out.json)"
             [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 300 ]
