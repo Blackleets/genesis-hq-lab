@@ -1,13 +1,7 @@
 name: Supabase Deploy (edge functions)
 
-# Despliega las edge functions del área Solana/PumpFun:
-#   - genesis-runner  : feeder pump.fun + paper trading (crea sus tablas solo
-#     vía SUPABASE_DB_URL en el primer tick, no necesita migración externa).
-#   - genesis-fallback: rutas de lectura solana-*.
-#
-# Requisito: UN secret nuevo en GitHub → SUPABASE_ACCESS_TOKEN
-# (Supabase dashboard → Account → Access Tokens → Generate new token).
-# Sin él, el deploy se omite con un aviso (no falla el resto del repo).
+# Deploys genesis-runner, genesis-fallback, genesis-alerts via Management API
+# (bypasses Supabase CLI token format validation for sbp_v0_ tokens).
 
 on:
   workflow_dispatch:
@@ -26,8 +20,6 @@ concurrency:
 
 env:
   PROJECT_REF: swgixcbwyhxttnmrglbk
-  SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-  GENESIS_RUNNER_TOKEN: ${{ secrets.GENESIS_RUNNER_TOKEN }}
 
 jobs:
   deploy:
@@ -36,36 +28,52 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Supabase CLI
-        if: env.SUPABASE_ACCESS_TOKEN != ''
-        uses: supabase/setup-cli@v1
-        with:
-          version: latest
+      - name: Set GENESIS_RUNNER_TOKEN secret on Supabase
+        if: ${{ secrets.SUPABASE_ACCESS_TOKEN != '' && secrets.GENESIS_RUNNER_TOKEN != '' }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          GENESIS_RUNNER_TOKEN: ${{ secrets.GENESIS_RUNNER_TOKEN }}
+        run: |
+          curl -sf -X POST \
+            "https://api.supabase.com/v1/projects/$PROJECT_REF/secrets" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "[{\"name\":\"GENESIS_RUNNER_TOKEN\",\"value\":\"$GENESIS_RUNNER_TOKEN\"}]"
+          echo "GENESIS_RUNNER_TOKEN secret updated"
 
-      # Expone el token del runner como secret de la edge function, para que
-      # genesis-runner pueda auto-programar su pg_cron (que se llama a sí mismo
-      # con x-genesis-runner-token). Sin esto el bootstrap da missing_token.
-      - name: Set edge secret GENESIS_RUNNER_TOKEN
-        if: env.SUPABASE_ACCESS_TOKEN != '' && env.GENESIS_RUNNER_TOKEN != ''
-        run: supabase secrets set "GENESIS_RUNNER_TOKEN=$GENESIS_RUNNER_TOKEN" --project-ref "$PROJECT_REF"
+      - name: Deploy functions via Management API
+        if: ${{ secrets.SUPABASE_ACCESS_TOKEN != '' }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          deploy_fn() {
+            local slug="$1"
+            local file="supabase/functions/$slug/index.ts"
+            echo "→ deploying $slug"
+            BODY=$(python3 -c "import json,sys; print(json.dumps(open('$file').read()))")
+            STATUS=$(curl -sf -o /tmp/deploy_out.json -w "%{http_code}" -X POST \
+              "https://api.supabase.com/v1/projects/$PROJECT_REF/functions" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{\"slug\":\"$slug\",\"name\":\"$slug\",\"verify_jwt\":false,\"body\":$BODY}" 2>/dev/null)
+            if [ "$STATUS" = "409" ]; then
+              # already exists — PATCH instead
+              STATUS=$(curl -sf -o /tmp/deploy_out.json -w "%{http_code}" -X PATCH \
+                "https://api.supabase.com/v1/projects/$PROJECT_REF/functions/$slug" \
+                -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+                -H "Content-Type: application/json" \
+                -d "{\"verify_jwt\":false,\"body\":$BODY}" 2>/dev/null)
+            fi
+            echo "$slug → HTTP $STATUS: $(cat /tmp/deploy_out.json)"
+            [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 300 ]
+          }
 
-      - name: Deploy genesis-runner (feeder pump.fun)
-        if: env.SUPABASE_ACCESS_TOKEN != ''
-        run: supabase functions deploy genesis-runner --project-ref "$PROJECT_REF" --no-verify-jwt
-
-      - name: Deploy genesis-fallback (rutas de lectura)
-        if: env.SUPABASE_ACCESS_TOKEN != ''
-        run: supabase functions deploy genesis-fallback --project-ref "$PROJECT_REF" --no-verify-jwt
-
-      - name: Deploy genesis-alerts (Telegram risk alerts)
-        if: env.SUPABASE_ACCESS_TOKEN != ''
-        run: supabase functions deploy genesis-alerts --project-ref "$PROJECT_REF" --no-verify-jwt
+          deploy_fn genesis-runner
+          deploy_fn genesis-fallback
+          deploy_fn genesis-alerts
 
       - name: Aviso si falta el token
-        if: env.SUPABASE_ACCESS_TOKEN == ''
+        if: ${{ secrets.SUPABASE_ACCESS_TOKEN == '' }}
         run: |
-          echo "::warning::Falta el secret SUPABASE_ACCESS_TOKEN — no se desplegaron las edge functions."
-          echo "GitHub → Settings → Secrets and variables → Actions → New repository secret:"
-          echo "  Name:  SUPABASE_ACCESS_TOKEN"
-          echo "  Value: token de https://supabase.com/dashboard/account/tokens"
+          echo "::error::Falta el secret SUPABASE_ACCESS_TOKEN en GitHub Actions."
           exit 1
