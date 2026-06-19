@@ -22,6 +22,8 @@ env:
   PROJECT_REF: swgixcbwyhxttnmrglbk
   SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
   GENESIS_RUNNER_TOKEN: ${{ secrets.GENESIS_RUNNER_TOKEN }}
+  TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+  TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
 jobs:
   deploy:
@@ -30,18 +32,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set GENESIS_RUNNER_TOKEN secret on Supabase
-        if: env.SUPABASE_ACCESS_TOKEN != '' && env.GENESIS_RUNNER_TOKEN != ''
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          GENESIS_RUNNER_TOKEN: ${{ secrets.GENESIS_RUNNER_TOKEN }}
+      - name: Set secrets on Supabase
+        if: env.SUPABASE_ACCESS_TOKEN != ''
         run: |
-          curl -sf -X POST \
-            "https://api.supabase.com/v1/projects/$PROJECT_REF/secrets" \
-            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "[{\"name\":\"GENESIS_RUNNER_TOKEN\",\"value\":\"$GENESIS_RUNNER_TOKEN\"}]"
-          echo "GENESIS_RUNNER_TOKEN secret updated"
+          PAYLOAD="[]"
+          if [ -n "$GENESIS_RUNNER_TOKEN" ]; then
+            PAYLOAD=$(echo "$PAYLOAD" | python3 -c "import json,sys; d=json.load(sys.stdin); d.append({'name':'GENESIS_RUNNER_TOKEN','value':'$GENESIS_RUNNER_TOKEN'}); print(json.dumps(d))")
+          fi
+          if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
+            PAYLOAD=$(echo "$PAYLOAD" | python3 -c "import json,sys; d=json.load(sys.stdin); d.append({'name':'TELEGRAM_BOT_TOKEN','value':'$TELEGRAM_BOT_TOKEN'}); print(json.dumps(d))")
+          fi
+          if [ -n "$TELEGRAM_CHAT_ID" ]; then
+            PAYLOAD=$(echo "$PAYLOAD" | python3 -c "import json,sys; d=json.load(sys.stdin); d.append({'name':'TELEGRAM_CHAT_ID','value':'$TELEGRAM_CHAT_ID'}); print(json.dumps(d))")
+          fi
+          if [ "$PAYLOAD" != "[]" ]; then
+            curl -sf -X POST \
+              "https://api.supabase.com/v1/projects/$PROJECT_REF/secrets" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$PAYLOAD"
+            echo "Supabase secrets updated"
+          fi
 
       - name: Deploy functions via Management API
         if: env.SUPABASE_ACCESS_TOKEN != ''
