@@ -51,3 +51,16 @@ jobs:
           STATUS=$(echo "$RESP" | tail -1)
           echo "genesis-runner response status: $STATUS"
           exit 0
+
+      - name: Run genesis-alerts (Telegram notifications)
+        if: ${{ secrets.GENESIS_RUNNER_TOKEN != '' }}
+        run: |
+          RESP=$(curl --silent --show-error --max-time 20 \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-genesis-runner-token: ${{ secrets.GENESIS_RUNNER_TOKEN }}" \
+            "https://swgixcbwyhxttnmrglbk.supabase.co/functions/v1/genesis-alerts" \
+            -w "\n%{http_code}" || echo "curl_failed")
+          STATUS=$(echo "$RESP" | tail -1)
+          echo "genesis-alerts response status: $STATUS"
+          exit 0
