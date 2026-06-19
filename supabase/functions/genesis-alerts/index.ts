@@ -143,6 +143,78 @@ async function checkLossStreak(): Promise<{ triggered: boolean; streak: number }
   return { triggered: streak >= 4, streak };
 }
 
+async function checkDailySummary(): Promise<{ triggered: boolean; sent: boolean }> {
+  const nowUtc = new Date();
+  const hourUtc = nowUtc.getUTCHours();
+  const minUtc = nowUtc.getUTCMinutes();
+  // Only fire between 09:00 and 09:15 UTC
+  if (hourUtc !== 9 || minUtc > 15) return { triggered: false, sent: false };
+
+  const key = "daily_summary";
+  const todayKey = `alert_sent_at:${key}:${nowUtc.toISOString().slice(0, 10)}`;
+  const alreadySent = await getOrgState(todayKey);
+  if (alreadySent) return { triggered: true, sent: false };
+
+  const todayStart = new Date(nowUtc);
+  todayStart.setUTCHours(0, 0, 0, 0);
+
+  const { data: todayTrades } = await supabase
+    .from("trades")
+    .select("pnl,outcome,trade_type")
+    .in("trade_type", FUTURES_TYPES)
+    .eq("status", "closed")
+    .gte("closed_at", todayStart.toISOString());
+
+  const { data: allClosed } = await supabase
+    .from("trades")
+    .select("pnl,capital_used")
+    .in("trade_type", FUTURES_TYPES)
+    .eq("status", "closed");
+
+  const { data: openRows } = await supabase
+    .from("trades")
+    .select("capital_used")
+    .in("trade_type", FUTURES_TYPES)
+    .eq("status", "open");
+
+  const today = todayTrades ?? [];
+  const todayWins = today.filter((r) => Number(r.pnl ?? 0) > 0).length;
+  const todayPnl = today.reduce((s, r) => s + Number(r.pnl ?? 0), 0);
+  const winRate = today.length > 0 ? Math.round((todayWins / today.length) * 100) : 0;
+
+  const allPnl = (allClosed ?? []).reduce((s, r) => s + Number(r.pnl ?? 0), 0);
+  const reserved = (openRows ?? []).reduce((s, r) => s + Number(r.capital_used ?? 0), 0);
+  const equity = START_CAPITAL + allPnl - reserved;
+  const drawdownPct = equity < START_CAPITAL ? ((START_CAPITAL - equity) / START_CAPITAL) * 100 : 0;
+
+  const grossWins = (allClosed ?? []).filter((r) => Number(r.pnl ?? 0) > 0).reduce((s, r) => s + Number(r.pnl ?? 0), 0);
+  const grossLosses = Math.abs((allClosed ?? []).filter((r) => Number(r.pnl ?? 0) < 0).reduce((s, r) => s + Number(r.pnl ?? 0), 0));
+  const pf = grossLosses > 0 ? (grossWins / grossLosses).toFixed(2) : grossWins > 0 ? "∞" : "—";
+
+  const dateLabel = nowUtc.toLocaleDateString("es-MX", { day: "numeric", month: "short", timeZone: "UTC" });
+  const statusEmoji = equity >= START_CAPITAL ? "🟢" : drawdownPct > 15 ? "🔴" : "🟡";
+  const pnlStr = `${allPnl >= 0 ? "+" : ""}$${allPnl.toFixed(2)}`;
+  const todayStr = `${todayPnl >= 0 ? "+" : ""}$${todayPnl.toFixed(2)}`;
+
+  const msg =
+    `📊 <b>RESUMEN DIARIO · ${dateLabel}</b>\n` +
+    `━━━━━━━━━━━━━━━━\n` +
+    `Hoy: ${today.length} trades · ✅ ${todayWins} / ❌ ${today.length - todayWins}\n` +
+    `Win Rate: ${winRate}% · PnL: <b>${todayStr}</b>\n` +
+    `━━━━━━━━━━━━━━━━\n` +
+    `💼 Equity: <b>$${equity.toFixed(2)}</b> (start: $${START_CAPITAL})\n` +
+    `PnL total: ${pnlStr}\n` +
+    `📉 Drawdown: ${drawdownPct.toFixed(1)}%\n` +
+    `🔁 Profit Factor: ${pf}\n` +
+    `Abiertas: ${openRows?.length ?? 0}\n` +
+    `━━━━━━━━━━━━━━━━\n` +
+    `${statusEmoji} Sistema operativo · <i>PAPER</i>`;
+
+  const ok = await sendTelegram(msg);
+  if (ok) await setOrgState(todayKey, new Date().toISOString());
+  return { triggered: true, sent: ok };
+}
+
 async function runAlerts() {
   const alerts: string[] = [];
   const sent: string[] = [];
@@ -200,6 +272,8 @@ async function runAlerts() {
     }
   }
 
+  const dailySummary = await checkDailySummary();
+
   return {
     ok: true,
     checkedAt: new Date().toISOString(),
@@ -207,6 +281,7 @@ async function runAlerts() {
       runnerOffline: { triggered: offline.triggered, msSince: offline.msSince },
       drawdown: { triggered: drawdown.triggered, pct: drawdown.pct, equity: drawdown.equity },
       lossStreak: { triggered: lossStreak.triggered, streak: lossStreak.streak },
+      dailySummary,
     },
     telegram: { sent, skipped, configured: Boolean(TELEGRAM_TOKEN && TELEGRAM_CHAT_ID) },
   };
