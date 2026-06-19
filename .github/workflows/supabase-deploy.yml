@@ -1,0 +1,71 @@
+name: Supabase Deploy (edge functions)
+
+# Despliega las edge functions del área Solana/PumpFun:
+#   - genesis-runner  : feeder pump.fun + paper trading (crea sus tablas solo
+#     vía SUPABASE_DB_URL en el primer tick, no necesita migración externa).
+#   - genesis-fallback: rutas de lectura solana-*.
+#
+# Requisito: UN secret nuevo en GitHub → SUPABASE_ACCESS_TOKEN
+# (Supabase dashboard → Account → Access Tokens → Generate new token).
+# Sin él, el deploy se omite con un aviso (no falla el resto del repo).
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, feat/genesis-life-os]
+    paths:
+      - 'supabase/functions/**'
+      - '.github/workflows/supabase-deploy.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-deploy
+  cancel-in-progress: false
+
+env:
+  PROJECT_REF: swgixcbwyhxttnmrglbk
+  SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+  GENESIS_RUNNER_TOKEN: ${{ secrets.GENESIS_RUNNER_TOKEN }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        if: env.SUPABASE_ACCESS_TOKEN != ''
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # Expone el token del runner como secret de la edge function, para que
+      # genesis-runner pueda auto-programar su pg_cron (que se llama a sí mismo
+      # con x-genesis-runner-token). Sin esto el bootstrap da missing_token.
+      - name: Set edge secret GENESIS_RUNNER_TOKEN
+        if: env.SUPABASE_ACCESS_TOKEN != '' && env.GENESIS_RUNNER_TOKEN != ''
+        run: supabase secrets set "GENESIS_RUNNER_TOKEN=$GENESIS_RUNNER_TOKEN" --project-ref "$PROJECT_REF"
+
+      - name: Deploy genesis-runner (feeder pump.fun)
+        if: env.SUPABASE_ACCESS_TOKEN != ''
+        run: supabase functions deploy genesis-runner --project-ref "$PROJECT_REF" --no-verify-jwt
+
+      - name: Deploy genesis-fallback (rutas de lectura)
+        if: env.SUPABASE_ACCESS_TOKEN != ''
+        run: supabase functions deploy genesis-fallback --project-ref "$PROJECT_REF" --no-verify-jwt
+
+      - name: Deploy genesis-alerts (Telegram risk alerts)
+        if: env.SUPABASE_ACCESS_TOKEN != ''
+        run: supabase functions deploy genesis-alerts --project-ref "$PROJECT_REF" --no-verify-jwt
+
+      - name: Aviso si falta el token
+        if: env.SUPABASE_ACCESS_TOKEN == ''
+        run: |
+          echo "::warning::Falta el secret SUPABASE_ACCESS_TOKEN — no se desplegaron las edge functions."
+          echo "GitHub → Settings → Secrets and variables → Actions → New repository secret:"
+          echo "  Name:  SUPABASE_ACCESS_TOKEN"
+          echo "  Value: token de https://supabase.com/dashboard/account/tokens"
+          exit 1
