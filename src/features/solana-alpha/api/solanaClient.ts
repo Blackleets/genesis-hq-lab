@@ -1,11 +1,32 @@
 // solanaClient.ts — typed API client for the Solana Alpha Lab backend.
 
-const BASE = import.meta.env.VITE_API_URL ?? '';
+import { getApiOrigin } from '@services/apiBase';
+
+const BASE = getApiOrigin();
 
 async function get<T>(path: string): Promise<T> {
-  const r = await fetch(`${BASE}${path}`, { cache: 'no-store' });
-  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
-  return r.json() as Promise<T>;
+  const urls = [`${BASE}${path}`];
+  if (!BASE && typeof window !== 'undefined') {
+    urls.push(`http://127.0.0.1:8788${path}`);
+  }
+
+  let lastError: Error | null = null;
+  for (const url of urls) {
+    try {
+      const r = await fetch(url, { cache: 'no-store' });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({})) as Record<string, unknown>;
+        const msg = typeof body?.error === 'string' ? body.error : `${r.status} ${r.statusText}`;
+        throw new Error(msg);
+      }
+      const contentType = r.headers.get('content-type') ?? '';
+      if (!contentType.includes('application/json')) throw new Error('non_json_response');
+      return r.json() as Promise<T>;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('request_failed');
+    }
+  }
+  throw lastError ?? new Error('request_failed');
 }
 
 async function post<T>(path: string, body?: unknown): Promise<T> {

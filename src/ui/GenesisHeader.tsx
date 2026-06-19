@@ -6,7 +6,8 @@ import { useAccount } from 'wagmi';
 import { setLanguage, useLanguage, useT } from '@core/i18n/languageStore';
 import { MODULE_BY_ID, type ModuleId } from '@core/data/moduleRegistry';
 import { useEvents } from '@core/store/genesisStore';
-import { useAgentData } from '@agents/hooks/useAgentData';
+import { useTruthLayer } from '@hooks/useTruthLayer';
+import { describeSystemStatus } from '@ui/systemStatus';
 
 interface Props {
   currentModule: ModuleId;
@@ -75,7 +76,8 @@ export default function GenesisHeader({ currentModule, onNavigate, onOpenCommand
   const t = useT();
   const entry = MODULE_BY_ID[currentModule];
   const events = useEvents();
-  const { online, lastSync } = useAgentData();
+  const { truth } = useTruthLayer();
+  const systemStatus = describeSystemStatus(truth);
   const { address, isConnected } = useAccount();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
@@ -112,6 +114,11 @@ export default function GenesisHeader({ currentModule, onNavigate, onOpenCommand
     if (['integrations', 'progress', 'settings', 'wallet'].includes(currentModule)) return '#6b7280';
     return '#3da9fc';
   })();
+  const statusColor = systemStatus.tone === 'live'
+    ? '#00ff9c'
+    : systemStatus.tone === 'warn'
+      ? '#fbbf24'
+      : '#ff4757';
 
   return (
     <header className="h-12 shrink-0 bg-carbon-200 border-b border-trim flex items-center justify-between px-4">
@@ -141,12 +148,13 @@ export default function GenesisHeader({ currentModule, onNavigate, onOpenCommand
           <span className="inline-block w-2 h-2 bg-emerald-400" />
           {t('header.officeStatus')}
         </div>
-        <div className="hidden md:flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider"
-          style={{ color: online ? '#00ff9c' : '#ff4757' }}>
+        <div
+          className="hidden md:flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider"
+          style={{ color: statusColor }}
+          title={systemStatus.detail[lang]}
+        >
           <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: 'currentColor' }} />
-          {online
-            ? (lang === 'es' ? `Agente live${lastSync ? ` · ${lastSync}` : ''}` : `Agent live${lastSync ? ` · ${lastSync}` : ''}`)
-            : (lang === 'es' ? 'Backend offline' : 'Backend offline')}
+          {systemStatus.label[lang]}
         </div>
 
         {/* Wallet chip */}

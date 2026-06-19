@@ -80,6 +80,11 @@ export default function WalletView() {
           </div>
           <h1 className="font-mono text-2xl text-zinc-100">{t('wallet.title')}</h1>
           <p className="font-mono text-[12px] text-zinc-500 mt-1">{t('wallet.intro')}</p>
+          <div className="mt-3 border border-amber-400/30 bg-amber-500/5 px-4 py-3 font-mono text-[11px] text-amber-200 leading-relaxed">
+            {lang === 'es'
+              ? 'Estado actual: esta wallet es solo lectura on-chain. Genesis todavia no ejecuta trades desde esta wallet ni mueve fondos del usuario.'
+              : 'Current state: this wallet is read-only on-chain. Genesis does not trade from this wallet or move user funds yet.'}
+          </div>
         </header>
 
         {/* Status banner */}

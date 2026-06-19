@@ -336,17 +336,17 @@ export const MODULES: ModuleEntry[] = [
     navKey: 'nav.wallet',
     state: 'ready',
     description: {
-      es: 'Conecta tu wallet de Polygon para habilitar trading real con USDC en Polymarket.',
-      en: 'Connect your Polygon wallet to enable real USDC trading on Polymarket.',
+      es: 'Conecta una wallet para lectura on-chain y futura identidad por firma. No habilita trading real todavia.',
+      en: 'Connect a wallet for on-chain read access and future signature-based identity. It does not enable live trading yet.',
     },
     futureActions: [
       { es: 'Ver balance MATIC y USDC en tiempo real.', en: 'View real-time MATIC and USDC balance.' },
-      { es: 'Habilitar modo de trading real.',           en: 'Enable real trading mode.' },
-      { es: 'Firmar órdenes en Polymarket via CLOB.',    en: 'Sign orders on Polymarket via CLOB.' },
+      { es: 'Preparar login por firma de wallet.',       en: 'Prepare wallet-signature login.' },
+      { es: 'Separar lectura, identidad y autorizacion de trading.',    en: 'Separate read access, identity, and trading authorization.' },
     ],
     relation: {
-      es: 'Cuando conectada, los agentes trader operarán con capital real.',
-      en: 'When connected, trader agents will operate with real capital.',
+      es: 'Hoy solo expone saldo y direccion. La capa de ejecucion real sigue separada.',
+      en: 'Today it only exposes address and balances. Real execution remains separate.',
     },
   },
   {

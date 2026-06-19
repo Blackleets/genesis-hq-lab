@@ -5,6 +5,8 @@
 import { useAgentData } from '@agents/hooks/useAgentData';
 import { useLanguage } from '@core/i18n/languageStore';
 import type { AgentTrade } from '@services/agentClient';
+import { useTruthLayer } from '@hooks/useTruthLayer';
+import { describeSystemStatus } from '@ui/systemStatus';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -219,11 +221,19 @@ function timeUntil(iso: string | undefined) {
 }
 
 function RunnerActivityPanel({ status }: { status: ReturnType<typeof useAgentData>['runnerStatus'] }) {
+  const lang = useLanguage();
+  const { truth } = useTruthLayer();
+  const systemStatus = describeSystemStatus(truth);
+
   if (!status) {
     return (
       <div className="gx-card px-4 py-3">
         <div className="gx-overline mb-1">Agent Runner</div>
-        <div className="font-mono text-[10px] text-zinc-600">Starting… first tick in ~5 min</div>
+        <div className="font-mono text-[10px] text-zinc-600">
+          {systemStatus.tone === 'live'
+            ? 'Starting... first tick pending'
+            : systemStatus.detail[lang]}
+        </div>
       </div>
     );
   }

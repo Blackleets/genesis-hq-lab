@@ -14,6 +14,7 @@ import {
   useHiringQueue,
 } from '@core/store/genesisStore';
 import { useLiveTrading } from '@dashboard/hooks/useLiveTrading';
+import { useTruthLayer } from '@hooks/useTruthLayer';
 import type { Agent } from '@core/types/genesis';
 import CapitalChart from '@dashboard/charts/CapitalChart';
 import AgentPerformanceChart from '@dashboard/charts/AgentPerformanceChart';
@@ -24,6 +25,7 @@ import { OFFICE_ROOMS } from '@animations/officeRooms';
 import { MODULE_BY_ID, stateTKey } from '@core/data/moduleRegistry';
 import type { TKey } from '@core/i18n/translations';
 import type { TaskStatus } from '@core/types/task';
+import { describeSystemStatus } from '@ui/systemStatus';
 
 interface Props {
   onOpenHQ: () => void;
@@ -74,6 +76,8 @@ export default function GenesisDashboard({ onOpenHQ }: Props) {
   const onboardingAgents = useOnboardingAgents();
   const allAgentsForUtil = [...activeAgents, ...onboardingAgents];
   const live = useLiveTrading();
+  const { truth } = useTruthLayer();
+  const systemStatus = describeSystemStatus(truth);
   const [showPerfChart, setShowPerfChart] = useState(false);
 
   const activeTasks = tasks.filter(
@@ -142,6 +146,23 @@ export default function GenesisDashboard({ onOpenHQ }: Props) {
           <h1 className="font-mono text-3xl font-bold text-zinc-100 tracking-tight">{t('dashboard.title')}</h1>
           <p className="font-mono text-[12px] text-zinc-500 mt-1">{t('dashboard.realtime')}</p>
         </header>
+
+        <div
+          className="border px-4 py-2.5 font-mono text-[11px] leading-snug"
+          style={{
+            borderColor: systemStatus.tone === 'live' ? 'rgba(0,255,156,0.28)' : systemStatus.tone === 'warn' ? 'rgba(251,191,36,0.28)' : 'rgba(255,71,87,0.28)',
+            background: systemStatus.tone === 'live' ? 'rgba(0,255,156,0.05)' : systemStatus.tone === 'warn' ? 'rgba(251,191,36,0.06)' : 'rgba(255,71,87,0.07)',
+            color: systemStatus.tone === 'live' ? '#b6f7da' : systemStatus.tone === 'warn' ? '#fde68a' : '#fecaca',
+          }}
+        >
+          <div className="uppercase tracking-[0.18em] text-[10px] mb-1">
+            {lang === 'es' ? 'Estado operativo' : 'Operating status'}
+          </div>
+          <div>{systemStatus.label[lang]}</div>
+          <div className="text-zinc-400 mt-1">
+            {systemStatus.detail[lang]}
+          </div>
+        </div>
 
         {/* Critical alert */}
         {criticalEvent && (
