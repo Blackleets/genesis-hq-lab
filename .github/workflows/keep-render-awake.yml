@@ -1,9 +1,10 @@
 name: Keep Backend Awake
 
-# Pings the backend health endpoint every 10 minutes from GitHub's infra.
-# Works for both Render and Railway. Configure BACKEND_HEALTH_URL as a
-# GitHub Actions variable (repo Settings → Variables → Actions) to point
-# at whichever host is active.
+# Fires every 10 min from GitHub's infra.
+# 1. Pings the backend health endpoint (keeps Railway/Render warm).
+# 2. Ticks the Supabase genesis-runner edge function (keeps runner heartbeat
+#    fresh so the dashboard never shows RUNNER ESTANCADO due to cron delays).
+# 3. Runs genesis-alerts for Telegram notifications.
 
 on:
   schedule:
@@ -16,6 +17,9 @@ permissions:
 concurrency:
   group: keep-backend-awake
   cancel-in-progress: false
+
+env:
+  GENESIS_RUNNER_TOKEN: ${{ secrets.GENESIS_RUNNER_TOKEN }}
 
 jobs:
   ping:
@@ -37,4 +41,30 @@ jobs:
             sleep 15
           done
           echo "Backend health endpoint did not respond after 3 attempts — may be deploying"
+          exit 0
+
+      - name: Tick genesis-runner (keep heartbeat alive)
+        if: env.GENESIS_RUNNER_TOKEN != ''
+        run: |
+          RESP=$(curl --silent --show-error --max-time 20 \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-genesis-runner-token: $GENESIS_RUNNER_TOKEN" \
+            "https://swgixcbwyhxttnmrglbk.supabase.co/functions/v1/genesis-runner" \
+            -w "\n%{http_code}" || echo "curl_failed")
+          STATUS=$(echo "$RESP" | tail -1)
+          echo "genesis-runner response status: $STATUS"
+          exit 0
+
+      - name: Run genesis-alerts (Telegram notifications)
+        if: env.GENESIS_RUNNER_TOKEN != ''
+        run: |
+          RESP=$(curl --silent --show-error --max-time 20 \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-genesis-runner-token: $GENESIS_RUNNER_TOKEN" \
+            "https://swgixcbwyhxttnmrglbk.supabase.co/functions/v1/genesis-alerts" \
+            -w "\n%{http_code}" || echo "curl_failed")
+          STATUS=$(echo "$RESP" | tail -1)
+          echo "genesis-alerts response status: $STATUS"
           exit 0
