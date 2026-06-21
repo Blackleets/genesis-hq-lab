@@ -55,5 +55,9 @@ export function getPool() {
 }
 
 export async function query(sql, params = []) {
+  if (!hasPostgres()) {
+    // Return empty result set instead of crashing
+    return { rows: [], rowCount: 0 };
+  }
   return getPool().query(sql, params);
 }
