@@ -137,7 +137,7 @@ export function closeTrade(tradeId, resolvedOutcomeOrCloseData, { settleCapital 
   });
 
   if (rowsChanged === 0) return null;
-  return { ...trade, resolvedOutcome, exitPrice, pnl, closedAt };
+  return { ...trade, resolvedOutcome: closeData.resolvedOutcome ?? null, exitPrice: closeData.exitPrice, pnl: closeData.pnl, closedAt };
 }
 
 // ─── Get open trades ──────────────────────────────────────────────────────────

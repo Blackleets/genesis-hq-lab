@@ -56,15 +56,19 @@ export function processFill(fillEvent) {
     const entryCapital = trade.capital_used ?? 100;
     const realizedPnL = fillProceeds - entryCapital;
 
+    console.log('[kalshi:fill] Calling closeTrade with:', {exitPrice: fillPrice, exitReason: `Kalshi real fill: ${outcome}`, pnl: realizedPnL});
     closeTrade(trade.id, {
       filledAt: ts || new Date().toISOString(),
       exitPrice: fillPrice,
       exitReason: `Kalshi real fill: ${outcome} ${count} @ ${price.toFixed(4)}`,
       pnl: realizedPnL,
     });
+    console.log('[kalshi:fill] closeTrade returned OK');
 
     // Settle capital (return to available bucket)
+    console.log('[kalshi:fill] Calling settleTradeCapital with:', {capitalUsed: entryCapital, pnl: realizedPnL});
     const treasury = settleTradeCapital(entryCapital, realizedPnL);
+    console.log('[kalshi:fill] settleTradeCapital returned:', treasury);
 
     // Score update on agent (optional — might not exist for all agents)
     try {
@@ -76,6 +80,7 @@ export function processFill(fillEvent) {
     console.log(`[kalshi:fill] ✓ closed trade ${trade.id}, PnL: $${realizedPnL.toFixed(2)}`);
   } catch (err) {
     console.error('[kalshi:fill] processFill error:', err.message);
+    console.error('[kalshi:fill] stack:', err.stack?.split('\n').slice(0, 3).join(' | '));
   }
 }
 
