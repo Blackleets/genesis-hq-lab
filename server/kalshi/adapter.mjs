@@ -14,6 +14,7 @@
 
 import { EventEmitter } from 'node:events';
 import KalshiWS from './ws.mjs';
+import { withRetry } from '../utils/retry.mjs';
 import { processFill, processPosition, trackPendingFill, clearPendingFills } from './fillProcessor.mjs';
 
 const KALSHI_REST_BASE = 'https://trading-api.kalshi.com/trade-api/v2';
@@ -128,24 +129,32 @@ export function publishMarketUpdates(rawMarkets) {
 // ─── Internal REST poll ───────────────────────────────────────────────────────
 
 async function _pollOnce(apiKey) {
-  try {
-    const res = await fetch(
-      `${KALSHI_REST_BASE}/markets?limit=${MARKET_LIMIT}&status=open`,
-      {
-        headers: { Authorization: `Bearer ${apiKey}` },
-        signal:  AbortSignal.timeout(10_000),
+  return withRetry(
+    async () => {
+      const res = await fetch(
+        `${KALSHI_REST_BASE}/markets?limit=${MARKET_LIMIT}&status=open`,
+        {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          signal: AbortSignal.timeout(10_000),
+        }
+      );
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
       }
-    );
-    if (!res.ok) {
-      console.warn(`[kalshi] market poll HTTP ${res.status} — skipping`);
-      return;
-    }
-    const body = await res.json();
-    const markets = body?.markets ?? body ?? [];
-    publishMarketUpdates(Array.isArray(markets) ? markets : []);
-  } catch (err) {
-    console.warn('[kalshi] market poll error:', err.message);
-  }
+      const body = await res.json();
+      const markets = body?.markets ?? body ?? [];
+      publishMarketUpdates(Array.isArray(markets) ? markets : []);
+    },
+    {
+      initialDelayMs: 500,
+      maxRetries: 2,
+      maxDelayMs: 5000,
+    },
+    'kalshi market poll'
+  ).catch(err => {
+    // market poll is best-effort — don't throw
+    console.warn('[kalshi] market poll exhausted retries:', err.message);
+  });
 }
 
 function _startMarketPoll(apiKey) {

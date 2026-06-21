@@ -1,12 +1,21 @@
 import { saveTrade } from '../memory/tradingMemory.mjs';
 import { computePaperFillCosts } from './costs.mjs';
 import { consumeApprovedDecision, attachTradeToDecision } from '../crypto/decisionMemory.mjs';
+import { withRetry, CircuitBreaker } from '../utils/retry.mjs';
+import { getStrategyParams } from '../strategy/strategyParams.mjs';
 import { appendFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join as execPathJoin, dirname as execDirname } from 'node:path';
 import { fileURLToPath as execFromUrl } from 'node:url';
 
 const __execDir = execDirname(execFromUrl(import.meta.url));
 const EXEC_LOGS = execPathJoin(__execDir, '..', '..', 'logs');
+
+// Circuit breaker for Kalshi API (prevent cascading failures)
+const kalshiBreaker = new CircuitBreaker({
+  name: 'kalshi-api',
+  failureThreshold: 5,
+  resetTimeoutMs: 60000, // 1 minute timeout before retry
+});
 
 function logFailedOrder(tradeProposal, error) {
   const entry = JSON.stringify({
@@ -60,28 +69,52 @@ export async function executeTrade(tradeProposal) {
     }
 
     if (tradeProposal.marketSource === 'kalshi') {
-        const orderResult = await placeKalshiOrder(tradeProposal);
-        if (!orderResult.ok) {
-            console.error('[execution] REAL ORDER FAILED (Kalshi):', orderResult.error);
-            logFailedOrder(tradeProposal, orderResult.error);
-            return { executed: false, mode: 'real_failed', reason: orderResult.error };
-        }
+        try {
+            const orderResult = await kalshiBreaker.execute(
+                () => placeKalshiOrderWithRetry(tradeProposal),
+                'Kalshi order placement'
+            );
 
-        // Save trade with Kalshi order ID linked
-        const tradeId = saveTrade({
-            ...tradeProposal,
-            external_order_id: orderResult.orderId,
-            trade_type: 'real',
-            mode: 'real',
-        });
-        if (tradeProposal.councilDecisionId) attachTradeToDecision(tradeProposal.councilDecisionId, tradeId);
-        console.log(`[execution] ✓ Kalshi order ${orderResult.orderId} linked to trade ${tradeId}`);
-        return { executed: true, tradeId, mode: 'real', orderId: orderResult.orderId };
+            if (!orderResult.ok) {
+                console.error('[execution] REAL ORDER FAILED (Kalshi):', orderResult.error);
+                logFailedOrder(tradeProposal, orderResult.error);
+                return { executed: false, mode: 'real_failed', reason: orderResult.error };
+            }
+
+            // Save trade with Kalshi order ID linked
+            const tradeId = saveTrade({
+                ...tradeProposal,
+                external_order_id: orderResult.orderId,
+                trade_type: 'real',
+                mode: 'real',
+            });
+            if (tradeProposal.councilDecisionId) attachTradeToDecision(tradeProposal.councilDecisionId, tradeId);
+            console.log(`[execution] ✓ Kalshi order ${orderResult.orderId} linked to trade ${tradeId}`);
+            return { executed: true, tradeId, mode: 'real', orderId: orderResult.orderId };
+        } catch (err) {
+            console.error('[execution] CIRCUIT BREAKER / RETRY EXHAUSTED (Kalshi):', err.message);
+            logFailedOrder(tradeProposal, err.message);
+            return { executed: false, mode: 'real_failed', reason: `Kalshi circuit breaker: ${err.message}` };
+        }
     }
 
     const reason = `Real trading is not yet supported for source ${tradeProposal.marketSource}`;
     console.warn('[execution] Unsupported real trading source:', tradeProposal.marketSource);
     return { executed: false, reason };
+}
+
+async function placeKalshiOrderWithRetry(tradeProposal) {
+    const strategyParams = getStrategyParams('kalshi');
+    const retryConfig = strategyParams.settings_json;
+
+    return withRetry(
+        () => placeKalshiOrder(tradeProposal),
+        {
+            initialDelayMs: retryConfig.retryBackoffMs ?? 100,
+            maxRetries: retryConfig.maxRetries ?? 3,
+        },
+        `Kalshi order ${tradeProposal.marketId}`
+    );
 }
 
 async function placeKalshiOrder(tradeProposal) {
