@@ -107,7 +107,7 @@ export function closeTrade(tradeId, resolvedOutcomeOrCloseData, { settleCapital 
     rowsChanged = info.changes;
 
     if (rowsChanged > 0 && settleCapital) {
-      const returned = trade.capital_used + pnl;
+      const returned = trade.capital_used + closeData.pnl;
       db.prepare(`
         INSERT INTO capital_history
           (total, available, in_trades, bucket_reserve, bucket_upgrade,
@@ -125,13 +125,13 @@ export function closeTrade(tradeId, resolvedOutcomeOrCloseData, { settleCapital 
           datetime('now')
         FROM capital_history ORDER BY rowid DESC LIMIT 1
       `).run(
-        pnl, returned, trade.capital_used,
-        pnl > 0 ? pnl * REINVESTMENT.reserve : 0,
-        pnl > 0 ? pnl * REINVESTMENT.agentUpgrade : 0,
-        pnl > 0 ? pnl * REINVESTMENT.experiments : 0,
-        pnl > 0 ? pnl * REINVESTMENT.expansion : 0,
-        pnl > 0 ? pnl * REINVESTMENT.liquidity : 0,
-        pnl,
+        closeData.pnl, returned, trade.capital_used,
+        closeData.pnl > 0 ? closeData.pnl * REINVESTMENT.reserve : 0,
+        closeData.pnl > 0 ? closeData.pnl * REINVESTMENT.agentUpgrade : 0,
+        closeData.pnl > 0 ? closeData.pnl * REINVESTMENT.experiments : 0,
+        closeData.pnl > 0 ? closeData.pnl * REINVESTMENT.expansion : 0,
+        closeData.pnl > 0 ? closeData.pnl * REINVESTMENT.liquidity : 0,
+        closeData.pnl,
       );
     }
   });
