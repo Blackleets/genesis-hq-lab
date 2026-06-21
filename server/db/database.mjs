@@ -146,6 +146,45 @@ function migrateTradingKalshi() {
 
 migrateTradingKalshi();
 
+// ─── Venue strategy parameters ────────────────────────────────────────────────
+
+function migrateStrategyParams() {
+  const stmts = [
+    `CREATE TABLE IF NOT EXISTS strategy_params (
+      id                 TEXT PRIMARY KEY,
+      venue              TEXT NOT NULL UNIQUE,
+      is_active          INTEGER NOT NULL DEFAULT 0,
+      min_confidence     REAL NOT NULL DEFAULT 0.65,
+      max_entry_price    REAL NOT NULL DEFAULT 0.90,
+      min_entry_price    REAL NOT NULL DEFAULT 0.10,
+      max_position_usd   REAL NOT NULL DEFAULT 500,
+      max_position_pct   REAL NOT NULL DEFAULT 0.05,
+      max_open_trades    INTEGER NOT NULL DEFAULT 5,
+      stop_loss_pct      REAL NOT NULL DEFAULT 0.20,
+      take_profit_pct    REAL NOT NULL DEFAULT 0.50,
+      trailing_stop_pct  REAL,
+      max_hold_days      INTEGER NOT NULL DEFAULT 45,
+      min_liquidity_usd  REAL NOT NULL DEFAULT 5000,
+      min_volume_24h     REAL,
+      settings_json      TEXT NOT NULL DEFAULT '{}',
+      activated_at       TEXT,
+      deactivated_at     TEXT,
+      created_at         TEXT NOT NULL,
+      updated_at         TEXT NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_strategy_active ON strategy_params(venue, is_active)`,
+  ];
+  for (const stmt of stmts) {
+    try {
+      db.prepare(stmt).run();
+    } catch (e) {
+      // idempotent
+    }
+  }
+}
+
+migrateStrategyParams();
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /** Execute a write operation in a transaction */

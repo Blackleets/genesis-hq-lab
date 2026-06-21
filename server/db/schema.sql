@@ -800,3 +800,38 @@ CREATE TABLE IF NOT EXISTS paper_agent_runs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_paper_agent_runs_user_created ON paper_agent_runs(user_id, created_at);
+
+-- ─── STRATEGY PARAMETERS — per-venue trading configuration ───────────────────
+-- One row per venue. Updated via /api/strategy-params API.
+
+CREATE TABLE IF NOT EXISTS strategy_params (
+  id                 TEXT PRIMARY KEY,
+  venue              TEXT NOT NULL UNIQUE,   -- 'kalshi', 'polymarket', 'crypto'
+  is_active          INTEGER NOT NULL DEFAULT 0, -- only one venue active at a time
+  -- Entry criteria
+  min_confidence     REAL NOT NULL DEFAULT 0.65,
+  max_entry_price    REAL NOT NULL DEFAULT 0.90,
+  min_entry_price    REAL NOT NULL DEFAULT 0.10,
+  -- Position sizing
+  max_position_usd   REAL NOT NULL DEFAULT 500,
+  max_position_pct   REAL NOT NULL DEFAULT 0.05,
+  max_open_trades    INTEGER NOT NULL DEFAULT 5,
+  -- Exit rules
+  stop_loss_pct      REAL NOT NULL DEFAULT 0.20, -- 20% loss = close
+  take_profit_pct    REAL NOT NULL DEFAULT 0.50, -- 50% profit = close
+  trailing_stop_pct  REAL,                        -- optional: trailing stop
+  -- Holding time
+  max_hold_days      INTEGER NOT NULL DEFAULT 45,
+  -- Market criteria
+  min_liquidity_usd  REAL NOT NULL DEFAULT 5000,
+  min_volume_24h     REAL,                        -- optional volume check
+  -- Venue-specific
+  settings_json      TEXT NOT NULL DEFAULT '{}', -- {retryBackoffMs, maxRetries, ...}
+  -- Metadata
+  activated_at       TEXT,
+  deactivated_at     TEXT,
+  created_at         TEXT NOT NULL,
+  updated_at         TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_strategy_active ON strategy_params(venue, is_active);
