@@ -1,4 +1,4 @@
-import { query } from './postgres.js';
+import { query, hasPostgres } from './postgres.js';
 
 const CRYPTO_TRADE_TYPES = ['crypto_scalp', 'scalp_v2', 'swing_v1', 'breakout_v1'];
 const FUTURES_TRADE_TYPES = [
@@ -927,8 +927,16 @@ export async function getSystemHealthFallback() {
   const futures = await getFuturesDeskFallback();
   const health = await getHealthFallback();
   const runner = await getHostedRunnerHeartbeatFallback();
-  const totalTradesRes = await query(`SELECT COUNT(*)::int AS total FROM trades`);
-  const lessonsRes = await query(`SELECT COUNT(*)::int AS total FROM lessons`);
+  let totalTradesRes = { rows: [{ total: 0 }] };
+  let lessonsRes = { rows: [{ total: 0 }] };
+  if (hasPostgres()) {
+    try {
+      totalTradesRes = await query(`SELECT COUNT(*)::int AS total FROM trades`);
+      lessonsRes = await query(`SELECT COUNT(*)::int AS total FROM lessons`);
+    } catch {
+      // DB error, use defaults
+    }
+  }
   return {
     ok: true,
     timestamp: new Date().toISOString(),
