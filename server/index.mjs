@@ -282,6 +282,7 @@ const server = createServer(async (req, res) => {
     let body = '';
     req.on('data', (chunk) => { body += chunk; });
     req.on('end', () => {
+      if (!requireAuth(req, res)) return;
       try {
         const parsed = body ? JSON.parse(body) : {};
         const baseline = resetFuturesPnlBaseline({
@@ -300,6 +301,7 @@ const server = createServer(async (req, res) => {
     let body = '';
     req.on('data', (chunk) => { body += chunk; });
     req.on('end', async () => {
+      if (!requireAuth(req, res)) return;
       try {
         const parsed = body ? JSON.parse(body) : {};
         if (parsed?.apply === true) {
@@ -336,6 +338,7 @@ const server = createServer(async (req, res) => {
     let body = '';
     req.on('data', (chunk) => { body += chunk; });
     req.on('end', () => {
+      if (!requireAuth(req, res)) return;
       try {
         const parsed = body ? JSON.parse(body) : {};
         const result = applyIntelligenceSupervisorRun(
@@ -369,6 +372,7 @@ const server = createServer(async (req, res) => {
     let body = '';
     req.on('data', (chunk) => { body += chunk; });
     req.on('end', () => {
+      if (!requireAuth(req, res)) return;
       try {
         const parsed = body ? JSON.parse(body) : {};
         const result = rollbackIntelligenceSupervisorOverrides(
@@ -831,6 +835,7 @@ const server = createServer(async (req, res) => {
     let body = '';
     req.on('data', c => body += c);
     req.on('end', async () => {
+      if (!requireAuth(req, res)) return;
       try {
         const { pair = 'BTCUSDT', side, capitalUsed = 100 } = JSON.parse(body);
         if (!['LONG', 'SHORT'].includes(side)) {
@@ -1106,6 +1111,7 @@ const server = createServer(async (req, res) => {
     let body = '';
     req.on('data', c => body += c);
     req.on('end', async () => {
+      if (!requireAuth(req, res)) return;
       try {
         const { pair = 'BTCUSDT', side } = JSON.parse(body || '{}');
         if (!['LONG', 'SHORT'].includes(side)) {
