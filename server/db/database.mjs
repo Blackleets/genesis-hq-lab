@@ -45,7 +45,10 @@ function migrate() {
         db.prepare(stmt + ';').run();
       } catch (e) {
         // Ignore idempotent migration errors
-        if (!e.message.includes('already exists') && !e.message.includes('duplicate column name')) throw e;
+        if (!e.message.includes('already exists') && !e.message.includes('duplicate column name')) {
+          console.error('[db] Migration error:', e.message.slice(0, 100), 'in:', stmt.slice(0, 60));
+          throw e;
+        }
       }
     }
   });
@@ -116,6 +119,32 @@ function migrateIntelligenceSupervisor() {
 }
 
 migrateIntelligenceSupervisor();
+
+// ─── Kalshi real trading columns ──────────────────────────────────────────────
+
+function migrateTradingKalshi() {
+  const stmts = [
+    // SQLite: cannot add UNIQUE to existing table, so use INDEX instead for migration
+    `ALTER TABLE trades ADD COLUMN external_order_id TEXT`,
+    `ALTER TABLE trades ADD COLUMN trade_type TEXT DEFAULT 'paper'`,
+    `ALTER TABLE trades ADD COLUMN mode TEXT`,
+    `ALTER TABLE trades ADD COLUMN exit_reason TEXT`,
+    // Use INDEX for existing tables (new tables have UNIQUE in schema.sql)
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_trades_external_order_uniq ON trades(external_order_id) WHERE external_order_id IS NOT NULL`,
+  ];
+  for (const stmt of stmts) {
+    try {
+      db.prepare(stmt).run();
+    } catch (e) {
+      // Idempotent: column might already exist
+      if (!e.message.includes('duplicate column name') && !e.message.includes('already exists')) {
+        // Silent fail for migration
+      }
+    }
+  }
+}
+
+migrateTradingKalshi();
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

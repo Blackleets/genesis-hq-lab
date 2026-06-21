@@ -67,7 +67,12 @@ CREATE TABLE IF NOT EXISTS trades (
   closed_at       TEXT,
   days_to_close   INTEGER,
   -- Link to lesson
-  lesson_id       TEXT
+  lesson_id       TEXT,
+  -- External exchange order tracking (for real trading)
+  external_order_id TEXT UNIQUE,              -- Kalshi orderId, Polymarket order ID, etc.
+  trade_type      TEXT DEFAULT 'paper',       -- 'paper', 'real'
+  mode            TEXT,                       -- 'real', 'paper', 'real_failed'
+  exit_reason     TEXT                        -- Why the trade closed
 );
 
 CREATE INDEX IF NOT EXISTS idx_trades_agent    ON trades(agent_id);

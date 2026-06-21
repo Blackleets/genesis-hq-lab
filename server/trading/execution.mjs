@@ -67,8 +67,15 @@ export async function executeTrade(tradeProposal) {
             return { executed: false, mode: 'real_failed', reason: orderResult.error };
         }
 
-        const tradeId = saveTrade(tradeProposal);
+        // Save trade with Kalshi order ID linked
+        const tradeId = saveTrade({
+            ...tradeProposal,
+            external_order_id: orderResult.orderId,
+            trade_type: 'real',
+            mode: 'real',
+        });
         if (tradeProposal.councilDecisionId) attachTradeToDecision(tradeProposal.councilDecisionId, tradeId);
+        console.log(`[execution] ✓ Kalshi order ${orderResult.orderId} linked to trade ${tradeId}`);
         return { executed: true, tradeId, mode: 'real', orderId: orderResult.orderId };
     }
 

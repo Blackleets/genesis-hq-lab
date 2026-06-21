@@ -14,7 +14,7 @@ const DEFAULT_STATE = {
     marketing:          true,
     sales:              false,   // not activated yet
     operations:         true,
-    crypto_scalping:    true,
+    crypto_scalping:    false,   // PAUSED — edge negative (PF=0.10, EV=-$0.67/trade, WR=18.4%)
   },
   riskTolerance: 'normal', // conservative | normal | aggressive
   focus: null,             // { topic, dept, reason, since, expiresAt }

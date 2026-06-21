@@ -17,12 +17,12 @@ export function saveTrade(trade) {
         (id, agent_id, market_id, market_source, market_question, market_category,
          outcome, entry_price, shares, capital_used, confidence, reason, evidence,
          signals_used, lessons_applied, rules_applied, status, opened_at, days_to_close,
-         stop_price, target_price)
+         stop_price, target_price, external_order_id, trade_type, mode)
       VALUES
         (@id, @agent_id, @market_id, @market_source, @market_question, @market_category,
          @outcome, @entry_price, @shares, @capital_used, @confidence, @reason, @evidence,
          @signals_used, @lessons_applied, @rules_applied, 'open', @opened_at, @days_to_close,
-         @stop_price, @target_price)
+         @stop_price, @target_price, @external_order_id, @trade_type, @mode)
     `).run({
       id,
       agent_id:          trade.agentId ?? 'market-agent-1',
@@ -44,6 +44,9 @@ export function saveTrade(trade) {
       days_to_close:     trade.daysToClose ?? null,
       stop_price:        trade.stopLossPrice ?? null,
       target_price:      trade.takeProfitPrice ?? null,
+      external_order_id: trade.externalOrderId ?? null,
+      trade_type:        trade.tradeType ?? 'paper',
+      mode:              trade.mode ?? null,
     });
 
     // Index in FTS
@@ -55,24 +58,52 @@ export function saveTrade(trade) {
   return id;
 }
 
-// ─── Close a trade (market resolved) ─────────────────────────────────────────
+// ─── Close a trade (market resolved or filled) ────────────────────────────────
+// Supports both paper trades (resolvedOutcome) and real fills (closeData with exitPrice)
 
-export function closeTrade(tradeId, resolvedOutcome, { settleCapital = false } = {}) {
+export function closeTrade(tradeId, resolvedOutcomeOrCloseData, { settleCapital = false } = {}) {
   const trade = db.prepare('SELECT * FROM trades WHERE id = ?').get(tradeId);
   if (!trade) return null;
 
-  const won       = trade.outcome === resolvedOutcome;
-  const exitPrice = won ? 1.0 : 0.0;
-  const pnl       = (exitPrice - trade.entry_price) * trade.shares;
-  const closedAt  = new Date().toISOString();
+  let closeData;
+  try {
+    if (typeof resolvedOutcomeOrCloseData === 'string') {
+      // Paper trade: resolvedOutcome is a string (YES/NO)
+      const outcome = resolvedOutcomeOrCloseData;
+      const won = trade.outcome === outcome;
+      const exitPrice = won ? 1.0 : 0.0;
+      const pnl = (exitPrice - trade.entry_price) * trade.shares;
+      closeData = {
+        resolvedOutcome: outcome,
+        exitPrice,
+        pnl,
+        exitReason: `Market resolved: ${outcome}`,
+      };
+    } else {
+      // Real fill: resolvedOutcomeOrCloseData is an object with {exitPrice, pnl, exitReason, filledAt}
+      closeData = resolvedOutcomeOrCloseData;
+    }
+  } catch (e) {
+    console.error('[tradingMemory] closeTrade setup error:', e.message);
+    throw e;
+  }
+
+  const closedAt = closeData.filledAt ?? new Date().toISOString();
 
   let rowsChanged = 0;
   tx(() => {
     const info = db.prepare(`
       UPDATE trades
-      SET status = 'closed', resolved_outcome = ?, exit_price = ?, pnl = ?, closed_at = ?
+      SET status = 'closed', resolved_outcome = ?, exit_price = ?, pnl = ?, closed_at = ?, exit_reason = ?
       WHERE id = ? AND status = 'open'
-    `).run(resolvedOutcome, exitPrice, pnl, closedAt, tradeId);
+    `).run(
+      closeData.resolvedOutcome ?? null,
+      closeData.exitPrice,
+      closeData.pnl,
+      closedAt,
+      closeData.exitReason ?? null,
+      tradeId
+    );
     rowsChanged = info.changes;
 
     if (rowsChanged > 0 && settleCapital) {
