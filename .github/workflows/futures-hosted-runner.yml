@@ -1,5 +1,10 @@
 name: Hosted Futures Runner
 
+# Ticks the Supabase genesis-runner edge function every 5 min.
+# NEVER fails the job on a non-2xx response — a transient 503/timeout from
+# the edge function must not spam the repo owner with "workflow failed"
+# emails. The status is logged for visibility instead.
+
 on:
   schedule:
     - cron: '*/5 * * * *'
@@ -12,6 +17,9 @@ concurrency:
   group: hosted-futures-runner
   cancel-in-progress: false
 
+env:
+  GENESIS_RUNNER_TOKEN: ${{ secrets.GENESIS_RUNNER_TOKEN }}
+
 jobs:
   futures-tick:
     runs-on: ubuntu-latest
@@ -19,6 +27,13 @@ jobs:
     steps:
       - name: Run Supabase hosted futures tick
         run: |
-          curl --fail --silent --show-error \
-            -H "x-genesis-runner-token: ${{ secrets.GENESIS_RUNNER_TOKEN }}" \
-            "https://swgixcbwyhxttnmrglbk.supabase.co/functions/v1/genesis-runner"
+          RESP=$(curl --silent --show-error --max-time 25 \
+            -H "x-genesis-runner-token: $GENESIS_RUNNER_TOKEN" \
+            "https://swgixcbwyhxttnmrglbk.supabase.co/functions/v1/genesis-runner" \
+            -w "\n%{http_code}" || echo "curl_failed")
+          STATUS=$(echo "$RESP" | tail -1)
+          BODY=$(echo "$RESP" | sed '$d')
+          echo "genesis-runner status: $STATUS"
+          echo "body: $BODY"
+          # Always succeed — never email the owner over a transient backend error.
+          exit 0
