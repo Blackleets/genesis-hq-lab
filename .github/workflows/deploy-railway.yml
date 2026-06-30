@@ -1,0 +1,49 @@
+name: Deploy to Railway
+
+# Deploys the backend (server + agent + optimizer) to Railway on every push
+# to feat/genesis-life-os — the same branch the Vercel frontend tracks, so
+# frontend and backend stay in sync.
+#
+# REQUIRED: add a GitHub Actions secret named RAILWAY_TOKEN
+#   GitHub → Settings → Secrets and variables → Actions → New repository secret
+#   Value: a Railway *project* token (Railway dashboard → project → Settings →
+#   Tokens). Without it this job fails fast with a clear message.
+
+on:
+  push:
+    branches: [feat/genesis-life-os]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: railway-deploy
+  cancel-in-progress: false
+
+env:
+  RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fail clearly if RAILWAY_TOKEN is missing
+        if: env.RAILWAY_TOKEN == ''
+        run: |
+          echo "::error::RAILWAY_TOKEN secret is not set — the backend cannot deploy."
+          echo "Add it: GitHub → Settings → Secrets and variables → Actions →"
+          echo "New repository secret → Name: RAILWAY_TOKEN, Value: <Railway project token>"
+          exit 1
+
+      - name: Install Railway CLI
+        if: env.RAILWAY_TOKEN != ''
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        if: env.RAILWAY_TOKEN != ''
+        run: railway up --detach
