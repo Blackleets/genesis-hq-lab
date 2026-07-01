@@ -5,6 +5,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { agentClient, type EdgeScorecard, type CryptoEdgeScorecard } from '@services/agentClient';
 import { useLanguage } from '@core/i18n/languageStore';
+import LocalEdgeScorecard from '@workflows/LocalEdgeScorecard';
 
 const POLL_MS = 30_000;
 
@@ -146,9 +147,14 @@ export default function EdgeScorecardView() {
           {lang === 'es' ? 'Cargando...' : 'Loading...'}
         </div>
       ) : !data ? (
-        <div className="border border-amber-400/40 bg-amber-400/5 px-4 py-3 text-amber-300 text-sm">
-          {lang === 'es' ? 'Backend no disponible — arranca el servidor.' : 'Backend unavailable — start the server.'}
-        </div>
+        <>
+          <div className="border border-amber-400/40 bg-amber-400/5 px-4 py-3 text-amber-300 text-[12px]">
+            {lang === 'es'
+              ? 'Backend offline — mostrando el scorecard LOCAL, calculado en vivo con datos reales de Binance. Aprende y mide igual sin servidor.'
+              : 'Backend offline — showing the LOCAL scorecard, computed live from real Binance data. It learns and measures without the server.'}
+          </div>
+          <LocalEdgeScorecard />
+        </>
       ) : (
         <>
           {/* Crypto engine — the currently active strategy */}

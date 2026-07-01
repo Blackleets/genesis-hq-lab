@@ -22,6 +22,33 @@ export interface BacktestResult {
   maxDrawdownPct: number; // worst peak-to-trough on the cumulative equity, %
   avgWinPct: number;
   avgLossPct: number;
+  returns: number[];      // per-trade fractional returns (for global stats)
+}
+
+export interface ReadinessCheck {
+  key: string;
+  label: string;
+  value: number | null;
+  threshold: number;
+  pass: boolean;
+}
+
+export type ReadinessVerdict = 'GO' | 'NO_GO' | 'INSUFFICIENT_DATA';
+
+// Professional-grade "ready for real money" scorecard. Every gate must pass,
+// on real out-of-sample market data, before the verdict is GO. This is the
+// bar that separates a validated edge from a demo.
+export interface LocalScorecard {
+  verdict: ReadinessVerdict;
+  trades: number;
+  winRate: number;        // 0..1
+  profitFactor: number;
+  expectancyPct: number;  // mean return per trade, %
+  sharpe: number;         // mean/std of per-trade returns (per-trade Sharpe)
+  maxDrawdownPct: number;
+  totalPnlPct: number;
+  checks: ReadinessCheck[];
+  nextMilestone: string | null;
 }
 
 export interface LocalLearningSnapshot {
@@ -36,6 +63,7 @@ export interface LocalLearningSnapshot {
     maxDrawdownPct: number;
     totalPnlPct: number;
   };
+  scorecard: LocalScorecard;
   scores: Record<string, number>; // agentId -> learningScore (0..1)
 }
 
@@ -84,7 +112,7 @@ function backtest(closes: number[], p: StrategyParams): BacktestResult {
   const returns: number[] = [];
   const empty: BacktestResult = {
     pair: '', trades: 0, wins: 0, winRate: 0, totalPnlPct: 0,
-    profitFactor: 0, maxDrawdownPct: 0, avgWinPct: 0, avgLossPct: 0,
+    profitFactor: 0, maxDrawdownPct: 0, avgWinPct: 0, avgLossPct: 0, returns: [],
   };
   const minBars = Math.max(p.breakoutPeriod, p.regimeSmaPeriod) + 2;
   if (closes.length < minBars) return empty;
@@ -158,7 +186,61 @@ function backtest(closes: number[], p: StrategyParams): BacktestResult {
     maxDrawdownPct: maxDd * 100,
     avgWinPct: winRet.length ? (winRet.reduce((s, r) => s + r, 0) / winRet.length) * 100 : 0,
     avgLossPct: lossRet.length ? (lossRet.reduce((s, r) => s + r, 0) / lossRet.length) * 100 : 0,
+    returns,
   };
+}
+
+// Readiness gates. Every gate must pass on real out-of-sample data for GO.
+// Thresholds are deliberately strict — this is the line before real capital.
+const GATE = {
+  minTrades: 50,        // statistical evidence, not luck
+  minWinRate: 0.45,     // breakout systems win less but big; 45% floor
+  minProfitFactor: 1.3, // gross wins must clear gross losses with margin
+  minExpectancyPct: 0.05, // positive expectancy per trade after the fact
+  minSharpe: 0.5,       // return per unit of volatility
+  maxDrawdownPct: 25,   // capital preservation ceiling
+};
+
+function buildScorecard(allReturns: number[]): LocalScorecard {
+  const trades = allReturns.length;
+  const wins = allReturns.filter((r) => r > 0).length;
+  const winRate = trades ? wins / trades : 0;
+  const grossWin = allReturns.filter((r) => r > 0).reduce((s, r) => s + r, 0);
+  const grossLoss = Math.abs(allReturns.filter((r) => r < 0).reduce((s, r) => s + r, 0));
+  const profitFactor = grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? 3 : 0;
+  const mean = trades ? allReturns.reduce((s, r) => s + r, 0) / trades : 0;
+  const variance = trades ? allReturns.reduce((s, r) => s + (r - mean) ** 2, 0) / trades : 0;
+  const std = Math.sqrt(variance);
+  const sharpe = std > 0 ? mean / std : 0;
+  const expectancyPct = mean * 100;
+  const totalPnlPct = allReturns.reduce((s, r) => s + r, 0) * 100;
+
+  let peak = 0, cum = 0, maxDd = 0;
+  for (const r of allReturns) { cum += r; peak = Math.max(peak, cum); maxDd = Math.max(maxDd, peak - cum); }
+  const maxDrawdownPct = maxDd * 100;
+
+  const checks: ReadinessCheck[] = [
+    { key: 'sample', label: 'Muestra ≥ 50 trades (evidencia estadística)', value: trades, threshold: GATE.minTrades, pass: trades >= GATE.minTrades },
+    { key: 'winRate', label: 'Win rate ≥ 45%', value: Math.round(winRate * 1000) / 10, threshold: GATE.minWinRate * 100, pass: winRate >= GATE.minWinRate },
+    { key: 'pf', label: 'Profit factor ≥ 1.30', value: Math.round(profitFactor * 100) / 100, threshold: GATE.minProfitFactor, pass: profitFactor >= GATE.minProfitFactor },
+    { key: 'expectancy', label: 'Expectativa/trade > 0.05%', value: Math.round(expectancyPct * 1000) / 1000, threshold: GATE.minExpectancyPct, pass: expectancyPct > GATE.minExpectancyPct },
+    { key: 'sharpe', label: 'Sharpe por trade ≥ 0.50', value: Math.round(sharpe * 100) / 100, threshold: GATE.minSharpe, pass: sharpe >= GATE.minSharpe },
+    { key: 'drawdown', label: 'Max drawdown ≤ 25%', value: Math.round(maxDrawdownPct * 10) / 10, threshold: GATE.maxDrawdownPct, pass: maxDrawdownPct <= GATE.maxDrawdownPct },
+  ];
+
+  const allPass = checks.every((c) => c.pass);
+  const verdict: ReadinessVerdict =
+    trades < 30 ? 'INSUFFICIENT_DATA' : allPass ? 'GO' : 'NO_GO';
+
+  const failing = checks.filter((c) => !c.pass);
+  const nextMilestone =
+    verdict === 'INSUFFICIENT_DATA'
+      ? `Faltan ${Math.max(0, 30 - trades)} trades para una lectura válida`
+      : failing.length
+        ? `Falta: ${failing.map((c) => c.label.split(' (')[0]).join(' · ')}`
+        : null;
+
+  return { verdict, trades, winRate, profitFactor, expectancyPct, sharpe, maxDrawdownPct, totalPnlPct, checks, nextMilestone };
 }
 
 function clamp01(n: number): number {
@@ -210,6 +292,7 @@ export async function runLocalLearning(
     return {
       ok: false, ranAt, source: 'binance-local', results: [],
       aggregate: { trades: 0, winRate: 0, profitFactor: 0, maxDrawdownPct: 0, totalPnlPct: 0 },
+      scorecard: buildScorecard([]),
       scores: {},
     };
   }
@@ -229,11 +312,16 @@ export async function runLocalLearning(
   const aggAsResult: BacktestResult = {
     pair: 'AGG', trades, wins, winRate: aggregate.winRate,
     totalPnlPct: aggregate.totalPnlPct, profitFactor: aggregate.profitFactor,
-    maxDrawdownPct: aggregate.maxDrawdownPct, avgWinPct: 0, avgLossPct: 0,
+    maxDrawdownPct: aggregate.maxDrawdownPct, avgWinPct: 0, avgLossPct: 0, returns: [],
   };
+
+  // Global scorecard is computed over ALL trades across every pair, so Sharpe,
+  // expectancy and drawdown reflect the full track record, not one symbol.
+  const allReturns = results.flatMap((r) => r.returns);
 
   return {
     ok: true, ranAt, source: 'binance-local', results, aggregate,
+    scorecard: buildScorecard(allReturns),
     scores: scoreAgents(aggAsResult),
   };
 }
