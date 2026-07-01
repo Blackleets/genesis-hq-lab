@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { useAgents, updateAgentLearning } from '@core/store/genesisStore';
+import { runLocalLearning, type LocalLearningSnapshot } from '@services/localLearningEngine';
 
-const AGENT_SKILL_MAP = {
+const AGENT_SKILL_MAP: Record<string, true> = {
   'trading-scalping-hunter': true,
   'trading-market-analyst': true,
   'trading-risk-sentinel': true,
@@ -9,33 +10,92 @@ const AGENT_SKILL_MAP = {
   'trading-capital-manager': true,
 };
 
+const SNAPSHOT_KEY = 'genesis.local.learning.v1';
+const BACKEND_INTERVAL_MS = 30_000;
+const LOCAL_INTERVAL_MS = 5 * 60_000; // real Binance backtest is heavier — every 5 min
+
+function persistSnapshot(snap: LocalLearningSnapshot) {
+  try {
+    localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snap));
+  } catch {
+    /* storage full / disabled — non-fatal */
+  }
+}
+
+export function readLastLearningSnapshot(): LocalLearningSnapshot | null {
+  try {
+    const raw = localStorage.getItem(SNAPSHOT_KEY);
+    return raw ? (JSON.parse(raw) as LocalLearningSnapshot) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Keeps agent learningScores tied to REAL performance.
+ *  1. Try the backend diagnostics (authoritative when it's up).
+ *  2. If the backend is down, run a local Binance backtest so agents keep
+ *     learning from real market data offline — no random noise.
+ */
 export function useLearningSync() {
   const agents = useAgents();
 
   useEffect(() => {
-    const syncLearning = async () => {
-      try {
-        const res = await fetch('/api/crypto/diagnostics');
-        if (!res.ok) return;
+    let disposed = false;
 
-        const data = await res.json();
-        if (!data.ok || !data.training) return;
-
-        const overallPerformance = Math.max(0, Math.min(1, data.training.winRate ?? 0));
-
-        for (const agent of agents) {
-          if (agent.id in AGENT_SKILL_MAP) {
-            const newScore = Math.max(0.1, Math.min(1, overallPerformance + Math.random() * 0.1));
-            updateAgentLearning(agent.id, newScore);
-          }
+    const applyScores = (scores: Record<string, number>) => {
+      for (const agent of agents) {
+        if (agent.id in AGENT_SKILL_MAP && typeof scores[agent.id] === 'number') {
+          updateAgentLearning(agent.id, scores[agent.id]);
         }
-      } catch (e) {
-        console.debug('Learning sync unavailable:', (e as Error).message);
       }
     };
 
-    syncLearning();
-    const interval = setInterval(syncLearning, 30_000);
-    return () => clearInterval(interval);
+    // Backend path — authoritative win-rate for all trading agents.
+    const syncFromBackend = async (): Promise<boolean> => {
+      try {
+        const res = await fetch('/api/crypto/diagnostics');
+        if (!res.ok) return false;
+        const data = await res.json();
+        if (!data.ok || !data.training) return false;
+        const winRate = Math.max(0, Math.min(1, data.training.winRate ?? 0));
+        const scores: Record<string, number> = {};
+        for (const id of Object.keys(AGENT_SKILL_MAP)) scores[id] = Math.max(0.1, winRate);
+        applyScores(scores);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    // Local path — real Binance backtest, backend-independent.
+    const syncFromLocal = async () => {
+      try {
+        const snap = await runLocalLearning();
+        if (disposed || !snap.ok) return;
+        persistSnapshot(snap);
+        applyScores(snap.scores);
+      } catch {
+        // Last resort: replay the last persisted snapshot so scores stay real,
+        // not reset, across reloads.
+        const last = readLastLearningSnapshot();
+        if (last?.ok) applyScores(last.scores);
+      }
+    };
+
+    const tick = async () => {
+      const okBackend = await syncFromBackend();
+      if (!okBackend && !disposed) await syncFromLocal();
+    };
+
+    tick();
+    // Backend polled often; local backtest paced slower to respect Binance.
+    const fast = setInterval(syncFromBackend, BACKEND_INTERVAL_MS);
+    const slow = setInterval(() => { void syncFromLocal(); }, LOCAL_INTERVAL_MS);
+    return () => {
+      disposed = true;
+      clearInterval(fast);
+      clearInterval(slow);
+    };
   }, [agents]);
 }
