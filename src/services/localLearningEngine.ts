@@ -23,6 +23,9 @@ export interface BacktestResult {
   avgWinPct: number;
   avgLossPct: number;
   returns: number[];      // per-trade fractional returns (for global stats)
+  // entry bar index per trade — lets the aggregate equity curve merge trades
+  // from every pair in true chronological order (same interval ⇒ comparable).
+  tradePoints: Array<{ idx: number; ret: number }>;
 }
 
 export interface ReadinessCheck {
@@ -60,6 +63,9 @@ export interface LocalScorecard {
     p5PnlUsd: number;       // 5th-percentile total PnL
     p95DrawdownPct: number; // 95th-percentile max drawdown
   };
+  // Equity after each trade in USD (chronological across pairs), starting at
+  // PAPER_CAPITAL_USD — feeds the equity-curve chart.
+  equityCurve?: number[];
   checks: ReadinessCheck[];
   nextMilestone: string | null;
 }
@@ -172,9 +178,10 @@ function sma(values: number[], period: number, endIdx: number): number | null {
 // realized per-trade % returns.
 function backtest(closes: number[], p: StrategyParams): BacktestResult {
   const returns: number[] = [];
+  const tradePoints: Array<{ idx: number; ret: number }> = [];
   const empty: BacktestResult = {
     pair: '', trades: 0, wins: 0, winRate: 0, totalPnlPct: 0,
-    profitFactor: 0, maxDrawdownPct: 0, avgWinPct: 0, avgLossPct: 0, returns: [],
+    profitFactor: 0, maxDrawdownPct: 0, avgWinPct: 0, avgLossPct: 0, returns: [], tradePoints: [],
   };
   const minBars = Math.max(p.breakoutPeriod, p.regimeSmaPeriod) + 2;
   if (closes.length < minBars) return empty;
@@ -217,7 +224,9 @@ function backtest(closes: number[], p: StrategyParams): BacktestResult {
       j = closes.length;
     }
     // Net of round-trip trading costs — no free fills in this desk.
-    returns.push(exitPct - COST_ROUND_TRIP);
+    const net = exitPct - COST_ROUND_TRIP;
+    returns.push(net);
+    tradePoints.push({ idx: i, ret: net });
     i = j + 1; // no overlapping positions
   }
 
@@ -250,6 +259,7 @@ function backtest(closes: number[], p: StrategyParams): BacktestResult {
     avgWinPct: winRet.length ? (winRet.reduce((s, r) => s + r, 0) / winRet.length) * 100 : 0,
     avgLossPct: lossRet.length ? (lossRet.reduce((s, r) => s + r, 0) / lossRet.length) * 100 : 0,
     returns,
+    tradePoints,
   };
 }
 
@@ -428,16 +438,31 @@ export async function runLocalLearning(
   const aggAsResult: BacktestResult = {
     pair: 'AGG', trades, wins, winRate: aggregate.winRate,
     totalPnlPct: aggregate.totalPnlPct, profitFactor: aggregate.profitFactor,
-    maxDrawdownPct: aggregate.maxDrawdownPct, avgWinPct: 0, avgLossPct: 0, returns: [],
+    maxDrawdownPct: aggregate.maxDrawdownPct, avgWinPct: 0, avgLossPct: 0, returns: [], tradePoints: [],
   };
 
   // Global scorecard is computed over ALL trades across every pair, so Sharpe,
   // expectancy and drawdown reflect the full track record, not one symbol.
   const allReturns = results.flatMap((r) => r.returns);
 
+  // Equity curve: merge every pair's trades by entry bar index (same interval
+  // ⇒ chronologically comparable), then accumulate USD equity at desk sizing.
+  const chronological = results
+    .flatMap((r) => r.tradePoints ?? [])
+    .sort((a, b) => a.idx - b.idx);
+  let eq = PAPER_CAPITAL_USD;
+  const equityCurve = [eq];
+  for (const t of chronological) {
+    eq += t.ret * NOTIONAL_PER_TRADE_USD;
+    equityCurve.push(Math.round(eq * 100) / 100);
+  }
+
+  const scorecard = buildScorecard(allReturns);
+  scorecard.equityCurve = equityCurve;
+
   return {
     ok: true, ranAt, source: 'binance-local', results, aggregate,
-    scorecard: buildScorecard(allReturns),
+    scorecard,
     scores: scoreAgents(aggAsResult),
   };
 }

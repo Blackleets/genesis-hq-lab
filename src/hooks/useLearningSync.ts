@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useAgents, updateAgentLearning, applyAgentTradingStats, emitAgentSays } from '@core/store/genesisStore';
-import { runLocalLearning, getActiveConfig, type LocalLearningSnapshot } from '@services/localLearningEngine';
+import { runLocalLearning, runBruteForceSweep, getActiveConfig, SWEEP_KEY, type LocalLearningSnapshot } from '@services/localLearningEngine';
 
 const AGENT_SKILL_MAP: Record<string, true> = {
   'trading-scalping-hunter': true,
@@ -12,8 +12,52 @@ const AGENT_SKILL_MAP: Record<string, true> = {
 
 const SNAPSHOT_KEY = 'genesis.local.learning.v1';
 const LAST_SIG_KEY = 'genesis.local.learning.sig.v1';
+const HISTORY_KEY = 'genesis.local.learning.history.v1';
 const BACKEND_INTERVAL_MS = 30_000;
 const LOCAL_INTERVAL_MS = 5 * 60_000; // real Binance backtest is heavier — every 5 min
+const SWEEP_INTERVAL_MS = 6 * 60 * 60_000; // auto re-hunt edge every 6h (8 API calls/run)
+
+// Regime adaptation: re-run the brute-force sweep automatically when the last
+// one is stale, so the adopted config tracks the market without a human click.
+let sweepInFlight = false;
+async function autoSweepIfStale() {
+  if (sweepInFlight) return;
+  try {
+    const raw = localStorage.getItem(SWEEP_KEY);
+    if (raw) {
+      const last = JSON.parse(raw) as { ranAt?: string };
+      const age = last?.ranAt ? Date.now() - new Date(last.ranAt).getTime() : Infinity;
+      if (age < SWEEP_INTERVAL_MS) return;
+    }
+  } catch { /* unreadable → treat as stale */ }
+  sweepInFlight = true;
+  try {
+    const r = await runBruteForceSweep();
+    if (r.ok) localStorage.setItem(SWEEP_KEY, JSON.stringify(r));
+  } catch { /* next check retries */ } finally {
+    sweepInFlight = false;
+  }
+}
+
+// Learning trajectory: keep the last 50 snapshots' headline metrics so the
+// system remembers whether it is getting better or worse between runs.
+function appendHistory(snap: LocalLearningSnapshot) {
+  const sc = snap.scorecard;
+  if (!sc) return;
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    const hist = raw ? (JSON.parse(raw) as unknown[]) : [];
+    hist.push({
+      ranAt: snap.ranAt,
+      verdict: sc.verdict,
+      trades: sc.trades,
+      winRate: Math.round(sc.winRate * 1000) / 1000,
+      profitFactor: Math.round(sc.profitFactor * 100) / 100,
+      pnlUsd: Math.round((sc.pnlUsd ?? 0) * 100) / 100,
+    });
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(hist.slice(-50)));
+  } catch { /* storage full — non-fatal */ }
+}
 
 // Agents visibly react in the office when the learning result CHANGES
 // (new verdict or newly adopted config) — real reactions, not chatter spam.
@@ -132,9 +176,13 @@ export function useLearningSync() {
     // Local path — real Binance backtest, backend-independent.
     const syncFromLocal = async () => {
       try {
+        // Hunt for a better config first when the last sweep is stale, so this
+        // pass already runs whatever the market currently pays.
+        await autoSweepIfStale();
         const snap = await runLocalLearning();
         if (disposed || !snap.ok) return;
         persistSnapshot(snap);
+        appendHistory(snap);
         applyFullStats(snap);
         emitLearningReactions(snap);
       } catch {

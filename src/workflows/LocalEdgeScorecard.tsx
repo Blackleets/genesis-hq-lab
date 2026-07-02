@@ -75,6 +75,68 @@ function CheckRow({ label, pass, value, threshold }: { label: string; pass: bool
   );
 }
 
+// Equity curve — single series, so the title names it (no legend). 2px line,
+// recessive dashed reference at start capital, crosshair+tooltip on hover,
+// text in text tokens (never the series color).
+function EquityCurve({ curve, startCapital }: { curve: number[]; startCapital: number }) {
+  const [hover, setHover] = useState<number | null>(null);
+  if (curve.length < 2) return null;
+
+  const W = 640, H = 120, PAD = 6;
+  const min = Math.min(...curve, startCapital);
+  const max = Math.max(...curve, startCapital);
+  const span = max - min || 1;
+  const x = (i: number) => PAD + (i / (curve.length - 1)) * (W - PAD * 2);
+  const y = (v: number) => PAD + (1 - (v - min) / span) * (H - PAD * 2);
+  const path = curve.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const last = curve[curve.length - 1];
+  const up = last >= startCapital;
+
+  const onMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const px = ((e.clientX - rect.left) / rect.width) * W;
+    const i = Math.round(((px - PAD) / (W - PAD * 2)) * (curve.length - 1));
+    setHover(Math.max(0, Math.min(curve.length - 1, i)));
+  };
+
+  return (
+    <div className="bg-[#0d111a] border border-zinc-800 px-3 py-3">
+      <div className="flex items-baseline justify-between mb-1">
+        <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-zinc-500">
+          Curva de equity (paper · neto de costos)
+        </span>
+        <span className="font-mono text-[10px] text-zinc-400 tabular-nums">
+          {hover != null
+            ? `trade ${hover} · $${curve[hover].toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+            : `$${last.toLocaleString('en-US', { maximumFractionDigits: 0 })}`}
+        </span>
+      </div>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="w-full h-[120px] cursor-crosshair"
+        onMouseMove={onMove}
+        onMouseLeave={() => setHover(null)}
+        role="img"
+        aria-label={`Curva de equity: de $${startCapital} a $${Math.round(last)} en ${curve.length - 1} trades`}
+      >
+        {/* reference: start capital (neutral, recessive) */}
+        <line x1={PAD} x2={W - PAD} y1={y(startCapital)} y2={y(startCapital)} stroke="#3f3f46" strokeWidth="1" strokeDasharray="4 4" />
+        <path d={path} fill="none" stroke={up ? '#4ea1ff' : '#ff6b81'} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        {hover != null && (
+          <>
+            <line x1={x(hover)} x2={x(hover)} y1={PAD} y2={H - PAD} stroke="#52525b" strokeWidth="1" />
+            <circle cx={x(hover)} cy={y(curve[hover])} r="3.5" fill={up ? '#4ea1ff' : '#ff6b81'} stroke="#0d111a" strokeWidth="2" />
+          </>
+        )}
+      </svg>
+      <div className="flex justify-between font-mono text-[9px] text-zinc-600 tabular-nums">
+        <span>inicio ${startCapital.toLocaleString('en-US')}</span>
+        <span>{curve.length - 1} trades · mín ${Math.round(min).toLocaleString('en-US')} · máx ${Math.round(max).toLocaleString('en-US')}</span>
+      </div>
+    </div>
+  );
+}
+
 function ConfigLabel({ e }: { e: SweepEntry }) {
   const c = e.config;
   return (
@@ -164,6 +226,11 @@ export default function LocalEdgeScorecard() {
             <div className="border border-zinc-700 bg-zinc-900/50 px-4 py-2 text-zinc-400 text-[12px]">
               ⏳ {sc.nextMilestone}
             </div>
+          )}
+
+          {/* Equity curve — the desk's first look */}
+          {sc.equityCurve && sc.equityCurve.length > 1 && (
+            <EquityCurve curve={sc.equityCurve} startCapital={PAPER_CAPITAL_USD} />
           )}
 
           {/* Money row — desk sizing so PnL reads in dollars, not cents */}
