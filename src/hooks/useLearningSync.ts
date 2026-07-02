@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useAgents, updateAgentLearning, applyAgentTradingStats, emitAgentSays } from '@core/store/genesisStore';
 import { runLocalLearning, runBruteForceSweep, getActiveConfig, SWEEP_KEY, type LocalLearningSnapshot } from '@services/localLearningEngine';
+import { shareLearning } from '@services/communityLearning';
 
 const AGENT_SKILL_MAP: Record<string, true> = {
   'trading-scalping-hunter': true,
@@ -185,6 +186,7 @@ export function useLearningSync() {
         appendHistory(snap);
         applyFullStats(snap);
         emitLearningReactions(snap);
+        void shareLearning(snap); // opt-in, anonymous, never blocks
       } catch {
         // Last resort: replay the last persisted snapshot so scores stay real,
         // not reset, across reloads.

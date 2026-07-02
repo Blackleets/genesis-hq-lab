@@ -12,6 +12,7 @@ import {
   type DetectedWallet,
   type SolPortfolio,
 } from '@services/solanaWallet';
+import { auditLog, readAuditLog, exportAuditLog, WALLET_CAPABILITIES, type WalletAuditEvent } from '@services/walletAudit';
 
 function short(addr: string) {
   return `${addr.slice(0, 4)}…${addr.slice(-4)}`;
@@ -57,19 +58,30 @@ export default function SolanaWalletPanel() {
   const [error, setError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState<string | null>(null);
 
+  const [audit, setAudit] = useState<WalletAuditEvent[]>(() => readAuditLog());
+  const [showAudit, setShowAudit] = useState(false);
+
+  const track = useCallback((kind: WalletAuditEvent['kind'], detail: string) => {
+    auditLog(kind, detail);
+    setAudit(readAuditLog());
+  }, []);
+
   const load = useCallback(async (addr: string) => {
     setLoading(true);
     setError(null);
     try {
-      setPortfolio(await fetchSolPortfolio(addr));
+      const p = await fetchSolPortfolio(addr);
+      setPortfolio(p);
+      track('read_portfolio', `${short(addr)} · SOL + ${p.tokens.length} tokens`);
     } catch {
+      track('rpc_error', short(addr));
       setError(es
         ? 'No se pudo leer la wallet (RPC saturado) — reintenta en unos segundos.'
         : 'Could not read the wallet (RPC busy) — retry in a few seconds.');
     } finally {
       setLoading(false);
     }
-  }, [es]);
+  }, [es, track]);
 
   // Detect installed wallets + silent reconnect if previously trusted.
   // Deferred out of the effect body so no setState fires during commit.
@@ -82,13 +94,14 @@ export default function SolanaWalletPanel() {
         if (addr) {
           setAddress(addr);
           actions.setWallet(addr);
+          track('reconnect_trusted', `${w.name} · ${short(addr)}`);
           void load(addr);
           break;
         }
       }
     }, 0);
     return () => clearTimeout(id);
-  }, [load]);
+  }, [load, track]);
 
   const handleConnect = async (w: DetectedWallet) => {
     setConnecting(w.name);
@@ -97,6 +110,7 @@ export default function SolanaWalletPanel() {
       if (addr) {
         setAddress(addr);
         actions.setWallet(addr);
+        track('connect', `${w.name} · ${short(addr)}`);
         void load(addr);
       }
     } finally {
@@ -108,6 +122,7 @@ export default function SolanaWalletPanel() {
     for (const w of wallets) {
       try { await w.provider.disconnect(); } catch { /* already disconnected */ }
     }
+    if (address) track('disconnect', short(address));
     setAddress(null);
     setPortfolio(null);
     actions.setWallet(null);
@@ -256,6 +271,62 @@ export default function SolanaWalletPanel() {
               {es ? 'Wallet vacía en mainnet — sin SOL ni tokens.' : 'Empty wallet on mainnet — no SOL or tokens.'}
             </div>
           )}
+        </div>
+      </section>
+
+      {/* Auditable security — verify, don't trust */}
+      <section className="gx-card overflow-hidden">
+        <header className="gx-card-head gx-card-title flex items-center justify-between">
+          <span>🔒 {es ? 'Seguridad auditable' : 'Auditable security'}</span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setShowAudit((v) => !v)}
+              className="font-mono text-[9px] uppercase px-2 py-0.5 border border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-500 normal-case tracking-normal"
+            >
+              {showAudit ? (es ? 'ocultar registro' : 'hide log') : (es ? `ver registro (${audit.length})` : `view log (${audit.length})`)}
+            </button>
+            <button
+              type="button"
+              onClick={exportAuditLog}
+              className="font-mono text-[9px] uppercase px-2 py-0.5 border border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-500 normal-case tracking-normal"
+            >
+              {es ? 'exportar JSON' : 'export JSON'}
+            </button>
+          </div>
+        </header>
+        <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-trim">
+          <div className="px-4 py-3">
+            <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-[#00ff9c] mb-2">{es ? 'Esta app PUEDE' : 'This app CAN'}</div>
+            {WALLET_CAPABILITIES.can.map((c, i) => (
+              <div key={i} className="font-mono text-[11px] text-zinc-300 py-0.5">✓ {es ? c.es : c.en}</div>
+            ))}
+          </div>
+          <div className="px-4 py-3">
+            <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-red-400 mb-2">{es ? 'Esta app NO PUEDE' : 'This app CANNOT'}</div>
+            {WALLET_CAPABILITIES.cannot.map((c, i) => (
+              <div key={i} className="font-mono text-[11px] text-zinc-400 py-0.5">✗ {es ? c.es : c.en}</div>
+            ))}
+          </div>
+        </div>
+        {showAudit && (
+          <div className="border-t border-trim max-h-48 overflow-y-auto">
+            {audit.length === 0 && (
+              <div className="px-4 py-3 font-mono text-[11px] text-zinc-500">{es ? 'Sin eventos aún.' : 'No events yet.'}</div>
+            )}
+            {[...audit].reverse().map((e, i) => (
+              <div key={i} className="px-4 py-1.5 flex items-center gap-3 border-b border-trim/50 last:border-0">
+                <span className="font-mono text-[9px] text-zinc-600 tabular-nums shrink-0">{new Date(e.ts).toLocaleString()}</span>
+                <span className={`font-mono text-[10px] uppercase shrink-0 ${e.kind === 'rpc_error' ? 'text-amber-400' : e.kind === 'disconnect' ? 'text-red-300' : 'text-[#00ff9c]'}`}>{e.kind}</span>
+                <span className="font-mono text-[10px] text-zinc-400 truncate">{e.detail}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="border-t border-trim px-4 py-2 font-mono text-[10px] text-zinc-500">
+          {es
+            ? 'El registro vive solo en tu navegador — nunca se sube a ningún servidor. Código abierto: verifica cada afirmación en el repositorio.'
+            : 'The log lives only in your browser — it is never uploaded. Open source: verify every claim in the repository.'}
         </div>
       </section>
     </div>

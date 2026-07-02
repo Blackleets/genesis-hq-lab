@@ -20,6 +20,8 @@ import {
   type SweepEntry,
 } from '@services/localLearningEngine';
 import { readLastLearningSnapshot } from '@hooks/useLearningSync';
+import { computeAccruedFeeUsd, netAfterFeeUsd, feeRateLabel, TREASURY_WALLET_SOL } from '@services/feePolicy';
+import { isCommunityOptIn, setCommunityOptIn, fetchCommunitySummary, type CommunitySummary } from '@services/communityLearning';
 
 function readLastSweep(): SweepResult | null {
   try {
@@ -168,6 +170,14 @@ export default function LocalEdgeScorecard() {
   const [lastRun, setLastRun] = useState<string | null>(null);
   const [sweep, setSweep] = useState<SweepResult | null>(() => readLastSweep());
   const [sweeping, setSweeping] = useState(false);
+  const [community, setCommunity] = useState<CommunitySummary | null>(null);
+  const [optIn, setOptIn] = useState(() => isCommunityOptIn());
+
+  useEffect(() => {
+    let disposed = false;
+    fetchCommunitySummary().then((s) => { if (!disposed) setCommunity(s); });
+    return () => { disposed = true; };
+  }, []);
 
   const run = useCallback(async () => {
     setRunning(true);
@@ -318,6 +328,47 @@ export default function LocalEdgeScorecard() {
             <StatTile label="Expectativa %" value={`${sc.expectancyPct >= 0 ? '+' : ''}${sc.expectancyPct.toFixed(3)}%`} sub="neto de costos 0.10%" />
             <StatTile label="PnL acumulado" value={`${sc.totalPnlPct >= 0 ? '+' : ''}${sc.totalPnlPct.toFixed(1)}%`} sub="paper · neto" />
           </div>
+
+          {/* Transparent fee + community learning — the business model in the open */}
+          {typeof sc.pnlUsd === 'number' && (
+            <div className="border border-zinc-800 bg-[#0d111a] px-4 py-3 space-y-2">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-zinc-500">
+                  Términos transparentes
+                </span>
+                <span className="font-mono text-[11px] text-zinc-300 tabular-nums">
+                  Comisión de desempeño {feeRateLabel()} sobre ganancia neta:{' '}
+                  <span className="text-[#ffd24a] font-bold">${computeAccruedFeeUsd(sc.pnlUsd).toFixed(2)}</span>
+                  {' '}devengada (paper) · te quedarías con{' '}
+                  <span className="text-zinc-100 font-bold">${netAfterFeeUsd(sc.pnlUsd).toFixed(2)}</span>
+                </span>
+              </div>
+              <div className="font-mono text-[10px] text-zinc-500">
+                Sin ganancia no hay comisión. En ejecución real se liquida en el settlement del trade —
+                jamás desde tu wallet conectada (solo lectura, siempre).
+                {!TREASURY_WALLET_SOL && ' Tesorería sin configurar — solo display.'}
+              </div>
+              <div className="flex items-center gap-3 flex-wrap border-t border-zinc-800 pt-2">
+                <label className="flex items-center gap-2 cursor-pointer font-mono text-[11px] text-zinc-300">
+                  <input
+                    type="checkbox"
+                    checked={optIn}
+                    onChange={(e) => { setOptIn(e.target.checked); setCommunityOptIn(e.target.checked); }}
+                    className="accent-[#00ff9c]"
+                  />
+                  Compartir aprendizaje anónimo (solo métricas de estrategia — nunca tu wallet)
+                </label>
+                {community && community.contributions > 0 && (
+                  <span className="font-mono text-[10px] text-zinc-500 ml-auto tabular-nums">
+                    red: {community.contributions} aportes ·{' '}
+                    {Object.entries(community.byFamily)
+                      .map(([f, v]) => `${f} WR ${(v.avgWinRate * 100).toFixed(0)}%`)
+                      .join(' · ')}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Monte Carlo — the unlucky tail, not just the realized path */}
           {sc.mc && (
