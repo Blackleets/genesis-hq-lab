@@ -141,20 +141,22 @@ export default function EdgeScorecardView() {
         {lastSync && <span className="text-[10px] text-zinc-600 shrink-0">sync {lastSync}</span>}
       </div>
 
-      {/* Verdict */}
+      {/* Local live engine — always on: real Binance backtest + brute-force
+          sweep. This is the area that keeps learning and moving even when the
+          hosted backend is quiet, and it feeds the agents their real stats. */}
+      <LocalEdgeScorecard />
+
+      {/* Hosted backend verdict */}
       {loading ? (
         <div className="text-zinc-500 text-sm">
           {lang === 'es' ? 'Cargando...' : 'Loading...'}
         </div>
       ) : !data ? (
-        <>
-          <div className="border border-amber-400/40 bg-amber-400/5 px-4 py-3 text-amber-300 text-[12px]">
-            {lang === 'es'
-              ? 'Backend offline — mostrando el scorecard LOCAL, calculado en vivo con datos reales de Binance. Aprende y mide igual sin servidor.'
-              : 'Backend offline — showing the LOCAL scorecard, computed live from real Binance data. It learns and measures without the server.'}
-          </div>
-          <LocalEdgeScorecard />
-        </>
+        <div className="border border-amber-400/40 bg-amber-400/5 px-4 py-3 text-amber-300 text-[12px]">
+          {lang === 'es'
+            ? 'Backend hosted offline — el motor local de arriba sigue midiendo y aprendiendo con datos reales de Binance.'
+            : 'Hosted backend offline — the local engine above keeps measuring and learning from real Binance data.'}
+        </div>
       ) : (
         <>
           {/* Crypto engine — the currently active strategy */}
