@@ -5,6 +5,9 @@ import { mainnet, polygon, base } from 'wagmi/chains';
 import { useT, useLanguage } from '@core/i18n/languageStore';
 import { actions, useWallet } from '@core/store/genesisStore';
 import { getNativeBalance, getUsdcBalance, chainLabel } from '@services/walletOnchain';
+import SolanaWalletPanel from '@ui/SolanaWalletPanel';
+
+type ChainTab = 'solana' | 'evm';
 
 function truncateAddress(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
@@ -24,6 +27,7 @@ export default function WalletView() {
   const [nativeBal, setNativeBal] = useState<string>('—');
   const [usdcBal, setUsdcBal] = useState<string>('—');
   const [loadingBal, setLoadingBal] = useState(false);
+  const [tab, setTab] = useState<ChainTab>('solana');
 
   // Sync wagmi state → genesis store
   useEffect(() => {
@@ -87,6 +91,31 @@ export default function WalletView() {
           </div>
         </header>
 
+        {/* Chain tabs — Solana first, EVM preserved, more networks pluggable */}
+        <div className="flex items-center gap-1 border-b border-zinc-800">
+          <button
+            type="button"
+            onClick={() => setTab('solana')}
+            className={`font-mono text-[11px] uppercase tracking-wider px-4 py-2 border-b-2 -mb-px ${tab === 'solana' ? 'border-[#00ff9c] text-[#00ff9c]' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
+          >
+            ◎ Solana
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('evm')}
+            className={`font-mono text-[11px] uppercase tracking-wider px-4 py-2 border-b-2 -mb-px ${tab === 'evm' ? 'border-[#4ea1ff] text-[#4ea1ff]' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
+          >
+            ⟠ EVM · ETH / Polygon / Base
+          </button>
+          <span className="font-mono text-[10px] text-zinc-600 px-3 py-2 cursor-not-allowed" title={lang === 'es' ? 'Arquitectura lista para más cadenas' : 'Architecture ready for more chains'}>
+            + BTC · {lang === 'es' ? 'más redes pronto' : 'more networks soon'}
+          </span>
+        </div>
+
+        {tab === 'solana' && <SolanaWalletPanel />}
+
+        {tab === 'evm' && (
+        <>
         {/* Status banner */}
         <div
           className="border px-4 py-3 font-mono text-[12px] flex items-center gap-3"
@@ -209,6 +238,8 @@ export default function WalletView() {
             {lang === 'es' ? 'Última wallet conectada' : 'Last connected wallet'}:{' '}
             <span className="text-zinc-300">{storedWallet.address ? truncateAddress(storedWallet.address) : '—'}</span>
           </div>
+        )}
+        </>
         )}
       </div>
     </main>
