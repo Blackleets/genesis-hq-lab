@@ -11,13 +11,15 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   runLocalLearning,
   runBruteForceSweep,
+  getActiveConfig,
+  SWEEP_KEY,
+  PAPER_CAPITAL_USD,
+  NOTIONAL_PER_TRADE_USD,
   type LocalLearningSnapshot,
   type SweepResult,
   type SweepEntry,
 } from '@services/localLearningEngine';
 import { readLastLearningSnapshot } from '@hooks/useLearningSync';
-
-const SWEEP_KEY = 'genesis.local.sweep.v1';
 
 function readLastSweep(): SweepResult | null {
   try {
@@ -98,17 +100,6 @@ export default function LocalEdgeScorecard() {
   const [sweep, setSweep] = useState<SweepResult | null>(() => readLastSweep());
   const [sweeping, setSweeping] = useState(false);
 
-  const runSweep = useCallback(async () => {
-    setSweeping(true);
-    try {
-      const r = await runBruteForceSweep();
-      setSweep(r);
-      try { localStorage.setItem(SWEEP_KEY, JSON.stringify(r)); } catch { /* non-fatal */ }
-    } finally {
-      setSweeping(false);
-    }
-  }, []);
-
   const run = useCallback(async () => {
     setRunning(true);
     try {
@@ -121,6 +112,20 @@ export default function LocalEdgeScorecard() {
       setRunning(false);
     }
   }, []);
+
+  const runSweep = useCallback(async () => {
+    setSweeping(true);
+    try {
+      const r = await runBruteForceSweep();
+      setSweep(r);
+      try { localStorage.setItem(SWEEP_KEY, JSON.stringify(r)); } catch { /* non-fatal */ }
+      // Sweep feeds loop: re-run the scorecard immediately with whatever
+      // config just won OOS, so the GO gates always judge the best weapon.
+      await run();
+    } finally {
+      setSweeping(false);
+    }
+  }, [run]);
 
   useEffect(() => {
     run();
@@ -138,8 +143,10 @@ export default function LocalEdgeScorecard() {
             Motor local · backtest en vivo (Binance, sin backend)
           </div>
           <div className="text-[10px] text-zinc-500 mt-0.5">
-            Estrategia: Donchian breakout + régimen SMA · BTC · ETH · SOL · BNB · 1h
-            {lastRun ? ` · corrido ${lastRun}` : ''}
+            {(() => {
+              const cfg = getActiveConfig();
+              return `Config ${cfg.source === 'sweep-oos' ? '⚡ adoptada del sweep (validada OOS)' : 'por defecto'} · ${cfg.interval} · D${cfg.breakoutPeriod} · SMA${cfg.regimeSmaPeriod} · TP ${(cfg.tpPct * 100).toFixed(0)}% · SL ${(cfg.slPct * 100).toFixed(0)}% · BTC ETH SOL BNB${lastRun ? ` · corrido ${lastRun}` : ''}`;
+            })()}
           </div>
         </div>
         {sc && <VerdictBadge verdict={sc.verdict} />}
@@ -157,16 +164,38 @@ export default function LocalEdgeScorecard() {
             </div>
           )}
 
+          {/* Money row — desk sizing so PnL reads in dollars, not cents */}
+          {typeof sc.pnlUsd === 'number' && (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <StatTile
+                label="Equity (paper)"
+                value={`$${sc.equityUsd.toLocaleString('en-US', { maximumFractionDigits: 0 })}`}
+                sub={`inicio $${PAPER_CAPITAL_USD.toLocaleString('en-US')}`}
+              />
+              <StatTile
+                label="PnL total"
+                value={`${sc.pnlUsd >= 0 ? '+' : '-'}$${Math.abs(sc.pnlUsd).toFixed(0)}`}
+                sub={`nocional $${NOTIONAL_PER_TRADE_USD.toLocaleString('en-US')}/trade`}
+              />
+              <StatTile label="Ganancia media" value={`+$${sc.avgWinUsd.toFixed(0)}`} sub="por trade ganador" />
+              <StatTile
+                label="Expectativa"
+                value={`${sc.expectancyUsd >= 0 ? '+' : '-'}$${Math.abs(sc.expectancyUsd).toFixed(1)}`}
+                sub="por trade"
+              />
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <StatTile label="Win rate" value={`${(sc.winRate * 100).toFixed(1)}%`} />
             <StatTile label="Profit factor" value={sc.profitFactor.toFixed(2)} />
-            <StatTile label="Expectativa/trade" value={`${sc.expectancyPct >= 0 ? '+' : ''}${sc.expectancyPct.toFixed(3)}%`} />
             <StatTile label="Sharpe/trade" value={sc.sharpe.toFixed(2)} />
+            <StatTile label="Max drawdown" value={`${sc.maxDrawdownPct.toFixed(1)}%`} />
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <StatTile label="Trades (muestra)" value={String(sc.trades)} />
-            <StatTile label="Max drawdown" value={`${sc.maxDrawdownPct.toFixed(1)}%`} />
+            <StatTile label="Expectativa %" value={`${sc.expectancyPct >= 0 ? '+' : ''}${sc.expectancyPct.toFixed(3)}%`} />
             <StatTile label="PnL acumulado" value={`${sc.totalPnlPct >= 0 ? '+' : ''}${sc.totalPnlPct.toFixed(1)}%`} sub="paper" />
           </div>
 

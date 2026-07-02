@@ -2030,3 +2030,30 @@ export function updateAgentLearning(agentId: string, newScore: number) {
   };
   commit(next);
 }
+
+// Richer learning sync: agents "live" off real measured performance — the
+// learning loop feeds win rate, trade count and PnL so every module that
+// renders an agent (HQ office, dashboard, HR) shows real numbers.
+export function applyAgentTradingStats(
+  agentId: string,
+  stats: { learningScore?: number; winRate?: number; totalPnL?: number; tradeCount?: number },
+) {
+  const current = getState();
+  const agent = current.agents[agentId];
+  if (!agent) return;
+
+  const next = {
+    ...current,
+    agents: {
+      ...current.agents,
+      [agentId]: {
+        ...agent,
+        ...(stats.learningScore != null ? { learningScore: Math.max(0, Math.min(1, stats.learningScore)) } : {}),
+        ...(stats.winRate != null ? { winRate: stats.winRate } : {}),
+        ...(stats.totalPnL != null ? { totalPnL: stats.totalPnL } : {}),
+        ...(stats.tradeCount != null ? { tradeCount: stats.tradeCount } : {}),
+      },
+    },
+  };
+  commit(next);
+}

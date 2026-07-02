@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useAgents, updateAgentLearning } from '@core/store/genesisStore';
+import { useAgents, updateAgentLearning, applyAgentTradingStats } from '@core/store/genesisStore';
 import { runLocalLearning, type LocalLearningSnapshot } from '@services/localLearningEngine';
 
 const AGENT_SKILL_MAP: Record<string, true> = {
@@ -68,18 +68,42 @@ export function useLearningSync() {
       }
     };
 
+    // Feed the full measured performance into the agents so every module that
+    // renders them (HQ office, dashboard, HR) shows live real numbers. The
+    // desk PnL is split evenly across the 5 trading agents (team attribution).
+    const applyFullStats = (snap: LocalLearningSnapshot) => {
+      const sc = snap.scorecard;
+      // Older persisted snapshots may predate the money-term fields.
+      if (!sc || typeof sc.pnlUsd !== 'number') {
+        applyScores(snap.scores);
+        return;
+      }
+      const tradingIds = Object.keys(AGENT_SKILL_MAP);
+      const pnlShare = sc.pnlUsd / tradingIds.length;
+      for (const agent of agents) {
+        if (agent.id in AGENT_SKILL_MAP) {
+          applyAgentTradingStats(agent.id, {
+            learningScore: snap.scores[agent.id],
+            winRate: sc.winRate,
+            totalPnL: Math.round(pnlShare * 100) / 100,
+            tradeCount: sc.trades,
+          });
+        }
+      }
+    };
+
     // Local path — real Binance backtest, backend-independent.
     const syncFromLocal = async () => {
       try {
         const snap = await runLocalLearning();
         if (disposed || !snap.ok) return;
         persistSnapshot(snap);
-        applyScores(snap.scores);
+        applyFullStats(snap);
       } catch {
         // Last resort: replay the last persisted snapshot so scores stay real,
         // not reset, across reloads.
         const last = readLastLearningSnapshot();
-        if (last?.ok) applyScores(last.scores);
+        if (last?.ok) applyFullStats(last);
       }
     };
 

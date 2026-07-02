@@ -47,6 +47,13 @@ export interface LocalScorecard {
   sharpe: number;         // mean/std of per-trade returns (per-trade Sharpe)
   maxDrawdownPct: number;
   totalPnlPct: number;
+  // Money terms — position-sized on paper capital so PnL reads in dollars,
+  // matching how the futures desk sizes ($10k capital, $1k notional/trade).
+  pnlUsd: number;
+  equityUsd: number;
+  avgWinUsd: number;
+  avgLossUsd: number;
+  expectancyUsd: number;  // expected $ per trade at current sizing
   checks: ReadinessCheck[];
   nextMilestone: string | null;
 }
@@ -83,6 +90,48 @@ const DEFAULT_PARAMS: StrategyParams = {
 
 // Pairs mirror the futures desk universe the backend trades.
 const DEFAULT_PAIRS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT'];
+
+// Desk sizing: $10k paper capital, $1k notional per trade — so a 6% TP is
+// +$60/trade and the PnL reads in real dollars, not cents. Same trades,
+// honest sizing. Real capital still requires a GO verdict + manual switch.
+export const PAPER_CAPITAL_USD = 10_000;
+export const NOTIONAL_PER_TRADE_USD = 1_000;
+
+// Where the brute-force sweep persists its result; the learning loop adopts
+// the best OOS-surviving config from here automatically ("sweep feeds loop").
+export const SWEEP_KEY = 'genesis.local.sweep.v1';
+
+export interface ActiveConfig extends StrategyParams {
+  interval: string;
+  source: 'sweep-oos' | 'default';
+}
+
+// The config the learning loop + scorecard should run: the sweep's best
+// out-of-sample survivor when one exists, else the backend-mirroring default.
+export function getActiveConfig(): ActiveConfig {
+  try {
+    const raw = localStorage.getItem(SWEEP_KEY);
+    if (raw) {
+      const sweep = JSON.parse(raw) as { ok?: boolean; best?: { config?: StrategyParams & { interval?: string }; test?: { expectancyPct?: number; profitFactor?: number } } };
+      const best = sweep?.best;
+      if (
+        sweep?.ok && best?.config &&
+        (best.test?.expectancyPct ?? 0) > 0 &&
+        (best.test?.profitFactor ?? 0) >= 1.1
+      ) {
+        return {
+          breakoutPeriod: best.config.breakoutPeriod,
+          regimeSmaPeriod: best.config.regimeSmaPeriod,
+          tpPct: best.config.tpPct,
+          slPct: best.config.slPct,
+          interval: best.config.interval ?? '1h',
+          source: 'sweep-oos',
+        };
+      }
+    }
+  } catch { /* corrupted storage → fall through to default */ }
+  return { ...DEFAULT_PARAMS, interval: '1h', source: 'default' };
+}
 
 async function fetchCloses(pair: string, interval = '1h', limit = 300): Promise<number[]> {
   const res = await fetch(
@@ -240,7 +289,23 @@ function buildScorecard(allReturns: number[]): LocalScorecard {
         ? `Falta: ${failing.map((c) => c.label.split(' (')[0]).join(' · ')}`
         : null;
 
-  return { verdict, trades, winRate, profitFactor, expectancyPct, sharpe, maxDrawdownPct, totalPnlPct, checks, nextMilestone };
+  // Money terms at desk sizing: each trade risks NOTIONAL_PER_TRADE_USD of
+  // notional, so a +6% TP is +$60, not cents. Equity starts at paper capital.
+  const pnlUsd = allReturns.reduce((s, r) => s + r * NOTIONAL_PER_TRADE_USD, 0);
+  const winsUsd = allReturns.filter((r) => r > 0).map((r) => r * NOTIONAL_PER_TRADE_USD);
+  const lossesUsd = allReturns.filter((r) => r < 0).map((r) => r * NOTIONAL_PER_TRADE_USD);
+  const avgWinUsd = winsUsd.length ? winsUsd.reduce((s, v) => s + v, 0) / winsUsd.length : 0;
+  const avgLossUsd = lossesUsd.length ? lossesUsd.reduce((s, v) => s + v, 0) / lossesUsd.length : 0;
+
+  return {
+    verdict, trades, winRate, profitFactor, expectancyPct, sharpe, maxDrawdownPct, totalPnlPct,
+    pnlUsd,
+    equityUsd: PAPER_CAPITAL_USD + pnlUsd,
+    avgWinUsd,
+    avgLossUsd,
+    expectancyUsd: mean * NOTIONAL_PER_TRADE_USD,
+    checks, nextMilestone,
+  };
 }
 
 function clamp01(n: number): number {
@@ -272,15 +337,19 @@ function scoreAgents(agg: BacktestResult): Record<string, number> {
 // backtests, aggregates, and returns per-agent scores + metrics.
 export async function runLocalLearning(
   pairs: string[] = DEFAULT_PAIRS,
-  params: StrategyParams = DEFAULT_PARAMS,
+  params?: StrategyParams & { interval?: string },
 ): Promise<LocalLearningSnapshot> {
   const ranAt = new Date().toISOString();
   const results: BacktestResult[] = [];
+  // "Sweep feeds loop": run whatever config the brute-force search validated
+  // out-of-sample; fall back to the backend-mirroring default otherwise.
+  const active = params ?? getActiveConfig();
+  const interval = active.interval ?? '1h';
 
   for (const pair of pairs) {
     try {
-      const closes = await fetchCloses(pair);
-      const r = backtest(closes, params);
+      const closes = await fetchCloses(pair, interval, 1000);
+      const r = backtest(closes, active);
       r.pair = pair;
       if (r.trades > 0) results.push(r);
     } catch {
