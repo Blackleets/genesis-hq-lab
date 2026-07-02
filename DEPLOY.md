@@ -55,6 +55,24 @@ Luego dispara **Supabase Deploy (edge functions)** una vez para propagarlos.
 
 ---
 
+## Paso 4 — Pool de aprendizaje comunitario (Vercel)
+
+El endpoint `/api/community` guarda los aportes anónimos de aprendizaje de
+los usuarios que hacen opt-in. Sin base de datos responde con
+`community_store_not_configured` (degrada sin romper nada).
+
+Para activarlo: Vercel dashboard → proyecto **genesis-hq-lab** →
+**Settings → Environment Variables** →
+
+```
+DATABASE_URL = (Supabase → Settings → Database → Connection string URI)
+```
+
+Guarda y redeploya (Deployments → ⋯ → Redeploy). Desde ese momento cada
+opt-in alimenta el pool y el módulo Edge muestra el panorama de la red.
+
+---
+
 ## Qué pasa después
 
 1. Backend online → el agente empieza a tickear cada 5 min.
