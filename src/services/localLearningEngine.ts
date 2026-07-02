@@ -70,6 +70,27 @@ export interface LocalScorecard {
   nextMilestone: string | null;
 }
 
+// Live market regime — which kind of market TODAY is, and therefore which
+// strategy family the conditions favor. Institutional desks live by this.
+export interface RegimeInfo {
+  kind: 'TENDENCIA' | 'LATERAL';
+  vol: 'ALTA' | 'BAJA';
+  er: number;        // Kaufman efficiency ratio (0..1) averaged across pairs
+  volRatio: number;  // current vol vs full-window vol (1 = normal)
+  favored: StrategyFamily[];
+}
+
+// Forward tracking of the adopted config: performance measured ONLY on
+// candles that did not exist when the config was chosen. Backtests can fool;
+// forward results cannot.
+export interface ForwardTrack {
+  sinceIso: string;
+  trades: number;
+  winRate: number;
+  pnlUsd: number;
+  expectancyPct: number;
+}
+
 export interface LocalLearningSnapshot {
   ok: boolean;
   ranAt: string;
@@ -83,6 +104,9 @@ export interface LocalLearningSnapshot {
     totalPnlPct: number;
   };
   scorecard: LocalScorecard;
+  regime?: RegimeInfo;
+  forward?: ForwardTrack;
+  lastCandleMs?: number; // newest candle open time seen — adoption stamp base
   scores: Record<string, number>; // agentId -> learningScore (0..1)
 }
 
@@ -167,7 +191,12 @@ export function getActiveConfig(): ActiveConfig {
   return { ...DEFAULT_PARAMS, interval: '1h', source: 'default' };
 }
 
-async function fetchCloses(pair: string, interval = '1h', limit = 300): Promise<number[]> {
+interface Candles {
+  times: number[];  // kline open time (ms)
+  closes: number[];
+}
+
+async function fetchCandles(pair: string, interval = '1h', limit = 300): Promise<Candles> {
   const res = await fetch(
     `${BINANCE}/klines?symbol=${pair}&interval=${interval}&limit=${limit}`,
     { signal: AbortSignal.timeout(8000) },
@@ -175,10 +204,19 @@ async function fetchCloses(pair: string, interval = '1h', limit = 300): Promise<
   if (!res.ok) throw new Error(`binance_${res.status}`);
   const raw = (await res.json()) as unknown[];
   if (!Array.isArray(raw)) throw new Error('binance_invalid');
-  // kline[4] is the close price.
-  return raw
-    .map((row) => (Array.isArray(row) ? Number.parseFloat(String(row[4])) : NaN))
-    .filter((n) => Number.isFinite(n));
+  const times: number[] = [];
+  const closes: number[] = [];
+  for (const row of raw) {
+    if (!Array.isArray(row)) continue;
+    const t = Number(row[0]);
+    const c = Number.parseFloat(String(row[4])); // kline[4] is the close price
+    if (Number.isFinite(t) && Number.isFinite(c)) { times.push(t); closes.push(c); }
+  }
+  return { times, closes };
+}
+
+async function fetchCloses(pair: string, interval = '1h', limit = 300): Promise<number[]> {
+  return (await fetchCandles(pair, interval, limit)).closes;
 }
 
 function sma(values: number[], period: number, endIdx: number): number | null {
@@ -410,6 +448,48 @@ function clamp01(n: number): number {
   return Math.max(0, Math.min(1, n));
 }
 
+// Regime detection: Kaufman efficiency ratio (net move / path length) over the
+// last 55 bars, averaged across pairs, plus current-vs-baseline volatility.
+// ER high ⇒ price travels efficiently ⇒ trend; ER low ⇒ chop ⇒ range.
+const REGIME_WINDOW = 55;
+
+function detectRegime(closesList: number[][]): RegimeInfo | undefined {
+  const ers: number[] = [];
+  const nowVols: number[] = [];
+  const baseVols: number[] = [];
+  for (const closes of closesList) {
+    if (closes.length < REGIME_WINDOW + 2) continue;
+    const seg = closes.slice(-(REGIME_WINDOW + 1));
+    const net = Math.abs(seg[seg.length - 1] - seg[0]);
+    let path = 0;
+    for (let i = 1; i < seg.length; i++) path += Math.abs(seg[i] - seg[i - 1]);
+    if (path > 0) ers.push(net / path);
+
+    const rets: number[] = [];
+    for (let i = 1; i < closes.length; i++) rets.push((closes[i] - closes[i - 1]) / closes[i - 1]);
+    const sd = (a: number[]) => {
+      const m = a.reduce((s, x) => s + x, 0) / a.length;
+      return Math.sqrt(a.reduce((s, x) => s + (x - m) ** 2, 0) / a.length);
+    };
+    nowVols.push(sd(rets.slice(-REGIME_WINDOW)));
+    baseVols.push(sd(rets));
+  }
+  if (!ers.length) return undefined;
+
+  const er = ers.reduce((s, x) => s + x, 0) / ers.length;
+  const nowVol = nowVols.reduce((s, x) => s + x, 0) / nowVols.length;
+  const baseVol = baseVols.reduce((s, x) => s + x, 0) / baseVols.length || 1;
+  const volRatio = nowVol / baseVol;
+  const kind = er >= 0.25 ? 'TENDENCIA' : 'LATERAL';
+  return {
+    kind,
+    vol: volRatio >= 1.1 ? 'ALTA' : 'BAJA',
+    er: Math.round(er * 100) / 100,
+    volRatio: Math.round(volRatio * 100) / 100,
+    favored: kind === 'TENDENCIA' ? ['donchian', 'maCross'] : ['meanRevert'],
+  };
+}
+
 // Map measured backtest performance to a learning score per agent. Each agent
 // reflects a real facet of the strategy's behaviour — no randomness.
 function scoreAgents(agg: BacktestResult): Record<string, number> {
@@ -444,10 +524,12 @@ export async function runLocalLearning(
   const active = params ?? getActiveConfig();
   const interval = active.interval ?? '1h';
 
+  const candlesByPair: Candles[] = [];
   for (const pair of pairs) {
     try {
-      const closes = await fetchCloses(pair, interval, 1000);
-      const r = backtest(closes, active);
+      const candles = await fetchCandles(pair, interval, 1000);
+      candlesByPair.push(candles);
+      const r = backtest(candles.closes, active);
       r.pair = pair;
       if (r.trades > 0) results.push(r);
     } catch {
@@ -501,9 +583,54 @@ export async function runLocalLearning(
   const scorecard = buildScorecard(allReturns);
   scorecard.equityCurve = equityCurve;
 
+  // Live regime — which market TODAY is, and which family it favors.
+  const regime = detectRegime(candlesByPair.map((c) => c.closes));
+
+  // Forward tracking: stamp the moment a config is adopted (newest candle at
+  // adoption time); from then on, measure it ONLY on candles that were born
+  // after the stamp. Backtests can fool; forward performance cannot.
+  const lastCandleMs = Math.max(0, ...candlesByPair.map((c) => c.times[c.times.length - 1] ?? 0));
+  const cfgSig = `${active.family ?? 'donchian'}:${interval}:${active.breakoutPeriod}:${active.regimeSmaPeriod}:${active.zThr ?? ''}:${active.tpPct}:${active.slPct}`;
+  let forward: ForwardTrack | undefined;
+  try {
+    const ADOPTION_KEY = 'genesis.local.adoption.v1';
+    const raw = localStorage.getItem(ADOPTION_KEY);
+    let adoption = raw ? (JSON.parse(raw) as { sig?: string; sinceMs?: number }) : null;
+    if (!adoption || adoption.sig !== cfgSig || !adoption.sinceMs) {
+      adoption = { sig: cfgSig, sinceMs: lastCandleMs };
+      localStorage.setItem(ADOPTION_KEY, JSON.stringify(adoption));
+    }
+    const sinceMs = adoption.sinceMs as number;
+    const warmup = Math.max(active.breakoutPeriod, active.regimeSmaPeriod) + 2;
+    const fwdReturns: number[] = [];
+    for (const c of candlesByPair) {
+      const firstIdx = c.times.findIndex((t) => t > sinceMs);
+      if (firstIdx < 0) continue; // no candles newer than the stamp yet
+      const start = Math.max(0, firstIdx - warmup);
+      const r = backtest(c.closes.slice(start), active);
+      for (const tp of r.tradePoints) {
+        const entryTime = c.times[start + tp.idx];
+        if (entryTime != null && entryTime > sinceMs) fwdReturns.push(tp.ret);
+      }
+    }
+    const fwdWins = fwdReturns.filter((r) => r > 0).length;
+    forward = {
+      sinceIso: new Date(sinceMs).toISOString(),
+      trades: fwdReturns.length,
+      winRate: fwdReturns.length ? fwdWins / fwdReturns.length : 0,
+      pnlUsd: Math.round(fwdReturns.reduce((s, r) => s + r * NOTIONAL_PER_TRADE_USD, 0) * 100) / 100,
+      expectancyPct: fwdReturns.length
+        ? Math.round((fwdReturns.reduce((s, r) => s + r, 0) / fwdReturns.length) * 100000) / 1000
+        : 0,
+    };
+  } catch { /* storage unavailable → forward tracking simply absent */ }
+
   return {
     ok: true, ranAt, source: 'binance-local', results, aggregate,
     scorecard,
+    regime,
+    forward,
+    lastCandleMs,
     scores: scoreAgents(aggAsResult),
   };
 }

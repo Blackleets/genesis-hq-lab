@@ -236,6 +236,49 @@ export default function LocalEdgeScorecard() {
             </div>
           )}
 
+          {/* Live regime — which market TODAY is, and which family it favors */}
+          {snap?.regime && (
+            <div className="flex items-center gap-3 flex-wrap border border-zinc-800 bg-[#0d111a] px-4 py-2">
+              <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-zinc-500">Régimen actual</span>
+              <span className={`font-mono text-[11px] font-bold px-2 py-0.5 border ${snap.regime.kind === 'TENDENCIA' ? 'border-[#4ea1ff66] text-[#4ea1ff] bg-[#4ea1ff0d]' : 'border-[#ffd24a66] text-[#ffd24a] bg-[#ffd24a0d]'}`}>
+                {snap.regime.kind}
+              </span>
+              <span className="font-mono text-[11px] text-zinc-300">VOL {snap.regime.vol}</span>
+              <span className="font-mono text-[10px] text-zinc-500 tabular-nums">ER {snap.regime.er} · vol×{snap.regime.volRatio}</span>
+              <span className="font-mono text-[10px] text-zinc-400 ml-auto">
+                favorece: {snap.regime.favored.map((f) => FAMILY_LABEL[f] ?? f).join(' · ')}
+              </span>
+            </div>
+          )}
+
+          {/* Forward champion — measured ONLY on candles born after adoption */}
+          {snap?.forward && (
+            <div className="border border-[#00ff9c33] bg-[#00ff9c08] px-4 py-2">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-[#00ff9c]">
+                  Campeón en vivo · forward
+                </span>
+                <span className="font-mono text-[10px] text-zinc-500">
+                  desde {new Date(snap.forward.sinceIso).toLocaleString()} · solo velas posteriores a la adopción — cero sesgo de backtest
+                </span>
+              </div>
+              <div className="flex items-center gap-5 flex-wrap mt-1 font-mono text-[12px] tabular-nums">
+                {snap.forward.trades > 0 ? (
+                  <>
+                    <span className="text-zinc-200">{snap.forward.trades} trades</span>
+                    <span className="text-zinc-200">WR {(snap.forward.winRate * 100).toFixed(0)}%</span>
+                    <span className={snap.forward.pnlUsd >= 0 ? 'text-[#00ff9c] font-bold' : 'text-[#ff6b81] font-bold'}>
+                      {snap.forward.pnlUsd >= 0 ? '+' : '-'}${Math.abs(snap.forward.pnlUsd).toFixed(0)}
+                    </span>
+                    <span className="text-zinc-400">exp {snap.forward.expectancyPct >= 0 ? '+' : ''}{snap.forward.expectancyPct.toFixed(3)}%/trade</span>
+                  </>
+                ) : (
+                  <span className="text-zinc-500">esperando velas nuevas — el campeón se mide con mercado que aún no existía al adoptarlo</span>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Equity curve — the desk's first look */}
           {sc.equityCurve && sc.equityCurve.length > 1 && (
             <EquityCurve curve={sc.equityCurve} startCapital={PAPER_CAPITAL_USD} />
