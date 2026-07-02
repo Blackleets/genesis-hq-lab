@@ -246,7 +246,13 @@ const GATE = {
   minWinRate: 0.45,     // breakout systems win less but big; 45% floor
   minProfitFactor: 1.3, // gross wins must clear gross losses with margin
   minExpectancyPct: 0.05, // positive expectancy per trade after the fact
-  minSharpe: 0.5,       // return per unit of volatility
+  // Statistical significance of the edge: t-stat = per-trade Sharpe × √N ≥ 2
+  // (edge distinct from zero at ~95%). A fixed per-trade Sharpe floor was
+  // miscalibrated for fixed-TP/SL systems: with a 2:1 payoff the per-trade
+  // Sharpe is structurally capped near ~0.33 even for a genuinely profitable
+  // strategy, so it contradicted the other gates. The t-stat is the standard
+  // sample-size-aware test.
+  minTStat: 2.0,
   maxDrawdownPct: 25,   // capital preservation ceiling
 };
 
@@ -273,7 +279,7 @@ function buildScorecard(allReturns: number[]): LocalScorecard {
     { key: 'winRate', label: 'Win rate ≥ 45%', value: Math.round(winRate * 1000) / 10, threshold: GATE.minWinRate * 100, pass: winRate >= GATE.minWinRate },
     { key: 'pf', label: 'Profit factor ≥ 1.30', value: Math.round(profitFactor * 100) / 100, threshold: GATE.minProfitFactor, pass: profitFactor >= GATE.minProfitFactor },
     { key: 'expectancy', label: 'Expectativa/trade > 0.05%', value: Math.round(expectancyPct * 1000) / 1000, threshold: GATE.minExpectancyPct, pass: expectancyPct > GATE.minExpectancyPct },
-    { key: 'sharpe', label: 'Sharpe por trade ≥ 0.50', value: Math.round(sharpe * 100) / 100, threshold: GATE.minSharpe, pass: sharpe >= GATE.minSharpe },
+    { key: 'tstat', label: 'Edge significativo (t-stat = Sharpe×√N ≥ 2.0)', value: Math.round(sharpe * Math.sqrt(trades) * 100) / 100, threshold: GATE.minTStat, pass: sharpe * Math.sqrt(trades) >= GATE.minTStat },
     { key: 'drawdown', label: 'Max drawdown ≤ 25%', value: Math.round(maxDrawdownPct * 10) / 10, threshold: GATE.maxDrawdownPct, pass: maxDrawdownPct <= GATE.maxDrawdownPct },
   ];
 
