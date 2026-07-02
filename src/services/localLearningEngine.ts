@@ -54,6 +54,12 @@ export interface LocalScorecard {
   avgWinUsd: number;
   avgLossUsd: number;
   expectancyUsd: number;  // expected $ per trade at current sizing
+  // Monte Carlo bootstrap (500 resamples of the trade sequence): the
+  // "bad luck" view — what the 5th-percentile outcome looks like.
+  mc?: {
+    p5PnlUsd: number;       // 5th-percentile total PnL
+    p95DrawdownPct: number; // 95th-percentile max drawdown
+  };
   checks: ReadinessCheck[];
   nextMilestone: string | null;
 }
@@ -97,6 +103,11 @@ const DEFAULT_PAIRS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT'];
 export const PAPER_CAPITAL_USD = 10_000;
 export const NOTIONAL_PER_TRADE_USD = 1_000;
 
+// Professional practice #1: every backtested trade pays costs. Binance
+// futures taker ≈0.04%/side + slippage ≈0.01%/side → 0.10% round trip.
+// All metrics downstream (scorecard, sweep, learning) are NET of this.
+export const COST_ROUND_TRIP = 0.001;
+
 // Where the brute-force sweep persists its result; the learning loop adopts
 // the best OOS-surviving config from here automatically ("sweep feeds loop").
 export const SWEEP_KEY = 'genesis.local.sweep.v1';
@@ -112,12 +123,14 @@ export function getActiveConfig(): ActiveConfig {
   try {
     const raw = localStorage.getItem(SWEEP_KEY);
     if (raw) {
-      const sweep = JSON.parse(raw) as { ok?: boolean; best?: { config?: StrategyParams & { interval?: string }; test?: { expectancyPct?: number; profitFactor?: number } } };
+      const sweep = JSON.parse(raw) as { ok?: boolean; best?: { config?: StrategyParams & { interval?: string }; test?: { expectancyPct?: number; profitFactor?: number; tStat?: number } } };
       const best = sweep?.best;
       if (
         sweep?.ok && best?.config &&
         (best.test?.expectancyPct ?? 0) > 0 &&
-        (best.test?.profitFactor ?? 0) >= 1.1
+        (best.test?.profitFactor ?? 0) >= 1.1 &&
+        // multiple-testing guard: only adopt statistically significant OOS edge
+        (best.test?.tStat ?? 0) >= 2.0
       ) {
         return {
           breakoutPeriod: best.config.breakoutPeriod,
@@ -203,7 +216,8 @@ function backtest(closes: number[], p: StrategyParams): BacktestResult {
       exitPct = side === 'LONG' ? (price - entry) / entry : (entry - price) / entry;
       j = closes.length;
     }
-    returns.push(exitPct);
+    // Net of round-trip trading costs — no free fills in this desk.
+    returns.push(exitPct - COST_ROUND_TRIP);
     i = j + 1; // no overlapping positions
   }
 
@@ -303,6 +317,32 @@ function buildScorecard(allReturns: number[]): LocalScorecard {
   const avgWinUsd = winsUsd.length ? winsUsd.reduce((s, v) => s + v, 0) / winsUsd.length : 0;
   const avgLossUsd = lossesUsd.length ? lossesUsd.reduce((s, v) => s + v, 0) / lossesUsd.length : 0;
 
+  // Monte Carlo bootstrap — resample the trade sequence 500× to expose the
+  // unlucky tail (5th-percentile PnL, 95th-percentile drawdown), instead of
+  // trusting the single realized path.
+  let mc: LocalScorecard['mc'];
+  if (trades >= 10) {
+    const totals: number[] = [];
+    const dds: number[] = [];
+    for (let k = 0; k < 500; k++) {
+      let cumR = 0, peakR = 0, ddR = 0;
+      for (let i = 0; i < trades; i++) {
+        const r = allReturns[Math.floor(Math.random() * trades)];
+        cumR += r;
+        peakR = Math.max(peakR, cumR);
+        ddR = Math.max(ddR, peakR - cumR);
+      }
+      totals.push(cumR * NOTIONAL_PER_TRADE_USD);
+      dds.push(ddR * 100);
+    }
+    totals.sort((a, b) => a - b);
+    dds.sort((a, b) => a - b);
+    mc = {
+      p5PnlUsd: totals[Math.floor(500 * 0.05)],
+      p95DrawdownPct: dds[Math.floor(500 * 0.95)],
+    };
+  }
+
   return {
     verdict, trades, winRate, profitFactor, expectancyPct, sharpe, maxDrawdownPct, totalPnlPct,
     pnlUsd,
@@ -310,6 +350,7 @@ function buildScorecard(allReturns: number[]): LocalScorecard {
     avgWinUsd,
     avgLossUsd,
     expectancyUsd: mean * NOTIONAL_PER_TRADE_USD,
+    mc,
     checks, nextMilestone,
   };
 }
@@ -421,6 +462,7 @@ export interface SliceStats {
   profitFactor: number;
   expectancyPct: number;
   sharpe: number;
+  tStat: number;          // sharpe × √trades — sample-size-aware significance
   maxDrawdownPct: number;
   totalPnlPct: number;
 }
@@ -461,6 +503,7 @@ function sliceStats(returns: number[]): SliceStats {
   const mean = trades ? returns.reduce((s, r) => s + r, 0) / trades : 0;
   const variance = trades ? returns.reduce((s, r) => s + (r - mean) ** 2, 0) / trades : 0;
   const std = Math.sqrt(variance);
+  const sharpe = std > 0 ? mean / std : 0;
   let peak = 0, cum = 0, dd = 0;
   for (const r of returns) { cum += r; peak = Math.max(peak, cum); dd = Math.max(dd, peak - cum); }
   return {
@@ -468,7 +511,8 @@ function sliceStats(returns: number[]): SliceStats {
     winRate: trades ? wins / trades : 0,
     profitFactor: grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? 3 : 0,
     expectancyPct: mean * 100,
-    sharpe: std > 0 ? mean / std : 0,
+    sharpe,
+    tStat: sharpe * Math.sqrt(trades),
     maxDrawdownPct: dd * 100,
     totalPnlPct: returns.reduce((s, r) => s + r, 0) * 100,
   };
@@ -537,10 +581,19 @@ export async function runBruteForceSweep(
   const byTest = [...pool].sort((a, b) => b.test.expectancyPct - a.test.expectancyPct);
   const best = byTest[0] ?? null;
 
-  const survived = best != null && best.test.expectancyPct > 0 && best.test.profitFactor >= 1.1;
+  // Multiple-testing guard (deflated-Sharpe spirit): after sweeping 288
+  // configs, the apparent winner is inflated by selection bias. Survival
+  // requires statistical significance on the UNTOUCHED out-of-sample window
+  // (t-stat ≥ 2), not just positive numbers.
+  const survived = best != null
+    && best.test.expectancyPct > 0
+    && best.test.profitFactor >= 1.1
+    && best.test.tStat >= 2.0;
   const note = survived
-    ? 'Config con edge positivo out-of-sample. Sigue siendo paper hasta que el scorecard dé GO.'
-    : 'Ninguna config del grid mantiene edge out-of-sample ahora mismo — el mercado actual no paga esta familia de estrategias. Mejor saberlo aquí que con dinero real.';
+    ? `Config con edge significativo out-of-sample (t-stat ${best.test.tStat.toFixed(2)} ≥ 2.0, neto de costos). Sigue siendo paper hasta que el scorecard dé GO.`
+    : best != null && best.test.expectancyPct > 0
+      ? `La mejor config es positiva OOS pero sin significancia estadística (t-stat ${best.test.tStat.toFixed(2)} < 2.0) — probable sesgo de selección tras ${tested} pruebas. No se adopta.`
+      : 'Ninguna config del grid mantiene edge out-of-sample ahora mismo — el mercado actual no paga esta familia de estrategias. Mejor saberlo aquí que con dinero real.';
 
   return { ok: true, ranAt, tested, best, top: byTest.slice(0, 5), note };
 }

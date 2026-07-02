@@ -197,9 +197,25 @@ export default function LocalEdgeScorecard() {
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <StatTile label="Trades (muestra)" value={String(sc.trades)} />
-            <StatTile label="Expectativa %" value={`${sc.expectancyPct >= 0 ? '+' : ''}${sc.expectancyPct.toFixed(3)}%`} />
-            <StatTile label="PnL acumulado" value={`${sc.totalPnlPct >= 0 ? '+' : ''}${sc.totalPnlPct.toFixed(1)}%`} sub="paper" />
+            <StatTile label="Expectativa %" value={`${sc.expectancyPct >= 0 ? '+' : ''}${sc.expectancyPct.toFixed(3)}%`} sub="neto de costos 0.10%" />
+            <StatTile label="PnL acumulado" value={`${sc.totalPnlPct >= 0 ? '+' : ''}${sc.totalPnlPct.toFixed(1)}%`} sub="paper · neto" />
           </div>
+
+          {/* Monte Carlo — the unlucky tail, not just the realized path */}
+          {sc.mc && (
+            <div className="grid grid-cols-2 gap-3">
+              <StatTile
+                label="Peor caso PnL (MC p5)"
+                value={`${sc.mc.p5PnlUsd >= 0 ? '+' : '-'}$${Math.abs(sc.mc.p5PnlUsd).toFixed(0)}`}
+                sub="bootstrap 500 iteraciones"
+              />
+              <StatTile
+                label="Peor drawdown (MC p95)"
+                value={`${sc.mc.p95DrawdownPct.toFixed(1)}%`}
+                sub="remuestreo de la secuencia"
+              />
+            </div>
+          )}
 
           <div>
             <div className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 mb-2">
