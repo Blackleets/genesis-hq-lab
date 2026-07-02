@@ -137,11 +137,18 @@ function EquityCurve({ curve, startCapital }: { curve: number[]; startCapital: n
   );
 }
 
+const FAMILY_LABEL: Record<string, string> = {
+  donchian: 'BREAKOUT',
+  meanRevert: 'REVERSIÓN',
+  maCross: 'MOMENTUM',
+};
+
 function ConfigLabel({ e }: { e: SweepEntry }) {
   const c = e.config;
+  const fam = FAMILY_LABEL[c.family ?? 'donchian'] ?? 'BREAKOUT';
   return (
     <span className="font-mono text-[11px] text-zinc-200">
-      {c.interval} · D{c.breakoutPeriod} · SMA{c.regimeSmaPeriod} · TP {(c.tpPct * 100).toFixed(0)}% · SL {(c.slPct * 100).toFixed(0)}%
+      <span className="text-[#ffd24a]">{fam}</span> · {c.interval} · P{c.breakoutPeriod}/{c.regimeSmaPeriod}{c.zThr ? ` z${c.zThr}` : ''} · TP {(c.tpPct * 100).toFixed(0)}% · SL {(c.slPct * 100).toFixed(0)}%
     </span>
   );
 }
@@ -209,7 +216,8 @@ export default function LocalEdgeScorecard() {
           <div className="text-[10px] text-zinc-500 mt-0.5">
             {(() => {
               const cfg = getActiveConfig();
-              return `Config ${cfg.source === 'sweep-oos' ? '⚡ adoptada del sweep (validada OOS)' : 'por defecto'} · ${cfg.interval} · D${cfg.breakoutPeriod} · SMA${cfg.regimeSmaPeriod} · TP ${(cfg.tpPct * 100).toFixed(0)}% · SL ${(cfg.slPct * 100).toFixed(0)}% · BTC ETH SOL BNB${lastRun ? ` · corrido ${lastRun}` : ''}`;
+              const fam = FAMILY_LABEL[cfg.family ?? 'donchian'] ?? 'BREAKOUT';
+              return `${fam} · Config ${cfg.source === 'sweep-oos' ? '⚡ adoptada del sweep (validada OOS)' : 'por defecto'} · ${cfg.interval} · P${cfg.breakoutPeriod}/${cfg.regimeSmaPeriod}${cfg.zThr ? ` z${cfg.zThr}` : ''} · TP ${(cfg.tpPct * 100).toFixed(0)}% · SL ${(cfg.slPct * 100).toFixed(0)}% · BTC ETH SOL BNB${lastRun ? ` · corrido ${lastRun}` : ''}`;
             })()}
           </div>
         </div>
@@ -315,11 +323,12 @@ export default function LocalEdgeScorecard() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-[9px] uppercase tracking-[0.2em] text-[#ffd24a]">
-                  ⚡ Optimización fuerza bruta
+                  ⚡ Optimización fuerza bruta · 3 familias
                 </div>
                 <div className="text-[10px] text-zinc-500 mt-0.5">
-                  288 configs (Donchian × SMA × TP × SL × 1h/4h) sobre 1000 velas reales por par.
-                  Selección in-sample, veredicto SOLO out-of-sample.
+                  ~360 configs (breakout · reversión a la media · momentum × 1h/4h) sobre 1000
+                  velas reales por par. Selección in-sample, veredicto SOLO out-of-sample +
+                  consistencia temporal.
                 </div>
               </div>
               <button

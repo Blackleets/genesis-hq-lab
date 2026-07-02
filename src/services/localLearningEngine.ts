@@ -86,14 +86,23 @@ export interface LocalLearningSnapshot {
   scores: Record<string, number>; // agentId -> learningScore (0..1)
 }
 
+// Multi-strategy lab: three independent families so the desk has more than
+// one way to win. Breakout pays in trends, mean-reversion pays in ranges,
+// MA-cross momentum pays in sustained moves — the sweep hunts across all
+// three and adopts whatever the CURRENT regime actually pays.
+export type StrategyFamily = 'donchian' | 'meanRevert' | 'maCross';
+
 export interface StrategyParams {
-  breakoutPeriod: number;
-  regimeSmaPeriod: number;
+  family?: StrategyFamily;  // default 'donchian' (backwards compatible)
+  breakoutPeriod: number;   // donchian channel / meanRevert lookback / maCross fast MA
+  regimeSmaPeriod: number;  // regime SMA / meanRevert lookback (mirror) / maCross slow MA
+  zThr?: number;            // meanRevert only: z-score entry threshold
   tpPct: number;
   slPct: number;
 }
 
 const DEFAULT_PARAMS: StrategyParams = {
+  family: 'donchian',
   breakoutPeriod: 20,
   regimeSmaPeriod: 55,
   tpPct: 0.06,
@@ -129,18 +138,24 @@ export function getActiveConfig(): ActiveConfig {
   try {
     const raw = localStorage.getItem(SWEEP_KEY);
     if (raw) {
-      const sweep = JSON.parse(raw) as { ok?: boolean; best?: { config?: StrategyParams & { interval?: string }; test?: { expectancyPct?: number; profitFactor?: number; tStat?: number } } };
+      const sweep = JSON.parse(raw) as { ok?: boolean; best?: { config?: StrategyParams & { interval?: string }; test?: { expectancyPct?: number; profitFactor?: number; tStat?: number }; testHalves?: { h1ExpPct?: number; h2ExpPct?: number } } };
       const best = sweep?.best;
+      const halves = best?.testHalves;
+      const consistent = halves == null || ((halves.h1ExpPct ?? 0) > 0 && (halves.h2ExpPct ?? 0) > 0);
       if (
         sweep?.ok && best?.config &&
         (best.test?.expectancyPct ?? 0) > 0 &&
         (best.test?.profitFactor ?? 0) >= 1.1 &&
         // multiple-testing guard: only adopt statistically significant OOS edge
-        (best.test?.tStat ?? 0) >= 2.0
+        (best.test?.tStat ?? 0) >= 2.0 &&
+        // temporal consistency: both OOS halves must be positive
+        consistent
       ) {
         return {
+          family: best.config.family ?? 'donchian',
           breakoutPeriod: best.config.breakoutPeriod,
           regimeSmaPeriod: best.config.regimeSmaPeriod,
+          zThr: best.config.zThr,
           tpPct: best.config.tpPct,
           slPct: best.config.slPct,
           interval: best.config.interval ?? '1h',
@@ -186,18 +201,44 @@ function backtest(closes: number[], p: StrategyParams): BacktestResult {
   const minBars = Math.max(p.breakoutPeriod, p.regimeSmaPeriod) + 2;
   if (closes.length < minBars) return empty;
 
+  const family: StrategyFamily = p.family ?? 'donchian';
   let i = minBars;
   while (i < closes.length) {
     const last = closes[i - 1];
-    const channel = closes.slice(i - 1 - p.breakoutPeriod, i - 1);
-    const hi = Math.max(...channel);
-    const lo = Math.min(...channel);
-    const regime = sma(closes, p.regimeSmaPeriod, i - 1);
-    if (regime == null) { i++; continue; }
-
     let side: 'LONG' | 'SHORT' | null = null;
-    if (last > hi && last > regime) side = 'LONG';
-    else if (last < lo && last < regime) side = 'SHORT';
+
+    if (family === 'donchian') {
+      // Trend breakout: channel break aligned with the SMA regime.
+      const channel = closes.slice(i - 1 - p.breakoutPeriod, i - 1);
+      const hi = Math.max(...channel);
+      const lo = Math.min(...channel);
+      const regime = sma(closes, p.regimeSmaPeriod, i - 1);
+      if (regime == null) { i++; continue; }
+      if (last > hi && last > regime) side = 'LONG';
+      else if (last < lo && last < regime) side = 'SHORT';
+    } else if (family === 'meanRevert') {
+      // Range fade: price stretched N sigmas from its mean snaps back.
+      const m = sma(closes, p.breakoutPeriod, i - 1);
+      if (m == null) { i++; continue; }
+      let v = 0;
+      for (let k = i - p.breakoutPeriod; k < i; k++) v += (closes[k] - m) ** 2;
+      const sd = Math.sqrt(v / p.breakoutPeriod);
+      if (sd <= 0) { i++; continue; }
+      const z = (last - m) / sd;
+      const thr = p.zThr ?? 2;
+      if (z <= -thr) side = 'LONG';
+      else if (z >= thr) side = 'SHORT';
+    } else {
+      // Momentum: fast MA crossing the slow MA, entered on the cross bar.
+      const fPrev = sma(closes, p.breakoutPeriod, i - 2);
+      const sPrev = sma(closes, p.regimeSmaPeriod, i - 2);
+      const fNow = sma(closes, p.breakoutPeriod, i - 1);
+      const sNow = sma(closes, p.regimeSmaPeriod, i - 1);
+      if (fPrev == null || sPrev == null || fNow == null || sNow == null) { i++; continue; }
+      if (fPrev <= sPrev && fNow > sNow) side = 'LONG';
+      else if (fPrev >= sPrev && fNow < sNow) side = 'SHORT';
+    }
+
     if (!side) { i++; continue; }
 
     const entry = closes[i]; // fill on next bar's close
@@ -496,6 +537,9 @@ export interface SweepEntry {
   config: SweepConfig;
   train: SliceStats;   // in-sample (selection window)
   test: SliceStats;    // out-of-sample (judgement window)
+  // Temporal consistency: expectancy in each chronological half of the OOS
+  // window. A real edge pays in both; a fluke pays in one.
+  testHalves?: { h1ExpPct: number; h2ExpPct: number };
 }
 
 export interface SweepResult {
@@ -507,13 +551,32 @@ export interface SweepResult {
   note: string;
 }
 
-const SWEEP_GRID = {
-  breakoutPeriod: [12, 20, 34, 55],
-  regimeSmaPeriod: [34, 55, 89],
-  tpPct: [0.04, 0.06, 0.09, 0.12],
-  slPct: [0.02, 0.03, 0.04],
-  intervals: ['1h', '4h'],
-};
+// Multi-family grids — the desk hunts edge across three independent ways to
+// win. ~360 configs total; still only 8 API calls (candles are cached).
+const SWEEP_INTERVALS = ['1h', '4h'];
+
+function buildSweepConfigs(): StrategyParams[] {
+  const out: StrategyParams[] = [];
+  // Trend breakout (Donchian + regime): pays in trending markets.
+  for (const breakoutPeriod of [12, 20, 34, 55])
+    for (const regimeSmaPeriod of [34, 55, 89])
+      for (const tpPct of [0.04, 0.06, 0.09, 0.12])
+        for (const slPct of [0.02, 0.03, 0.04])
+          out.push({ family: 'donchian', breakoutPeriod, regimeSmaPeriod, tpPct, slPct });
+  // Mean reversion (z-score fade): pays in ranging markets.
+  for (const lookback of [20, 34])
+    for (const zThr of [1.5, 2, 2.5])
+      for (const tpPct of [0.03, 0.05])
+        for (const slPct of [0.02, 0.03])
+          out.push({ family: 'meanRevert', breakoutPeriod: lookback, regimeSmaPeriod: lookback, zThr, tpPct, slPct });
+  // MA-cross momentum: pays in sustained directional moves.
+  for (const fast of [9, 12, 21])
+    for (const slow of [34, 55])
+      for (const tpPct of [0.05, 0.08])
+        for (const slPct of [0.03])
+          out.push({ family: 'maCross', breakoutPeriod: fast, regimeSmaPeriod: slow, tpPct, slPct });
+  return out;
+}
 
 const TRAIN_SPLIT = 0.6;          // 60% selection, 40% untouched validation
 const MIN_TRAIN_TRADES = 20;
@@ -549,9 +612,9 @@ export async function runBruteForceSweep(
   const ranAt = new Date().toISOString();
 
   // One fetch per pair+interval (8 requests); the sweep itself is pure CPU
-  // over cached candles, so 288 configs cost zero extra API calls.
+  // over cached candles, so ~360 configs cost zero extra API calls.
   const seriesByInterval: Record<string, number[][]> = {};
-  for (const interval of SWEEP_GRID.intervals) {
+  for (const interval of SWEEP_INTERVALS) {
     const list: number[][] = [];
     for (const pair of pairs) {
       try {
@@ -563,34 +626,42 @@ export async function runBruteForceSweep(
 
   const entries: SweepEntry[] = [];
   let tested = 0;
+  const configs = buildSweepConfigs();
 
-  for (const interval of SWEEP_GRID.intervals) {
+  for (const interval of SWEEP_INTERVALS) {
     const series = seriesByInterval[interval];
     if (!series.length) continue;
-    for (const breakoutPeriod of SWEEP_GRID.breakoutPeriod) {
-      for (const regimeSmaPeriod of SWEEP_GRID.regimeSmaPeriod) {
-        for (const tpPct of SWEEP_GRID.tpPct) {
-          for (const slPct of SWEEP_GRID.slPct) {
-            tested++;
-            const params: StrategyParams = { breakoutPeriod, regimeSmaPeriod, tpPct, slPct };
-            const warmup = Math.max(breakoutPeriod, regimeSmaPeriod) + 2;
-            const trainR: number[] = [];
-            const testR: number[] = [];
-            for (const closes of series) {
-              const split = Math.floor(closes.length * TRAIN_SPLIT);
-              trainR.push(...backtest(closes.slice(0, split), params).returns);
-              // include warmup bars before the split so OOS signals start at the boundary
-              testR.push(...backtest(closes.slice(Math.max(0, split - warmup)), params).returns);
-            }
-            if (trainR.length < MIN_TRAIN_TRADES || testR.length < MIN_TEST_TRADES) continue;
-            entries.push({
-              config: { ...params, interval },
-              train: sliceStats(trainR),
-              test: sliceStats(testR),
-            });
-          }
-        }
+    for (const params of configs) {
+      tested++;
+      const warmup = Math.max(params.breakoutPeriod, params.regimeSmaPeriod) + 2;
+      const trainR: number[] = [];
+      const testPoints: Array<{ idx: number; ret: number }> = [];
+      for (const closes of series) {
+        const split = Math.floor(closes.length * TRAIN_SPLIT);
+        trainR.push(...backtest(closes.slice(0, split), params).returns);
+        // include warmup bars before the split so OOS signals start at the boundary
+        testPoints.push(...backtest(closes.slice(Math.max(0, split - warmup)), params).tradePoints);
       }
+      if (trainR.length < MIN_TRAIN_TRADES || testPoints.length < MIN_TEST_TRADES) continue;
+
+      // Temporal consistency: split the OOS trades chronologically (bar index
+      // is comparable across pairs at the same interval) into two halves.
+      const chrono = [...testPoints].sort((a, b) => a.idx - b.idx);
+      const testR = chrono.map((t) => t.ret);
+      const mid = Math.floor(chrono.length / 2);
+      const h1 = chrono.slice(0, mid).map((t) => t.ret);
+      const h2 = chrono.slice(mid).map((t) => t.ret);
+      const expOf = (rs: number[]) => (rs.length ? (rs.reduce((s, r) => s + r, 0) / rs.length) * 100 : 0);
+
+      entries.push({
+        config: { ...params, interval },
+        train: sliceStats(trainR),
+        test: sliceStats(testR),
+        testHalves: {
+          h1ExpPct: Math.round(expOf(h1) * 1000) / 1000,
+          h2ExpPct: Math.round(expOf(h2) * 1000) / 1000,
+        },
+      });
     }
   }
 
@@ -606,19 +677,26 @@ export async function runBruteForceSweep(
   const byTest = [...pool].sort((a, b) => b.test.expectancyPct - a.test.expectancyPct);
   const best = byTest[0] ?? null;
 
-  // Multiple-testing guard (deflated-Sharpe spirit): after sweeping 288
-  // configs, the apparent winner is inflated by selection bias. Survival
-  // requires statistical significance on the UNTOUCHED out-of-sample window
-  // (t-stat ≥ 2), not just positive numbers.
+  // Multiple-testing guard (deflated-Sharpe spirit) + temporal consistency:
+  // after sweeping ~360 configs the apparent winner is inflated by selection
+  // bias, so survival requires (a) statistical significance on the untouched
+  // OOS window (t-stat ≥ 2) AND (b) positive expectancy in BOTH chronological
+  // halves of the OOS — a fluke pays once; an edge keeps paying.
+  const consistent = best?.testHalves == null
+    || (best.testHalves.h1ExpPct > 0 && best.testHalves.h2ExpPct > 0);
   const survived = best != null
     && best.test.expectancyPct > 0
     && best.test.profitFactor >= 1.1
-    && best.test.tStat >= 2.0;
+    && best.test.tStat >= 2.0
+    && consistent;
+  const famName = best?.config.family ?? 'donchian';
   const note = survived
-    ? `Config con edge significativo out-of-sample (t-stat ${best.test.tStat.toFixed(2)} ≥ 2.0, neto de costos). Sigue siendo paper hasta que el scorecard dé GO.`
-    : best != null && best.test.expectancyPct > 0
-      ? `La mejor config es positiva OOS pero sin significancia estadística (t-stat ${best.test.tStat.toFixed(2)} < 2.0) — probable sesgo de selección tras ${tested} pruebas. No se adopta.`
-      : 'Ninguna config del grid mantiene edge out-of-sample ahora mismo — el mercado actual no paga esta familia de estrategias. Mejor saberlo aquí que con dinero real.';
+    ? `Config ${famName} con edge significativo y consistente out-of-sample (t-stat ${best.test.tStat.toFixed(2)} ≥ 2.0, ambas mitades positivas, neto de costos). Sigue siendo paper hasta que el scorecard dé GO.`
+    : best != null && best.test.expectancyPct > 0 && !consistent
+      ? `La mejor config (${famName}) es positiva OOS pero inconsistente en el tiempo (mitades: ${best.testHalves?.h1ExpPct}% / ${best.testHalves?.h2ExpPct}%) — huele a racha, no a edge. No se adopta.`
+      : best != null && best.test.expectancyPct > 0
+        ? `La mejor config (${famName}) es positiva OOS pero sin significancia estadística (t-stat ${best.test.tStat.toFixed(2)} < 2.0) — probable sesgo de selección tras ${tested} pruebas. No se adopta.`
+        : 'Ninguna config de las 3 familias (breakout, reversión, momentum) mantiene edge out-of-sample ahora mismo. Mejor saberlo aquí que con dinero real.';
 
   return { ok: true, ranAt, tested, best, top: byTest.slice(0, 5), note };
 }

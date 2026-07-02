@@ -71,7 +71,7 @@ function emitLearningReactions(snap: LocalLearningSnapshot) {
     localStorage.setItem(LAST_SIG_KEY, sig);
   } catch { /* storage unavailable → still emit once per session */ }
 
-  const cfgLabel = `${cfg.interval} D${cfg.breakoutPeriod}/SMA${cfg.regimeSmaPeriod} TP${(cfg.tpPct * 100).toFixed(0)} SL${(cfg.slPct * 100).toFixed(0)}`;
+  const cfgLabel = `${cfg.family ?? 'donchian'} ${cfg.interval} P${cfg.breakoutPeriod}/${cfg.regimeSmaPeriod} TP${(cfg.tpPct * 100).toFixed(0)} SL${(cfg.slPct * 100).toFixed(0)}`;
   emitAgentSays('trading-backtest-engineer', {
     es: `Backtest fresco: ${sc.trades} trades, WR ${(sc.winRate * 100).toFixed(0)}%, PF ${sc.profitFactor.toFixed(2)} (${cfgLabel}).`,
     en: `Fresh backtest: ${sc.trades} trades, WR ${(sc.winRate * 100).toFixed(0)}%, PF ${sc.profitFactor.toFixed(2)} (${cfgLabel}).`,
