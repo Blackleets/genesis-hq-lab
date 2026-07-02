@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { useAgents, updateAgentLearning, applyAgentTradingStats } from '@core/store/genesisStore';
-import { runLocalLearning, type LocalLearningSnapshot } from '@services/localLearningEngine';
+import { useAgents, updateAgentLearning, applyAgentTradingStats, emitAgentSays } from '@core/store/genesisStore';
+import { runLocalLearning, getActiveConfig, type LocalLearningSnapshot } from '@services/localLearningEngine';
 
 const AGENT_SKILL_MAP: Record<string, true> = {
   'trading-scalping-hunter': true,
@@ -11,8 +11,45 @@ const AGENT_SKILL_MAP: Record<string, true> = {
 };
 
 const SNAPSHOT_KEY = 'genesis.local.learning.v1';
+const LAST_SIG_KEY = 'genesis.local.learning.sig.v1';
 const BACKEND_INTERVAL_MS = 30_000;
 const LOCAL_INTERVAL_MS = 5 * 60_000; // real Binance backtest is heavier — every 5 min
+
+// Agents visibly react in the office when the learning result CHANGES
+// (new verdict or newly adopted config) — real reactions, not chatter spam.
+function emitLearningReactions(snap: LocalLearningSnapshot) {
+  const sc = snap.scorecard;
+  if (!sc) return;
+  const cfg = getActiveConfig();
+  const sig = `${sc.verdict}:${cfg.source}:${cfg.interval}:D${cfg.breakoutPeriod}`;
+  try {
+    if (localStorage.getItem(LAST_SIG_KEY) === sig) return;
+    localStorage.setItem(LAST_SIG_KEY, sig);
+  } catch { /* storage unavailable → still emit once per session */ }
+
+  const cfgLabel = `${cfg.interval} D${cfg.breakoutPeriod}/SMA${cfg.regimeSmaPeriod} TP${(cfg.tpPct * 100).toFixed(0)} SL${(cfg.slPct * 100).toFixed(0)}`;
+  emitAgentSays('trading-backtest-engineer', {
+    es: `Backtest fresco: ${sc.trades} trades, WR ${(sc.winRate * 100).toFixed(0)}%, PF ${sc.profitFactor.toFixed(2)} (${cfgLabel}).`,
+    en: `Fresh backtest: ${sc.trades} trades, WR ${(sc.winRate * 100).toFixed(0)}%, PF ${sc.profitFactor.toFixed(2)} (${cfgLabel}).`,
+  });
+  if (cfg.source === 'sweep-oos') {
+    emitAgentSays('trading-market-analyst', {
+      es: `Adopté la config del sweep validada out-of-sample: ${cfgLabel}.`,
+      en: `Adopted the OOS-validated sweep config: ${cfgLabel}.`,
+    });
+  }
+  if (typeof sc.pnlUsd === 'number') {
+    emitAgentSays('trading-capital-manager', {
+      es: `PnL paper ${sc.pnlUsd >= 0 ? '+' : '-'}$${Math.abs(sc.pnlUsd).toFixed(0)} · equity $${sc.equityUsd.toFixed(0)}.`,
+      en: `Paper PnL ${sc.pnlUsd >= 0 ? '+' : '-'}$${Math.abs(sc.pnlUsd).toFixed(0)} · equity $${sc.equityUsd.toFixed(0)}.`,
+    });
+  }
+  emitAgentSays('trading-risk-sentinel', sc.verdict === 'GO'
+    ? { es: '✓ Todos los gates pasan — edge validado. GO.', en: '✓ All gates pass — edge validated. GO.' }
+    : sc.verdict === 'NO_GO'
+      ? { es: `NO-GO. ${sc.nextMilestone ?? 'Gates sin pasar.'}`, en: `NO-GO. ${sc.nextMilestone ?? 'Gates failing.'}` }
+      : { es: 'Muestra insuficiente — sigo acumulando evidencia.', en: 'Insufficient sample — still gathering evidence.' });
+}
 
 function persistSnapshot(snap: LocalLearningSnapshot) {
   try {
@@ -99,6 +136,7 @@ export function useLearningSync() {
         if (disposed || !snap.ok) return;
         persistSnapshot(snap);
         applyFullStats(snap);
+        emitLearningReactions(snap);
       } catch {
         // Last resort: replay the last persisted snapshot so scores stay real,
         // not reset, across reloads.

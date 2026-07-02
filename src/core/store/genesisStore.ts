@@ -2057,3 +2057,24 @@ export function applyAgentTradingStats(
   };
   commit(next);
 }
+
+// Let external engines (learning loop, sweep) put words in an agent's mouth —
+// the office bubbles + activity feed render these, so agents visibly react to
+// real measured results (adopted configs, verdicts, PnL milestones).
+export function emitAgentSays(
+  agentId: string,
+  voicedText: { es: string; en: string },
+  message?: { es: string; en: string },
+) {
+  const current = getState();
+  if (!current.agents[agentId]) return;
+  commit(appendEvent(current, {
+    kind: 'agent.says',
+    severity: 'info',
+    agentId,
+    voicedBy: agentId,
+    voicedText,
+    message: message ?? voicedText,
+    isVisualSeed: true,
+  }));
+}
