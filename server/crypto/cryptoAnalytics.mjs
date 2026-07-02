@@ -94,6 +94,31 @@ export function getOptimizerRuns(limit = 20) {
 // live closed crypto trades when no optimizer run exists yet.
 
 const CRYPTO_MIN_TRADES = 30;
+const CRYPTO_START_CAPITAL = Number.parseFloat(process.env.CRYPTO_START_CAPITAL ?? '10000');
+
+// Profit factor + max drawdown computed from the actual closed-trade PnL
+// series, so the live-trades scorecard shows real values instead of "—".
+function getLiveRiskMetrics() {
+  const rows = db.prepare(`
+    SELECT pnl FROM trades
+    WHERE trade_type IN ${CRYPTO_TRADE_TYPES_SQL} AND status = 'closed' AND pnl IS NOT NULL
+    ORDER BY closed_at ASC
+  `).all();
+  if (!rows.length) return { profitFactor: null, maxDrawdown: null };
+
+  let grossWin = 0, grossLoss = 0, equity = CRYPTO_START_CAPITAL, peak = CRYPTO_START_CAPITAL, maxDd = 0;
+  for (const { pnl } of rows) {
+    const v = Number(pnl) || 0;
+    if (v > 0) grossWin += v; else grossLoss += Math.abs(v);
+    equity += v;
+    peak = Math.max(peak, equity);
+    if (peak > 0) maxDd = Math.max(maxDd, (peak - equity) / peak);
+  }
+  return {
+    profitFactor: grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? 3 : null,
+    maxDrawdown: maxDd,
+  };
+}
 
 export function computeCryptoEdgeScorecard() {
   const lastRun = getOptimizerRuns(1)[0];
@@ -104,10 +129,11 @@ export function computeCryptoEdgeScorecard() {
   let source = 'walk-forward (out-of-sample)';
   if (!m || (m.trades ?? 0) < CRYPTO_MIN_TRADES) {
     if (live.closed.total >= CRYPTO_MIN_TRADES) {
+      const risk = getLiveRiskMetrics();
       m = {
         trades: live.closed.total, winRate: live.closed.winRate,
         netPnl: live.closed.totalPnl, expectancy: live.closed.avgPnl,
-        roi: live.closed.roi, profitFactor: null, maxDrawdown: null,
+        roi: live.closed.roi, profitFactor: risk.profitFactor, maxDrawdown: risk.maxDrawdown,
       };
       source = 'live closed trades';
     }
