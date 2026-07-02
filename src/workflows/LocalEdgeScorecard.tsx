@@ -128,9 +128,11 @@ export default function LocalEdgeScorecard() {
   }, [run]);
 
   useEffect(() => {
-    run();
+    // Defer the first run out of the effect body so no setState fires
+    // synchronously during render commit.
+    const first = setTimeout(run, 0);
     const id = setInterval(run, REFRESH_MS);
-    return () => clearInterval(id);
+    return () => { clearTimeout(first); clearInterval(id); };
   }, [run]);
 
   const sc = snap?.scorecard;
