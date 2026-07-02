@@ -346,7 +346,9 @@ export default function LocalEdgeScorecard() {
               <div className="font-mono text-[10px] text-zinc-500">
                 Sin ganancia no hay comisión. En ejecución real se liquida en el settlement del trade —
                 jamás desde tu wallet conectada (solo lectura, siempre).
-                {!TREASURY_WALLET_SOL && ' Tesorería sin configurar — solo display.'}
+                {TREASURY_WALLET_SOL
+                  ? ` Tesorería: ${TREASURY_WALLET_SOL.slice(0, 4)}…${TREASURY_WALLET_SOL.slice(-4)} (pública, verificable).`
+                  : ' Tesorería sin configurar — solo display.'}
               </div>
               <div className="flex items-center gap-3 flex-wrap border-t border-zinc-800 pt-2">
                 <label className="flex items-center gap-2 cursor-pointer font-mono text-[11px] text-zinc-300">

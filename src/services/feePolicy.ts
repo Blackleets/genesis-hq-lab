@@ -16,7 +16,7 @@ export const PERFORMANCE_FEE_BPS = 1000; // 10.00% of net positive PnL
 
 // Operator treasury (Solana). Set by the deployment owner; empty = accrual
 // display only. Forks that deploy commercially set their own or license.
-export const TREASURY_WALLET_SOL = '';
+export const TREASURY_WALLET_SOL = '2V7qrcSqH59hG4BgQdZonefx27uUNyyXCfozDzi1w5zL';
 
 export function feeRateLabel(): string {
   return `${(PERFORMANCE_FEE_BPS / 100).toFixed(2)}%`;
