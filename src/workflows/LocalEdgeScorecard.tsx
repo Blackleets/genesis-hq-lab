@@ -8,8 +8,25 @@
 // human decision behind a GO verdict.
 
 import { useEffect, useState, useCallback } from 'react';
-import { runLocalLearning, type LocalLearningSnapshot } from '@services/localLearningEngine';
+import {
+  runLocalLearning,
+  runBruteForceSweep,
+  type LocalLearningSnapshot,
+  type SweepResult,
+  type SweepEntry,
+} from '@services/localLearningEngine';
 import { readLastLearningSnapshot } from '@hooks/useLearningSync';
+
+const SWEEP_KEY = 'genesis.local.sweep.v1';
+
+function readLastSweep(): SweepResult | null {
+  try {
+    const raw = localStorage.getItem(SWEEP_KEY);
+    return raw ? (JSON.parse(raw) as SweepResult) : null;
+  } catch {
+    return null;
+  }
+}
 
 const REFRESH_MS = 5 * 60_000;
 
@@ -56,10 +73,41 @@ function CheckRow({ label, pass, value, threshold }: { label: string; pass: bool
   );
 }
 
+function ConfigLabel({ e }: { e: SweepEntry }) {
+  const c = e.config;
+  return (
+    <span className="font-mono text-[11px] text-zinc-200">
+      {c.interval} · D{c.breakoutPeriod} · SMA{c.regimeSmaPeriod} · TP {(c.tpPct * 100).toFixed(0)}% · SL {(c.slPct * 100).toFixed(0)}%
+    </span>
+  );
+}
+
+function SliceCells({ s }: { s: SweepEntry['test'] }) {
+  const good = s.expectancyPct > 0;
+  return (
+    <span className={`font-mono text-[10px] tabular-nums ${good ? 'text-green-400' : 'text-red-400'}`}>
+      exp {s.expectancyPct >= 0 ? '+' : ''}{s.expectancyPct.toFixed(3)}% · PF {s.profitFactor.toFixed(2)} · WR {(s.winRate * 100).toFixed(0)}% · {s.trades}t
+    </span>
+  );
+}
+
 export default function LocalEdgeScorecard() {
   const [snap, setSnap] = useState<LocalLearningSnapshot | null>(() => readLastLearningSnapshot());
   const [running, setRunning] = useState(false);
   const [lastRun, setLastRun] = useState<string | null>(null);
+  const [sweep, setSweep] = useState<SweepResult | null>(() => readLastSweep());
+  const [sweeping, setSweeping] = useState(false);
+
+  const runSweep = useCallback(async () => {
+    setSweeping(true);
+    try {
+      const r = await runBruteForceSweep();
+      setSweep(r);
+      try { localStorage.setItem(SWEEP_KEY, JSON.stringify(r)); } catch { /* non-fatal */ }
+    } finally {
+      setSweeping(false);
+    }
+  }, []);
 
   const run = useCallback(async () => {
     setRunning(true);
@@ -147,6 +195,75 @@ export default function LocalEdgeScorecard() {
               es una decisión manual, no automática.
             </div>
           )}
+
+          {/* Brute-force optimizer — sweep the config grid, judge out-of-sample */}
+          <div className="border-t border-zinc-800 pt-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-[9px] uppercase tracking-[0.2em] text-[#ffd24a]">
+                  ⚡ Optimización fuerza bruta
+                </div>
+                <div className="text-[10px] text-zinc-500 mt-0.5">
+                  288 configs (Donchian × SMA × TP × SL × 1h/4h) sobre 1000 velas reales por par.
+                  Selección in-sample, veredicto SOLO out-of-sample.
+                </div>
+              </div>
+              <button
+                onClick={runSweep}
+                disabled={sweeping}
+                className="shrink-0 font-mono text-[11px] px-3 py-2 border border-[#ffd24a66] text-[#ffd24a] bg-[#ffd24a0d] hover:bg-[#ffd24a1a] disabled:opacity-50 disabled:cursor-wait"
+              >
+                {sweeping ? 'Barriendo…' : 'Buscar edge'}
+              </button>
+            </div>
+
+            {sweep?.ok && sweep.best && (
+              <>
+                <div className="bg-[#0d111a] border border-zinc-800 px-4 py-3 space-y-2">
+                  <div className="text-[9px] uppercase tracking-[0.2em] text-zinc-500">
+                    Mejor config ({sweep.tested} probadas)
+                  </div>
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <ConfigLabel e={sweep.best} />
+                  </div>
+                  <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-[10px] text-zinc-500">In-sample (selección)</span>
+                      <SliceCells s={sweep.best.train} />
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-[10px] text-zinc-500">Out-of-sample (veredicto)</span>
+                      <SliceCells s={sweep.best.test} />
+                    </div>
+                  </div>
+                </div>
+
+                {sweep.top.length > 1 && (
+                  <div className="bg-[#0d111a] border border-zinc-800 px-4 py-2">
+                    <div className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 mb-1">
+                      Top {sweep.top.length} out-of-sample
+                    </div>
+                    {sweep.top.map((e, i) => (
+                      <div key={i} className="flex items-center justify-between gap-2 py-1 border-b border-zinc-800/60 last:border-0 flex-wrap">
+                        <ConfigLabel e={e} />
+                        <SliceCells s={e.test} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className={`border px-4 py-2 text-[11px] ${sweep.best.test.expectancyPct > 0 ? 'border-green-400/30 bg-green-400/5 text-green-300' : 'border-red-400/30 bg-red-400/5 text-red-300'}`}>
+                  {sweep.note}
+                </div>
+              </>
+            )}
+
+            {sweep?.ok === false && (
+              <div className="border border-amber-400/30 bg-amber-400/5 px-4 py-2 text-[11px] text-amber-300">
+                {sweep.note}
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>

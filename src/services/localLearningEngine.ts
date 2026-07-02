@@ -67,7 +67,7 @@ export interface LocalLearningSnapshot {
   scores: Record<string, number>; // agentId -> learningScore (0..1)
 }
 
-interface StrategyParams {
+export interface StrategyParams {
   breakoutPeriod: number;
   regimeSmaPeriod: number;
   tpPct: number;
@@ -324,4 +324,148 @@ export async function runLocalLearning(
     scorecard: buildScorecard(allReturns),
     scores: scoreAgents(aggAsResult),
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Brute-force config search with out-of-sample validation.
+//
+// "Fuerza bruta" applied where it actually makes money: sweep the whole
+// strategy-parameter grid against REAL Binance data, select on the training
+// window, and judge ONLY on the untouched out-of-sample window. A config that
+// shines in-sample but dies out-of-sample is overfit — it is discarded, not
+// celebrated. This is how a desk hunts edge; execution stays paper until GO.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface SweepConfig extends StrategyParams {
+  interval: string;
+}
+
+export interface SliceStats {
+  trades: number;
+  winRate: number;
+  profitFactor: number;
+  expectancyPct: number;
+  sharpe: number;
+  maxDrawdownPct: number;
+  totalPnlPct: number;
+}
+
+export interface SweepEntry {
+  config: SweepConfig;
+  train: SliceStats;   // in-sample (selection window)
+  test: SliceStats;    // out-of-sample (judgement window)
+}
+
+export interface SweepResult {
+  ok: boolean;
+  ranAt: string;
+  tested: number;
+  best: SweepEntry | null;
+  top: SweepEntry[];
+  note: string;
+}
+
+const SWEEP_GRID = {
+  breakoutPeriod: [12, 20, 34, 55],
+  regimeSmaPeriod: [34, 55, 89],
+  tpPct: [0.04, 0.06, 0.09, 0.12],
+  slPct: [0.02, 0.03, 0.04],
+  intervals: ['1h', '4h'],
+};
+
+const TRAIN_SPLIT = 0.6;          // 60% selection, 40% untouched validation
+const MIN_TRAIN_TRADES = 20;
+const MIN_TEST_TRADES = 8;
+const SELECTION_POOL = 10;        // top-N in-sample candidates judged OOS
+
+function sliceStats(returns: number[]): SliceStats {
+  const trades = returns.length;
+  const wins = returns.filter((r) => r > 0).length;
+  const grossWin = returns.filter((r) => r > 0).reduce((s, r) => s + r, 0);
+  const grossLoss = Math.abs(returns.filter((r) => r < 0).reduce((s, r) => s + r, 0));
+  const mean = trades ? returns.reduce((s, r) => s + r, 0) / trades : 0;
+  const variance = trades ? returns.reduce((s, r) => s + (r - mean) ** 2, 0) / trades : 0;
+  const std = Math.sqrt(variance);
+  let peak = 0, cum = 0, dd = 0;
+  for (const r of returns) { cum += r; peak = Math.max(peak, cum); dd = Math.max(dd, peak - cum); }
+  return {
+    trades,
+    winRate: trades ? wins / trades : 0,
+    profitFactor: grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? 3 : 0,
+    expectancyPct: mean * 100,
+    sharpe: std > 0 ? mean / std : 0,
+    maxDrawdownPct: dd * 100,
+    totalPnlPct: returns.reduce((s, r) => s + r, 0) * 100,
+  };
+}
+
+export async function runBruteForceSweep(
+  pairs: string[] = DEFAULT_PAIRS,
+): Promise<SweepResult> {
+  const ranAt = new Date().toISOString();
+
+  // One fetch per pair+interval (8 requests); the sweep itself is pure CPU
+  // over cached candles, so 288 configs cost zero extra API calls.
+  const seriesByInterval: Record<string, number[][]> = {};
+  for (const interval of SWEEP_GRID.intervals) {
+    const list: number[][] = [];
+    for (const pair of pairs) {
+      try {
+        list.push(await fetchCloses(pair, interval, 1000));
+      } catch { /* one pair failing must not sink the sweep */ }
+    }
+    seriesByInterval[interval] = list;
+  }
+
+  const entries: SweepEntry[] = [];
+  let tested = 0;
+
+  for (const interval of SWEEP_GRID.intervals) {
+    const series = seriesByInterval[interval];
+    if (!series.length) continue;
+    for (const breakoutPeriod of SWEEP_GRID.breakoutPeriod) {
+      for (const regimeSmaPeriod of SWEEP_GRID.regimeSmaPeriod) {
+        for (const tpPct of SWEEP_GRID.tpPct) {
+          for (const slPct of SWEEP_GRID.slPct) {
+            tested++;
+            const params: StrategyParams = { breakoutPeriod, regimeSmaPeriod, tpPct, slPct };
+            const warmup = Math.max(breakoutPeriod, regimeSmaPeriod) + 2;
+            const trainR: number[] = [];
+            const testR: number[] = [];
+            for (const closes of series) {
+              const split = Math.floor(closes.length * TRAIN_SPLIT);
+              trainR.push(...backtest(closes.slice(0, split), params).returns);
+              // include warmup bars before the split so OOS signals start at the boundary
+              testR.push(...backtest(closes.slice(Math.max(0, split - warmup)), params).returns);
+            }
+            if (trainR.length < MIN_TRAIN_TRADES || testR.length < MIN_TEST_TRADES) continue;
+            entries.push({
+              config: { ...params, interval },
+              train: sliceStats(trainR),
+              test: sliceStats(testR),
+            });
+          }
+        }
+      }
+    }
+  }
+
+  if (!entries.length) {
+    return { ok: false, ranAt, tested, best: null, top: [], note: 'Sin configs con muestra suficiente.' };
+  }
+
+  // Select on TRAIN, judge on TEST: rank in-sample, then pick the best
+  // out-of-sample performer among the top candidates. Anything that only
+  // works in-sample loses here — that is the anti-overfit gate.
+  const byTrain = [...entries].sort((a, b) => b.train.expectancyPct - a.train.expectancyPct);
+  const pool = byTrain.slice(0, SELECTION_POOL);
+  const byTest = [...pool].sort((a, b) => b.test.expectancyPct - a.test.expectancyPct);
+  const best = byTest[0] ?? null;
+
+  const survived = best != null && best.test.expectancyPct > 0 && best.test.profitFactor >= 1.1;
+  const note = survived
+    ? 'Config con edge positivo out-of-sample. Sigue siendo paper hasta que el scorecard dé GO.'
+    : 'Ninguna config del grid mantiene edge out-of-sample ahora mismo — el mercado actual no paga esta familia de estrategias. Mejor saberlo aquí que con dinero real.';
+
+  return { ok: true, ranAt, tested, best, top: byTest.slice(0, 5), note };
 }
