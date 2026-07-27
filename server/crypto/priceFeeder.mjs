@@ -88,10 +88,12 @@ export function buildAssetContext(symbol, pair, klines, ticker) {
     volume24h: parseFloat(ticker.quoteVolume ?? 0),
     ema9:      Math.round(ema9 * 100) / 100,
     ema21:     Math.round(ema21 * 100) / 100,
-    rsi14,
-    trend,
-    closes,    // raw 1m closes — used by the multi-timeframe (HTF) filter
-  };
+        rsi14,
+        trend,
+        closes,    // raw 1m closes — used by the multi-timeframe (HTF) filter
+        highs: klines.map(k => parseFloat(k[2])),
+        lows:  klines.map(k => parseFloat(k[3])),
+      };
 }
 
 // ─── Fetch all 4 assets from Binance ─────────────────────────────────────────
