@@ -30,6 +30,21 @@ import db from './db/database.mjs';
 import { executeCommand, getCommandHistory } from './command/commandExecutor.mjs';
 import { getOrgState, getStatusSummary } from './command/orgState.mjs';
 import {
+  initializeRiskState,
+  updatePeakCapital,
+  recordDrawdown,
+  getRiskState,
+} from './trading/riskStatePersistence.mjs';
+import {
+  recordHeartbeat,
+  getSystemHealth,
+  getAllHeartbeats,
+} from './observability/heartbeatMonitor.mjs';
+import {
+  reconcilePositionsOnStartup,
+  getReconciliationStatus,
+} from './persistence/positionReconciliation.mjs';
+import {
   executeTask as agentExecuteTask,
   getAllAgentStatuses,
   getAgentStatus,
@@ -183,10 +198,24 @@ function sendJson(res, status, payload) {
 }
 
 function requireAuth(req, res) {
+  // P0.4: Production auth tightening — auth is MANDATORY in production
+  const isProduction = process.env.NODE_ENV === 'production';
   const secret = process.env.API_SECRET?.trim();
-  if (!secret) return true; // auth disabled when API_SECRET not set
+  
+  // In production, API_SECRET is required
+  if (isProduction && !secret) {
+    sendJson(res, 401, { ok: false, error: 'unauthorized', message: 'API_SECRET not configured in production' });
+    return false;
+  }
+  
+  // In development without API_SECRET, auth is disabled (dev convenience)
+  if (!secret) return true;
+  
+  // Check Authorization header
   const auth = req.headers['authorization'] ?? '';
-  if (auth === `Bearer ${secret}`) return true;
+  const expected = `Bearer ${secret}`;
+  if (auth === expected) return true;
+  
   sendJson(res, 401, { ok: false, error: 'unauthorized', message: 'Invalid or missing API_SECRET token' });
   return false;
 }
@@ -1992,8 +2021,46 @@ server.on('upgrade', (req, socket, head) => {
   }
 });
 
-server.listen(PORT, HOST, () => {
+server.listen(PORT, HOST, async () => {
   console.log(`[genesis-hq-lab-backend] listening on http://${HOST}:${PORT}`);
+  
+  // ── P0 STABILITY INITIALIZATION ──────────────────────────────────────────────
+  
+  // P0.1: Initialize risk state (peak capital persistence)
+  try {
+    const treasury = getTreasury();
+    const riskState = initializeRiskState(treasury.total);
+    console.log(`[P0.1] Risk state initialized: peakCapital=${riskState.peakCapital}, source=${riskState.source}`);
+  } catch (err) {
+    console.error('[P0.1] Failed to initialize risk state:', err.message);
+  }
+  
+  // P0.2: Reconcile positions on startup
+  try {
+    const reconResult = await reconcilePositionsOnStartup();
+    console.log(`[P0.2] Position reconciliation: ${reconResult.checked} checked, ${reconResult.closed} closed, ${reconResult.expired} expired`);
+  } catch (err) {
+    console.error('[P0.2] Position reconciliation failed:', err.message);
+  }
+  
+  // P0.3: Load org state from database (already done by getOrgState, just log it)
+  try {
+    const orgState = getOrgState();
+    console.log(`[P0.3] Org state loaded: trading_paused=${orgState?.trading_paused}`);
+  } catch (err) {
+    console.error('[P0.3] Failed to load org state:', err.message);
+  }
+  
+  // P0.6: Record heartbeat
+  try {
+    recordHeartbeat('server', 'running', 'success', null);
+    console.log('[P0.6] Server heartbeat recorded');
+  } catch (err) {
+    console.error('[P0.6] Failed to record heartbeat:', err.message);
+  }
+  
+  // ──────────────────────────────────────────────────────────────────────────────
+  
   kalshiStartWS();
   // Wire solana broadcast + init once the dynamic import resolves
   (async () => {

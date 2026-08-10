@@ -29,6 +29,7 @@ import { getDashboardMetrics } from './trading/analytics.mjs';
 import { getOrgState, processExpiredSchedules, getRiskSettings, isDeptActive } from './command/orgState.mjs';
 import { runCryptoTradingCycle, manageCryptoPositions } from './crypto/cryptoWorkflow.mjs';
 import { startScheduler, triggerSlow, getSchedulerStatus } from './trading/executionScheduler.mjs';
+import { recordHeartbeat } from './observability/heartbeatMonitor.mjs';
 import { appendFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join as pathJoin, dirname as pathDirname } from 'node:path';
 import { fileURLToPath as pathFromUrl } from 'node:url';
@@ -228,6 +229,13 @@ async function summarize(startMs) {
 
   // Write heartbeat so /api/health can confirm agent is ticking
   await writeHeartbeat({ totalCycles: ++_tickCount });
+  
+  // P0.6: Record heartbeat for system health monitoring
+  try {
+    recordHeartbeat('agentRunner', 'running', 'success', { cycleTime: elapsed });
+  } catch (err) {
+    console.warn('[P0.6] Failed to record agentRunner heartbeat:', err.message);
+  }
 }
 
 // ─── Heartbeat counter ───────────────────────────────────────────────────────

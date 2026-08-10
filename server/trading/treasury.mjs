@@ -4,6 +4,7 @@
 import db, { tx } from '../db/database.mjs';
 import { nanoid } from '../utils.mjs';
 import { fetchCurrentPrice } from '../marketScanner.mjs';
+import { recordDrawdown } from './riskStatePersistence.mjs';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -185,6 +186,16 @@ export function settleTradeCapital(capitalUsed, pnl) {
     _peakCache = { value: newTotal, source: 'sqlite' };
     _persistPeak(newTotal);
     console.log(`[treasury:peak] New peak capital: $${newTotal.toFixed(2)} (was $${currentPeak.toFixed(2)})`);
+  }
+  
+  // P0.1: Record drawdown if we're below peak (loss detected)
+  if (pnl < 0 && newTotal < currentPeak) {
+    try {
+      const drawdown = currentPeak - newTotal;
+      recordDrawdown(drawdown);
+    } catch (err) {
+      console.warn('[P0.1] Failed to record drawdown:', err.message);
+    }
   }
 }
 
