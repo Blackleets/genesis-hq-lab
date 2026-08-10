@@ -835,3 +835,45 @@ CREATE TABLE IF NOT EXISTS strategy_params (
 );
 
 CREATE INDEX IF NOT EXISTS idx_strategy_active ON strategy_params(venue, is_active);
+
+-- ─── P0 STABILITY IMPROVEMENTS ───────────────────────────────────────────────────
+
+-- Risk state persistence: peak capital survives restarts
+CREATE TABLE IF NOT EXISTS risk_state (
+  id                  TEXT PRIMARY KEY DEFAULT 'singleton',
+  peak_capital        REAL NOT NULL DEFAULT 0.0,
+  baseline_capital    REAL NOT NULL DEFAULT 0.0,
+  last_drawdown_pct   REAL NOT NULL DEFAULT 0.0,
+  updated_at          TEXT NOT NULL,
+  updated_by          TEXT DEFAULT 'system'
+);
+
+-- Agent runner heartbeat: detect if processes crash silently
+CREATE TABLE IF NOT EXISTS agent_heartbeat (
+  id                  TEXT PRIMARY KEY,
+  component           TEXT NOT NULL,                     -- 'agentRunner', 'server', 'optimizer'
+  status              TEXT NOT NULL DEFAULT 'idle',     -- 'idle', 'running', 'error', 'crashed'
+  last_ping           TEXT NOT NULL,
+  last_cycle_result   TEXT,                              -- 'success', 'partial', 'failed'
+  last_error          TEXT,
+  cycle_number        INTEGER DEFAULT 0,
+  updated_at          TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_heartbeat_component ON agent_heartbeat(component);
+
+-- Position reconciliation log: track what was fixed on startup
+CREATE TABLE IF NOT EXISTS position_reconciliation_log (
+  id                  TEXT PRIMARY KEY,
+  trade_id            TEXT NOT NULL REFERENCES trades(id),
+  reconciliation_ts   TEXT NOT NULL,
+  status_before       TEXT NOT NULL,                     -- 'open', 'expired', 'needs_sync'
+  status_after        TEXT NOT NULL,                     -- 'open', 'closed', 'expired', 'error'
+  market_status       TEXT,                              -- 'resolved', 'open', 'error'
+  resolved_outcome    TEXT,                              -- 'YES', 'NO' if resolved
+  notes               TEXT,
+  created_at          TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_reconciliation_trade ON position_reconciliation_log(trade_id);
+CREATE INDEX IF NOT EXISTS idx_reconciliation_ts    ON position_reconciliation_log(reconciliation_ts);
