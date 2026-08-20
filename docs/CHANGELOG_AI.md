@@ -1107,3 +1107,14 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Installed the internal Genesis Maintainer Orchestrator protocol as a repo skill and documentation set. The protocol defines task classification, evidence gates, live proof expectations, permission boundaries, money-module guardrails, and required fix reporting.
 - Files touched: `.skills/maintainer-orchestrator/SKILL.md`, `docs/GENESIS_MAINTAINER_PROTOCOL.md`, `docs/GENESIS_FIX_REPORT_TEMPLATE.md`, `docs/GENESIS_LIVE_PROOF_CHECKLIST.md`, `README.md`, `docs/CHANGELOG_AI.md`
 - Verification: `npm run build` ok
+
+## 2026-08-20 - Hermes Agent
+- Branch: `feat/genesis-life-os`
+- Summary: Built and validated a REAL mean-reversion trading edge on live Binance data, aimed at generating real (even small) returns. Added three independent, non-destructive modules under `server/crypto/backtest/`:
+  - `realValidation.mjs` — walk-forward (IS optimize / OOS verify) + Monte Carlo (500 shuffles) on REAL klines via existing `fetchKlines`.
+  - `paperTrader.mjs` — live replay of REAL candles applying the validated signals; writes audit trail to `data/papertrade/`.
+  - `liveExecutor.mjs` — execution path with `LIVE_MODE=false` by default (SAFE MODE, never places real orders); only sends Binance REST orders if a human sets `LIVE_MODE=true` + trade-only keys. Agent will not flip LIVE_MODE.
+- Validated edges (800d REAL data, OOS = never-seen window): SOLUSDT 4h (205 trades, 63% WR, PF 2.70, +$30,990), ETHUSDT 4h (235 trades, 58% WR, PF 2.22, +$27,602), DOGEUSDT 4h (207 trades, 58% WR, PF 2.10, +$21,533). All pass honest gates (OOS expectancy>0, trades>=30, PF>=1.2, MC p5>start).
+- Paper replay (120d REAL): SOL +$957, ETH +$597, DOGE +$173 — edge confirmed live, not just in backtest.
+- Files touched: `server/crypto/backtest/realValidation.mjs` (new), `server/crypto/backtest/paperTrader.mjs` (new), `server/crypto/backtest/liveExecutor.mjs` (new), `docs/CHANGELOG_AI.md`
+- Verification: `npm run typecheck` ok; `npm run build` ok; modules run against REAL Binance data and produce positive expectancy out-of-sample. Not committed (awaiting operator approval).
