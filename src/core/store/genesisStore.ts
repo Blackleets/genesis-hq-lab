@@ -131,7 +131,7 @@ function buildInitialState(): GenesisStateShape {
       },
     ],
     selectedLanguage: 'es',
-    selectedModule: 'hq',
+    selectedModule: 'dashboard',
     selectedAgent: null,
     modules: Object.fromEntries(
       MODULES.map((m) => [
