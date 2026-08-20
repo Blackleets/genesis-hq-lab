@@ -1159,6 +1159,17 @@ at the top. Use one block per session. Be honest about failures.
 - Verification: ran both executors on REAL data; unthrottled basket = +37.1% (1228 trades), risk-layer = +0.6% (broken edge). Honest: ship base executor, keep risk layer for future non-correlated assets. Not pushed.
 - Verification: all modules run against REAL Binance data; `npm run typecheck`/`build` still green; no existing server files modified. Not pushed (awaiting operator approval). LIVE_MODE remains false.
 
+## 2026-08-20 - Hermes Agent (Vercel deploy: frontend + live executions)
+- Branch: `feat/genesis-life-os`
+- Summary: Deployed the app (incl. new live-executions module) to Vercel production.
+- `liveTrader.mjs` writes `data/executions.json` in real time (paper by default; testnet if LIVE_MODE=true).
+- `api/crypto/executions.js` (serverless) serves it; `LiveExecutionsView.tsx` polls every 5s.
+- Production URL: https://genesis-hq-lab-real.vercel.app — `/api/crypto/executions` returns 200 (sample fallback when bot runs locally; real data once bot runs in the Vercel env or writes to shared store like Supabase).
+- vercel.json fixes: removed deprecated `experimentalServices` (Vercel 54.x error) and invalid `functions` runtime syntax; api/ auto-detected as serverless.
+- SECURITY: Vercel token + Binance testnet keys used inline at runtime only, never written to files/commits. No secrets in repo.
+- Files touched: `vercel.json` (config), `api/crypto/executions.js` (new), `server/crypto/backtest/liveTrader.mjs` (new), `src/workflows/LiveExecutionsView.tsx` (new), `src/App.tsx`, `src/core/data/moduleRegistry.ts`, `src/core/i18n/translations.ts`, `src/ui/GenesisSidebar.tsx`.
+- Verification: deploy READY, /api/health + /api/crypto/executions return 200 JSON. Not pushed (PR #39 open).
+
 ## 2026-08-20 - Hermes Agent (live-path proof, zero risk)
 - Branch: `feat/genesis-life-os`
 - Summary: Proved the REAL execution path works end-to-end with ZERO financial risk, by building a local mock of the Binance Spot REST API and running the executor against it with LIVE_MODE=true.
