@@ -29,7 +29,7 @@ const DAYS = Number(process.env.PAPER_DAYS || 60);
 const START_CAPITAL = Number(process.env.PAPER_CAPITAL || 10_000);
 const RISK_PCT = Number(process.env.PAPER_RISK || 1.0);
 const STOP_PCT = 0.005;
-const R_MULT = 1.7;
+const R_MULT = 2.2;
 
 // Validated params (consensus from SOL/ETH/DOGE 4h walk-forward runs)
 const P = { bbPeriod: 20, bbStd: 2.0, rsiPeriod: 13, rsiOS: 30, rsiOB: 70, adxMax: 25, adxPeriod: 14 };

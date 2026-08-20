@@ -35,7 +35,7 @@ const DAYS = Number(process.env.EXEC_DAYS || 30);
 const START_CAPITAL = Number(process.env.EXEC_CAPITAL || 50);
 const RISK_PCT = Number(process.env.EXEC_RISK || 1.0);
 const STOP_PCT = 0.005;
-const R_MULT = 1.7;
+const R_MULT = 2.2;
 
 const P = { bbPeriod: 20, bbStd: 2.0, rsiPeriod: 13, rsiOS: 30, rsiOB: 70, adxMax: 25, adxPeriod: 14 };
 
