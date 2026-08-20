@@ -131,7 +131,7 @@ function buildInitialState(): GenesisStateShape {
       },
     ],
     selectedLanguage: 'es',
-    selectedModule: 'dashboard',
+    selectedModule: 'terminal',
     selectedAgent: null,
     modules: Object.fromEntries(
       MODULES.map((m) => [
@@ -178,6 +178,10 @@ function hydrateState(saved: Partial<GenesisStateShape>): GenesisStateShape {
     saved.selectedModule && hydratedModules[saved.selectedModule]
       ? saved.selectedModule
       : base.selectedModule;
+  // FORCE landing on the Pro Terminal for noisy/legacy modules so users see
+  // the live bot immediately instead of broken/empty modules.
+  const FORCE_TERMINAL = ['pred-markets', 'crypto', 'hq', 'dashboard'];
+  const finalModule = FORCE_TERMINAL.includes(selectedModule) ? 'terminal' : selectedModule;
   const selectedAgent =
     saved.selectedAgent && hydratedAgents[saved.selectedAgent]
       ? saved.selectedAgent
@@ -193,7 +197,7 @@ function hydrateState(saved: Partial<GenesisStateShape>): GenesisStateShape {
     tasks: saved.tasks ?? base.tasks,
     events: saved.events ?? base.events,
     selectedLanguage: saved.selectedLanguage ?? base.selectedLanguage,
-    selectedModule,
+    selectedModule: finalModule,
     selectedAgent,
     modules: hydratedModules,
     officeUpgrades: saved.officeUpgrades ?? base.officeUpgrades,

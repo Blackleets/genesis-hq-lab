@@ -33,7 +33,8 @@ export type ModuleId =
   | 'pred-markets'
   | 'solana-alpha'
   | 'live-exec'
-  | 'funding-bot';
+  | 'funding-bot'
+  | 'terminal';
 
 export type ModuleState =
   | 'ready'
@@ -491,6 +492,23 @@ export const MODULES: ModuleEntry[] = [
     relation: {
       es: 'El único edge validado (20 pares, PF 2–7000). Entrenamiento hasta tu GO.',
       en: 'The only validated edge (20 pairs, PF 2–7000). Training until your GO.',
+    },
+  },
+  {
+    id: 'terminal',
+    navKey: 'nav.terminal',
+    state: 'ready',
+    description: {
+      es: 'Terminal de trading profesional: board de funding en vivo, curva de equity, posiciones delta-neutral y feed de operaciones. Paper.',
+      en: 'Professional trading terminal: live funding board, equity curve, delta-neutral positions, trade feed. Paper.',
+    },
+    futureActions: [
+      { es: 'Ver datos de Binance en tiempo real.', en: 'View real-time Binance data.' },
+      { es: 'Conmutar a real con cuenta futures + retiro off.', en: 'Switch to real with futures account + withdraw off.' },
+    ],
+    relation: {
+      es: 'Pantalla principal del bot. Edge validado (20 pares, PF 2–7000).',
+      en: 'Main bot screen. Validated edge (20 pairs, PF 2–7000).',
     },
   },
 ];

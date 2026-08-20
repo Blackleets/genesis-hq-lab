@@ -37,6 +37,7 @@ const ICONS: Record<ModuleId, typeof Building2> = {
   'solana-alpha':  Pill,
   'live-exec':     Radio,
   'funding-bot':   Radio,
+  'terminal':      Bitcoin,
 };
 
 interface SidebarGroup {
@@ -51,7 +52,7 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
     labelEs: 'Workspace',
     labelEn: 'Workspace',
     color: '#e4e4e7',
-    modules: ['dashboard', 'hq', 'console'],
+    modules: ['terminal', 'dashboard', 'hq', 'console'],
   },
   {
     labelEs: 'Trading & Riesgo',
