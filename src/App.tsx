@@ -31,6 +31,7 @@ import SystemHealthView from '@ui/views/SystemHealthView';
 import OperatorTimelineView from '@workflows/OperatorTimelineView';
 import AlphaValidationView from '@workflows/AlphaValidationView';
 import LiveExecutionsView from '@workflows/LiveExecutionsView';
+import FundingBotView from '@workflows/FundingBotView';
 import PredictionMarketsLab from '@workflows/PredictionMarketsLab';
 import SolanaAlphaView from './features/solana-alpha/SolanaAlphaView';
 import { actions, useSelectedModule } from '@core/store/genesisStore';
@@ -64,6 +65,7 @@ function ModuleRenderer({ module, setModule }: { module: ModuleId; setModule: (m
     case 'pred-markets':   return <PredictionMarketsLab />;
     case 'solana-alpha':   return <SolanaAlphaView />;
     case 'live-exec':       return <LiveExecutionsView />;
+    case 'funding-bot':     return <FundingBotView />;
     default:
       return <ModulePlaceholder module={module} onBack={() => setModule('hq')} />;
   }

@@ -32,7 +32,8 @@ export type ModuleId =
   | 'alpha'
   | 'pred-markets'
   | 'solana-alpha'
-  | 'live-exec';
+  | 'live-exec'
+  | 'funding-bot';
 
 export type ModuleState =
   | 'ready'
@@ -473,6 +474,23 @@ export const MODULES: ModuleEntry[] = [
     relation: {
       es: 'Lectura de la auditoría del bot liveTrader.mjs; no ejecuta órdenes por sí mismo.',
       en: 'Reads the liveTrader.mjs bot audit trail; does not place orders itself.',
+    },
+  },
+  {
+    id: 'funding-bot',
+    navKey: 'nav.funding-bot',
+    state: 'ready',
+    description: {
+      es: 'Bot de arbitraje de funding (delta-neutral) con datos reales de Binance. Paper, sin quemar. Ve equity, PnL y cobros de funding en vivo.',
+      en: 'Funding-rate arbitrage bot (delta-neutral) on real Binance data. Paper, no burn. Live equity, PnL and funding collected.',
+    },
+    futureActions: [
+      { es: 'Ver operaciones OPEN/FLAT/FUNDING en vivo.', en: 'View live OPEN/FLAT/FUNDING operations.' },
+      { es: 'Conmutar a real con cuenta futures + retiro off.', en: 'Switch to real with futures account + withdraw off.' },
+    ],
+    relation: {
+      es: 'El único edge validado (20 pares, PF 2–7000). Entrenamiento hasta tu GO.',
+      en: 'The only validated edge (20 pairs, PF 2–7000). Training until your GO.',
     },
   },
 ];

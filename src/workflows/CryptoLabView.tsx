@@ -12,7 +12,6 @@ import { DeskPanel } from '../components/crypto/DeskPanel';
 import { LiveActivityStrip } from '../components/crypto/LiveActivityStrip';
 import { OperatorStatusBar } from '../components/crypto/OperatorStatusBar';
 import { TradeNotifier } from '../components/crypto/TradeNotifier';
-import LiveBotActivity from '@dashboard/LiveBotActivity';
 
 const ACCENT = '#f7931a';
 
@@ -368,8 +367,7 @@ export default function CryptoLabView() {
           [ COMMENTARY ] [ DESK (positions/stats) ] [ INTEL | DEPTH ]
       */}
       <div className="crypto-terminal-grid">
-        {/* Live funding bot — REAL Binance paper activity */}
-        <LiveBotActivity />
+        {/* Hero chart — spans full width on top */}
         <div className="crypto-zone-chart">
           <CandleChart
             positions={data?.positions ?? []}

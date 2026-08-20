@@ -36,6 +36,7 @@ const ICONS: Record<ModuleId, typeof Building2> = {
   'pred-markets':  BarChart3,
   'solana-alpha':  Pill,
   'live-exec':     Radio,
+  'funding-bot':   Radio,
 };
 
 interface SidebarGroup {
@@ -56,7 +57,7 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
     labelEs: 'Trading & Riesgo',
     labelEn: 'Trading & Risk',
     color: '#00ff9c',
-    modules: ['markets', 'decisions', 'edge', 'crypto', 'pred-markets', 'solana-alpha'],
+    modules: ['markets', 'decisions', 'edge', 'crypto', 'funding-bot', 'solana-alpha'],
   },
   {
     labelEs: 'Negocios',
