@@ -15,7 +15,7 @@
 //
 // Run: node --env-file-if-exists=.env server/crypto/backtest/liveExecutor.mjs
 //   env: EXEC_PAIR (SOLUSDT), EXEC_INTERVAL (4h), EXEC_CAPITAL (50),
-//        EXEC_RISK (1.0), LIVE_MODE (false)
+//        EXEC_RISK (1.0), LIVE_MODE (false), EXEC_BASE_URL (https://api.binance.com)
 
 import { fetchKlines } from './historicalData.mjs';
 import { computeMetrics } from './metrics.mjs';
@@ -29,6 +29,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const LIVE_MODE = process.env.LIVE_MODE === 'true';
+const BASE_URL = process.env.EXEC_BASE_URL || 'https://api.binance.com';
 const PAIR = process.env.EXEC_PAIR || 'SOLUSDT';
 const INTERVAL = process.env.EXEC_INTERVAL || '4h';
 const DAYS = Number(process.env.EXEC_DAYS || 30);
@@ -67,17 +68,21 @@ async function placeRealOrder(side, pair, quantity, price) {
   const key = process.env.BINANCE_API_KEY;
   const secret = process.env.BINANCE_API_SECRET;
   if (!key || !secret) throw new Error('Missing BINANCE_API_KEY / BINANCE_API_SECRET — refusing real order');
-  const params = new URLSearchParams({
+  // Build an alphabetically-ordered query string (Binance convention) and sign it.
+  const base = {
     symbol: pair, side: side.toUpperCase(), type: 'MARKET',
     quantity: String(quantity), timestamp: String(Date.now()),
-  });
-  const sig = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret),
+  };
+  const qs = Object.keys(base).sort().map(k => `${k}=${encodeURIComponent(base[k])}`).join('&');
+  const sigKey = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret),
     { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const buf = await crypto.subtle.sign('HMAC', sig, new TextEncoder().encode(params.toString()));
+  const buf = await crypto.subtle.sign('HMAC', sigKey, new TextEncoder().encode(qs));
   const signature = [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
-  params.append('signature', signature);
-  const res = await fetch(`https://api.binance.com/api/v3/order?${params}`, {
-    method: 'POST', headers: { 'X-MBX-APIKEY': key },
+  const body = qs + '&signature=' + signature;
+  const res = await fetch(`${BASE_URL}/api/v3/order`, {
+    method: 'POST',
+    headers: { 'X-MBX-APIKEY': key, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
   });
   if (!res.ok) throw new Error(`Binance order failed: ${res.status} ${await res.text()}`);
   return res.json();
