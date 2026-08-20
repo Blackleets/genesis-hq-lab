@@ -30,6 +30,7 @@ import CryptoLabView from '@workflows/CryptoLabView';
 import SystemHealthView from '@ui/views/SystemHealthView';
 import OperatorTimelineView from '@workflows/OperatorTimelineView';
 import AlphaValidationView from '@workflows/AlphaValidationView';
+import LiveExecutionsView from '@workflows/LiveExecutionsView';
 import PredictionMarketsLab from '@workflows/PredictionMarketsLab';
 import SolanaAlphaView from './features/solana-alpha/SolanaAlphaView';
 import { actions, useSelectedModule } from '@core/store/genesisStore';
@@ -62,6 +63,7 @@ function ModuleRenderer({ module, setModule }: { module: ModuleId; setModule: (m
     case 'alpha':         return <AlphaValidationView />;
     case 'pred-markets':   return <PredictionMarketsLab />;
     case 'solana-alpha':   return <SolanaAlphaView />;
+    case 'live-exec':       return <LiveExecutionsView />;
     default:
       return <ModulePlaceholder module={module} onBack={() => setModule('hq')} />;
   }

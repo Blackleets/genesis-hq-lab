@@ -38,6 +38,7 @@ export const TRANSLATIONS = {
   'nav.alpha':           { es: 'Alpha Validation',             en: 'Alpha Validation' },
   'nav.pred-markets':    { es: 'Prediction Markets Lab',        en: 'Prediction Markets Lab' },
   'nav.solana-alpha':   { es: '💊 Pump.fun Alpha',               en: '💊 Pump.fun Alpha' },
+  'nav.live-exec':      { es: '📡 Live Executions',              en: '📡 Live Executions' },
 
   // ---------------- MODULE STATES ----------------
   'state.ready':             { es: 'listo',                        en: 'ready' },

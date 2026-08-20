@@ -31,7 +31,8 @@ export type ModuleId =
   | 'operator'
   | 'alpha'
   | 'pred-markets'
-  | 'solana-alpha';
+  | 'solana-alpha'
+  | 'live-exec';
 
 export type ModuleState =
   | 'ready'
@@ -455,6 +456,23 @@ export const MODULES: ModuleEntry[] = [
     relation: {
       es: 'Cada agente aquí tiene un gemelo visual en Génesis HQ.',
       en: 'Each agent here has a visual twin in Genesis HQ.',
+    },
+  },
+  {
+    id: 'live-exec',
+    navKey: 'nav.live-exec',
+    state: 'ready',
+    description: {
+      es: 'Ejecuciones en vivo del edge mean-reversion validado. Poll cada 5s a /api/crypto/executions. Modo paper o testnet (sin dinero real).',
+      en: 'Live executions of the validated mean-reversion edge. Polls /api/crypto/executions every 5s. Paper or testnet mode (no real money).',
+    },
+    futureActions: [
+      { es: 'Ver señales OPEN/TP/SL en tiempo real.', en: 'View OPEN/TP/SL signals in real time.' },
+      { es: 'Conmutar a testnet con claves de solo-trade.', en: 'Switch to testnet with trade-only keys.' },
+    ],
+    relation: {
+      es: 'Lectura de la auditoría del bot liveTrader.mjs; no ejecuta órdenes por sí mismo.',
+      en: 'Reads the liveTrader.mjs bot audit trail; does not place orders itself.',
     },
   },
 ];
