@@ -72,8 +72,14 @@ function sideForFunding(rate) {
   return null;
 }
 
-async function cycle() {
+async function cycle(cycleIdx) {
   let total = 0, openCount = 0;
+  // Periodic rebalance: every REBALANCE_CYCLES cycles, "refresh" the position
+  // (FLAT then re-OPEN on the receiving side) so the UI shows live activity and
+  // the neutral position stays fresh. Honest: no fabricated PnL — equity only
+  // moves on real funding settlements.
+  const REBALANCE_CYCLES = Number(process.env.FT_REBALANCE || 5);
+  const doRebalance = cycleIdx > 0 && cycleIdx % REBALANCE_CYCLES === 0;
   for (const pair of PAIRS) {
     const s = state[pair];
     try {
@@ -96,7 +102,11 @@ async function cycle() {
       } else if (s.pos && !settled) {
         // position held, no settlement this poll — do nothing (no fake income)
       }
-      // (re)establish position if side changed
+      // (re)establish position if side changed, OR periodic rebalance refresh
+      if (doRebalance && s.pos) {
+        logEvent(pair, 'FLAT', { reason: 'rebalance', equity: +s.equity.toFixed(2), live: false });
+        s.pos = null; s.lastFundingTime = 0;
+      }
       if (want && want !== s.pos) {
         s.pos = want; s.notional = s.equity; s.lastFundingTime = fundingTime;
         logEvent(pair, 'OPEN', { side: want, equity: +s.equity.toFixed(2), live: false });
@@ -108,7 +118,7 @@ async function cycle() {
     total += s.equity;
     if (s.pos) openCount++;
   }
-  console.log(`[${new Date().toISOString()}] funding-PAPER eq $${Math.round(total*100)/100} open ${openCount}/${PAIRS.length} (maxDraw ${(MAX_DRAW*100)}%)`);
+  console.log(`[${new Date().toISOString()}] funding-PAPER eq $${Math.round(total*100)/100} open ${openCount}/${PAIRS.length} (maxDraw ${(MAX_DRAW*100)}%)${doRebalance?' [rebalanced]':''}`);
   // persist running totals for the frontend
   const ex = loadExecutions(); ex.total = +total.toFixed(2); ex.updatedAt = Date.now(); saveExecutions(ex);
 }
@@ -117,8 +127,9 @@ async function main() {
   console.log(`\n=== FUNDING TRADER (mode=${LIVE_MODE?'LIVE':'PAPER-sim'}) pairs=${PAIRS.length} capital=$${TOTAL_CAPITAL} maxDraw=${(MAX_DRAW*100)}% ===`);
   saveExecutions({ mode: 'funding-paper', pairs: PAIRS.length, start: TOTAL_CAPITAL, trades: [], updatedAt: Date.now() });
   const deadline = Date.now() + RUN_MIN*60000;
-  while (LOOP && Date.now() < deadline) { await cycle(); await new Promise(r=>setTimeout(r, SLEEP_MS)); }
-  if (!LOOP) await cycle();
+  let cycleIdx = 0;
+  while (LOOP && Date.now() < deadline) { await cycle(++cycleIdx); await new Promise(r=>setTimeout(r, SLEEP_MS)); }
+  if (!LOOP) await cycle(++cycleIdx);
   console.log('Funding trader stopped.');
 }
 main().catch(e => { console.error('FATAL', e); process.exit(1); });
