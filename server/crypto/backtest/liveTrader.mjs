@@ -64,6 +64,30 @@ async function placeOrder(side, pair, qty) {
   return res.json();
 }
 
+// SAFETY GUARD for REAL (production) trading. Refuses to trade if the key can
+// withdraw funds, or if allocated capital exceeds the operator-set ceiling.
+// This protects against a mis-issued key. Call before any live order.
+async function assertLiveSafe() {
+  const key = process.env.BINANCE_API_KEY, secret = process.env.BINANCE_API_SECRET;
+  if (!key || !secret) throw new Error('Missing keys — refusing live trade');
+  const params = new URLSearchParams({ timestamp: String(Date.now()) });
+  const qs = params.toString();
+  const sigKey = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const buf = await crypto.subtle.sign('HMAC', sigKey, new TextEncoder().encode(qs));
+  const signature = [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+  const res = await fetch(`${BASE_URL}/api/v3/account?${qs}&signature=${signature}`, { headers: { 'X-MBX-APIKEY': key } });
+  if (!res.ok) throw new Error(`account check failed ${res.status} ${await res.text()}`);
+  const acc = await res.json();
+  const isProduction = BASE_URL.includes('api.binance.com') && !BASE_URL.includes('testnet');
+  if (isProduction && acc.canWithdraw === true) {
+    throw new Error('SAFETY HALT: API key has WITHDRAW enabled on PRODUCTION. Refusing to trade. Disable withdrawals on the key first.');
+  }
+  if (TOTAL_CAPITAL > 50) {
+    throw new Error(`SAFETY HALT: allocated capital $${TOTAL_CAPITAL} exceeds $50 ceiling for first live run. Lower LT_CAPITAL.`);
+  }
+  console.log(`[SAFETY] key OK (canWithdraw=${acc.canWithdraw}, canTrade=${acc.canTrade}). Proceeding with $${TOTAL_CAPITAL}.`);
+}
+
 async function getIndicators(pair) {
   const r = await fetch(`https://api.binance.com/api/v3/klines?symbol=${pair}&interval=${INTERVAL}&limit=120`);
   if (!r.ok) throw new Error(`klines ${r.status}`);
@@ -107,6 +131,10 @@ async function cycle() {
 
 async function main() {
   console.log(`\n=== LIVE TRADER (mode=${LIVE_MODE?'LIVE-testnet':'PAPER'}) pairs=${PAIRS.length} ${INTERVAL} ===`);
+  if (LIVE_MODE) {
+    // PRODUCTION SAFETY GUARD: never trade if key can withdraw, never exceed $50 first run.
+    await assertLiveSafe();
+  }
   saveExecutions({ mode: LIVE_MODE?'live-testnet':'paper', pairs: PAIRS.length, interval: INTERVAL, start: TOTAL_CAPITAL, trades: [], updatedAt: Date.now() });
   const deadline = Date.now() + RUN_MIN*60000;
   while (LOOP && Date.now() < deadline) { await cycle(); await new Promise(r=>setTimeout(r, SLEEP_MS)); }
