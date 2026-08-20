@@ -92,7 +92,7 @@ function EquityCurve({ trades }: { trades: Trade[] }) {
 }
 
 function PriceChart({ data }: { data: number[] }) {
-  const w = 520, h = 150, pad = 6;
+  const w = 560, h = 170, pad = 6;
   if (data.length < 2) return <div className="text-[11px] text-zinc-600 px-1 py-6">loading…</div>;
   const min = Math.min(...data), max = Math.max(...data);
   const span = max - min || 1;
@@ -100,10 +100,18 @@ function PriceChart({ data }: { data: number[] }) {
   const Y = (v: number) => h - pad - ((v - min) / span) * (h - 2 * pad);
   const line = data.map((v, i) => `${i === 0 ? 'M' : 'L'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
   const area = `${line} L${X(data.length - 1).toFixed(1)},${h - pad} L${X(0).toFixed(1)},${h - pad} Z`;
+  // simple moving average (window 14) for trend feel
+  const ma: number[] = [];
+  const win = 14;
+  for (let i = 0; i < data.length; i++) {
+    const s = data.slice(Math.max(0, i - win, i + 1 - win), i + 1);
+    ma.push(s.reduce((a, b) => a + b, 0) / s.length);
+  }
+  const maLine = ma.map((v, i) => `${i === 0 ? 'M' : 'L'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
   const up = (data[data.length - 1] ?? 0) >= (data[0] ?? 0);
   const col = up ? '#22c55e' : '#ef4444';
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-[150px]">
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-[170px]">
       <defs>
         <linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={col} stopOpacity="0.25" />
@@ -112,6 +120,7 @@ function PriceChart({ data }: { data: number[] }) {
       </defs>
       <path d={area} fill="url(#pg)" />
       <path d={line} fill="none" stroke={col} strokeWidth={1.5} />
+      <path d={maLine} fill="none" stroke="#facc15" strokeWidth={1} strokeDasharray="3 2" opacity={0.8} />
     </svg>
   );
 }
@@ -123,20 +132,20 @@ const TRADERS = [
   { id: 'vega', name: 'Vega', role: 'Regime', color: '#a855f7' },
 ];
 
-function TradersPanel({ pair, rate, side, price, es }: { pair: string; rate: number; side: string; price: number | null; es: boolean }) {
-  const recibe = side === 'short-perp/long-spot' ? (es ? 'recibe corto-perp' : 'recv short-perp')
-    : side === 'long-perp/short-spot' ? (es ? 'recibe largo-perp' : 'recv long-perp') : (es ? 'neutral' : 'neutral');
+function TradersPanel({ pair, rate, side, price, es, opps }: { pair: string; rate: number; side: string; price: number | null; es: boolean; opps: BoardRow[] }) {
   const lines: Record<string, string> = {
-    nova: price != null ? `${pair} ${price < (price * 1.001) ? '▼' : '▲'} tocando el canal donchian — espero breakout.` : 'cargando precio…',
-    atlas: rate !== 0 ? `funding ${rate > 0 ? '+' : ''}${(rate * 100).toFixed(3)}% — rango, reversión activa.` : 'sin sesgo.',
-    orion: side !== 'neutral' ? `lado delta-neutral: ${recibe}. protejo 1.5%.` : 'esperando funding.',
-    vega: `régimen: ${side === 'neutral' ? (es ? 'lateral' : 'range') : (es ? 'tendencia' : 'trend')}.`,
+    nova: price != null ? `${pair} ${price < price * 1.001 ? '▼' : '▲'} en el canal donchian — buscando breakout.` : 'cargando precio…',
+    atlas: rate !== 0 ? `funding ${(rate * 100).toFixed(3)}% — rango activo, reversión lista.` : 'sin sesgo de rango.',
+    orion: opps.length > 0
+      ? `detecté ${opps.length} ops de funding. top: ${opps[0].pair} ${(opps[0].annualPct).toFixed(0)}% APR.`
+      : 'escaneando funding… sin ops claras aún.',
+    vega: `régimen: ${side === 'neutral' ? (es ? 'lateral' : 'range') : (es ? 'tendencia' : 'trend')} · vigilando ${opps.length > 0 ? opps.length : 44} mercados.`,
   };
   return (
     <div className="space-y-2 px-3 py-2">
       {TRADERS.map((t) => (
         <div key={t.id} className="flex items-start gap-2 text-[11px]">
-          <span className="mt-1 inline-block w-2 h-2 rounded-full shrink-0" style={{ background: t.color }} />
+          <span className="mt-1 inline-block w-2 h-2 rounded-full shrink-0 animate-pulse" style={{ background: t.color }} />
           <div>
             <span className="font-bold" style={{ color: t.color }}>{t.name}</span>
             <span className="text-zinc-600 ml-1">{t.role}</span>
@@ -167,7 +176,7 @@ export default function TerminalView() {
       if (!alive) return;
       setExec(e); setBoard(b);
       try {
-        const r = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${selectedPair}&interval=1m&limit=60`, { cache: 'no-store' });
+        const r = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${selectedPair}&interval=1m&limit=120`, { cache: 'no-store' });
         if (r.ok) {
           const k: any[] = await r.json();
           const closes = k.map((x) => parseFloat(x[4]));
@@ -198,6 +207,13 @@ export default function TerminalView() {
 
   const recent = [...trades].slice(-40).reverse();
   const selRow = board.find((r) => r.pair === selectedPair);
+  // Multi-market opportunity scanner (funding arbitrage, risk-aware):
+  // ranks pairs by annualized funding APR; only those with a clear receive
+  // side and a sane APR band count as "opportunities". Paper only.
+  const opps = board
+    .filter((r) => r.side !== 'neutral' && Math.abs(r.annualPct) >= 5 && Math.abs(r.annualPct) <= 200)
+    .sort((a, b) => Math.abs(b.annualPct) - Math.abs(a.annualPct))
+    .slice(0, 8);
 
   return (
     <main className="flex-1 min-w-0 min-h-0 overflow-y-auto bg-[#070a0f] text-zinc-200 font-mono">
@@ -256,7 +272,7 @@ export default function TerminalView() {
             <PriceChart data={klines} />
           </Panel>
           <Panel title={es ? 'Traders' : 'Traders'}>
-            <TradersPanel pair={selectedPair} rate={selRow?.rate ?? 0} side={selRow?.side ?? 'neutral'} price={lastPrice} es={es} />
+            <TradersPanel pair={selectedPair} rate={selRow?.rate ?? 0} side={selRow?.side ?? 'neutral'} price={lastPrice} es={es} opps={opps} />
           </Panel>
         </div>
       </div>
@@ -331,6 +347,30 @@ export default function TerminalView() {
                 </span>
               </div>
             ))}
+          </div>
+        </Panel>
+
+        {/* OPPORTUNITY SCANNER — multi-market, risk-aware */}
+        <Panel title={es ? 'Scanner de Oportunidades (modo bot · PAPER)' : 'Opportunity Scanner (bot mode · PAPER)'} className="lg:col-span-3">
+          <div className="px-3 py-2">
+            <div className="text-[11px] text-zinc-500 mb-2">
+              {es
+                ? `Orion escanea ${board.length} mercados de funding en vivo. Solo lista setups con lado claro y APR 5–200% (protección Δ-neutral + 1.5% DD). Sin quemar.`
+                : `Orion scans ${board.length} live funding markets. Lists only setups with a clear side and 5–200% APR (Δ-neutral + 1.5% DD guard). No burn.`}
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {opps.length === 0 && <div className="col-span-full text-[11px] text-zinc-600">escaneando…</div>}
+              {opps.map((o) => (
+                <div key={o.pair} className="border border-zinc-800 rounded px-2 py-1.5 bg-[#0d111a]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] font-bold text-zinc-100">{o.pair}</span>
+                    <span className={`text-[10px] ${o.rate >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{o.annualPct.toFixed(0)}% APR</span>
+                  </div>
+                  <div className="text-[10px] text-cyan-400">{o.side === 'neutral' ? '—' : o.side}</div>
+                  <div className="text-[10px] text-zinc-500 mt-0.5">próx {fmtTime(o.nextMs)}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </Panel>
       </div>
