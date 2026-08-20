@@ -1117,7 +1117,15 @@ at the top. Use one block per session. Be honest about failures.
 - Validated edges (800d REAL data, OOS = never-seen window): SOLUSDT 4h (205 trades, 63% WR, PF 2.70, +$30,990), ETHUSDT 4h (235 trades, 58% WR, PF 2.22, +$27,602), DOGEUSDT 4h (207 trades, 58% WR, PF 2.10, +$21,533). All pass honest gates (OOS expectancy>0, trades>=30, PF>=1.2, MC p5>start).
 - Paper replay (120d REAL): SOL +$957, ETH +$597, DOGE +$173 — edge confirmed live, not just in backtest.
 
-## 2026-08-20 - Hermes Agent (scale pass)
+## 2026-08-20 - Hermes Agent (testnet prep)
+- Branch: `feat/genesis-life-os`
+- Summary: Prepared the live executor to connect to the REAL Binance Spot TESTNET (zero real-money risk) once the operator provides testnet keys.
+  - Verified reachability from this environment: `https://testnet.binance.vision/api/v3/ping`, `/time`, `/klines` all return HTTP 200 (public endpoints).
+  - `liveExecutor.mjs` already supports `EXEC_BASE_URL=https://testnet.binance.vision` — the HMAC-SHA256 signing (alphabetically-ordered query string) is identical to what testnet expects, so the corrected signer works there too.
+  - Added `testnetCheck.mjs` — a ready-to-run script that validates end-to-end testnet connectivity (GET /account + POST /order) using the operator's testnet keys. Operator runs it after pasting keys; agent does not store or request secrets.
+- BLOCKED (needs operator): Binance Spot Testnet API key + secret (free, from testnet.binance.vision using GitHub login). Without these, no testnet order can be signed. Agent will NOT fabricate keys.
+- Files touched: `server/crypto/backtest/testnetCheck.mjs` (new), `docs/CHANGELOG_AI.md`
+- Verification: testnet public endpoints reachable (HTTP 200). Signing logic already proven against mockExchange. Not pushed.
 - Branch: `feat/genesis-life-os`
 - Summary: Scaled the validated edge into a tradable BASKET. Added non-destructive scanner/optimizer modules under `server/crypto/backtest/`:
   - `basketScan.mjs` + `basketScanBatch.mjs` — walk-forward OOS scan over 30 pairs x 5 timeframes on REAL Binance data; keeps only edges passing honest gates (trades>=30, expectancy>0, PF>=1.2).
