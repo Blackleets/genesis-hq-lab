@@ -100,14 +100,6 @@ function PriceChart({ data }: { data: number[] }) {
   const Y = (v: number) => h - pad - ((v - min) / span) * (h - 2 * pad);
   const line = data.map((v, i) => `${i === 0 ? 'M' : 'L'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
   const area = `${line} L${X(data.length - 1).toFixed(1)},${h - pad} L${X(0).toFixed(1)},${h - pad} Z`;
-  // simple moving average (window 14) for trend feel
-  const ma: number[] = [];
-  const win = 14;
-  for (let i = 0; i < data.length; i++) {
-    const s = data.slice(Math.max(0, i - win, i + 1 - win), i + 1);
-    ma.push(s.reduce((a, b) => a + b, 0) / s.length);
-  }
-  const maLine = ma.map((v, i) => `${i === 0 ? 'M' : 'L'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
   const up = (data[data.length - 1] ?? 0) >= (data[0] ?? 0);
   const col = up ? '#22c55e' : '#ef4444';
   return (
@@ -120,7 +112,6 @@ function PriceChart({ data }: { data: number[] }) {
       </defs>
       <path d={area} fill="url(#pg)" />
       <path d={line} fill="none" stroke={col} strokeWidth={1.5} />
-      <path d={maLine} fill="none" stroke="#facc15" strokeWidth={1} strokeDasharray="3 2" opacity={0.8} />
     </svg>
   );
 }
@@ -199,7 +190,18 @@ export default function TerminalView() {
   const pnlPct = pnl / startCapital;
   const fundingEvents = trades.filter((t) => t.event === 'FUNDING');
   const fundingPaid = fundingEvents.reduce((s, t) => s + (t.pnl ?? 0), 0);
-  const openCount = trades.filter((t) => t.event === 'OPEN').length;
+  // Open positions: last event per pair is OPEN (not followed by FLAT).
+  const lastByPair = new Map<string, string>();
+  trades.forEach((t) => lastByPair.set(t.pair, t.event));
+  const openPairs = [...lastByPair.entries()].filter(([, e]) => e === 'OPEN').map(([p]) => p);
+  const openCount = openPairs.length;
+  // Expected funding income at NEXT settlement if positions hold — REAL Binance
+  // rates, honest projection (not realized PnL). per-pair notional = paper $50.
+  const NOTIONAL = startCapital;
+  const expectedFunding = openPairs.reduce((sum, p) => {
+    const r = board.find((x) => x.pair === p);
+    return sum + (r ? Math.abs(r.rate) * NOTIONAL : 0);
+  }, 0);
   const uptimeMin = Math.floor((now - startRef.current) / 60000);
 
   // nearest settlement across board
@@ -227,6 +229,7 @@ export default function TerminalView() {
           <Stat label={es ? 'EQUITY' : 'EQUITY'} value={fmtUsd(equity)} color="#f4f4f5" />
           <Stat label="P&L" value={`${pnl >= 0 ? '+' : ''}${fmtUsd(pnl)}`} color={pnl >= 0 ? '#22c55e' : '#ef4444'} />
           <Stat label="P&L %" value={`${pnl >= 0 ? '+' : ''}${fmtPct(pnlPct)}`} color={pnl >= 0 ? '#22c55e' : '#ef4444'} />
+          <Stat label={es ? 'ESP. COBRO' : 'EXP. FUNDING'} value={fmtUsd(expectedFunding)} color="#facc15" />
           <Stat label={es ? 'COBRADO' : 'FUNDED'} value={fmtUsd(fundingPaid)} color="#22c55e" />
           <Stat label="OPEN" value={String(openCount)} color="#22d3ee" />
           <Stat label="UPTIME" value={`${uptimeMin}m`} color="#a855f7" />
@@ -239,6 +242,7 @@ export default function TerminalView() {
           )}
           <span className="px-2 py-1 rounded bg-zinc-800 text-[10px] text-zinc-400 border border-zinc-700">
             {es ? 'Próximo cobro' : 'Next settle'}: {nextSettle === Infinity ? '—' : fmtTime(nextSettle)}
+            {expectedFunding > 0 ? ` · +${fmtUsd(expectedFunding)}` : ''}
           </span>
         </div>
       </div>
