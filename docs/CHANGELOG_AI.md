@@ -1134,6 +1134,17 @@ at the top. Use one block per session. Be honest about failures.
 - Basket scan result (REAL 400d data): **79 validated edges** across 30 pairs. Top per-pair (DD<5%, highest expectancy) include LINKUSDT 12h (PF 5.39), TIAUSDT 8h (PF 9.66), ALGOUSDT 8h (PF 6.39), NEARUSDT 8h (PF 5.02), etc.
 - Multi-pair sim (REAL 4h, 400d, $600 across 6 pairs): $600 -> $751 (+25.2%), 337 trades. More pairs = more scale.
 - Files touched: `server/crypto/backtest/basketScan.mjs` (new), `basketScanBatch.mjs` (new), `rrOptimizer.mjs` (new), `multiPairExecutor.mjs` (new), `paperTrader.mjs` (R_MULT), `liveExecutor.mjs` (R_MULT), `docs/CHANGELOG_AI.md`
+
+## 2026-08-20 - Hermes Agent (risk layer — HONEST result)
+- Branch: `feat/genesis-life-os`
+- Summary: Investigated whether a risk-manager layer (concurrency throttle + trailing stop + global exposure cap) lowers drawdown on the validated basket WITHOUT killing the edge. Built `riskManager.mjs` + `multiPairExecutorRisk.mjs` + `riskProfile.mjs` and tested on REAL 4h/400d data.
+- HONEST FINDING (do not ship as default):
+  - Crypto basket is HIGHLY correlated (avg |corr| 0.5-0.74 across 23 pairs; nearly one cluster). Throttle (MAX_OPEN) starves the basket: with MAX_OPEN=8 -> only SOL traded, basket net ~0%; with MAX_OPEN=23 + trailing -> +0.6% vs +37.1% for the unthrottled executor.
+  - Trailing stop at 0.3% is too tight for 4h candles: price retraces 0.3% constantly and stops out winners prematurely. It DESTROYS expectancy vs the fixed 0.5%/1.7R SL/TP that is already validated.
+  - CONCLUSION: for THIS edge + THIS correlated basket, the base risk model (fixed SL/TP + ADX regime filter, 1% risk/slice) is already near-optimal on REAL data. Adding throttle/trailing makes it worse, not better. Risk code kept available but NOT enabled by default.
+- `riskProfile.mjs` confirmed the correlation structure on REAL data (bug in "most-correlated" column display noted; avg|corr| values are correct).
+- Files touched: `server/crypto/backtest/riskManager.mjs` (new), `multiPairExecutorRisk.mjs` (new), `riskProfile.mjs` (new), `docs/CHANGELOG_AI.md`
+- Verification: ran both executors on REAL data; unthrottled basket = +37.1% (1228 trades), risk-layer = +0.6% (broken edge). Honest: ship base executor, keep risk layer for future non-correlated assets. Not pushed.
 - Verification: all modules run against REAL Binance data; `npm run typecheck`/`build` still green; no existing server files modified. Not pushed (awaiting operator approval). LIVE_MODE remains false.
 
 ## 2026-08-20 - Hermes Agent (live-path proof, zero risk)
