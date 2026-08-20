@@ -49,7 +49,7 @@ async function fetchBoard(): Promise<BoardRow[]> {
     const WATCH = ['BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT','DOGEUSDT','ADAUSDT','AVAXUSDT','LINKUSDT','NEARUSDT','SUIUSDT','TRXUSDT','TONUSDT','ARBUSDT','OPUSDT','PEPEUSDT','WIFUSDT','1000PEPEUSDT','NEIROUSDT','POPCATUSDT','COTIUSDT','OGNUSDT','RIFUSDT','AUDIOUSDT','LUNAUSDT','STORJUSDT','FETUSDT','COMPUSDT','ATOMUSDT','DOTUSDT','SANDUSDT','JSTUSDT','BNTUSDT','BCHUSDT','NEOUSDT','XLMUSDT','ZECUSDT','QTUMUSDT','ANKRUSDT','ONEUSDT','ZILUSDT','HOTUSDT','ONGUSDT','MTLUSDT','THETAUSDT','IOSTUSDT','CELRUSDT'];
     const bySymbol = new Map(all.map((x: any) => [x.symbol, x]));
     const now = Date.now();
-    return WATCH
+    const rows: BoardRow[] = WATCH
       .map((sym) => {
         const d = bySymbol.get(sym);
         if (!d) return null;
@@ -64,8 +64,9 @@ async function fetchBoard(): Promise<BoardRow[]> {
           nextMin: Math.max(0, Math.floor(msTo / 60000)),
         } as BoardRow;
       })
-      .filter(Boolean as any)
-      .sort((a: any, b: any) => Math.abs(b.rate) - Math.abs(a.rate));
+      .filter((x): x is BoardRow => x !== null)
+      .sort((a, b) => Math.abs(b.rate) - Math.abs(a.rate));
+    return rows;
   } catch {
     return [];
   }
