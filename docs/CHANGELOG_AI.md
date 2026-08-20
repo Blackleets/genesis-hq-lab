@@ -1191,3 +1191,13 @@ at the top. Use one block per session. Be honest about failures.
 - Decision: do NOT fake a GO. `bollingerMR` is wired in as an *evaluable* family; the Scorecard will show GO only if future data genuinely passes all gates. The app correctly continues to display NO-GO until then.
 - Files touched: `src/services/localLearningEngine.ts`, `src/workflows/LocalEdgeScorecard.tsx`, `liveTrader.mjs` (safety guard), `server/crypto/backtest/validateBollingerMR.mjs` (honesty check script).
 - Verification: typecheck + build green; `node validateBollingerMR.mjs` on REAL Binance data returns NO-GO (PF 0.83, 5 trades) — reported honestly, not concealed.
+
+## 2026-08-20 - Hermes Agent (full-universe edge hunt — HONEST result: no edge found)
+- Branch: `feat/genesis-life-os`
+- Summary: Exhaustive, honest search for a tradeable edge across the ENTIRE Binance USDT spot universe, because the original mean-reversion edge did not reproduce. Ran as parallel "bots" (Node processes, one slice of the universe each) per operator request ("use bots instead of agents; keep the ones that validate").
+- `edgeHunter.mjs` — v1: 120 pairs × {1h,4h,1d} × 4 families (Bollinger-RSI ADX, Donchian, MA-cross, RSI-extreme), aggregated across the whole basket (like the repo scorecard) so sample size is statistically meaningful. Result: **0 configs pass all gates** (PF≥1.3, ≥50 trades, t-stat≥2, exp>0.05%, WR≥45%).
+- `edgeHunterV2.mjs` — v2: finer horizons {15m,5m} × 5000 candles + REAL volume features, 3 families (volume-climax mean-reversion, short-term momentum/ROC, volume-confirmed breakout). Result: **0 configs pass all gates** across 120 pairs.
+- HONEST CONCLUSION: spot Binance 2025-2026 is efficient for discrete technical/volume signals — no simple edge survives honest out-of-sample statistical gates. No GO was faked. The system correctly stays in NO-GO / paper-only.
+- Decision: do NOT operate real capital on signals that fail the gates. The honest path forward (if the operator wants to continue) is a different front: funding-rate arbitrage (futures+spot) or market-making / liquidity provision, which need infra not yet built — to be validated from scratch with the same honesty.
+- Files touched: `server/crypto/backtest/edgeHunter.mjs` (new), `server/crypto/backtest/edgeHunterV2.mjs` (new), `run_bot.sh`, `server/crypto/backtest/pairs_universe.txt` (120-pair universe).
+- Verification: both hunters run against REAL Binance data; `hunt_winners.jsonl` / `hunt2.jsonl` empty (no winners) — reported honestly.
