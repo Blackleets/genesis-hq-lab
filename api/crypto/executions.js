@@ -1,13 +1,17 @@
 // api/crypto/executions.js — serves the live-trader audit trail (executions.json)
-// for the frontend. Reads the file written by server/crypto/backtest/liveTrader.mjs.
-// In Vercel, this file is bundled at build time; if absent, returns a sample so
-// the UI never breaks. NO secrets are exposed here.
+// for the frontend. On Vercel there is no persistent disk, so it falls back to
+// fetching the live Gist (updated by the funding-paper bot every ~9 min) when
+// the local file is absent. NO secrets are exposed here.
 import { sendJson, sendMethodNotAllowed } from '../_lib/http.js';
 import { readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
+
+// Gist holding the live executions.json (id is public, content is the bot feed).
+const GIST_ID = '15c0ce3456373348038271520d641324';
+const GIST_RAW = `https://gist.githubusercontent.com/Blackleets/${GIST_ID}/raw/executions.json`;
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return sendMethodNotAllowed(res);
@@ -17,6 +21,14 @@ export default async function handler(req, res) {
       const data = JSON.parse(readFileSync(file, 'utf8'));
       return sendJson(res, 200, { ok: true, ...data, source: 'live-file' });
     }
+    // Fallback: live Gist (real bot data pushed by the cron bot).
+    try {
+      const r = await fetch(GIST_RAW, { cache: 'no-store' });
+      if (r.ok) {
+        const data = await r.json();
+        return sendJson(res, 200, { ok: true, ...data, source: 'live-gist' });
+      }
+    } catch (g) { /* fall through to sample */ }
     return sendJson(res, 200, {
       ok: true,
       mode: 'sample',
