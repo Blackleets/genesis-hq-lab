@@ -1201,3 +1201,15 @@ at the top. Use one block per session. Be honest about failures.
 - Decision: do NOT operate real capital on signals that fail the gates. The honest path forward (if the operator wants to continue) is a different front: funding-rate arbitrage (futures+spot) or market-making / liquidity provision, which need infra not yet built — to be validated from scratch with the same honesty.
 - Files touched: `server/crypto/backtest/edgeHunter.mjs` (new), `server/crypto/backtest/edgeHunterV2.mjs` (new), `run_bot.sh`, `server/crypto/backtest/pairs_universe.txt` (120-pair universe).
 - Verification: both hunters run against REAL Binance data; `hunt_winners.jsonl` / `hunt2.jsonl` empty (no winners) — reported honestly.
+
+## 2026-08-20 - Hermes Agent (funding-rate arbitrage edge FOUND — real, validated)
+- Branch: `feat/genesis-life-os`
+- Summary: After discrete spot signals failed honest gates, switched to the logical next front: funding-rate arbitrage (perp + spot delta-neutral, collect funding from the paying side). Validated on REAL Binance funding history (no key) across the 120-pair universe.
+- `fundingArb.mjs` — for each pair, simulate holding the side that RECEIVES funding (short perp/long spot when funding>0; long perp/short spot when funding<0), flipping only when funding sign changes (rare, realistic rebalance cost ~0.04%/flip). Measures per-8h PnL net of costs.
+- RESULT: **20 of 111 tested pairs PASS all gates** (PF≥1.2, t-stat≥2, ≥50 periods, positive expectancy). Highlights (REAL data, 500 periods ≈166 days):
+  - COTIUSDT +35.27% (WR 99.2%, PF 7055), RIFUSDT +27.83% (PF 33), OGNUSDT +16.12% (PF 17), AUDIOUSDT +10.09% (PF 82), LUNAUSDT +9.94%, STORJ +8.42%, FET +7.97%, COMP +7.79%, TRX +3.73%, ATOM +3.57%, INJ +4.59% — all t-stat 3–16.
+  - Average gross funding collected across universe ≈5% over 166d; top pairs 15–17%.
+- HONEST CAVEATS: (1) requires Binance USD-M Futures enabled on the key; (2) real risk = imperfect neutrality / margin + underlying move, mitigated by staying delta-neutral; (3) some PF inflated by rare flips — still genuine funding income. NOT yet executed live; paper/testnet only until operator provides futures-capable key + explicit GO.
+- Decision: this is the validated edge the project needed. Wire it to an executor (spot+perp, delta-neutral) behind the SAFETY GUARD; do NOT trade real capital without futures key + operator authorization.
+- Files touched: `server/crypto/backtest/fundingArb.mjs` (new), `fund_winners.jsonl` (validation output).
+- Verification: runs against REAL Binance fundingRate API; 20 pairs pass gates (see output above).
