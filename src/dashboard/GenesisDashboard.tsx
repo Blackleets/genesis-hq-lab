@@ -22,6 +22,7 @@ import AgentLivePanel from '@dashboard/AgentLivePanel';
 import FuturesSummaryPanel from '@dashboard/FuturesSummaryPanel';
 import SkillsPanel from '@dashboard/SkillsPanel';
 import ResearchSignalsPanel from '@dashboard/ResearchSignalsPanel';
+import LiveBotActivity from '@dashboard/LiveBotActivity';
 import { OFFICE_ROOMS } from '@animations/officeRooms';
 import { MODULE_BY_ID, stateTKey } from '@core/data/moduleRegistry';
 import type { TKey } from '@core/i18n/translations';
@@ -419,6 +420,10 @@ export default function GenesisDashboard({ onOpenHQ }: Props) {
           </section>
         </div>
 
+        {/* Live funding bot — REAL Binance paper activity, visible on entry */}
+        <LiveBotActivity />
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Modules snapshot */}
         <section className="gx-card">
           <header className="gx-card-head gx-card-title">
@@ -486,6 +491,7 @@ export default function GenesisDashboard({ onOpenHQ }: Props) {
           </div>
         </section>
       </div>
+    </div>
     </main>
   );
 }
