@@ -1144,6 +1144,18 @@ at the top. Use one block per session. Be honest about failures.
   - CONCLUSION: for THIS edge + THIS correlated basket, the base risk model (fixed SL/TP + ADX regime filter, 1% risk/slice) is already near-optimal on REAL data. Adding throttle/trailing makes it worse, not better. Risk code kept available but NOT enabled by default.
 - `riskProfile.mjs` confirmed the correlation structure on REAL data (bug in "most-correlated" column display noted; avg|corr| values are correct).
 - Files touched: `server/crypto/backtest/riskManager.mjs` (new), `multiPairExecutorRisk.mjs` (new), `riskProfile.mjs` (new), `docs/CHANGELOG_AI.md`
+
+## 2026-08-20 - Hermes Agent (TESTNET REAL — end-to-end success)
+- Branch: `feat/genesis-life-os`
+- Summary: Operator provided Binance Spot TESTNET keys (free, GitHub login). Ran the executor LIVE_MODE=true against the REAL testnet (https://testnet.binance.vision) with ZERO real-money risk.
+- `testnetCheck.mjs` -> GET /account 200 (sig valid, canTrade:true), POST /order BTCUSDT BUY 0.0001 -> 200 FILLED. Path proven.
+- `liveExecutor.mjs` LIVE_MODE=true vs testnet: NO order failures. Fixed 2 real bugs found only against the live exchange:
+  1. side convention: internal LONG/SHORT now translated to Binance BUY/SELL (was sending 'LONG' -> 400 Invalid side).
+  2. quantity precision: now rounds to the symbol's LOT_SIZE step from /exchangeInfo (was 400 'quantity has too much precision').
+- RESULT: full path signal -> HMAC sign -> order -> testnet FILLED works end-to-end on REAL testnet.
+- HONESTY: testnet uses fake funds. Real money still requires operator's REAL key (trade-only, withdrawals disabled) + LIVE_MODE=true + risk acceptance. Agent will not flip LIVE_MODE to real without explicit operator go-ahead. Keys were used inline only, never written to files/changelog/commits.
+- Files touched: `server/crypto/backtest/liveExecutor.mjs` (side translate + lot-size rounding), `docs/CHANGELOG_AI.md`
+- Verification: executor ran LIVE_MODE=true on real testnet, 0 order failures; `npm run typecheck`/`build` green; no existing server files modified. Not pushed yet.
 - Verification: ran both executors on REAL data; unthrottled basket = +37.1% (1228 trades), risk-layer = +0.6% (broken edge). Honest: ship base executor, keep risk layer for future non-correlated assets. Not pushed.
 - Verification: all modules run against REAL Binance data; `npm run typecheck`/`build` still green; no existing server files modified. Not pushed (awaiting operator approval). LIVE_MODE remains false.
 

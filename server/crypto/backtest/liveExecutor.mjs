@@ -64,14 +64,36 @@ function signalsFor(closes, highs, lows) {
 
 // Real-order path. Only called when LIVE_MODE=true. Uses Binance Spot REST.
 // Trade-only keys required; withdrawals must be DISABLED on the exchange.
+const lotSizeCache = {};
+async function getStepSize(pair) {
+  if (lotSizeCache[pair]) return lotSizeCache[pair];
+  const r = await fetch(`${BASE_URL}/api/v3/exchangeInfo?symbol=${pair}`);
+  if (!r.ok) return 1e-3; // fallback
+  const j = await r.json();
+  let step = 1e-3;
+  for (const f of (j.filters || [])) {
+    if (f.filterType === 'LOT_SIZE') { step = parseFloat(f.stepSize); break; }
+  }
+  lotSizeCache[pair] = step;
+  return step;
+}
+function roundQty(qty, step) {
+  const prec = (String(step).split('.')[1] || '').length;
+  return parseFloat(qty.toFixed(prec));
+}
 async function placeRealOrder(side, pair, quantity, price) {
   const key = process.env.BINANCE_API_KEY;
   const secret = process.env.BINANCE_API_SECRET;
   if (!key || !secret) throw new Error('Missing BINANCE_API_KEY / BINANCE_API_SECRET — refusing real order');
+  // Translate our internal side convention (LONG/SHORT) to Binance (BUY/SELL).
+  const binanceSide = side === 'LONG' ? 'BUY' : side === 'SHORT' ? 'SELL' : side.toUpperCase();
+  // Round quantity to the symbol's lot step (Binance rejects excess precision).
+  const step = await getStepSize(pair);
+  const qty = roundQty(quantity, step);
   // Build an alphabetically-ordered query string (Binance convention) and sign it.
   const base = {
-    symbol: pair, side: side.toUpperCase(), type: 'MARKET',
-    quantity: String(quantity), timestamp: String(Date.now()),
+    symbol: pair, side: binanceSide, type: 'MARKET',
+    quantity: String(qty), timestamp: String(Date.now()),
   };
   const qs = Object.keys(base).sort().map(k => `${k}=${encodeURIComponent(base[k])}`).join('&');
   const sigKey = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret),
