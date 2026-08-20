@@ -4,6 +4,7 @@
 // Binance funding data + the live bot executions (gist/proxy).
 import { useEffect, useRef, useState } from 'react';
 import { useLanguage } from '@core/i18n/languageStore';
+import LocalEdgeScorecard from '@workflows/LocalEdgeScorecard';
 
 type Exec = { mode?: string; total?: number; trades?: Trade[] };
 type Trade = {
@@ -90,12 +91,72 @@ function EquityCurve({ trades }: { trades: Trade[] }) {
   );
 }
 
+function PriceChart({ data }: { data: number[] }) {
+  const w = 520, h = 150, pad = 6;
+  if (data.length < 2) return <div className="text-[11px] text-zinc-600 px-1 py-6">loading…</div>;
+  const min = Math.min(...data), max = Math.max(...data);
+  const span = max - min || 1;
+  const X = (i: number) => pad + (i / (data.length - 1)) * (w - 2 * pad);
+  const Y = (v: number) => h - pad - ((v - min) / span) * (h - 2 * pad);
+  const line = data.map((v, i) => `${i === 0 ? 'M' : 'L'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+  const area = `${line} L${X(data.length - 1).toFixed(1)},${h - pad} L${X(0).toFixed(1)},${h - pad} Z`;
+  const up = (data[data.length - 1] ?? 0) >= (data[0] ?? 0);
+  const col = up ? '#22c55e' : '#ef4444';
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-[150px]">
+      <defs>
+        <linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={col} stopOpacity="0.25" />
+          <stop offset="100%" stopColor={col} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill="url(#pg)" />
+      <path d={line} fill="none" stroke={col} strokeWidth={1.5} />
+    </svg>
+  );
+}
+
+const TRADERS = [
+  { id: 'nova', name: 'Nova', role: 'Breakout', color: '#4ea1ff' },
+  { id: 'atlas', name: 'Atlas', role: 'Mean-Reversion', color: '#22d3ee' },
+  { id: 'orion', name: 'Orion', role: 'Funding Arb', color: '#22c55e' },
+  { id: 'vega', name: 'Vega', role: 'Regime', color: '#a855f7' },
+];
+
+function TradersPanel({ pair, rate, side, price, es }: { pair: string; rate: number; side: string; price: number | null; es: boolean }) {
+  const recibe = side === 'short-perp/long-spot' ? (es ? 'recibe corto-perp' : 'recv short-perp')
+    : side === 'long-perp/short-spot' ? (es ? 'recibe largo-perp' : 'recv long-perp') : (es ? 'neutral' : 'neutral');
+  const lines: Record<string, string> = {
+    nova: price != null ? `${pair} ${price < (price * 1.001) ? '▼' : '▲'} tocando el canal donchian — espero breakout.` : 'cargando precio…',
+    atlas: rate !== 0 ? `funding ${rate > 0 ? '+' : ''}${(rate * 100).toFixed(3)}% — rango, reversión activa.` : 'sin sesgo.',
+    orion: side !== 'neutral' ? `lado delta-neutral: ${recibe}. protejo 1.5%.` : 'esperando funding.',
+    vega: `régimen: ${side === 'neutral' ? (es ? 'lateral' : 'range') : (es ? 'tendencia' : 'trend')}.`,
+  };
+  return (
+    <div className="space-y-2 px-3 py-2">
+      {TRADERS.map((t) => (
+        <div key={t.id} className="flex items-start gap-2 text-[11px]">
+          <span className="mt-1 inline-block w-2 h-2 rounded-full shrink-0" style={{ background: t.color }} />
+          <div>
+            <span className="font-bold" style={{ color: t.color }}>{t.name}</span>
+            <span className="text-zinc-600 ml-1">{t.role}</span>
+            <div className="text-zinc-400 leading-snug">{lines[t.id as keyof typeof lines]}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function TerminalView() {
   const lang = useLanguage();
   const es = lang === 'es';
   const [exec, setExec] = useState<Exec>({ mode: 'funding-paper', trades: [] });
   const [board, setBoard] = useState<BoardRow[]>([]);
   const [now, setNow] = useState(Date.now());
+  const [selectedPair, setSelectedPair] = useState('BTCUSDT');
+  const [klines, setKlines] = useState<number[]>([]);
+  const [lastPrice, setLastPrice] = useState<number | null>(null);
   const startRef = useRef(Date.now());
   const [booted, setBooted] = useState(false);
 
@@ -105,13 +166,22 @@ export default function TerminalView() {
       const [e, b] = await Promise.all([fetchExec(), fetchBoard()]);
       if (!alive) return;
       setExec(e); setBoard(b);
+      try {
+        const r = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${selectedPair}&interval=1m&limit=60`, { cache: 'no-store' });
+        if (r.ok) {
+          const k: any[] = await r.json();
+          const closes = k.map((x) => parseFloat(x[4]));
+          setKlines(closes);
+          setLastPrice(closes[closes.length - 1] ?? null);
+        }
+      } catch {}
     };
     tick();
     const id1 = setInterval(tick, 5000);
     const id2 = setInterval(() => setNow(Date.now()), 1000);
     setBooted(true);
     return () => { alive = false; clearInterval(id1); clearInterval(id2); };
-  }, []);
+  }, [selectedPair]);
 
   const trades = exec.trades || [];
   const startCapital = 50;
@@ -127,6 +197,7 @@ export default function TerminalView() {
   const nextSettle = board.reduce((m, r) => Math.min(m, r.nextMs), Infinity);
 
   const recent = [...trades].slice(-40).reverse();
+  const selRow = board.find((r) => r.pair === selectedPair);
 
   return (
     <main className="flex-1 min-w-0 min-h-0 overflow-y-auto bg-[#070a0f] text-zinc-200 font-mono">
@@ -153,6 +224,40 @@ export default function TerminalView() {
           <span className="px-2 py-1 rounded bg-zinc-800 text-[10px] text-zinc-400 border border-zinc-700">
             {es ? 'Próximo cobro' : 'Next settle'}: {nextSettle === Infinity ? '—' : fmtTime(nextSettle)}
           </span>
+        </div>
+      </div>
+
+      {/* ── LIVE PAIR: selector + price chart + traders ── */}
+      <div className="px-4 pt-3">
+        <div className="flex items-center gap-3 flex-wrap mb-2">
+          <span className="text-[10px] uppercase tracking-widest text-zinc-500">{es ? 'Par en vivo' : 'Live pair'}</span>
+          <select
+            value={selectedPair}
+            onChange={(e) => setSelectedPair(e.target.value)}
+            className="bg-[#0e1320] border border-zinc-700 rounded px-2 py-1 text-[12px] text-zinc-100 outline-none"
+          >
+            {board.length > 0
+              ? board.slice(0, 24).map((r) => <option key={r.pair} value={r.pair}>{r.pair}</option>)
+              : ['BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT','DOGEUSDT','ADAUSDT','AVAXUSDT','LINKUSDT','NEARUSDT','COTIUSDT','ONGUSDT','HOTUSDT','ZILUSDT'].map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+          {lastPrice != null && (
+            <span className="text-[15px] font-bold text-zinc-100">
+              {selectedPair} {lastPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          )}
+          {selRow && (
+            <span className="text-[10px] text-cyan-400">
+              funding {(selRow.rate * 100).toFixed(3)}% · {selRow.side === 'neutral' ? '—' : selRow.side}
+            </span>
+          )}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <Panel title={`${selectedPair} · 1m`} className="lg:col-span-2">
+            <PriceChart data={klines} />
+          </Panel>
+          <Panel title={es ? 'Traders' : 'Traders'}>
+            <TradersPanel pair={selectedPair} rate={selRow?.rate ?? 0} side={selRow?.side ?? 'neutral'} price={lastPrice} es={es} />
+          </Panel>
         </div>
       </div>
 
@@ -228,6 +333,11 @@ export default function TerminalView() {
             ))}
           </div>
         </Panel>
+      </div>
+
+      {/* REAL QUANT ENGINE (README logic) — auto-runs on live Binance, 6-gate GO/NO-GO */}
+      <div className="px-4 pb-2">
+        <LocalEdgeScorecard />
       </div>
 
       <div className="px-5 pb-6 text-[10px] text-zinc-600 leading-relaxed">
