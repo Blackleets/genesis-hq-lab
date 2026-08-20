@@ -41,10 +41,34 @@ async function fetchExec(): Promise<Exec> {
 
 async function fetchBoard(): Promise<BoardRow[]> {
   try {
-    const r = await fetch('/api/crypto/funding-board', { cache: 'no-store' });
-    if (r.ok) { const j = await r.json(); return j.rows || []; }
-  } catch {}
-  return [];
+    // Binance public endpoint, CORS-enabled (Access-Control-Allow-Origin: *).
+    // No API key, no serverless function needed (Hobby plan limit = 12 fns).
+    const r = await fetch('https://fapi.binance.com/fapi/v1/premiumIndex', { cache: 'no-store' });
+    if (!r.ok) throw new Error('binance ' + r.status);
+    const all: any[] = await r.json();
+    const WATCH = ['BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT','DOGEUSDT','ADAUSDT','AVAXUSDT','LINKUSDT','NEARUSDT','SUIUSDT','TRXUSDT','TONUSDT','ARBUSDT','OPUSDT','PEPEUSDT','WIFUSDT','1000PEPEUSDT','NEIROUSDT','POPCATUSDT','COTIUSDT','OGNUSDT','RIFUSDT','AUDIOUSDT','LUNAUSDT','STORJUSDT','FETUSDT','COMPUSDT','ATOMUSDT','DOTUSDT','SANDUSDT','JSTUSDT','BNTUSDT','BCHUSDT','NEOUSDT','XLMUSDT','ZECUSDT','QTUMUSDT','ANKRUSDT','ONEUSDT','ZILUSDT','HOTUSDT','ONGUSDT','MTLUSDT','THETAUSDT','IOSTUSDT','CELRUSDT'];
+    const bySymbol = new Map(all.map((x: any) => [x.symbol, x]));
+    const now = Date.now();
+    return WATCH
+      .map((sym) => {
+        const d = bySymbol.get(sym);
+        if (!d) return null;
+        const rate = parseFloat(d.lastFundingRate);
+        const nextTs = parseInt(d.nextFundingTime, 10);
+        const msTo = nextTs - now;
+        return {
+          pair: sym, rate,
+          annualPct: +(rate * 3 * 365 * 100).toFixed(2),
+          side: rate > 0.00005 ? 'short-perp/long-spot' : rate < -0.00005 ? 'long-perp/short-spot' : 'neutral',
+          nextMs: msTo > 0 ? msTo : 0,
+          nextMin: Math.max(0, Math.floor(msTo / 60000)),
+        } as BoardRow;
+      })
+      .filter(Boolean as any)
+      .sort((a: any, b: any) => Math.abs(b.rate) - Math.abs(a.rate));
+  } catch {
+    return [];
+  }
 }
 
 function EquityCurve({ trades }: { trades: Trade[] }) {
