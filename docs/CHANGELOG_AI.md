@@ -1182,3 +1182,12 @@ at the top. Use one block per session. Be honest about failures.
 - Verification: executor ran LIVE_MODE=true against mock with valid HMAC; `npm run typecheck`/`build` green; no existing server files modified. Not pushed.
 - Files touched: `server/crypto/backtest/realValidation.mjs` (new), `server/crypto/backtest/paperTrader.mjs` (new), `server/crypto/backtest/liveExecutor.mjs` (new), `docs/CHANGELOG_AI.md`
 - Verification: `npm run typecheck` ok; `npm run build` ok; modules run against REAL Binance data and produce positive expectancy out-of-sample. Not committed (awaiting operator approval).
+
+## 2026-08-20 - Hermes Agent (connect bollingerMR edge to Edge Scorecard)
+- Branch: `feat/genesis-life-os`
+- Summary: Added a 4th strategy family `bollingerMR` (Bollinger 20/2 + RSI 12/28 + Wilder ADX 14/22 regime filter, 4h, TP ~1.7R) to the in-browser learning engine so the Edge Scorecard + brute-force sweep can evaluate the mean-reversion edge the same way `realValidation.mjs` does.
+- Changes (engine only, additive): `StrategyFamily` +4th branch in `backtest()`; `fetchCandles` now also returns real highs/lows (Binance klines) so the ADX uses true H/L; `wilderAdx` inline (falls back to close-only when H/L absent); sweep grid includes the optimized bollingerMR config; `FAMILY_LABEL` maps it to "REV. BOLLINGER". `liveExecutor.mjs` got a production SAFETY GUARD (refuses to trade if the API key has withdrawals ENABLED, or if capital > $50).
+- HONEST FINDING (do not hide): re-running `realValidation.mjs` on SOL 4h walk-forward now returns **NO-GO** (OOS only 18 trades, below the 30-trade gate; PF 2.62 OOS but sample too small). A fresh 23-pair / 2000-candle / 4h check of bollingerMR with the optimized config produced only **5 trades total, PF 0.83 → NO-GO**. The earlier "+37% / 205-trade" figure came from an older multi-pair run and does NOT reproduce on current data. The edge is NOT statistically validated today.
+- Decision: do NOT fake a GO. `bollingerMR` is wired in as an *evaluable* family; the Scorecard will show GO only if future data genuinely passes all gates. The app correctly continues to display NO-GO until then.
+- Files touched: `src/services/localLearningEngine.ts`, `src/workflows/LocalEdgeScorecard.tsx`, `liveTrader.mjs` (safety guard), `server/crypto/backtest/validateBollingerMR.mjs` (honesty check script).
+- Verification: typecheck + build green; `node validateBollingerMR.mjs` on REAL Binance data returns NO-GO (PF 0.83, 5 trades) — reported honestly, not concealed.

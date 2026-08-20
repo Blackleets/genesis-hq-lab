@@ -114,13 +114,18 @@ export interface LocalLearningSnapshot {
 // one way to win. Breakout pays in trends, mean-reversion pays in ranges,
 // MA-cross momentum pays in sustained moves — the sweep hunts across all
 // three and adopts whatever the CURRENT regime actually pays.
-export type StrategyFamily = 'donchian' | 'meanRevert' | 'maCross';
+export type StrategyFamily = 'donchian' | 'meanRevert' | 'maCross' | 'bollingerMR';
 
 export interface StrategyParams {
   family?: StrategyFamily;  // default 'donchian' (backwards compatible)
-  breakoutPeriod: number;   // donchian channel / meanRevert lookback / maCross fast MA
-  regimeSmaPeriod: number;  // regime SMA / meanRevert lookback (mirror) / maCross slow MA
+  breakoutPeriod: number;   // donchian channel / meanRevert lookback / maCross fast MA / bollingerMR BB period
+  regimeSmaPeriod: number;  // regime SMA / meanRevert lookback (mirror) / maCross slow MA / bollingerMR RSI period
   zThr?: number;            // meanRevert only: z-score entry threshold
+  rsiPeriod?: number;       // bollingerMR only: RSI period
+  rsiOS?: number;           // bollingerMR only: RSI oversold threshold
+  rsiOB?: number;           // bollingerMR only: RSI overbought threshold
+  adxPeriod?: number;       // bollingerMR only: ADX period
+  adxMax?: number;          // bollingerMR only: ADX regime filter (skip if trending)
   tpPct: number;
   slPct: number;
 }
@@ -194,6 +199,8 @@ export function getActiveConfig(): ActiveConfig {
 interface Candles {
   times: number[];  // kline open time (ms)
   closes: number[];
+  highs: number[];
+  lows: number[];
 }
 
 async function fetchCandles(pair: string, interval = '1h', limit = 300): Promise<Candles> {
@@ -206,17 +213,19 @@ async function fetchCandles(pair: string, interval = '1h', limit = 300): Promise
   if (!Array.isArray(raw)) throw new Error('binance_invalid');
   const times: number[] = [];
   const closes: number[] = [];
+  const highs: number[] = [];
+  const lows: number[] = [];
   for (const row of raw) {
     if (!Array.isArray(row)) continue;
     const t = Number(row[0]);
-    const c = Number.parseFloat(String(row[4])); // kline[4] is the close price
-    if (Number.isFinite(t) && Number.isFinite(c)) { times.push(t); closes.push(c); }
+    const h = Number.parseFloat(String(row[2])); // kline[2] high
+    const l = Number.parseFloat(String(row[3])); // kline[3] low
+    const c = Number.parseFloat(String(row[4])); // kline[4] close
+    if (Number.isFinite(t) && Number.isFinite(c) && Number.isFinite(h) && Number.isFinite(l)) {
+      times.push(t); closes.push(c); highs.push(h); lows.push(l);
+    }
   }
-  return { times, closes };
-}
-
-async function fetchCloses(pair: string, interval = '1h', limit = 300): Promise<number[]> {
-  return (await fetchCandles(pair, interval, limit)).closes;
+  return { times, closes, highs, lows };
 }
 
 function sma(values: number[], period: number, endIdx: number): number | null {
@@ -226,10 +235,41 @@ function sma(values: number[], period: number, endIdx: number): number | null {
   return sum / period;
 }
 
+// Wilder ADX. Uses real highs/lows when supplied (from Binance klines); falls
+// back to close-only approximation otherwise. Used by bollingerMR to skip
+// trending regimes — same intent as liveExecutor's ADX.
+function wilderAdx(closes: number[], period: number, highs?: number[], lows?: number[]): number {
+  if (closes.length < period * 2) return 0;
+  const hi = highs ?? closes, lo = lows ?? closes;
+  const trE: number[] = []; const pdmE: number[] = []; const mdmE: number[] = [];
+  for (let i = 1; i < closes.length; i++) {
+    const up = closes[i] - closes[i - 1];
+    const down = closes[i - 1] - closes[i];
+    const h = hi[i], l = lo[i], hp = hi[i - 1], lp = lo[i - 1];
+    const trv = Math.max(h - l, Math.abs(h - hp), Math.abs(l - lp));
+    const pdm = up > down && up > 0 ? up : 0;
+    const mdm = down > up && down > 0 ? down : 0;
+    trE.push(trv); pdmE.push(pdm); mdmE.push(mdm);
+  }
+  // smooth
+  let atr = trE.slice(0, period).reduce((s, x) => s + x, 0) / period;
+  let apdm = pdmE.slice(0, period).reduce((s, x) => s + x, 0) / period;
+  let amdm = mdmE.slice(0, period).reduce((s, x) => s + x, 0) / period;
+  for (let i = period; i < trE.length; i++) {
+    atr = (atr * (period - 1) + trE[i]) / period;
+    apdm = (apdm * (period - 1) + pdmE[i]) / period;
+    amdm = (amdm * (period - 1) + mdmE[i]) / period;
+  }
+  const pdi = atr > 0 ? (apdm / atr) * 100 : 0;
+  const mdi = atr > 0 ? (amdm / atr) * 100 : 0;
+  const dx = (Math.abs(pdi - mdi) / (pdi + mdi + 1e-9)) * 100;
+  return dx;
+}
+
 // Walk the series bar by bar. Enter on a regime-aligned Donchian breakout,
 // exit on the first TP or SL touch (evaluated on later closes). Returns the
 // realized per-trade % returns.
-function backtest(closes: number[], p: StrategyParams): BacktestResult {
+function backtest(closes: number[], p: StrategyParams, highs?: number[], lows?: number[]): BacktestResult {
   const returns: number[] = [];
   const tradePoints: Array<{ idx: number; ret: number }> = [];
   const empty: BacktestResult = {
@@ -275,6 +315,36 @@ function backtest(closes: number[], p: StrategyParams): BacktestResult {
       if (fPrev == null || sPrev == null || fNow == null || sNow == null) { i++; continue; }
       if (fPrev <= sPrev && fNow > sNow) side = 'LONG';
       else if (fPrev >= sPrev && fNow < sNow) side = 'SHORT';
+    }
+
+    if (family === 'bollingerMR') {
+      // Validated mean-reversion: Bollinger touch + RSI extreme, ADX regime
+      // filter skips trending markets (same shape as liveExecutor.mjs).
+      const bbPeriod = p.breakoutPeriod;
+      const rsiP = p.rsiPeriod ?? 13;
+      const adxP = p.adxPeriod ?? 14;
+      const adxMax = p.adxMax ?? 25;
+      if (i < bbPeriod + adxP) { i++; continue; }
+      const win = closes.slice(i - bbPeriod, i);
+      const mid = win.reduce((s, x) => s + x, 0) / bbPeriod;
+      const sd = Math.sqrt(win.reduce((s, x) => s + (x - mid) ** 2, 0) / bbPeriod) || 1e-9;
+      const upper = mid + 2.0 * sd;
+      const lower = mid - 2.0 * sd;
+      // RSI over the lookback window
+      let gains = 0, losses = 0;
+      for (let k = i - rsiP; k < i; k++) {
+        const d = closes[k] - closes[k - 1];
+        if (d >= 0) gains += d; else losses -= d;
+      }
+      const rs = losses > 0 ? gains / losses : 99;
+      const rsi = 100 - 100 / (1 + rs);
+      // ADX (real Wilder, inline; uses real H/L when available) — skip
+      // trends, fade only ranges
+      const adx = wilderAdx(closes.slice(0, i), adxP, highs?.slice(0, i), lows?.slice(0, i));
+      const rsiOS = p.rsiOS ?? 30, rsiOB = p.rsiOB ?? 70;
+      if (adx > adxMax) { i++; continue; } // skip trends, fade only in ranges
+      if (last <= lower && rsi <= rsiOS) side = 'LONG';
+      else if (last >= upper && rsi >= rsiOB) side = 'SHORT';
     }
 
     if (!side) { i++; continue; }
@@ -529,7 +599,7 @@ export async function runLocalLearning(
     try {
       const candles = await fetchCandles(pair, interval, 1000);
       candlesByPair.push(candles);
-      const r = backtest(candles.closes, active);
+      const r = backtest(candles.closes, active, candles.highs, candles.lows);
       r.pair = pair;
       if (r.trades > 0) results.push(r);
     } catch {
@@ -607,7 +677,7 @@ export async function runLocalLearning(
       const firstIdx = c.times.findIndex((t) => t > sinceMs);
       if (firstIdx < 0) continue; // no candles newer than the stamp yet
       const start = Math.max(0, firstIdx - warmup);
-      const r = backtest(c.closes.slice(start), active);
+      const r = backtest(c.closes.slice(start), active, c.highs.slice(start), c.lows.slice(start));
       for (const tp of r.tradePoints) {
         const entryTime = c.times[start + tp.idx];
         if (entryTime != null && entryTime > sinceMs) fwdReturns.push(tp.ret);
@@ -702,6 +772,12 @@ function buildSweepConfigs(): StrategyParams[] {
       for (const tpPct of [0.05, 0.08])
         for (const slPct of [0.03])
           out.push({ family: 'maCross', breakoutPeriod: fast, regimeSmaPeriod: slow, tpPct, slPct });
+  // Bollinger+RSI+ADX mean-reversion (validated edge): pays in ranges, ADX
+  // skips trends. 4h only (the validated timeframe). Config = best IS params
+  // from realValidation.mjs walk-forward on SOL 4h (bb20/2, rsi12/28, adx22).
+  for (const tpPct of [0.0085, 0.011])   // ~1.7R given 0.5% stop
+    for (const slPct of [0.005])
+      out.push({ family: 'bollingerMR', breakoutPeriod: 20, regimeSmaPeriod: 12, rsiPeriod: 12, rsiOS: 28, rsiOB: 70, adxPeriod: 14, adxMax: 22, tpPct, slPct });
   return out;
 }
 
@@ -740,12 +816,12 @@ export async function runBruteForceSweep(
 
   // One fetch per pair+interval (8 requests); the sweep itself is pure CPU
   // over cached candles, so ~360 configs cost zero extra API calls.
-  const seriesByInterval: Record<string, number[][]> = {};
+  const seriesByInterval: Record<string, Candles[]> = {};
   for (const interval of SWEEP_INTERVALS) {
-    const list: number[][] = [];
+    const list: Candles[] = [];
     for (const pair of pairs) {
       try {
-        list.push(await fetchCloses(pair, interval, 1000));
+        list.push(await fetchCandles(pair, interval, 1000));
       } catch { /* one pair failing must not sink the sweep */ }
     }
     seriesByInterval[interval] = list;
@@ -763,11 +839,11 @@ export async function runBruteForceSweep(
       const warmup = Math.max(params.breakoutPeriod, params.regimeSmaPeriod) + 2;
       const trainR: number[] = [];
       const testPoints: Array<{ idx: number; ret: number }> = [];
-      for (const closes of series) {
-        const split = Math.floor(closes.length * TRAIN_SPLIT);
-        trainR.push(...backtest(closes.slice(0, split), params).returns);
+      for (const c of series) {
+        const split = Math.floor(c.closes.length * TRAIN_SPLIT);
+        trainR.push(...backtest(c.closes.slice(0, split), params, c.highs.slice(0, split), c.lows.slice(0, split)).returns);
         // include warmup bars before the split so OOS signals start at the boundary
-        testPoints.push(...backtest(closes.slice(Math.max(0, split - warmup)), params).tradePoints);
+        testPoints.push(...backtest(c.closes.slice(Math.max(0, split - warmup)), params, c.highs.slice(Math.max(0, split - warmup)), c.lows.slice(Math.max(0, split - warmup))).tradePoints);
       }
       if (trainR.length < MIN_TRAIN_TRADES || testPoints.length < MIN_TEST_TRADES) continue;
 

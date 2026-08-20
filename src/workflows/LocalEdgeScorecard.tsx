@@ -142,6 +142,7 @@ function EquityCurve({ curve, startCapital }: { curve: number[]; startCapital: n
 const FAMILY_LABEL: Record<string, string> = {
   donchian: 'BREAKOUT',
   meanRevert: 'REVERSIÓN',
+  bollingerMR: 'REV. BOLLINGER',
   maCross: 'MOMENTUM',
 };
 
