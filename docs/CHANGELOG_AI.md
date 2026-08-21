@@ -1245,3 +1245,16 @@ at the top. Use one block per session. Be honest about failures.
 - Honesty: PAPER simulation of funding income using REAL Binance rates. No real money, no real orders. AGENTS.md §5 cronjob operator-ratified.
 - Files touched: `server/crypto/backtest/fundingTrader.mjs`, `server/crypto/backtest/pushExecGist.mjs`, `src/workflows/TerminalView.tsx`, `docs/CHANGELOG_AI.md`.
 - Verification: `npm run typecheck` ok; `npm run build` ok; deploy #24 pending.
+
+## 2026-08-21 - Hermes Agent (office viva + bot HUD real + volumen PAPER)
+- Branch: `feat/genesis-life-os`
+- Summary: Operator chose to RETURN to the repo's VISION (pixel office, not terminal) and make the funding bot visible as real agents working. Per plan `.hermes/plans/2026-08-21_150000-genesis-office-funding-bot.md`.
+- `genesisStore.ts`: default `selectedModule: 'hq'`; FORCE_HQ override sends noisy modules (pred-markets/crypto/terminal/dashboard/console) to 'hq'. Aligns with VISION.md/DESIGN_DIRECTION.md (binding).
+- `GenesisSidebar.tsx`: Workspace order [hq, dashboard, terminal, console].
+- `useFundingBotState.ts` (new): hook pulling REAL bot trades from `/api/crypto/executions` (Vercel fn -> Gist). equity = start + sum(FUNDING pnl). No fabricated numbers.
+- `FundingBotHUD.tsx` (new): live side panel in HQView — equity, funded, open pairs, 5 traders (Orion/Vega/Atlas/Nova/Maya) with real-status bubbles sourced from bot data, recent events. Badge PAPER · NO REAL MONEY.
+- `HQView.tsx`: mount FundingBotHUD beside the pixel office (flex layout).
+- `fundingTrader.mjs`: default capital 50 -> 500, pairs 30 -> 48 (more volume, more visible gains). Cronjob passes FT_CAPITAL=500.
+- Honesty: PAPER simulation of funding income using REAL Binance rates. No real money. AGENTS.md §5 cronjob operator-ratified. Bubbles sourced from real bot state (anti-fake, §5).
+- Files touched: `src/core/store/genesisStore.ts`, `src/ui/GenesisSidebar.tsx`, `src/services/useFundingBotState.ts`, `src/workflows/FundingBotHUD.tsx`, `src/ui/views/HQView.tsx`, `server/crypto/backtest/fundingTrader.mjs`, `docs/CHANGELOG_AI.md`.
+- Verification: `npm run typecheck` ok; `npm run build` ok (36s); bot local run with FT_CAPITAL=500 wrote FUNDING events (COTI 0.008, ONG 0.01); deploy #25 pending.
