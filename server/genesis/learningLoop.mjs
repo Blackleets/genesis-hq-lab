@@ -32,7 +32,7 @@ function loadLearnings() {
 }
 function saveLearnings(l) { writeFileSync(LEARNINGS_PATH, JSON.stringify(l, null, 2)); }
 
-async function getUniverse() {
+export async function getUniverse() {
   try {
     const j = await (await fetch('https://fapi.binance.com/fapi/v1/exchangeInfo')).json();
     const pairs = j.symbols
@@ -55,6 +55,7 @@ function consistencyScore(history) {
 }
 
 // Score a single pair across timeframes. Returns best deployable edge or null.
+// Now includes the REGIME-INDEPENDENT market-maker edge (captures spread).
 async function scorePair(pair, capital, learnings) {
   const timeframes = LIQUID.has(pair) ? ['1h', '15m', '5m'] : ['1h'];
   let best = null;
@@ -68,24 +69,32 @@ async function scorePair(pair, capital, learnings) {
       const d = deployed[0];
       const pf = d.oosMetrics.profitFactor || 1;
       const weight = Math.min(Math.max((pf - 1) * 2, 0), 1);
-
-      // consistency from prior regime history for this pair
       const hist = learnings.regimes[pair]?.history || [];
       const cons = consistencyScore(hist);
-      const combined = weight * (0.6 + 0.4 * cons); // edge * (base + consistency)
-
+      const combined = weight * (0.6 + 0.4 * cons);
       const allocated = capital * RISK_PER_TRADE * (0.5 + 0.5 * combined);
-      const cand = {
-        pair, kind: d.kind, tf, params: d.params,
-        pf, wr: d.oosMetrics.winRate, trades: d.oosMetrics.trades,
-        expectedDailyPct: DAILY_TARGET_PCT * (0.5 + 0.5 * combined),
-        allocated: +allocated.toFixed(2),
-        consistency: +cons.toFixed(2),
-        metrics: d.oosMetrics,
-      };
+      const cand = { pair, kind: d.kind, tf, params: d.params, pf, wr: d.oosMetrics.winRate, trades: d.oosMetrics.trades, expectedDailyPct: DAILY_TARGET_PCT * (0.5 + 0.5 * combined), allocated: +allocated.toFixed(2), consistency: +cons.toFixed(2), metrics: d.oosMetrics };
       if (!best || cand.allocated > best.allocated) best = cand;
     } catch { /* skip tf */ }
   }
+  // Regime-independent market-maker edge (captures spread, any regime)
+  try {
+    const { evaluateMarketMaker } = await import('./marketMaker.mjs');
+    const mm = await evaluateMarketMaker(pair, { days: 30, interval: '15m' });
+    if (mm && mm.returnPct > 1 && mm.maxDrawdownPct < 2) {
+      // use REAL measured return, not a hardcoded assumption
+      const mmDailyPct = (Math.pow(1 + mm.returnPct / 100, 1 / 30) - 1) * 100;
+      const allocated = capital * RISK_PER_TRADE * 1.5; // MM lower-risk -> more allocation
+      const cand = {
+        pair, kind: 'marketMaker', tf: '15m', params: { spreadBps: 2 },
+        pf: null, wr: null, trades: mm.spreadBars,
+        expectedDailyPct: +(mmDailyPct / 100).toFixed(4), // REAL measured
+        allocated: +allocated.toFixed(2), consistency: 0.9,
+        metrics: { returnPct: mm.returnPct, maxDrawdownPct: mm.maxDrawdownPct },
+      };
+      if (!best || cand.allocated > best.allocated) best = cand;
+    }
+  } catch { /* skip MM */ }
   return best;
 }
 
