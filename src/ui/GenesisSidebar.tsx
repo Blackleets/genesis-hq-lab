@@ -52,7 +52,7 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
     labelEs: 'Workspace',
     labelEn: 'Workspace',
     color: '#e4e4e7',
-    modules: ['terminal', 'dashboard', 'hq', 'console'],
+    modules: ['hq', 'dashboard', 'terminal', 'console'],
   },
   {
     labelEs: 'Trading & Riesgo',

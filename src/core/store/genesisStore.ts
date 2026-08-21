@@ -131,7 +131,7 @@ function buildInitialState(): GenesisStateShape {
       },
     ],
     selectedLanguage: 'es',
-    selectedModule: 'terminal',
+    selectedModule: 'hq',
     selectedAgent: null,
     modules: Object.fromEntries(
       MODULES.map((m) => [
@@ -178,10 +178,10 @@ function hydrateState(saved: Partial<GenesisStateShape>): GenesisStateShape {
     saved.selectedModule && hydratedModules[saved.selectedModule]
       ? saved.selectedModule
       : base.selectedModule;
-  // FORCE landing on the Pro Terminal for noisy/legacy modules so users see
-  // the live bot immediately instead of broken/empty modules.
-  const FORCE_TERMINAL = ['pred-markets', 'crypto', 'hq', 'dashboard'];
-  const finalModule = FORCE_TERMINAL.includes(selectedModule) ? 'terminal' : selectedModule;
+  // FORCE landing on the pixel office (HQ) for noisy/legacy modules so users
+  // see the live, on-vision trading office instead of broken/empty modules.
+  const FORCE_HQ = ['pred-markets', 'crypto', 'terminal', 'dashboard', 'console'];
+  const finalModule = FORCE_HQ.includes(selectedModule) ? 'hq' : selectedModule;
   const selectedAgent =
     saved.selectedAgent && hydratedAgents[saved.selectedAgent]
       ? saved.selectedAgent
