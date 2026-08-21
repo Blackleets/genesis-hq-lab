@@ -27,9 +27,11 @@ node server/genesis/fundingScanner.mjs
 ```
 
 ## Resultados REALES (verificados, datos Binance)
-- Evolución 360d multi-par: COTIUSDT meanReversion encontró **GO=true en 180d** (PF 2.16, WR 62%) pero walk-forward lo **rechazó** (régimen cambió, folds tardíos <5 trades). Honesto: no robusto.
-- 3 familias paramétricas en 1h/15m: **ninguna pasa los 6 gates de forma robusta** con >50 trades.
-- Funding arbitrage (53 pares, 500 eventos reales c/u): **0 pares con edge positivo post-fees**. El mercado actual paga funding (alcista), así que cobrar es raro.
+- Evolución 360d multi-par v1: COTIUSDT meanReversion encontró **GO=true en 180d** (PF 2.16, WR 62%) pero walk-forward lo **rechazó** (régimen cambió, folds tardíos <5 trades).
+- **v2 (5 familias: +orderbookImbalance, +volumeProfile)**: `volumeProfile` (reversión a VWAP) es la más prometedora — ETHUSDT PF=1.28/WR=68%, BTCUSDT PF=1.42. Pero walk-forward de 360d **también lo rechaza** (deja de operar en régimen reciente).
+- 3 familias clásicas en 1h/15m: ninguna pasa los 6 gates robustamente con >50 trades.
+- Funding arbitrage (53 pares, 500 eventos reales c/u): **0 pares con edge positivo post-fees**. Régimen alcista actual → pagas funding.
+- **Veredicto**: en el régimen de mercado actual no hay edge robusto y simple. El sistema está listo para detectarlo cuando cambie (cron fundingWatch + re-evolución).
 
 ## Conclusión honesta
 El laboratorio funciona y es riguroso. La verdad empírica: **en el régimen de

@@ -7,7 +7,7 @@
 import { makeStrategy } from './strategyLib.mjs';
 import { fullReport } from './backtestCore.mjs';
 
-const STRATEGY_KINDS = ['meanReversion', 'breakout', 'momentum'];
+const STRATEGY_KINDS = ['meanReversion', 'breakout', 'momentum', 'orderbookImbalance', 'volumeProfile'];
 
 function randParamSpace(kind) {
   if (kind === 'meanReversion') return {
