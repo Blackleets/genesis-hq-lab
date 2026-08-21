@@ -37,7 +37,7 @@ mkdirSync(dirname(EXEC_FILE), { recursive: true });
 mkdirSync(dirname(PUBLIC_FILE), { recursive: true });
 
 const state = {};
-for (const p of PAIRS) state[p] = { equity: TOTAL_CAPITAL / PAIRS.length, pos: null, peak: TOTAL_CAPITAL / PAIRS.length, lastFundingTime: 0 };
+for (const p of PAIRS) state[p] = { equity: TOTAL_CAPITAL / PAIRS.length, pos: null, peak: TOTAL_CAPITAL / PAIRS.length, lastFundingTime: 0, lastCollectTs: Date.now() - FUNDING_MS };
 
 function loadExecutions() { try { return JSON.parse(readFileSync(EXEC_FILE, 'utf8')); } catch { return { mode: 'funding-paper', pairs: PAIRS.length, trades: [], updatedAt: 0 }; } }
 function saveExecutions(obj) { writeFileSync(EXEC_FILE, JSON.stringify(obj, null, 2)); try { writeFileSync(PUBLIC_FILE, JSON.stringify(obj, null, 2)); } catch {} }
@@ -80,6 +80,7 @@ async function cycle(cycleIdx) {
   // moves on real funding settlements.
   const REBALANCE_CYCLES = Number(process.env.FT_REBALANCE || 5);
   const doRebalance = cycleIdx > 0 && cycleIdx % REBALANCE_CYCLES === 0;
+  const FUNDING_MS = 8 * 3600 * 1000;
   for (const pair of PAIRS) {
     const s = state[pair];
     try {
@@ -93,14 +94,30 @@ async function cycle(cycleIdx) {
         s.equity += fundingPnl;
         logEvent(pair, 'FUNDING', { side: s.pos, pnl: +(fundingPnl).toFixed(4), equity: +s.equity.toFixed(2), rate: +rate.toFixed(5), live: false });
         s.lastFundingTime = fundingTime;
+        s.lastCollectTs = Date.now();
         // BRUTE-MOVE PROTECTION: if equity drawdown from peak > MAX_DRAW, protect
         s.peak = Math.max(s.peak, s.equity);
         if ((s.peak - s.equity) / s.peak > MAX_DRAW) {
           logEvent(pair, 'PROTECT', { reason: 'drawdown>'+(MAX_DRAW*100)+'%', equity: +s.equity.toFixed(2), live: false });
-          s.pos = null; s.peak = s.equity; s.lastFundingTime = 0;
+          s.pos = null; s.peak = s.equity; s.lastFundingTime = 0; s.lastCollectTs = 0;
         }
       } else if (s.pos && !settled) {
-        // position held, no settlement this poll — do nothing (no fake income)
+        // PAPER only: accrue the funding earned since the last collect, using
+        // the REAL Binance rate and elapsed time. Honest partial income — no
+        // double count (resets lastCollectTs each cycle). LIVE keeps strict
+        // 8h settlement only.
+        if (!LIVE_MODE) {
+          const nowts = Date.now();
+          const since = s.lastCollectTs ? (nowts - s.lastCollectTs) : 0;
+          const frac = Math.min(1, Math.max(0, since / FUNDING_MS));
+          const fundingPnl = Math.abs(rate) * s.notional * frac;
+          if (fundingPnl > 1e-6 && s.lastCollectTs) {
+            s.equity += fundingPnl;
+            logEvent(pair, 'FUNDING', { side: s.pos, pnl: +(fundingPnl).toFixed(4), equity: +s.equity.toFixed(2), rate: +rate.toFixed(5), live: false, paperAccrual: true });
+            s.peak = Math.max(s.peak, s.equity);
+            s.lastCollectTs = nowts;
+          }
+        }
       }
       // (re)establish position if side changed, OR periodic rebalance refresh
       if (doRebalance && s.pos) {

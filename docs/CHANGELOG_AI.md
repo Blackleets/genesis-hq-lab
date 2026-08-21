@@ -1226,3 +1226,13 @@ at the top. Use one block per session. Be honest about failures.
 - Honesty: scalping (180 combos) and micro-structure (60 combos) hunters found ZERO edge after costs — not promoted. Only funding arb has validated edge.
 - Files touched: `src/workflows/TerminalView.tsx`, `src/core/store/genesisStore.ts`, `src/core/data/moduleRegistry.ts`, `src/ui/GenesisSidebar.tsx`, `src/App.tsx`, `src/core/i18n/translations.ts`, `api/crypto/funding-board.js` (moved to `api-disabled/` to stay under Vercel Hobby 12-fn limit), `docs/CHANGELOG_AI.md`.
 - Verification: `npm run typecheck` ok; `npm run build` ok; deploy #21 READY on genesis-hq-lab.vercel.app; Gist shows 10 real bot trades (6 OPEN / 4 FLAT).
+
+## 2026-08-21 - Hermes Agent (bot collects PAPER funding live; equity + COBRADO move)
+- Branch: `feat/genesis-life-os`
+- Summary: Operator confirmed "we're making money" and asked to SEE everything working. Audited Gist: bot had 0 real FUNDING events yet (only OPEN/FLAT) because funding settles every 8h on Binance. Per operator ratification (clarify): kept the persistent cronjob (AGENTS.md §5 flagged earlier, now approved) and made the bot collect REAL funding income in PAPER every run.
+- `fundingTrader.mjs`: in PAPER (not LIVE), each cycle now accrues the funding earned since the last collect using the REAL Binance rate × elapsed time (fraction of 8h window), writing FUNDING events with `paperAccrual:true`. No double-count (resets lastCollectTs each cycle). LIVE mode unchanged (strict 8h settlement). State init `lastCollectTs = now - FUNDING_MS` so first run accrues from prior window.
+- Cronjob `funding-paper-bot` updated to run ONE cycle and exit (`FT_LOOP=false FT_MINUTES=1 FT_REBALANCE=5`) every 9m, then push to Gist — no overlap.
+- `TerminalView.tsx`: bot is now source of truth for equity (`exec.total` already includes realized PAPER funding), so removed double-count `accrued` from `equity`. Added "EN MARCHA / IN MOTION" Stat showing live `+$|accrued|` projection (separate, not summed). COBRADO (fundingPaid) now grows as bot writes FUNDING events.
+- Honesty: this is PAPER simulation of funding income using REAL Binance rates — no real money, no real orders. Clearly labeled PAPER everywhere.
+- Files touched: `server/crypto/backtest/fundingTrader.mjs`, `src/workflows/TerminalView.tsx`, `docs/CHANGELOG_AI.md`.
+- Verification: `npm run typecheck` ok; `npm run build` ok; deploy #23 pending. Gist will show FUNDING events after next cron run (every 9m).

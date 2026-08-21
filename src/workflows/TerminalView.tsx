@@ -227,9 +227,10 @@ export default function TerminalView() {
   const openPairs = [...lastByPair.entries()].filter(([, e]) => e === 'OPEN').map(([p]) => p);
   const openCount = openPairs.length;
 
-  // Accrued equity (honest, live): base + funding accrued so far this period
-  // on currently-open positions, using REAL Binance rates + settlement times.
-  // Moves every tick between settlements; realized at next fundingTime.
+  // Accrued equity (honest, live): funding earned so far this period on
+  // open positions, using REAL Binance rates + settlement times. Shown as a
+  // live "+$X in motion" projection — the bot (PAPER) already realizes these
+  // into exec.total every run, so we do NOT double-count into `equity`.
   const FUNDING_MS = 8 * 3600 * 1000;
   const accrued = openPairs.reduce((sum, p) => {
     const r = board.find((x) => x.pair === p);
@@ -238,7 +239,9 @@ export default function TerminalView() {
     const frac = Math.min(1, Math.max(0, (now - lastSettle) / FUNDING_MS));
     return sum + Math.abs(r.rate) * startCapital * frac;
   }, 0);
-  const equity = (exec.total ?? startCapital) + accrued;
+  // Bot is the source of truth: exec.total already includes realized PAPER
+  // funding collected each run. equity = that, no double count.
+  const equity = (exec.total ?? startCapital);
   const pnl = equity - startCapital;
   const pnlPct = pnl / startCapital;
   const fundingEvents = trades.filter((t) => t.event === 'FUNDING');
@@ -278,6 +281,7 @@ export default function TerminalView() {
           <Stat label="P&L %" value={`${pnl >= 0 ? '+' : ''}${fmtPct(pnlPct)}`} color={pnl >= 0 ? '#22c55e' : '#ef4444'} />
           <Stat label={es ? 'ESP. COBRO' : 'EXP. FUNDING'} value={fmtUsd(expectedFunding)} color="#facc15" />
           <Stat label={es ? 'COBRADO' : 'FUNDED'} value={fmtUsd(fundingPaid)} color="#22c55e" />
+          <Stat label={es ? 'EN MARCHA' : 'IN MOTION'} value={`+${fmtUsd(accrued)}`} color="#a3e635" />
           <Stat label="OPEN" value={String(openCount)} color="#22d3ee" />
           <Stat label="UPTIME" value={`${uptimeMin}m`} color="#a855f7" />
         </div>
