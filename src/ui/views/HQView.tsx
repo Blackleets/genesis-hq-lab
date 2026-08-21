@@ -16,6 +16,7 @@ import OfficeViewport from '@animations/OfficeViewport';
 import GenesisOfficeWorld from '@animations/GenesisOfficeWorld';
 import AgentTooltip from '@agents/AgentTooltip';
 import AgentInspector from '@agents/AgentInspector';
+import FundingBotHUD from '@workflows/FundingBotHUD';
 import { TRADING_AGENTS } from '@agents/data/tradingAgents';
 import type { TradingAgent } from '@core/types/tradingAgent';
 import TileOffice from '@office/TileOffice';
@@ -98,7 +99,8 @@ export default function HQView() {
             </button>
           ))}
         </div>
-        <div className="flex-1 min-h-0 relative bg-carbon-300">
+        <div className="flex-1 min-h-0 flex bg-carbon-300">
+          <div className="flex-1 min-h-0 relative">
           {tileOfficeActive ? (
             <PixelOfficeViewport internalWidth={OFFICE_CANVAS_W} internalHeight={OFFICE_CANVAS_H}>
               {() => (
@@ -153,6 +155,8 @@ export default function HQView() {
             onAction={() => { /* visual-only */ }}
             tradingData={tradingDataForAgent(selectedAgent)}
           />
+          </div>
+          <FundingBotHUD />
         </div>
       </main>
       <AgentActivityFeed />
