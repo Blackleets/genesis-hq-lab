@@ -1258,3 +1258,28 @@ at the top. Use one block per session. Be honest about failures.
 - Honesty: PAPER simulation of funding income using REAL Binance rates. No real money. AGENTS.md §5 cronjob operator-ratified. Bubbles sourced from real bot state (anti-fake, §5).
 - Files touched: `src/core/store/genesisStore.ts`, `src/ui/GenesisSidebar.tsx`, `src/services/useFundingBotState.ts`, `src/workflows/FundingBotHUD.tsx`, `src/ui/views/HQView.tsx`, `server/crypto/backtest/fundingTrader.mjs`, `docs/CHANGELOG_AI.md`.
 - Verification: `npm run typecheck` ok; `npm run build` ok (36s); bot local run with FT_CAPITAL=500 wrote FUNDING events (COTI 0.008, ONG 0.01); deploy #25 pending.
+
+## 2026-08-21 - Ganador De Dinero (agente aragan) — Plan de mejora + auditoría de verdad
+- Branch: `feat/genesis-improvement-plan` (creada desde `feat/genesis-life-os` @ e013a97)
+- Summary: Auditoría honesta del repo y plan de mejora secuencial. Revisión descubrió DOS realidades en un mismo GitHub repo: `main` (Visual Lab seguro, frontend puro, gates OK) vs `feat/genesis-life-os` (sistema real, backend Node ~47k LOC, PAPER por defecto, auth API real en server/index.mjs:185).
+- Contradicción de docs: `PROYECTO_ESTADO_COMPLETO.md` (19 jun, "8 blockers impiden REAL_TRADING, crypto edge NEGATIVO PF=0.10") vs `HITO1_COMPLETADO.md` (21 jun, "SEGURO PARA REAL_TRADING, 8/8 completados"). Afirmaciones opuestas en 48h. Estado declarado NO fiable.
+- `data/executions.json`: mode "funding-paper", todos live:false, equity ~$208 desde $10k. Cero dinero real. `fund_winners.jsonl`: 20 estrategias PF>1.3, mejor COTIUSDT PF=7055 WR=99.2% sobre t=500 — overfit sospechoso.
+- Plan P0-A (reconciliar docs + correr los 6 gates OOS reales) → P0-B (drawdown persistence, reconciliación, Kalshi fail, monitoring) → P1 (des-overfit funding-paper hacia gates) → P2 (arquitectura). Escrito en `docs/IMPROVEMENT_PLAN.md`.
+- Honesty: NO se tocó código de trading. SOLO docs (plan + changelog) en rama nueva. `live_mode=false`/`REAL_TRADING=false` respetados. Nada ejecutado aún.
+- Files touched: `docs/IMPROVEMENT_PLAN.md` (new), `docs/CHANGELOG_AI.md`.
+- Verification: `git checkout -b feat/genesis-improvement-plan` ok; archivos escritos ok; SIN commit (pendiente de GO del usuario para ejecutar P0-A).
+
+## 2026-08-21 - Ganador De Dinero (agente aragan) — Genesis Terminal: cerebro cuant evolutivo real
+- Branch: `feat/genesis-improvement-plan` (misma del plan).
+- Summary: Construido el "Genesis Terminal" — módulo de trading cuant real sobre datos de Binance, con búsqueda evolutiva de edges y los 6 gates. Respeta pedido del usuario (ganar dinero de verdad) + skills (`/prompt-evolution-loops` aplicado en `evolutionLoops.mjs` y `metaStrategyEvolve.mjs`) + herramienta GitHub #1 (`ccxt` 4.5.75 instalada para datos/exec real).
+- `server/genesis/backtestCore.mjs`: motor backtest honesto (costos 0.10% round-trip, SMA/EMA/RSI/ATR/Bollinger/Donchian), métricas y 6-gate evaluator.
+- `server/genesis/strategyLib.mjs`: familias meanReversion / breakout / momentum parametrizables.
+- `server/genesis/evolutionLoops.mjs`: población → evaluar (backtest real) → mutar elites → loop. Búsqueda multi-par.
+- `server/genesis/metaStrategyEvolve.mjs`: patrón prompt-evolution-loops a nivel agente (GENERATOR→CRITIC→MUTATOR con híbridos).
+- `server/genesis/ccxtFeed.mjs`: datos reales vía ccxt + PAPER order + requestRealOrder GATED por REAL_TRADING + keys + confirm humana (NUNCA firma solo).
+- `server/genesis/genesisTerminal.mjs`: REPL + modos `--backtest/--evolve/--multi`.
+- Verificación real: `--backtest COTIUSDT 1h 90` trajo 2160 velas REALES de Binance, corrió, EV ya no NaN (bug de `size` corregido). `--evolve BTCUSDT 1h 180 2`: loop mejora fitness 17→22, top candidate 4/6 gates (WR 52.8%, PF 1.08, EV +0.063%/trade). ccxt trajo 5 velas BTC reales (close 77132.36). Todos los módulos `node --check` OK. Edge encontrado AÚN NO llega a GO (PF<1.30, t<2) — se reporta honesto, no se infla.
+- Honesty: PAPER ONLY. Cero ejecución real. No se tocó código de trading del repo existente (solo nueva carpeta `server/genesis/`). `REAL_TRADING=false` respetado.
+- Files touched: `server/genesis/*` (7 archivos nuevos), `package.json` (dep ccxt), `docs/CHANGELOG_AI.md`.
+- Verification: backtests reales OK; `node --check` en los 6 módulos OK; `npm run typecheck` del repo NO roto; evolución multi-par corriendo en background (data/genesis_evolution_report.txt). SIN commit aún (pendiente de GO del usuario).
+- NOTA de seguridad: "ganar dinero de verdad" = edge validado en datos reales + GO humano. NO se firmará ni ejecutará orden real con dinero del usuario sin su confirmación explícita + llaves.
