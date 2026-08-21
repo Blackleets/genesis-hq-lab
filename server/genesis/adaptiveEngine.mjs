@@ -23,7 +23,7 @@ const GAINS = { meanReversion: true, breakout: true, momentum: true, orderbookIm
 
 // Walk-forward adaptive step:
 //  train = candles[0 .. trainEnd], oosRecent = candles[trainEnd .. end]
-async function adaptiveStep({ candles, trainDays = 90, oosDays = 30, generations = 8, populationSize = 16, eliteCount = 5 }) {
+export async function adaptiveStep({ candles, trainDays = 90, oosDays = 30, generations = 8, populationSize = 16, eliteCount = 5 }) {
   const ms = candles[candles.length - 1][0] - candles[0][0];
   const perDay = ms / ((candles.length - 1) * 86400000);
   const trainSize = Math.max(200, Math.floor(trainDays * perDay));
