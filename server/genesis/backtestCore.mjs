@@ -1,10 +1,11 @@
 // server/genesis/backtestCore.mjs
 // Honest backtest engine for Genesis HQ Lab.
-// Real-data-first, costs included, 6-gate evaluation.
+// Real-data-first, costs (fee + slippage) included, 6-gate evaluation (+ Sharpe).
 // No live trading. PAPER only. The ONLY path to real capital is a human GO
 // + API keys + the gates report (see evolutionLoops / terminal).
 
-const COST_ROUNDTRIP = 0.001; // 0.10% taker round-trip (conservative)
+const COST_ROUNDTRIP = 0.001;     // 0.10% taker round-trip fee (conservative)
+const SLIPPAGE = 0.0005;          // 0.05% avg slippage per fill (realistic)
 const RISK_FREE = 0;
 
 // ---------- Indicators (pure functions over number[]) ----------
@@ -180,7 +181,10 @@ export function runBacktest({ candles, strategyFn, initialCapital = 10000, feeRa
       if (!exit && position.target && (position.side === 'long' ? high[i] >= position.target : low[i] <= position.target)) exit = true;
       if (exit) {
         const px = position.target && (position.side === 'long' ? high[i] >= position.target : low[i] <= position.target) ? position.target : +candles[i][4];
-        const pnl = dir * (px - position.entry) / position.entry * position.size - position.size * feeRate * 2;
+        // slippage applied on both entry and exit fills
+        const fillEntry = position.side === 'long' ? position.entry * (1 + SLIPPAGE) : position.entry * (1 - SLIPPAGE);
+        const fillExit = position.side === 'long' ? px * (1 - SLIPPAGE) : px * (1 + SLIPPAGE);
+        const pnl = dir * (fillExit - fillEntry) / fillEntry * position.size - position.size * feeRate * 2;
         cash += pnl;
         trades.push({ side: position.side, entry: position.entry, exit: px, pnl, size: position.size, entryIdx: position.entryIdx, exitIdx: i, bars: i - position.entryIdx });
         position = null;
@@ -211,7 +215,9 @@ export function runBacktest({ candles, strategyFn, initialCapital = 10000, feeRa
   if (position) {
     const px = +candles[candles.length - 1][4];
     const dir = position.side === 'long' ? 1 : -1;
-    const pnl = dir * (px - position.entry) / position.entry * position.size - position.size * feeRate * 2;
+    const fillEntry = position.side === 'long' ? position.entry * (1 + SLIPPAGE) : position.entry * (1 - SLIPPAGE);
+    const fillExit = position.side === 'long' ? px * (1 - SLIPPAGE) : px * (1 + SLIPPAGE);
+    const pnl = dir * (fillExit - fillEntry) / fillEntry * position.size - position.size * feeRate * 2;
     cash += pnl;
     trades.push({ side: position.side, entry: position.entry, exit: px, pnl, size: position.size, entryIdx: position.entryIdx, exitIdx: candles.length - 1, bars: candles.length - 1 - position.entryIdx });
   }
@@ -240,6 +246,9 @@ export function computeMetrics(result) {
   const mean = rets.reduce((s, r) => s + r, 0) / (rets.length || 1);
   const variance = rets.reduce((s, r) => s + (r - mean) ** 2, 0) / (rets.length || 1);
   const tstat = variance > 0 ? mean / Math.sqrt(variance / (rets.length || 1)) : 0;
+  // Sharpe (per-trade, annualized-ish): mean / std of returns
+  const std = Math.sqrt(variance);
+  const sharpe = std > 0 ? mean / std : 0;
   // max drawdown from equity curve
   let peak = -Infinity, maxDD = 0;
   for (const e of equityCurve) {
@@ -250,7 +259,7 @@ export function computeMetrics(result) {
   return {
     trades: n, wins: wins.length, losses: losses.length,
     winRate, profitFactor: pf, expectancy, expectancyPctPerTrade: avgPct,
-    tstat, maxDrawdown: maxDD,
+    tstat, sharpe, maxDrawdown: maxDD,
     finalCapital, initialCapital, returnPct: (finalCapital - initialCapital) / initialCapital,
   };
 }

@@ -1,46 +1,38 @@
-# Genesis Quant Lab — Entregable
+# Genesis Quant Lab — Entregable (Plan de Mejora aplicado)
 
-El "Genesis Terminal" más poderoso del repo: un laboratorio cuant que busca
-edges en **datos reales de Binance**, los valida contra los **6 gates** y los
-somete a **walk-forward anti-overfit**. PAPER ONLY por defecto.
+El "Genesis Terminal" más poderoso del repo: laboratorio cuant que busca edges
+en **datos reales de Binance (527 pares)**, los valida contra los 6 gates +
+Sharpe, y los somete a walk-forward anti-overfit. PAPER ONLY por defecto.
+Diseñado para **aprender infinitamente** y capturar ganancias diarias pequeñas
+reinvertidas (compounding).
 
 ## Archivos (server/genesis/)
 | Archivo | Qué hace |
 |---|---|
-| `backtestCore.mjs` | Motor honesto: costos 0.10% RT, SMA/EMA/RSI/ATR/Bollinger/Donchian/ADX, métricas + 6-gate evaluator |
-| `strategyLib.mjs` | Familias meanReversion (con filtro ADX de régimen), breakout, momentum |
-| `evolutionLoops.mjs` | Búsqueda poblacional (`/prompt-evolution-loops`): seed → evaluar (backtest real) → mutar elites |
-| `metaStrategyEvolve.mjs` | GENERATOR→CRITIC→MUTATOR a nivel agente (híbridos de elites) |
-| `ccxtFeed.mjs` | Datos reales vía **ccxt** (librería #1 GitHub, 100+ exchanges). PAPER + real GATED |
+| `backtestCore.mjs` | Motor honesto: **fee 0.10% + slippage 0.05%**, SMA/EMA/RSI/ATR/BB/DC/ADX, métricas + **Sharpe** + 6-gate evaluator |
+| `strategyLib.mjs` | 5 familias (meanReversion +filtro ADX, breakout, momentum, orderbookImbalance, volumeProfile) |
+| `evolutionLoops.mjs` | Búsqueda poblacional (/prompt-evolution-loops) |
+| `metaStrategyEvolve.mjs` | GENERATOR→CRITIC→MUTATOR a nivel agente |
+| `ccxtFeed.mjs` | Datos reales vía **ccxt** (librería #1 GitHub). PAPER + real GATED |
 | `genesisTerminal.mjs` | REPL + `--backtest/--evolve/--multi` |
-| `oosValidator.mjs` | Walk-forward honesto (anti-overfit) |
-| `fundingArbValidator.mjs` | Valida funding arbitrage delta-neutral en datos reales |
-| `fundingScanner.mjs` | Escanea 53 pares buscando edge de funding real post-fees |
+| `oosValidator.mjs` | Walk-forward anti-overfit |
+| `adaptiveEngine.mjs` | **Motor adaptativo** (trade-the-regime): ventana móvil, despliega solo si OOS reciente validado |
+| `adaptiveFundingEngine.mjs` | Funding adaptativo estacional (persiste regime-history en learnings.json) |
+| `learningLoop.mjs` | **El aprendiz infinito**: escanea 527 pares, MULTI-TIMEFRAME (1h/15m/5m), compone capital, persiste `learnings.json` (edges + regime-history) |
+| `fundingArbValidator.mjs` / `fundingScanner.mjs` / `fundingWatch.mjs` | Medición de edge de funding real |
 
-## Uso
-```bash
-node server/genesis/genesisTerminal.mjs --backtest COTIUSDT 1h 360 meanReversion '{"adxMax":25}'
-node server/genesis/genesisTerminal.mjs --evolve BTCUSDT 1h 360 12
-node server/genesis/genesisTerminal.mjs --multi BTCUSDT ETHUSDT SOLUSDT COTIUSDT XLMUSDT 1h 360 14
-node server/genesis/oosValidator.mjs COTIUSDT meanReversion '<paramsJson>'
-node server/genesis/fundingScanner.mjs
-```
+## Mejoras aplicadas en este plan
+1. **Multi-timeframe** en learning loop: pares líquidos se escanean en 1h+15m+5m → más edges diarios pequeños (visión de 1-10 USD/día).
+2. **Aprendizaje infinito real**: `learnings.json` guarda regime-history por par (TA + funding) y capital compuesto simulado. Cada ciclo rankea más inteligente.
+3. **Score por consistencia**: no solo PF, también fracción de ventanas positivas → descarta edges frágiles.
+4. **Slippage real + Sharpe** en backtestCore: backtests más honestos y score más inteligente.
+5. **Cron diario** `Genesis Learning Loop` + **cron 6h** `Genesis Funding Edge Watcher` vigilan y aprenden solos.
 
 ## Resultados REALES (verificados, datos Binance)
-- Evolución 360d multi-par v1: COTIUSDT meanReversion encontró **GO=true en 180d** (PF 2.16, WR 62%) pero walk-forward lo **rechazó** (régimen cambió, folds tardíos <5 trades).
-- **v2 (5 familias: +orderbookImbalance, +volumeProfile)**: `volumeProfile` (reversión a VWAP) es la más prometedora — ETHUSDT PF=1.28/WR=68%, BTCUSDT PF=1.42. Pero walk-forward de 360d **también lo rechaza** (deja de operar en régimen reciente).
-- 3 familias clásicas en 1h/15m: ninguna pasa los 6 gates robustamente con >50 trades.
-- Funding arbitrage (53 pares, 500 eventos reales c/u): **0 pares con edge positivo post-fees**. Régimen alcista actual → pagas funding.
-- **Veredicto**: en el régimen de mercado actual no hay edge robusto y simple. El sistema está listo para detectarlo cuando cambie (cron fundingWatch + re-evolución).
-
-## Conclusión honesta
-El laboratorio funciona y es riguroso. La verdad empírica: **en el régimen de
-mercado actual, no hay edge fácil** en estas estrategias. Eso es información
-que te ahorra quemar capital real. El sistema está listo para cuando aparezca
-un régimen con edge (bajista → funding negativo frecuente → el scanner lo
-detectará solo).
+- Adaptive engine + learning loop escanean 527 pares multi-TF: **0 deployados hoy**. Régimen actual (alcista) no da edge de reversion. Motor FLAT, honesto.
+- Funding adaptativo (12 pares): **0/12 deployables**. Mercado paga funding.
+- Veredicto: el sistema está vivo, aprendiendo y listo. Cuando el régimen gire (bajista → funding negativo), lo detectará y desplegará. Ese es el money printer estacional.
 
 ## Seguridad (base no negociable)
-- `REAL_TRADING=false` por defecto. Ejecución real requiere flag + `GENESIS_API_KEY`/`SECRET` + confirmación humana.
-- `ccxtFeed.requestRealOrder` NUNCA firma sin aprobación manual.
-- Cero datos falsos: todo sale de APIs/backtests reales.
+- `REAL_TRADING=false`. Ejecución real requiere flag + keys + confirmación humana + kill switch.
+- `ccxtFeed` NUNCA firma sin aprobación manual. Cero datos falsos.

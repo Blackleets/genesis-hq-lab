@@ -8,9 +8,14 @@
 // 2x fees) is positive on recent data. When the regime flips bullish (pay),
 // it goes FLAT. That is trade-the-regime, honestly.
 //
+// Persists regime-history into learnings.json so the learner knows, across
+// cycles, WHICH pairs tend to flip into collectable regimes (infinite learning).
+//
 // Uses REAL Binance fundingRate history (no key). PAPER analysis. The deploy
 // decision is what you'd wire to real execution later (with human GO).
 
+import { readFileSync, writeFileSync } from 'node:fs';
+const LEARNINGS_PATH = new URL('./learnings.json', import.meta.url);
 const FEE_TAKER = 0.0004;
 
 async function getFundingHistory(pair, limit) {
@@ -41,18 +46,27 @@ function simulate(history, capital = 1000) {
   return { trades, equityCurve: eqc, finalCapital: eq, initialCapital: capital };
 }
 
+function loadLearnings() {
+  try { return JSON.parse(readFileSync(LEARNINGS_PATH)) ?? { edges: {}, regimes: {}, totalCycles: 0, capital: 1000 }; }
+  catch { return { edges: {}, regimes: {}, totalCycles: 0, capital: 1000 }; }
+}
+function saveLearnings(l) { writeFileSync(LEARNINGS_PATH, JSON.stringify(l, null, 2)); }
+
 export async function runAdaptiveFunding({ pairs = ['COTIUSDT','XLMUSDT','SOLUSDT','BNBUSDT','ETHUSDT','BTCUSDT','ADAUSDT','AVAXUSDT','DOGEUSDT','LINKUSDT','MATICUSDT','DOTUSDT'], lookback = 500, recentN = 100 } = {}) {
   console.log(`\n💸 ADAPTIVE FUNDING ENGINE — scanning ${pairs.length} pairs (REAL Binance funding)`);
   console.log(`Lookback ${lookback} events, deploy decision on last ${recentN} events.\n`);
+  const learnings = loadLearnings();
   const deployments = [];
   for (const pair of pairs) {
     const hist = await getFundingHistory(pair, lookback);
     if (!hist || hist.length < recentN) continue;
     const recent = hist.slice(-recentN);
     const recentEdge = edgeOf(recent);
-    const fullEdge = edgeOf(hist);
     const res = simulate(hist);
     const deploy = recentEdge.edge > 0;
+    // persist funding regime history for the learner
+    const prev = learnings.regimes[pair]?.funding || [];
+    learnings.regimes[pair] = { ...(learnings.regimes[pair] || {}), funding: [...prev, +recentEdge.edge.toFixed(3)].slice(-20) };
     if (deploy) {
       deployments.push({ pair, edge: +recentEdge.edge.toFixed(3), negPct: +recentEdge.negPct.toFixed(0), retPct: +(res.returnPct * 100).toFixed(1) });
       console.log(`  ✅ DEPLOY ${pair.padEnd(11)} recentEdge=${recentEdge.edge.toFixed(3)}% negEvents=${recentEdge.negPct}% fullRet=${deployments[deployments.length-1].retPct}%`);
@@ -64,6 +78,7 @@ export async function runAdaptiveFunding({ pairs = ['COTIUSDT','XLMUSDT','SOLUSD
   console.log(`Deployable now: ${deployments.length}/${pairs.length}`);
   if (deployments.length) console.log(`→ These pairs are COLLECTING funding in the recent window. Paper-test, then real with tiny size + kill switch.`);
   else console.log(`→ No pair has a positive recent funding edge. Market is bullish/neutral (paying). Engine waits.`);
+  saveLearnings(learnings);
   return { deployments };
 }
 
