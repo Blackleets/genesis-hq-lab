@@ -26,6 +26,7 @@ const SLEEP_MS = Number(process.env.FT_SLEEP_MS || 60000);
 const MAX_DRAW = Number(process.env.FT_MAX_DRAW || 0.015);
 const RUN_MIN = Number(process.env.FT_MINUTES || 60);
 const LOOP = process.env.FT_LOOP !== 'false';
+const FUNDING_MS = 8 * 3600 * 1000;
 
 // Top validated pairs (from fundingArb.mjs on REAL data). Keep the best.
 const BEST = ['COTIUSDT','RIFUSDT','OGNUSDT','AUDIOUSDT','LUNAUSDT','STORJUSDT','FETUSDT','COMPUSDT','TRXUSDT','ATOMUSDT','INJUSDT','DOTUSDT'];
@@ -80,7 +81,6 @@ async function cycle(cycleIdx) {
   // moves on real funding settlements.
   const REBALANCE_CYCLES = Number(process.env.FT_REBALANCE || 5);
   const doRebalance = cycleIdx > 0 && cycleIdx % REBALANCE_CYCLES === 0;
-  const FUNDING_MS = 8 * 3600 * 1000;
   for (const pair of PAIRS) {
     const s = state[pair];
     try {
@@ -101,35 +101,35 @@ async function cycle(cycleIdx) {
           logEvent(pair, 'PROTECT', { reason: 'drawdown>'+(MAX_DRAW*100)+'%', equity: +s.equity.toFixed(2), live: false });
           s.pos = null; s.peak = s.equity; s.lastFundingTime = 0; s.lastCollectTs = 0;
         }
-      } else if (s.pos && !settled) {
-        // PAPER only: accrue the funding earned since the last collect, using
-        // the REAL Binance rate and elapsed time. Honest partial income — no
-        // double count (resets lastCollectTs each cycle). LIVE keeps strict
-        // 8h settlement only.
-        if (!LIVE_MODE) {
-          const nowts = Date.now();
-          const since = s.lastCollectTs ? (nowts - s.lastCollectTs) : 0;
-          const frac = Math.min(1, Math.max(0, since / FUNDING_MS));
-          const fundingPnl = Math.abs(rate) * s.notional * frac;
-          if (fundingPnl > 1e-6 && s.lastCollectTs) {
-            s.equity += fundingPnl;
-            logEvent(pair, 'FUNDING', { side: s.pos, pnl: +(fundingPnl).toFixed(4), equity: +s.equity.toFixed(2), rate: +rate.toFixed(5), live: false, paperAccrual: true });
-            s.peak = Math.max(s.peak, s.equity);
-            s.lastCollectTs = nowts;
-          }
-        }
       }
       // (re)establish position if side changed, OR periodic rebalance refresh
       if (doRebalance && s.pos) {
         logEvent(pair, 'FLAT', { reason: 'rebalance', equity: +s.equity.toFixed(2), live: false });
-        s.pos = null; s.lastFundingTime = 0;
+        s.pos = null; s.lastFundingTime = 0; s.lastCollectTs = 0;
       }
       if (want && want !== s.pos) {
         s.pos = want; s.notional = s.equity; s.lastFundingTime = fundingTime;
+        if (!s.lastCollectTs) s.lastCollectTs = Date.now() - FUNDING_MS;
         logEvent(pair, 'OPEN', { side: want, equity: +s.equity.toFixed(2), live: false });
       } else if (!want && s.pos) {
-        s.pos = null; s.lastFundingTime = 0;
+        s.pos = null; s.lastFundingTime = 0; s.lastCollectTs = 0;
         logEvent(pair, 'FLAT', { equity: +s.equity.toFixed(2), live: false });
+      }
+      // PAPER only: accrue the funding earned since the last collect, using
+      // the REAL Binance rate and elapsed time. Runs AFTER position is set so
+      // the first cycle also collects. Honest partial income — resets
+      // lastCollectTs each cycle, no double count. LIVE keeps strict 8h.
+      if (!LIVE_MODE && s.pos) {
+        const nowts = Date.now();
+        const since = s.lastCollectTs ? (nowts - s.lastCollectTs) : 0;
+        const frac = Math.min(1, Math.max(0, since / FUNDING_MS));
+        const fundingPnl = Math.abs(rate) * s.notional * frac;
+        if (fundingPnl > 1e-6 && s.lastCollectTs) {
+          s.equity += fundingPnl;
+          logEvent(pair, 'FUNDING', { side: s.pos, pnl: +(fundingPnl).toFixed(4), equity: +s.equity.toFixed(2), rate: +rate.toFixed(5), live: false, paperAccrual: true });
+          s.peak = Math.max(s.peak, s.equity);
+          s.lastCollectTs = nowts;
+        }
       }
     } catch (e) { /* skip pair this cycle */ }
     total += s.equity;
