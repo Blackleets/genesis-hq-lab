@@ -13,13 +13,23 @@ function randParamSpace(kind) {
   if (kind === 'meanReversion') return {
     rsiPeriod: 14, rsiLow: 28 + Math.floor(Math.random() * 10), rsiHigh: 64 + Math.floor(Math.random() * 10),
     bbPeriod: 20, bbMult: 2, slMult: 1.2 + Math.round(Math.random() * 2) / 2, tpMult: 1.5 + Math.round(Math.random() * 2) / 2,
-    atrMinPct: 0.002 + Math.round(Math.random() * 4) / 1000,
+    atrMinPct: 0.0005 + Math.round(Math.random() * 3) / 1000, adxMax: 18 + Math.floor(Math.random() * 20),
   };
   if (kind === 'breakout') return {
     donchianPeriod: 10 + Math.floor(Math.random() * 30), slMult: 1.2 + Math.round(Math.random() * 2) / 2,
-    tpMult: 1.5 + Math.round(Math.random() * 2) / 2, atrMinPct: 0.002 + Math.round(Math.random() * 4) / 1000,
+    tpMult: 1.5 + Math.round(Math.random() * 2) / 2, atrMinPct: 0.0005 + Math.round(Math.random() * 3) / 1000,
   };
-  return { fast: 9, slow: 21, slMult: 1.2 + Math.round(Math.random() * 2) / 2, tpMult: 1.5 + Math.round(Math.random() * 2) / 2, atrMinPct: 0.002 + Math.round(Math.random() * 4) / 1000 };
+  if (kind === 'volumeProfile') return {
+    vwapLookback: 12 + Math.floor(Math.random() * 40), devPct: 0.003 + Math.round(Math.random() * 4) / 1000,
+    slMult: 1.2 + Math.round(Math.random() * 2) / 2, tpMult: 1.5 + Math.round(Math.random() * 2) / 2,
+    atrMinPct: 0.0005 + Math.round(Math.random() * 3) / 1000, adxMax: 18 + Math.floor(Math.random() * 20),
+  };
+  if (kind === 'orderbookImbalance') return {
+    volLookback: 12 + Math.floor(Math.random() * 28), volMult: 1.4 + Math.round(Math.random() * 3) / 2,
+    slMult: 1.2 + Math.round(Math.random() * 2) / 2, tpMult: 1.5 + Math.round(Math.random() * 2) / 2,
+    atrMinPct: 0.0005 + Math.round(Math.random() * 3) / 1000, adxMax: 18 + Math.floor(Math.random() * 20),
+  };
+  return { fast: 9, slow: 21, slMult: 1.2 + Math.round(Math.random() * 2) / 2, tpMult: 1.5 + Math.round(Math.random() * 2) / 2, atrMinPct: 0.0005 + Math.round(Math.random() * 3) / 1000 };
 }
 
 function mutate(params) {
