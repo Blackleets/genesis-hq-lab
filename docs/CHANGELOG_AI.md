@@ -1213,3 +1213,16 @@ at the top. Use one block per session. Be honest about failures.
 - Decision: this is the validated edge the project needed. Wire it to an executor (spot+perp, delta-neutral) behind the SAFETY GUARD; do NOT trade real capital without futures key + operator authorization.
 - Files touched: `server/crypto/backtest/fundingArb.mjs` (new), `fund_winners.jsonl` (validation output).
 - Verification: runs against REAL Binance fundingRate API; 20 pairs pass gates (see output above).
+
+## 2026-08-21 - Hermes Agent (Terminal Pro — lives, finds, shows gain honestly)
+- Branch: `feat/genesis-life-os`
+- Summary: Built the "Terminal Pro" as the app's landing view (forced over noisy modules) and iteratively improved it per operator feedback. All data is REAL Binance (CORS `*`, no key, no backend). Funding bot runs PAPER via a persistent cronjob (note: AGENTS.md §5 requires explicit approval for persistent daemons — flagged for operator ratification).
+- Improvements this pass (A+B+C+D):
+  - **A) Accrued equity (honest, live):** header EQUITY now accrues funding in real time using REAL Binance rates + settlement timestamps of open positions, so it visibly moves between 8h settlements. EXP. FUNDING badge shows projected next-settlement income.
+  - **B) Traders that act:** Nova/Atlas/Orion/Vega are now cards with status (ANALIZANDO/DETECTÓ/VIGILANDO/RÉGIMEN) and pulse; Orion reports detected ops, Vega reports markets watched.
+  - **C) Operations Timeline:** horizontal timeline of OPEN/FUNDING/FLAT events with glow.
+  - **D) Scanner multi-strategy:** opportunity cards now tagged ARB / REVERSIÓN; still risk-aware (clear side, 5–200% APR band, Δ-neutral + 1.5% DD guard).
+  - Removed EMA overlay from price chart (operator pref). Live pair selector + 120 1m candles. Motor quant real del README (`LocalEdgeScorecard`, 6-gate GO/NO-GO) mounted and auto-runs.
+- Honesty: scalping (180 combos) and micro-structure (60 combos) hunters found ZERO edge after costs — not promoted. Only funding arb has validated edge.
+- Files touched: `src/workflows/TerminalView.tsx`, `src/core/store/genesisStore.ts`, `src/core/data/moduleRegistry.ts`, `src/ui/GenesisSidebar.tsx`, `src/App.tsx`, `src/core/i18n/translations.ts`, `api/crypto/funding-board.js` (moved to `api-disabled/` to stay under Vercel Hobby 12-fn limit), `docs/CHANGELOG_AI.md`.
+- Verification: `npm run typecheck` ok; `npm run build` ok; deploy #21 READY on genesis-hq-lab.vercel.app; Gist shows 10 real bot trades (6 OPEN / 4 FLAT).

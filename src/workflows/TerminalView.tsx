@@ -123,27 +123,62 @@ const TRADERS = [
   { id: 'vega', name: 'Vega', role: 'Regime', color: '#a855f7' },
 ];
 
-function TradersPanel({ pair, rate, side, price, es, opps }: { pair: string; rate: number; side: string; price: number | null; es: boolean; opps: BoardRow[] }) {
-  const lines: Record<string, string> = {
-    nova: price != null ? `${pair} ${price < price * 1.001 ? '▼' : '▲'} en el canal donchian — buscando breakout.` : 'cargando precio…',
-    atlas: rate !== 0 ? `funding ${(rate * 100).toFixed(3)}% — rango activo, reversión lista.` : 'sin sesgo de rango.',
+function TraderCard({ t, status, line, pulse }: { t: typeof TRADERS[number]; status: string; line: string; pulse: boolean }) {
+  return (
+    <div className="border border-zinc-800/70 rounded px-2 py-1.5 bg-[#0d111a]">
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1.5">
+          <span className={`inline-block w-2 h-2 rounded-full ${pulse ? 'animate-pulse' : ''}`} style={{ background: t.color }} />
+          <span className="font-bold text-[12px]" style={{ color: t.color }}>{t.name}</span>
+          <span className="text-[9px] text-zinc-600">{t.role}</span>
+        </span>
+        <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">{status}</span>
+      </div>
+      <div className="text-[10px] text-zinc-400 leading-snug mt-0.5">{line}</div>
+    </div>
+  );
+}
+
+function Timeline({ trades, now }: { trades: Trade[]; now: number }) {
+  const evs = trades.slice(-14).map((t) => ({ ...t, ts: t.t ?? 0 }));
+  if (evs.length === 0) return <div className="text-[11px] text-zinc-600 px-1 py-3">—</div>;
+  const min = evs[0].ts, max = Math.max(now, evs[evs.length - 1].ts);
+  const span = max - min || 1;
+  return (
+    <div className="px-3 py-3">
+      <div className="relative h-8">
+        <div className="absolute top-1/2 left-0 right-0 h-px bg-zinc-800" />
+        {evs.map((e, i) => {
+          const x = 8 + ((e.ts - min) / span) * 100;
+          const col = COLOR[e.event] || '#64748b';
+          return (
+            <div key={i} className="absolute -translate-x-1/2" style={{ left: `${x}%`, top: 0 }}>
+              <div className="w-2.5 h-2.5 rounded-full mx-auto" style={{ background: col, boxShadow: `0 0 6px ${col}` }} />
+              <div className="text-[8px] text-zinc-500 mt-1 whitespace-nowrap">{e.pair}</div>
+              <div className="text-[8px]" style={{ color: col }}>{e.event}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function TradersPanel({ pair, rate, side, price, es, opps, openPairs }: { pair: string; rate: number; side: string; price: number | null; es: boolean; opps: BoardRow[]; openPairs: string[] }) {
+  const Lines: Record<string, { status: string; line: string; pulse: boolean }> = {
+    nova: { status: 'ANALIZANDO', pulse: true, line: price != null ? `${pair} ${price < price * 1.001 ? '▼' : '▲'} en canal donchian — buscando breakout.` : 'cargando precio…' },
+    atlas: { status: 'ANALIZANDO', pulse: true, line: rate !== 0 ? `funding ${(rate * 100).toFixed(3)}% — rango activo, reversión lista.` : 'sin sesgo de rango.' },
     orion: opps.length > 0
-      ? `detecté ${opps.length} ops de funding. top: ${opps[0].pair} ${(opps[0].annualPct).toFixed(0)}% APR.`
-      : 'escaneando funding… sin ops claras aún.',
-    vega: `régimen: ${side === 'neutral' ? (es ? 'lateral' : 'range') : (es ? 'tendencia' : 'trend')} · vigilando ${opps.length > 0 ? opps.length : 44} mercados.`,
+      ? { status: 'DETECTÓ', pulse: true, line: `${opps.length} ops funding. top ${opps[0].pair} ${opps[0].annualPct.toFixed(0)}% APR.` }
+      : { status: 'VIGILANDO', pulse: false, line: `escaneando ${openPairs.length} mercados abiertos…` },
+    vega: { status: 'RÉGIMEN', pulse: false, line: `${side === 'neutral' ? (es ? 'lateral' : 'range') : (es ? 'tendencia' : 'trend')} · ${openPairs.length} mercados.` },
   };
   return (
-    <div className="space-y-2 px-3 py-2">
-      {TRADERS.map((t) => (
-        <div key={t.id} className="flex items-start gap-2 text-[11px]">
-          <span className="mt-1 inline-block w-2 h-2 rounded-full shrink-0 animate-pulse" style={{ background: t.color }} />
-          <div>
-            <span className="font-bold" style={{ color: t.color }}>{t.name}</span>
-            <span className="text-zinc-600 ml-1">{t.role}</span>
-            <div className="text-zinc-400 leading-snug">{lines[t.id as keyof typeof lines]}</div>
-          </div>
-        </div>
-      ))}
+    <div className="space-y-1.5 px-2 py-2">
+      {TRADERS.map((t) => {
+        const s = Lines[t.id as keyof typeof Lines];
+        return <TraderCard key={t.id} t={t} status={s.status} line={s.line} pulse={s.pulse} />;
+      })}
     </div>
   );
 }
@@ -185,16 +220,29 @@ export default function TerminalView() {
 
   const trades = exec.trades || [];
   const startCapital = 50;
-  const equity = (exec.total ?? startCapital);
-  const pnl = equity - startCapital;
-  const pnlPct = pnl / startCapital;
-  const fundingEvents = trades.filter((t) => t.event === 'FUNDING');
-  const fundingPaid = fundingEvents.reduce((s, t) => s + (t.pnl ?? 0), 0);
+
   // Open positions: last event per pair is OPEN (not followed by FLAT).
   const lastByPair = new Map<string, string>();
   trades.forEach((t) => lastByPair.set(t.pair, t.event));
   const openPairs = [...lastByPair.entries()].filter(([, e]) => e === 'OPEN').map(([p]) => p);
   const openCount = openPairs.length;
+
+  // Accrued equity (honest, live): base + funding accrued so far this period
+  // on currently-open positions, using REAL Binance rates + settlement times.
+  // Moves every tick between settlements; realized at next fundingTime.
+  const FUNDING_MS = 8 * 3600 * 1000;
+  const accrued = openPairs.reduce((sum, p) => {
+    const r = board.find((x) => x.pair === p);
+    if (!r || !r.nextMs || r.nextMs === Infinity) return sum;
+    const lastSettle = r.nextMs - FUNDING_MS;
+    const frac = Math.min(1, Math.max(0, (now - lastSettle) / FUNDING_MS));
+    return sum + Math.abs(r.rate) * startCapital * frac;
+  }, 0);
+  const equity = (exec.total ?? startCapital) + accrued;
+  const pnl = equity - startCapital;
+  const pnlPct = pnl / startCapital;
+  const fundingEvents = trades.filter((t) => t.event === 'FUNDING');
+  const fundingPaid = fundingEvents.reduce((s, t) => s + (t.pnl ?? 0), 0);
   // Expected funding income at NEXT settlement if positions hold — REAL Binance
   // rates, honest projection (not realized PnL). per-pair notional = paper $50.
   const NOTIONAL = startCapital;
@@ -203,7 +251,6 @@ export default function TerminalView() {
     return sum + (r ? Math.abs(r.rate) * NOTIONAL : 0);
   }, 0);
   const uptimeMin = Math.floor((now - startRef.current) / 60000);
-
   // nearest settlement across board
   const nextSettle = board.reduce((m, r) => Math.min(m, r.nextMs), Infinity);
 
@@ -276,7 +323,7 @@ export default function TerminalView() {
             <PriceChart data={klines} />
           </Panel>
           <Panel title={es ? 'Traders' : 'Traders'}>
-            <TradersPanel pair={selectedPair} rate={selRow?.rate ?? 0} side={selRow?.side ?? 'neutral'} price={lastPrice} es={es} opps={opps} />
+            <TradersPanel pair={selectedPair} rate={selRow?.rate ?? 0} side={selRow?.side ?? 'neutral'} price={lastPrice} es={es} opps={opps} openPairs={openPairs} />
           </Panel>
         </div>
       </div>
@@ -371,11 +418,18 @@ export default function TerminalView() {
                     <span className={`text-[10px] ${o.rate >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{o.annualPct.toFixed(0)}% APR</span>
                   </div>
                   <div className="text-[10px] text-cyan-400">{o.side === 'neutral' ? '—' : o.side}</div>
-                  <div className="text-[10px] text-zinc-500 mt-0.5">próx {fmtTime(o.nextMs)}</div>
+                  <div className="text-[9px] text-zinc-500 mt-0.5">
+                    {o.rate < 0 ? 'REVERSIÓN' : 'ARB'} · próx {fmtTime(o.nextMs)}
+                  </div>
                 </div>
               ))}
             </div>
           </div>
+        </Panel>
+
+        {/* OPERATIONS TIMELINE — when the bot acted */}
+        <Panel title={es ? 'Línea de Tiempo de Operaciones' : 'Operations Timeline'} className="lg:col-span-3">
+          <Timeline trades={trades} now={now} />
         </Panel>
       </div>
 
