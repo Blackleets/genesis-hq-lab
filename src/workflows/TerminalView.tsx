@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLanguage } from '@core/i18n/languageStore';
 import LocalEdgeScorecard from '@workflows/LocalEdgeScorecard';
 
-type Exec = { mode?: string; total?: number; trades?: Trade[] };
+type Exec = { mode?: string; total?: number; start?: number; trades?: Trade[] };
 type Trade = {
   t: number; pair: string; event: 'OPEN' | 'TP' | 'SL' | 'FUNDING' | 'PROTECT' | 'FLAT';
   side?: string; pnl?: number; equity?: number; rate?: number; reason?: string;
@@ -219,7 +219,7 @@ export default function TerminalView() {
   }, [selectedPair]);
 
   const trades = exec.trades || [];
-  const startCapital = 50;
+  const startCapital = exec.start ?? 10000;
 
   // Open positions: last event per pair is OPEN (not followed by FLAT).
   const lastByPair = new Map<string, string>();
