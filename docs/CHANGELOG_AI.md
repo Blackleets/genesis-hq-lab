@@ -1236,3 +1236,12 @@ at the top. Use one block per session. Be honest about failures.
 - Honesty: this is PAPER simulation of funding income using REAL Binance rates — no real money, no real orders. Clearly labeled PAPER everywhere.
 - Files touched: `server/crypto/backtest/fundingTrader.mjs`, `src/workflows/TerminalView.tsx`, `docs/CHANGELOG_AI.md`.
 - Verification: `npm run typecheck` ok; `npm run build` ok; deploy #23 pending. Gist will show FUNDING events after next cron run (every 9m).
+
+## 2026-08-21 - Hermes Agent (fixes: bot PAPER accrual, gist push, equity=start+funded)
+- Branch: `feat/genesis-life-os`
+- Summary: Fixed the funding bot so it actually COLLECTS PAPER funding every run (operator wanted to SEE it working). Root causes fixed: (1) `FUNDING_MS` used before module-level declaration → moved to top; (2) missing `}` closing the `if (s.pos && settled)` block broke the try/catch → added; (3) PAPER accrual ran before position existed (first cycle collected nothing) → moved accrual AFTER open; (4) gist push used `gh api -f files[...][content]=${content}` which shell-quoted wrong → switched to `gh api --input -` (now updates reliably).
+- `TerminalView.tsx`: equity now = startCapital + sum(all FUNDING pnl) so it GROWS visibly each run (bot resets per-pair state each launch, so exec.total is not authoritative; the trades array is). COBRADO = fundingPaid grows with every collected FUNDING event.
+- Verification: ran bot locally (FT_LOOP=false) → wrote FUNDING events to data/executions.json (ONG pnl 0.0199, COTI 0.0118); gist push now reflects FUNDING events via API; cronjob runs one cycle every 9m and pushes.
+- Honesty: PAPER simulation of funding income using REAL Binance rates. No real money, no real orders. AGENTS.md §5 cronjob operator-ratified.
+- Files touched: `server/crypto/backtest/fundingTrader.mjs`, `server/crypto/backtest/pushExecGist.mjs`, `src/workflows/TerminalView.tsx`, `docs/CHANGELOG_AI.md`.
+- Verification: `npm run typecheck` ok; `npm run build` ok; deploy #24 pending.

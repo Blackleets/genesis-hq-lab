@@ -239,13 +239,13 @@ export default function TerminalView() {
     const frac = Math.min(1, Math.max(0, (now - lastSettle) / FUNDING_MS));
     return sum + Math.abs(r.rate) * startCapital * frac;
   }, 0);
-  // Bot is the source of truth: exec.total already includes realized PAPER
-  // funding collected each run. equity = that, no double count.
-  const equity = (exec.total ?? startCapital);
-  const pnl = equity - startCapital;
-  const pnlPct = pnl / startCapital;
   const fundingEvents = trades.filter((t) => t.event === 'FUNDING');
   const fundingPaid = fundingEvents.reduce((s, t) => s + (t.pnl ?? 0), 0);
+  // Bot is the source of truth for realized PAPER funding (FUNDING events).
+  // equity = start + sum of all collected funding (grows visibly each run).
+  const equity = startCapital + fundingPaid;
+  const pnl = equity - startCapital;
+  const pnlPct = pnl / startCapital;
   // Expected funding income at NEXT settlement if positions hold — REAL Binance
   // rates, honest projection (not realized PnL). per-pair notional = paper $50.
   const NOTIONAL = startCapital;
