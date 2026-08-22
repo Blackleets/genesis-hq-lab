@@ -1288,3 +1288,8 @@ at the top. Use one block per session. Be honest about failures.
 - Nuevo: server/genesis/l2SpreadScanner.mjs — scan L2 en vivo vía ccxt sobre OKX/Bybit USDT perps.
 - Resultado REAL (medido): OKX 85/100 pares con spread neto positivo post-fees (APLD 54 bps, CRM 24.5); Bybit 91/100 (AMC 73.9, AAL 49.9).
 - Advertencia honesta: spread medido ≠ profit. Requiere paper-test de fill-rate antes de cualquier capital.
+
+## 2026-08-21 — Paper fill-rate test (MM edge medido: NO existe naive)
+- Nuevo: server/genesis/paperFillTester.mjs — reproduce flujo REAL de trades contra quotes best-of-book, sin llaves ni capital.
+- Resultado MEDIDO (120s por símbolo): AMC 74.7bps spread -> 0 fills; AAL 50.5bps -> 1 pata; BTC 0.01bps -> 23 fills / 11 RTs / -13bps netos.
+- Conclusión honesta: MM naive es perdedor en ambos extremos — ilíquidos sin flujo, líquidos con adverse selection. Edge requiere queue position + smart routing (fuera de alcance paper).
