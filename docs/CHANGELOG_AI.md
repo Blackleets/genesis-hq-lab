@@ -1293,3 +1293,9 @@ at the top. Use one block per session. Be honest about failures.
 - Nuevo: server/genesis/paperFillTester.mjs — reproduce flujo REAL de trades contra quotes best-of-book, sin llaves ni capital.
 - Resultado MEDIDO (120s por símbolo): AMC 74.7bps spread -> 0 fills; AAL 50.5bps -> 1 pata; BTC 0.01bps -> 23 fills / 11 RTs / -13bps netos.
 - Conclusión honesta: MM naive es perdedor en ambos extremos — ilíquidos sin flujo, líquidos con adverse selection. Edge requiere queue position + smart routing (fuera de alcance paper).
+
+## 2026-08-23 — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: Live PAPER runner (liveRunner.mjs) ejecutando la estrategia COTIUSDT 1h meanReversion validada contra datos reales Binance; estado persistente por par+timeframe en data/. Automatizado via cron horario (solo reporta eventos) + auditor semanal con veredicto kill-switch/edge-confirmado.
+- Files touched: server/genesis/liveRunner.mjs (nuevo)
+- Verification: node --check ok, scan unico en vivo ok (COTIUSDT px real obtenido), npm run build no requerido (modulo server aislado)
