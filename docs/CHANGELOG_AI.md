@@ -1283,3 +1283,8 @@ at the top. Use one block per session. Be honest about failures.
 - Files touched: `server/genesis/*` (7 archivos nuevos), `package.json` (dep ccxt), `docs/CHANGELOG_AI.md`.
 - Verification: backtests reales OK; `node --check` en los 6 módulos OK; `npm run typecheck` del repo NO roto; evolución multi-par corriendo en background (data/genesis_evolution_report.txt). SIN commit aún (pendiente de GO del usuario).
 - NOTA de seguridad: "ganar dinero de verdad" = edge validado en datos reales + GO humano. NO se firmará ni ejecutará orden real con dinero del usuario sin su confirmación explícita + llaves.
+
+## 2026-08-21 — L2 Real Spread Scanner (edge MEDIDO, no hipótesis)
+- Nuevo: server/genesis/l2SpreadScanner.mjs — scan L2 en vivo vía ccxt sobre OKX/Bybit USDT perps.
+- Resultado REAL (medido): OKX 85/100 pares con spread neto positivo post-fees (APLD 54 bps, CRM 24.5); Bybit 91/100 (AMC 73.9, AAL 49.9).
+- Advertencia honesta: spread medido ≠ profit. Requiere paper-test de fill-rate antes de cualquier capital.
