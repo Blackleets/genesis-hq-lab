@@ -1323,3 +1323,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Puente Optuna->backtestCore: evalCandidate.mjs (evaluador one-shot con cache de velas, fitness identico a evolutionLoops, verificado bit-a-bit vs evolucion: 13.306 vs 13.31) + scripts/optuna_evolve.py (TPE bayesiano multi-familia, estudio sqlite reanudable). Primera corrida real: 40 trials COTIUSDT 360d -> top fitness 23.61 (volumeProfile, 264 trades, gates 4/6) vs 13.31 del genetico. Walk-forward RECHAZO los top-3 (0/171 folds OOS) — in-sample overfit confirmado de nuevo; el gate OOS sigue siendo el filtro que protege.
 - Files touched: server/genesis/evalCandidate.mjs (nuevo), scripts/optuna_evolve.py (nuevo)
 - Verification: node --check ok; evaluador calibrado contra evolutionLoops (delta solo redondeo); optuna 4.9.0 instalado; 40 trials completados; oosValidator corrio sobre top candidates
+
+## 2026-08-23f — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: TradingView Lightweight Charts v5 integrado a QuantBotView: grafico de velas reales (endpoint /api/genesis/candles sobre klines Binance) con marcadores de entradas/salidas reales del bot paper (L/S, TP/SL + PnL). Paleta carbon segun DESIGN_DIRECTION.
+- Files touched: src/workflows/QuantChart.tsx (nuevo), src/workflows/QuantBotView.tsx, server/index.mjs, package.json
+- Verification: typecheck 0 errores; build ok (1m29s); curl /api/genesis/candles devuelve velas reales

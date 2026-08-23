@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import { useLanguage } from '@core/i18n/languageStore';
+import QuantChart, { type ChartCandle, type ChartTrade } from '@workflows/QuantChart';
 
 interface BotPosition {
   side: string;
@@ -147,6 +148,7 @@ export default function QuantBotView() {
   const [data, setData] = useState<LiveResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [botIdx, setBotIdx] = useState(0);
+  const [candles, setCandles] = useState<ChartCandle[]>([]);
 
   useEffect(() => {
     let alive = true;
@@ -164,6 +166,18 @@ export default function QuantBotView() {
     const id = setInterval(load, 30_000); // poll every 30s
     return () => { alive = false; clearInterval(id); };
   }, [es]);
+
+  // Candles for the selected bot's pair (real Binance klines).
+  useEffect(() => {
+    const pair = data?.bots?.[Math.min(botIdx, Math.max((data?.bots?.length ?? 1) - 1, 0))]?.pair;
+    if (!pair) return;
+    let alive = true;
+    fetch(`/api/genesis/candles?pair=${encodeURIComponent(pair)}&tf=1h&limit=300`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((j: { candles: ChartCandle[] }) => { if (alive) setCandles(j.candles ?? []); })
+      .catch(() => { if (alive) setCandles([]); });
+    return () => { alive = false; };
+  }, [botIdx, data?.bots]);
 
   const bots = data?.bots ?? [];
   // Prefer the requested tab; clamp if the backend returns fewer bots.
@@ -232,6 +246,22 @@ export default function QuantBotView() {
           <Metric label={es ? 'Retorno' : 'Return'} value={`${ret}%`} tone={parseFloat(ret) > 0 ? 'pos' : parseFloat(ret) < 0 ? 'neg' : undefined} />
           <Metric label="Trades" value={String(nTrades)} />
           <Metric label={es ? 'Win rate' : 'Win rate'} value={wr ? `${wr}%` : '—'} />
+        </section>
+
+        {/* Price chart — real candles + bot trade markers (TradingView LWC) */}
+        <section className="gx-card">
+          <header className="gx-card-head gx-card-title">
+            {es ? `Precio ${bot?.pair ?? ''} · 1h` : `${bot?.pair ?? ''} Price · 1h`}
+          </header>
+          {candles.length > 0 ? (
+            <div className="px-2 pb-2">
+              <QuantChart candles={candles} trades={(bot?.trades ?? []) as unknown as ChartTrade[]} />
+            </div>
+          ) : (
+            <div className="px-4 py-4 text-[12px] text-zinc-500">
+              {es ? 'Sin datos de velas — backend offline o par sin historial.' : 'No candle data — backend offline or pair without history.'}
+            </div>
+          )}
         </section>
 
         {/* Equity Curve — real points only; honest empty state otherwise */}

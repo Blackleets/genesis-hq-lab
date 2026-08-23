@@ -684,6 +684,23 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === '/api/genesis/candles') {
+    // Real candles for the Quant Lab chart (public Binance data via existing fetcher).
+    try {
+      const pair = (url.searchParams.get('pair') || 'COTIUSDT').toUpperCase();
+      const tf = url.searchParams.get('tf') || '1h';
+      const limit = Math.min(parseInt(url.searchParams.get('limit') || '300', 10) || 300, 1000);
+      const { fetchKlines } = await import('./crypto/backtest/historicalData.mjs');
+      const klines = await fetchKlines(pair, { days: Math.ceil(limit / 24) + 2, interval: tf });
+      const candles = klines.slice(-limit).map(k => ({
+        time: Math.floor(k[0] / 1000),
+        open: +k[1], high: +k[2], low: +k[3], close: +k[4],
+      }));
+      sendJson(res, 200, { ok: true, pair, tf, candles });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
   if (url.pathname === '/api/genesis/live') {
     // Genesis Quant Lab live state: ALL paper bots + treasury (read-only, no auth — public paper data).
     try {
