@@ -1329,3 +1329,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: TradingView Lightweight Charts v5 integrado a QuantBotView: grafico de velas reales (endpoint /api/genesis/candles sobre klines Binance) con marcadores de entradas/salidas reales del bot paper (L/S, TP/SL + PnL). Paleta carbon segun DESIGN_DIRECTION.
 - Files touched: src/workflows/QuantChart.tsx (nuevo), src/workflows/QuantBotView.tsx, server/index.mjs, package.json
 - Verification: typecheck 0 errores; build ok (1m29s); curl /api/genesis/candles devuelve velas reales
+
+## 2026-08-23g — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: QuantStats integrado: scripts/quantstats_tearsheet.py genera tearsheet HTML profesional (Sharpe, Sortino, maxDD, volatilidad) desde los trades REALES del estado del bot; con <5 trades emite insufficient_data sin fabricar stats (verificado con fixture temporal, luego limpiado). Auditor semanal actualizado para incluir tearsheet en el veredicto sabatino. Corridas Optuna grandes lanzadas en background: COTIUSDT 200 trials x 5 familias, XLMUSDT 100 trials x 3 familias.
+- Files touched: scripts/quantstats_tearsheet.py (nuevo)
+- Verification: tearsheet de prueba generado (374KB HTML con metricas) y eliminado; insufficient_data honesto con 0 trades; optuna runs activos en data/optuna_run200.log y data/optuna_xlm100.log
