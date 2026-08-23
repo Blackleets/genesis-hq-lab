@@ -1317,3 +1317,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Fase 2 del Quant Lab: (1) liveRunner usa workingCapital() de la tesoreria (20% del balance) como base inicial; (2) soporte multi-par con estados por par y API /api/genesis/live devolviendo bots[]; (3) equityCurve server-side (cap 500); (4) testnetExecutor.mjs gated dry-run (exige llaves + TESTNET=true + GENESIS_LIVE_GO.txt creado por humano); (5) QuantBotView migrada a bots[] con curva SVG de equity e indicador de salud del cron. Fix: returnPct usa initialEquity guardado.
 - Files touched: server/genesis/liveRunner.mjs, server/index.mjs, server/genesis/testnetExecutor.mjs (nuevo), src/workflows/QuantBotView.tsx, scripts genesis_live_runner.sh (perfil aragan)
 - Verification: node --check ok en los 3 .mjs; scan XLMUSDT+COTIUSDT ok (XLM equity=$30=150*0.2); curl /api/genesis/live devuelve bots.length=2 con contrato; typecheck ok; build ok (1m16s); executor dry-run confirmado sin llaves
+
+## 2026-08-23e — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: Puente Optuna->backtestCore: evalCandidate.mjs (evaluador one-shot con cache de velas, fitness identico a evolutionLoops, verificado bit-a-bit vs evolucion: 13.306 vs 13.31) + scripts/optuna_evolve.py (TPE bayesiano multi-familia, estudio sqlite reanudable). Primera corrida real: 40 trials COTIUSDT 360d -> top fitness 23.61 (volumeProfile, 264 trades, gates 4/6) vs 13.31 del genetico. Walk-forward RECHAZO los top-3 (0/171 folds OOS) — in-sample overfit confirmado de nuevo; el gate OOS sigue siendo el filtro que protege.
+- Files touched: server/genesis/evalCandidate.mjs (nuevo), scripts/optuna_evolve.py (nuevo)
+- Verification: node --check ok; evaluador calibrado contra evolutionLoops (delta solo redondeo); optuna 4.9.0 instalado; 40 trials completados; oosValidator corrio sobre top candidates
