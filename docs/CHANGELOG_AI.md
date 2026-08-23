@@ -1299,3 +1299,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Live PAPER runner (liveRunner.mjs) ejecutando la estrategia COTIUSDT 1h meanReversion validada contra datos reales Binance; estado persistente por par+timeframe en data/. Automatizado via cron horario (solo reporta eventos) + auditor semanal con veredicto kill-switch/edge-confirmado.
 - Files touched: server/genesis/liveRunner.mjs (nuevo)
 - Verification: node --check ok, scan unico en vivo ok (COTIUSDT px real obtenido), npm run build no requerido (modulo server aislado)
+
+## 2026-08-23b — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: Genesis Treasury — orquestación de depositos/retiros con flujo de dos pasos (request -> approve con token), whitelist de direcciones creada por el humano, ledger append-only, plan de asignacion (20% trading / 80% reserva) y cap de desk $500. Verificado end-to-end en paper.
+- Files touched: server/genesis/treasury.mjs (nuevo), data/genesis_treasury_whitelist.json (paper-only)
+- Verification: node --check ok; deposit 200 OK; withdraw bloqueado sin whitelist OK; withdraw+approve paper OK; ledger consistente
