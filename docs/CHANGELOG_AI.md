@@ -1353,3 +1353,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: derivativesContext.mjs — contexto de posicionamiento real mas alla de velas: Open Interest historico, ratio long/short global, taker buy/sell (delta oficial), Fear & Greed Index. Todo gratis sin API key, con cache 10min. Endpoint /api/genesis/context expuesto. Primera lectura real: COTI OI $7.79M (-0.22%), crowd neutral 0.73, taker bias 0.941, F&G 27.
 - Files touched: server/genesis/derivativesContext.mjs (nuevo), server/index.mjs
 - Verification: node --check ok; CLI context devuelve JSON real; endpoint curl verificado
+
+## 2026-08-23k — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: Serverless endpoints para Vercel: api/genesis/live.js (estado bots+treasury desde repo snapshot o Gist fallback), api/genesis/candles.js (klines reales Binance directas), api/genesis/context.js (OI/long-short/taker/F&G directo). Mismos contratos que el backend local — la vista QuantBotView funciona identica en Vercel.
+- Files touched: api/genesis/live.js (nuevo), api/genesis/candles.js (nuevo), api/genesis/context.js (nuevo)
+- Verification: node --check 3/3 ok; typecheck 0 errores; build ok (1m35s)
