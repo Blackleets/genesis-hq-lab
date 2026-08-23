@@ -684,6 +684,17 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === '/api/genesis/context') {
+    // Derivatives positioning context for a pair (real Binance futures data + Fear&Greed).
+    try {
+      const symbol = (url.searchParams.get('pair') || 'COTIUSDT').toUpperCase();
+      const { getContext } = await import('./genesis/derivativesContext.mjs');
+      const ctx = await getContext(symbol);
+      sendJson(res, 200, { ok: true, context: ctx });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
   if (url.pathname === '/api/genesis/candles') {
     // Real candles for the Quant Lab chart (public Binance data via existing fetcher).
     try {

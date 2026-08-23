@@ -1347,3 +1347,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Campana Optuna completa (COTI 200 trials x 5 familias + XLM 100 trials x 3). Tops in-sample fuertes (COTI volumeProfile fit=32.83, 486 trades; XLM meanReversion fit=28.10) pero walk-forward RECHAZO todos: 0/171 folds OOS en los 3 validados. Conclusion honesta: el edge in-sample de estas familias NO sobrevive out-of-sample en el regimen actual; el pipeline busca+rechaza correctamente. Paper 24/7 y auditor sabatino siguen como unica via de confirmacion empirica.
 - Files touched: ninguno nuevo (validacion)
 - Verification: oosValidator corrio sobre top1 COTI, top2 COTI y top1 XLM — todos RECHAZADOS con 0 folds pasados
+
+## 2026-08-23j — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: derivativesContext.mjs — contexto de posicionamiento real mas alla de velas: Open Interest historico, ratio long/short global, taker buy/sell (delta oficial), Fear & Greed Index. Todo gratis sin API key, con cache 10min. Endpoint /api/genesis/context expuesto. Primera lectura real: COTI OI $7.79M (-0.22%), crowd neutral 0.73, taker bias 0.941, F&G 27.
+- Files touched: server/genesis/derivativesContext.mjs (nuevo), server/index.mjs
+- Verification: node --check ok; CLI context devuelve JSON real; endpoint curl verificado
