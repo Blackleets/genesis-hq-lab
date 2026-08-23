@@ -34,6 +34,7 @@ export type ModuleId =
   | 'solana-alpha'
   | 'live-exec'
   | 'funding-bot'
+  | 'quant-bot'
   | 'terminal';
 
 export type ModuleState =
@@ -492,6 +493,23 @@ export const MODULES: ModuleEntry[] = [
     relation: {
       es: 'El único edge validado (20 pares, PF 2–7000). Entrenamiento hasta tu GO.',
       en: 'The only validated edge (20 pairs, PF 2–7000). Training until your GO.',
+    },
+  },
+  {
+    id: 'quant-bot',
+    navKey: 'nav.quant-bot',
+    state: 'ready',
+    description: {
+      es: 'Genesis Quant Lab: bot paper COTIUSDT con estrategia validada (6 gates), equity en vivo, historial de trades y tesorería. Cero dólares reales.',
+      en: 'Genesis Quant Lab: paper bot COTIUSDT with validated strategy (6 gates), live equity, trade history and treasury. Zero real dollars.',
+    },
+    futureActions: [
+      { es: 'Ver equity y trades del bot paper en vivo.', en: 'View live paper bot equity and trades.' },
+      { es: 'Pasar a testnet tras veredicto del auditor semanal.', en: 'Move to testnet after weekly auditor verdict.' },
+    ],
+    relation: {
+      es: 'Ejecución real requiere tu GO + llaves + veredicto EDGE CONFIRMADO.',
+      en: 'Real execution requires your GO + keys + EDGE CONFIRMED verdict.',
     },
   },
   {

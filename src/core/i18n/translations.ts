@@ -40,6 +40,7 @@ export const TRANSLATIONS = {
   'nav.solana-alpha':   { es: '💊 Pump.fun Alpha',               en: '💊 Pump.fun Alpha' },
   'nav.live-exec':      { es: '📡 Live Executions',              en: '📡 Live Executions' },
   'nav.funding-bot':    { es: '🤖 Bot de Funding',               en: '🤖 Funding Bot' },
+  'nav.quant-bot':      { es: '🧬 Quant Lab (Paper)',            en: '🧬 Quant Lab (Paper)' },
   'nav.terminal':       { es: '💹 Terminal Pro',                 en: '💹 Pro Terminal' },
 
   // ---------------- MODULE STATES ----------------

@@ -1305,3 +1305,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Genesis Treasury — orquestación de depositos/retiros con flujo de dos pasos (request -> approve con token), whitelist de direcciones creada por el humano, ledger append-only, plan de asignacion (20% trading / 80% reserva) y cap de desk $500. Verificado end-to-end en paper.
 - Files touched: server/genesis/treasury.mjs (nuevo), data/genesis_treasury_whitelist.json (paper-only)
 - Verification: node --check ok; deposit 200 OK; withdraw bloqueado sin whitelist OK; withdraw+approve paper OK; ledger consistente
+
+## 2026-08-23c — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: Integracion del Quant Lab a la misma web: vista QuantBotView (equity, trades, tesoreria, kill switch) + endpoint /api/genesis/live leyendo estados reales de data/. Sin datos fabricados.
+- Files touched: server/index.mjs, src/workflows/QuantBotView.tsx (nuevo), src/App.tsx, src/core/data/moduleRegistry.ts, src/core/i18n/translations.ts, src/ui/GenesisSidebar.tsx
+- Verification: npm run typecheck ok, npm run build ok (1m3s), curl /api/genesis/live ok en :8787

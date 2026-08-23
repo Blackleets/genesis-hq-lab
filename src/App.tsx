@@ -32,6 +32,7 @@ import OperatorTimelineView from '@workflows/OperatorTimelineView';
 import AlphaValidationView from '@workflows/AlphaValidationView';
 import LiveExecutionsView from '@workflows/LiveExecutionsView';
 import FundingBotView from '@workflows/FundingBotView';
+import QuantBotView from '@workflows/QuantBotView';
 import TerminalView from '@workflows/TerminalView';
 import PredictionMarketsLab from '@workflows/PredictionMarketsLab';
 import SolanaAlphaView from './features/solana-alpha/SolanaAlphaView';
@@ -67,6 +68,7 @@ function ModuleRenderer({ module, setModule }: { module: ModuleId; setModule: (m
     case 'solana-alpha':   return <SolanaAlphaView />;
     case 'live-exec':       return <LiveExecutionsView />;
     case 'funding-bot':     return <FundingBotView />;
+    case 'quant-bot':       return <QuantBotView />;
     case 'terminal':        return <TerminalView />;
     default:
       return <ModulePlaceholder module={module} onBack={() => setModule('hq')} />;

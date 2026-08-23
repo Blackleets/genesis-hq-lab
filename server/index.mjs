@@ -684,6 +684,17 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === '/api/genesis/live') {
+    // Genesis Quant Lab live state: paper bot + treasury (read-only, no auth — public paper data).
+    try {
+      const readJson = (p) => { try { return JSON.parse(readFileSync(join(__dir, p), 'utf8')); } catch { return null; } };
+      const bot = readJson('../data/genesis_live_state_COTIUSDT_1h.json');
+      const treasury = readJson('../data/genesis_treasury_state.json');
+      sendJson(res, 200, { ok: true, bot, treasury, updatedAt: new Date().toISOString() });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
   if (url.pathname === '/api/crypto/overview') {
     try {
       const overview = getCryptoOverview();
