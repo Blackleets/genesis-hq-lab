@@ -1335,3 +1335,15 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: QuantStats integrado: scripts/quantstats_tearsheet.py genera tearsheet HTML profesional (Sharpe, Sortino, maxDD, volatilidad) desde los trades REALES del estado del bot; con <5 trades emite insufficient_data sin fabricar stats (verificado con fixture temporal, luego limpiado). Auditor semanal actualizado para incluir tearsheet en el veredicto sabatino. Corridas Optuna grandes lanzadas en background: COTIUSDT 200 trials x 5 familias, XLMUSDT 100 trials x 3 familias.
 - Files touched: scripts/quantstats_tearsheet.py (nuevo)
 - Verification: tearsheet de prueba generado (374KB HTML con metricas) y eliminado; insufficient_data honesto con 0 trades; optuna runs activos en data/optuna_run200.log y data/optuna_xlm100.log
+
+## 2026-08-23h — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: Fix optuna_evolve: nombre de estudio incluye el set de familias (CategoricalDistribution es fija por estudio). XLMUSDT 100 trials completado: top meanReversion fit=28.10 (46 trades, gates 4/6). COTIUSDT 200-trials x 5 familias relanzado con estudio nuevo.
+- Files touched: scripts/optuna_evolve.py
+- Verification: XLM study sqlite con 100 trials completos; relanzamiento activo
+
+## 2026-08-23i — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: Campana Optuna completa (COTI 200 trials x 5 familias + XLM 100 trials x 3). Tops in-sample fuertes (COTI volumeProfile fit=32.83, 486 trades; XLM meanReversion fit=28.10) pero walk-forward RECHAZO todos: 0/171 folds OOS en los 3 validados. Conclusion honesta: el edge in-sample de estas familias NO sobrevive out-of-sample en el regimen actual; el pipeline busca+rechaza correctamente. Paper 24/7 y auditor sabatino siguen como unica via de confirmacion empirica.
+- Files touched: ninguno nuevo (validacion)
+- Verification: oosValidator corrio sobre top1 COTI, top2 COTI y top1 XLM — todos RECHAZADOS con 0 folds pasados
