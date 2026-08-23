@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -685,12 +685,30 @@ const server = createServer(async (req, res) => {
   }
 
   if (url.pathname === '/api/genesis/live') {
-    // Genesis Quant Lab live state: paper bot + treasury (read-only, no auth — public paper data).
+    // Genesis Quant Lab live state: ALL paper bots + treasury (read-only, no auth — public paper data).
     try {
-      const readJson = (p) => { try { return JSON.parse(readFileSync(join(__dir, p), 'utf8')); } catch { return null; } };
-      const bot = readJson('../data/genesis_live_state_COTIUSDT_1h.json');
-      const treasury = readJson('../data/genesis_treasury_state.json');
-      sendJson(res, 200, { ok: true, bot, treasury, updatedAt: new Date().toISOString() });
+      const liveDir = join(__dir, '..', 'data');
+      const stateFiles = readdirSync(liveDir)
+        .filter(f => /^genesis_live_state_.+\.json$/.test(f))
+        .sort();
+      const bots = [];
+      for (const f of stateFiles) {
+        try {
+          const raw = JSON.parse(readFileSync(join(liveDir, f), 'utf8'));
+          if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+          // derive pair/tf from filename genesis_live_state_<PAIR>_<TF>.json if the state lacks them
+          let pair = raw.pair, tf = raw.tf;
+          if (!pair) {
+            const m = f.match(/^genesis_live_state_(.+)_(\w+)\.json$/);
+            if (m) { pair = m[1]; if (!tf) tf = m[2]; }
+          }
+          bots.push({ pair, tf, ...raw });
+        } catch { /* skip corrupt state file */ }
+      }
+      let treasury = null;
+      try { treasury = JSON.parse(readFileSync(join(liveDir, 'genesis_treasury_state.json'), 'utf8')); } catch { /* no treasury yet */ }
+      // Back-compat: expose the first bot's full state as `bot` (bots entries are flattened {pair, tf, ...state})
+      sendJson(res, 200, { ok: true, bots, bot: bots[0] ?? null, treasury, updatedAt: new Date().toISOString() });
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;
   }

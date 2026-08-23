@@ -1311,3 +1311,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Integracion del Quant Lab a la misma web: vista QuantBotView (equity, trades, tesoreria, kill switch) + endpoint /api/genesis/live leyendo estados reales de data/. Sin datos fabricados.
 - Files touched: server/index.mjs, src/workflows/QuantBotView.tsx (nuevo), src/App.tsx, src/core/data/moduleRegistry.ts, src/core/i18n/translations.ts, src/ui/GenesisSidebar.tsx
 - Verification: npm run typecheck ok, npm run build ok (1m3s), curl /api/genesis/live ok en :8787
+
+## 2026-08-23d — Ganador De Dinero (aragan) + subagentes Hermes
+- Branch: feat/genesis-improvement-plan
+- Summary: Fase 2 del Quant Lab: (1) liveRunner usa workingCapital() de la tesoreria (20% del balance) como base inicial; (2) soporte multi-par con estados por par y API /api/genesis/live devolviendo bots[]; (3) equityCurve server-side (cap 500); (4) testnetExecutor.mjs gated dry-run (exige llaves + TESTNET=true + GENESIS_LIVE_GO.txt creado por humano); (5) QuantBotView migrada a bots[] con curva SVG de equity e indicador de salud del cron. Fix: returnPct usa initialEquity guardado.
+- Files touched: server/genesis/liveRunner.mjs, server/index.mjs, server/genesis/testnetExecutor.mjs (nuevo), src/workflows/QuantBotView.tsx, scripts genesis_live_runner.sh (perfil aragan)
+- Verification: node --check ok en los 3 .mjs; scan XLMUSDT+COTIUSDT ok (XLM equity=$30=150*0.2); curl /api/genesis/live devuelve bots.length=2 con contrato; typecheck ok; build ok (1m16s); executor dry-run confirmado sin llaves

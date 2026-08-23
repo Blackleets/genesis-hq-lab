@@ -1,4 +1,4 @@
-// QuantBotView.tsx — Genesis Quant Lab live view: paper bot + treasury.
+// QuantBotView.tsx — Genesis Quant Lab live view: paper bots + treasury.
 // Reads /api/genesis/live — REAL files written by liveRunner.mjs (hourly cron)
 // and treasury.mjs. No fabricated data: if the backend is offline or the state
 // files don't exist yet, shows an explicit empty state (no-theater rule).
@@ -6,11 +6,33 @@
 import { useEffect, useState } from 'react';
 import { useLanguage } from '@core/i18n/languageStore';
 
+interface BotPosition {
+  side: string;
+  entry: number;
+  sl: number;
+  tp: number;
+  openedAt: string;
+}
+
+interface BotTrade {
+  side: string;
+  entry: number;
+  exit: number;
+  reason: string;
+  pnlPct: number;
+  pnlUsd: number;
+  closedAt: string;
+}
+
 interface BotState {
+  pair: string;
+  tf: string;
   equity: number;
-  position: null | { side: string; entry: number; sl: number; tp: number; openedAt: string };
-  trades: Array<{ side: string; entry: number; exit: number; reason: string; pnlPct: number; pnlUsd: number; closedAt: string }>;
+  position: null | BotPosition;
+  trades: BotTrade[];
+  equityCurve?: number[];
   log?: string[];
+  updatedAt: string;
 }
 
 interface TreasuryState {
@@ -22,9 +44,58 @@ interface TreasuryState {
 
 interface LiveResponse {
   ok: boolean;
+  bots: BotState[];
   bot: BotState | null;
   treasury: TreasuryState | null;
   updatedAt: string;
+}
+
+type CronHealth = 'active' | 'delayed' | 'down' | 'unknown';
+
+function cronHealth(updatedAt: string | undefined): CronHealth {
+  if (!updatedAt) return 'unknown';
+  const t = new Date(updatedAt).getTime();
+  if (!Number.isFinite(t)) return 'unknown';
+  const diffMs = Date.now() - t;
+  if (diffMs < 2 * 3_600_000) return 'active'; // < 2h
+  if (diffMs < 24 * 3_600_000) return 'delayed'; // 2h–24h
+  return 'down'; // > 24h
+}
+
+function CronIndicator({ updatedAt }: { updatedAt: string | undefined }) {
+  const lang = useLanguage();
+  const es = lang === 'es';
+  const h = cronHealth(updatedAt);
+  const color =
+    h === 'active'
+      ? 'bg-emerald-400'
+      : h === 'delayed'
+        ? 'bg-amber-400'
+        : h === 'down'
+          ? 'bg-red-400'
+          : 'bg-zinc-500';
+  const label =
+    es
+      ? h === 'active'
+        ? 'Cron activo'
+        : h === 'delayed'
+          ? 'Cron retrasado'
+          : h === 'down'
+            ? 'Cron caído'
+            : 'Cron sin datos'
+      : h === 'active'
+        ? 'Cron active'
+        : h === 'delayed'
+          ? 'Cron delayed'
+          : h === 'down'
+            ? 'Cron down'
+            : 'Cron no data';
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className={`inline-block w-2 h-2 rounded-full ${color}`} />
+      <span className="text-[11px] text-zinc-400">{label}</span>
+    </span>
+  );
 }
 
 function Metric({ label, value, tone }: { label: string; value: string; tone?: 'pos' | 'neg' }) {
@@ -38,11 +109,44 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: '
   );
 }
 
+// Hand-rolled SVG polyline over the real equityCurve points, normalized to
+// min/max. No chart library — Strategy Lab cyan (#22d3ee) per DESIGN_DIRECTION.
+function EquityCurveChart({ curve }: { curve: number[] }) {
+  const W = 600;
+  const H = 160;
+  const min = Math.min(...curve);
+  const max = Math.max(...curve);
+  const span = max - min;
+  const pts = curve.map((v, i) => {
+    const x = curve.length === 1 ? W / 2 : (i / (curve.length - 1)) * W;
+    // Flat curve → draw a centered baseline instead of dividing by zero.
+    const y = span === 0 ? H / 2 : H - ((v - min) / span) * H;
+    return `${x.toFixed(2)},${y.toFixed(2)}`;
+  });
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="none"
+      className="w-full h-40 block bg-[#10131a]"
+      role="img"
+    >
+      <polyline
+        points={pts.join(' ')}
+        fill="none"
+        stroke="#22d3ee"
+        strokeWidth="1.5"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+}
+
 export default function QuantBotView() {
   const lang = useLanguage();
   const es = lang === 'es';
   const [data, setData] = useState<LiveResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [botIdx, setBotIdx] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -61,23 +165,33 @@ export default function QuantBotView() {
     return () => { alive = false; clearInterval(id); };
   }, [es]);
 
-  const wins = data?.bot?.trades?.filter((t) => t.pnlUsd > 0).length ?? 0;
-  const nTrades = data?.bot?.trades?.length ?? 0;
+  const bots = data?.bots ?? [];
+  // Prefer the requested tab; clamp if the backend returns fewer bots.
+  const bot = bots.length ? bots[Math.min(botIdx, bots.length - 1)] : null;
+
+  const wins = bot?.trades?.filter((t) => t.pnlUsd > 0).length ?? 0;
+  const nTrades = bot?.trades?.length ?? 0;
   const wr = nTrades ? ((wins / nTrades) * 100).toFixed(1) : null;
-  const gp = data?.bot?.trades?.filter((t) => t.pnlUsd > 0).reduce((s, t) => s + t.pnlUsd, 0) ?? 0;
-  const gl = Math.abs(data?.bot?.trades?.filter((t) => t.pnlUsd <= 0).reduce((s, t) => s + t.pnlUsd, 0) ?? 0);
+  const gp = bot?.trades?.filter((t) => t.pnlUsd > 0).reduce((s, t) => s + t.pnlUsd, 0) ?? 0;
+  const gl = Math.abs(bot?.trades?.filter((t) => t.pnlUsd <= 0).reduce((s, t) => s + t.pnlUsd, 0) ?? 0);
   const pf = gl > 0 ? (gp / gl).toFixed(2) : null;
-  const ret = data?.bot?.equity != null && data.bot.equity !== 1000
-    ? (((data.bot.equity - 1000) / 1000) * 100).toFixed(2)
+  const ret = bot?.equity != null && bot.equity !== 1000
+    ? (((bot.equity - 1000) / 1000) * 100).toFixed(2)
     : '0.00';
+
+  const curve = bot?.equityCurve ?? [];
 
   return (
     <main className="flex-1 min-w-0 min-h-0 overflow-y-auto px-6 py-6 bg-carbon-300">
       <div className="max-w-5xl mx-auto space-y-5">
         <header>
-          <h1 className="text-xl font-bold text-zinc-100">
-            {es ? '🧬 Genesis Quant Lab — Bot COTIUSDT (Paper)' : '🧬 Genesis Quant Lab — COTIUSDT Bot (Paper)'}
-          </h1>
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <h1 className="text-xl font-bold text-zinc-100">
+              {es ? '🧬 Genesis Quant Lab — Bots (Paper)' : '🧬 Genesis Quant Lab — Bots (Paper)'}
+            </h1>
+            {/* Cron health: real freshness of the backend's last write */}
+            <CronIndicator updatedAt={data?.bots?.[0]?.updatedAt} />
+          </div>
           <p className="text-[12px] text-zinc-500 mt-1">
             {es
               ? 'Estrategia meanReversion validada con 6 gates sobre datos reales de Binance. Paper · cero dólares reales.'
@@ -93,22 +207,55 @@ export default function QuantBotView() {
           </span>
         </section>
 
-        {/* Metrics */}
+        {/* Bot tabs (only when the backend reports more than one bot) */}
+        {bots.length > 1 && (
+          <section className="flex items-center gap-2 flex-wrap">
+            {bots.map((b, i) => (
+              <button
+                key={`${b.pair}-${b.tf}-${i}`}
+                onClick={() => setBotIdx(i)}
+                className={`px-3 py-1 rounded text-[12px] font-mono border transition-colors ${
+                  i === Math.min(botIdx, bots.length - 1)
+                    ? 'border-cyan-400/60 text-zinc-100 bg-[#15171d]'
+                    : 'border-carbon-100 text-zinc-400 hover:text-zinc-200 hover:bg-[#10131a]'
+                }`}
+              >
+                {b.pair || `#${i + 1}`} · {b.tf}
+              </button>
+            ))}
+          </section>
+        )}
+
+        {/* Metrics (selected bot; honest dashes while loading / offline) */}
         <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Metric label={es ? 'Equity papel' : 'Paper equity'} value={data?.bot ? `$${data.bot.equity.toFixed(2)}` : '—'} />
+          <Metric label={es ? 'Equity papel' : 'Paper equity'} value={bot ? `$${bot.equity.toFixed(2)}` : '—'} />
           <Metric label={es ? 'Retorno' : 'Return'} value={`${ret}%`} tone={parseFloat(ret) > 0 ? 'pos' : parseFloat(ret) < 0 ? 'neg' : undefined} />
           <Metric label="Trades" value={String(nTrades)} />
           <Metric label={es ? 'Win rate' : 'Win rate'} value={wr ? `${wr}%` : '—'} />
         </section>
 
+        {/* Equity Curve — real points only; honest empty state otherwise */}
+        <section className="gx-card">
+          <header className="gx-card-head gx-card-title">
+            {es ? 'Curva de equity' : 'Equity Curve'}
+          </header>
+          {curve.length >= 2 ? (
+            <EquityCurveChart curve={curve} />
+          ) : (
+            <div className="px-4 py-4 text-[12px] text-zinc-500">
+              {es ? 'Sin cierres aún' : 'No closed trades yet'}
+            </div>
+          )}
+        </section>
+
         {/* Open position */}
-        {data?.bot?.position && (
+        {bot?.position && (
           <section className="gx-card px-4 py-3">
             <header className="text-[11px] uppercase tracking-wide text-zinc-500 mb-2">
               {es ? 'Posición abierta' : 'Open position'}
             </header>
             <div className="font-mono text-[12px] text-zinc-200">
-              {data.bot.position.side.toUpperCase()} @ {data.bot.position.entry} · SL {data.bot.position.sl.toFixed(6)} · TP {data.bot.position.tp.toFixed(6)}
+              {bot.position.side.toUpperCase()} @ {bot.position.entry} · SL {bot.position.sl.toFixed(6)} · TP {bot.position.tp.toFixed(6)}
             </div>
           </section>
         )}
@@ -136,7 +283,7 @@ export default function QuantBotView() {
                   </tr>
                 </thead>
                 <tbody>
-                  {[...data!.bot!.trades].reverse().map((t, i) => (
+                  {[...bot!.trades].reverse().map((t, i) => (
                     <tr key={i} className="border-b border-carbon-100/50">
                       <td className="px-3 py-1 text-zinc-400">{new Date(t.closedAt).toLocaleString()}</td>
                       <td className={`px-3 py-1 ${t.side === 'long' ? 'text-emerald-400' : 'text-red-400'}`}>{t.side}</td>

@@ -27,6 +27,7 @@ const TF = process.env.GENESIS_TF || '1h';
 // State file is per pair+timeframe so multiple runners never clobber each other.
 const _pair = PAIR.replace(/[^A-Z0-9]/gi, '');
 const STATE_FILE = path.join(__dirname, `../../data/genesis_live_state_${_pair}_${TF.replace(/[^a-zA-Z0-9]/g, '')}.json`);
+const TREASURY_FILE = path.join(__dirname, '../../data/genesis_treasury_state.json');
 const CAPITAL = parseFloat(process.env.GENESIS_CAPITAL || '1000');
 const P = Object.assign(
   { rsiPeriod: 14, rsiLow: 31, rsiHigh: 71, bbPeriod: 22, bbMult: 10, slMult: 2.7, tpMult: 2.5, atrMinPct: 0.004 },
@@ -34,10 +35,34 @@ const P = Object.assign(
 );
 const FEE_RT = 0.001; // 0.10% round trip, same as backtest
 
+// Working capital sized from treasury: 20% of paper balance if positive, else CAPITAL.
+// Used ONLY as the INITIAL equity base of a brand-new state (no saved equity, no trades).
+// Never re-scales an existing state's history.
+function workingCapital() {
+  try {
+    const t = JSON.parse(fs.readFileSync(TREASURY_FILE, 'utf8'));
+    const wc = Number(t.paperBalanceUSDT) * 0.2;
+    if (Number.isFinite(wc) && wc > 0) return wc;
+  } catch { /* fall through to default */ }
+  return CAPITAL;
+}
+
 function loadState() {
-  try { return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch { return { equity: CAPITAL, position: null, trades: [], log: [] }; }
+  try {
+    const s = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+    if (!Array.isArray(s.trades)) s.trades = [];
+    if (typeof s.equity !== 'number' || !Number.isFinite(s.equity)) {
+      // saved state with no usable equity: seed it (still only when flat/no history)
+      if (s.trades.length === 0) s.equity = workingCapital();
+      else s.equity = CAPITAL;
+    }
+    if (typeof s.initialEquity !== 'number' || !Number.isFinite(s.initialEquity)) s.initialEquity = s.equity;
+    return s;
+  } catch { const eq = workingCapital(); return { pair: PAIR, tf: TF, equity: eq, initialEquity: eq, position: null, trades: [], log: [], equityCurve: [] }; }
 }
 function saveState(s) {
+  s.pair = PAIR;
+  s.tf = TF;
   s.updatedAt = new Date().toISOString();
   fs.mkdirSync(path.dirname(STATE_FILE), { recursive: true });
   fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2));
@@ -92,6 +117,8 @@ async function scan() {
       state.trades.push({ openedAt: pos.openedAt, closedAt: new Date().toISOString(), side: pos.side, entry: pos.entry, exit: closed.exitPx, reason: closed.reason, pnlPct: +(net * 100).toFixed(3), pnlUsd: +pnl.toFixed(2) });
       events.push(`CLOSE ${pos.side} @${closed.exitPx} (${closed.reason}) net=${(net * 100).toFixed(2)}% equity=${state.equity.toFixed(2)}`);
       state.position = null;
+      // equity curve: one point per closed position, capped at last 500
+      state.equityCurve = [...(state.equityCurve || []), Number(state.equity.toFixed(2))].slice(-500);
     }
   }
 
@@ -117,7 +144,7 @@ async function scan() {
     trades: state.trades.length, wins: wins.length,
     winRate: state.trades.length ? +(wins.length / state.trades.length * 100).toFixed(1) : null,
     profitFactor: gl > 0 ? +(gp / gl).toFixed(2) : (gp > 0 ? Infinity : null),
-    returnPct: +((state.equity / CAPITAL - 1) * 100).toFixed(2),
+    returnPct: +((state.equity / (state.initialEquity || CAPITAL) - 1) * 100).toFixed(2),
   };
   if (events.length) { state.log.push(...events.map(e => `${new Date().toISOString()} ${e}`)); state.log = state.log.slice(-200); }
   saveState(state);
