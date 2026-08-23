@@ -98,7 +98,10 @@ def main() -> None:
     args = ap.parse_args()
 
     STUDY_DIR.mkdir(parents=True, exist_ok=True)
-    study_name = f"{args.pair}_{args.tf}_{args.days}d_multi"
+    # Study name includes the family set: Optuna's CategoricalDistribution is
+    # fixed per study, so different --kinds sets need distinct studies.
+    fam_tag = "-".join(sorted(args.kinds))[:40]
+    study_name = f"{args.pair}_{args.tf}_{args.days}d_{fam_tag}"
     storage = f"sqlite:///{STUDY_DIR / study_name}.db"
 
     study = optuna.create_study(
