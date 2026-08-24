@@ -12,9 +12,12 @@
 //
 // HONESTY: PAPER trading on real market data. Zero real dollars.
 
-import { fetchOHLCV } from './ccxtFeed.mjs';
+import { fetchOHLCV, getExchange } from './ccxtFeed.mjs';
+import { getSharedThrottler } from './rateLimiter.mjs';
 import { makeStrategy } from './strategyLib.mjs';
 import { sma, ema, rsi, atr, bollinger, adx } from './backtestCore.mjs';
+import { loadFeeSchema, computeFee, netProceeds } from './feeAccountant.mjs';
+import { ClientOrderTracker, InFlightOrder, newClientOrderId } from './connectorCore.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import url from 'node:url';
@@ -47,7 +50,50 @@ const P = Object.assign(
   { rsiPeriod: 14, rsiLow: 31, rsiHigh: 71, bbPeriod: 22, bbMult: 10, slMult: 2.7, tpMult: 2.5, atrMinPct: 0.004 },
   process.env.GENESIS_PARAMS ? JSON.parse(process.env.GENESIS_PARAMS) : {}
 );
-const FEE_RT = 0.001; // 0.10% round trip, same as backtest
+// P2: the hardcoded FEE_RT = 0.001 round trip is GONE. Fees now come from the
+// real exchange fee schema via feeAccountant (loadFeeSchema), with a safe
+// offline fallback when ccxt/markets are unavailable. Order lifecycle is
+// tracked Hummingbot-style with ClientOrderTracker + InFlightOrder.
+const tracker = new ClientOrderTracker();
+
+// 'COTIUSDT' -> 'COTI-USDT' — InFlightOrder tradingPair format BASE-QUOTE.
+function toTradingPair(pair) {
+  const up = String(pair || '').toUpperCase();
+  if (/[/-]/.test(up)) return up.replace('/', '-');
+  const quotes = ['USDT', 'USDC', 'BUSD', 'FDUSD', 'TUSD', 'BTC', 'ETH', 'BNB'];
+  for (const q of quotes) {
+    if (up.endsWith(q) && up.length > q.length) return `${up.slice(0, -q.length)}-${q}`;
+  }
+  return up;
+}
+
+// Unified ccxt symbol for fee lookup, same convention as ccxtFeed.fetchOHLCV.
+function ccxtSymbol(pair) {
+  return String(pair).replace(/(USDT|USDC|BUSD|FDUSD|TUSD)$/i, '/$1');
+}
+
+/**
+ * Real maker/taker fee schema for this market. NEVER throws: any failure
+ * (ccxt missing, offline, unknown market) degrades to the accountant's
+ * FALLBACK schema so paper trading always continues.
+ */
+async function resolveFeeSchema(pair) {
+  try {
+    const ex = getExchange({ real: false });
+    try {
+      await getSharedThrottler().acquire('ohlcv'); // draw from the shared Binance budget
+      await ex.loadMarkets();
+    } catch { /* offline / rate-limited: loadFeeSchema falls back below */ }
+    return loadFeeSchema(ex, ccxtSymbol(pair));
+  } catch {
+    return loadFeeSchema(undefined, ccxtSymbol(pair));
+  }
+}
+
+/** Taker fee in quote currency for one notional cost (SL/TP are taker fills). */
+function takerFee(schema, cost) {
+  return computeFee({ schema, isMaker: false, cost });
+}
 
 // Working capital sized from treasury: 20% of paper balance if positive, else CAPITAL.
 // Used ONLY as the INITIAL equity base of a brand-new state (no saved equity, no trades).
@@ -136,6 +182,11 @@ function loadState() {
       else s.equity = CAPITAL;
     }
     if (typeof s.initialEquity !== 'number' || !Number.isFinite(s.initialEquity)) s.initialEquity = s.equity;
+    // P2: restore order-tracking from the additive openOrders snapshot if present.
+    if (s.openOrders) {
+      try { tracker.restoreTrackingStates(s.openOrders); }
+      catch (e) { console.error(`[liveRunner] openOrders restore failed (${e.message}) — tracker starts empty`); }
+    }
     return s;
   } catch { const eq = workingCapital(); return { pair: PAIR, tf: TF, equity: eq, initialEquity: eq, position: null, trades: [], log: [], equityCurve: [] }; }
 }
@@ -202,14 +253,42 @@ async function scan() {
       else if (px <= pos.tp) closed = { reason: 'TP', exitPx: pos.tp };
     }
     if (closed) {
-      const gross = pos.side === 'long' ? (closed.exitPx - pos.entry) / pos.entry : (pos.entry - closed.exitPx) / pos.entry;
-      const net = gross - FEE_RT;
-      const pnl = (typeof pos.size === 'number' && Number.isFinite(pos.size) ? pos.size : state.equity) * net; // sized on the reserved slice
+      // P2 fee accounting: both legs are taker (SL/TP are stop-market fills).
+      // Entry cost + taker fee leaves the wallet on open; exit proceeds minus
+      // taker fee come back on close. Short = sell entry, buy-back exit.
+      const schema = pos.feeSchema || loadFeeSchema(undefined, ccxtSymbol(PAIR));
+      const sizeBase = (typeof pos.size === 'number' && Number.isFinite(pos.size) ? pos.size : state.equity);
+      const qty = (typeof pos.amount === 'number' && Number.isFinite(pos.amount) && pos.amount > 0)
+        ? pos.amount
+        : sizeBase / pos.entry; // legacy positions restored without `amount`
+      const entryCost = pos.entry * qty;
+      const exitCost = closed.exitPx * qty;
+      const entryFee = (typeof pos.entryFee === 'number' && Number.isFinite(pos.entryFee))
+        ? pos.entryFee
+        : takerFee(schema, entryCost);
+      const exitFee = takerFee(schema, exitCost);
+      let pnl;
+      if (pos.side === 'long') {
+        const outflow = netProceeds({ side: 'BUY', cost: entryCost, fee: entryFee, schema });
+        const inflow = netProceeds({ side: 'SELL', cost: exitCost, fee: exitFee, schema });
+        pnl = inflow - outflow;
+      } else {
+        const shortProceeds = netProceeds({ side: 'SELL', cost: entryCost, fee: entryFee, schema });
+        const buyBackOutflow = netProceeds({ side: 'BUY', cost: exitCost, fee: exitFee, schema });
+        pnl = shortProceeds - buyBackOutflow;
+      }
+      const net = pnl / sizeBase; // fractional return relative to invested slice (legacy pnlPct convention)
       state.equity += pnl;
       removeTreasuryReservation(pos.reservationId);
       delete state.treasuryReservationId;
-      state.trades.push({ openedAt: pos.openedAt, closedAt: new Date().toISOString(), side: pos.side, entry: pos.entry, exit: closed.exitPx, reason: closed.reason, pnlPct: +(net * 100).toFixed(3), pnlUsd: +pnl.toFixed(2) });
+      state.trades.push({ openedAt: pos.openedAt, closedAt: new Date().toISOString(), side: pos.side, entry: pos.entry, exit: closed.exitPx, reason: closed.reason, pnlPct: +(net * 100).toFixed(3), pnlUsd: +pnl.toFixed(2), feeUsd: +(entryFee + exitFee).toFixed(2) });
       events.push(`CLOSE ${pos.side} @${closed.exitPx} (${closed.reason}) net=${(net * 100).toFixed(2)}% equity=${state.equity.toFixed(2)}`);
+      // P2: complete the tracked order lifecycle — full fill at the exit price,
+      // then the order retires itself to the tracker's TTL cache.
+      if (pos.clientOrderId) {
+        try { tracker.applyFill(pos.clientOrderId, { fillAmount: qty, fillPrice: closed.exitPx, fee: exitFee }); }
+        catch (e) { console.error(`[liveRunner] order fill tracking failed (${e.message})`); }
+      }
       state.position = null;
       // equity curve: one point per closed position, capped at last 500
       state.equityCurve = [...(state.equityCurve || []), Number(state.equity.toFixed(2))].slice(-500);
@@ -223,11 +302,32 @@ async function scan() {
     // Never reject: scale down to what the 20% allocation still allows.
     const base = +tradeEquityBase(state).toFixed(2);
     const reservationId = `rr_${PAIR}_${TF}_${Date.now()}`;
+    // P2: resolve the real fee schema once per entry (offline-safe fallback).
+    const feeSchema = await resolveFeeSchema(PAIR);
+    const qty = px > 0 ? base / px : 0; // order amount in base asset
     const openPos = (side) => {
       upsertTreasuryReservation(reservationId, base, `liveRunner:${OWNER_HASH || 'operator'}:${PAIR}:${TF}`);
       state.treasuryReservationId = reservationId;
-      state.position = { side, entry: px, sl: side === 'long' ? px - P.slMult * a : px + P.slMult * a, tp: side === 'long' ? px + P.tpMult * a : px - P.tpMult * a, size: base, openedAt: new Date().toISOString() };
-      events.push(`OPEN ${side.toUpperCase()} @${px} size=$${base} SL=${state.position.sl.toFixed(6)} TP=${state.position.tp.toFixed(6)}${base < state.equity ? ' (scaled down to 20% treasury allocation)' : ''}`);
+      const sl = side === 'long' ? px - P.slMult * a : px + P.slMult * a;
+      const tp = side === 'long' ? px + P.tpMult * a : px - P.tpMult * a;
+      const clientOrderId = newClientOrderId(side === 'long' ? 'buy' : 'sell');
+      state.position = { side, entry: px, sl, tp, size: base, openedAt: new Date().toISOString(), feeSchema, amount: qty, entryFee: qty > 0 ? takerFee(feeSchema, px * qty) : 0, clientOrderId };
+      // P2: track the market entry as a Hummingbot-style InFlightOrder. Tracking
+      // failures are logged but never block paper trading.
+      if (qty > 0) {
+        try {
+          tracker.register(new InFlightOrder({
+            clientOrderId,
+            tradingPair: toTradingPair(PAIR),
+            side: side === 'long' ? 'buy' : 'sell',
+            type: 'MARKET',
+            price: px,
+            amount: qty,
+          }));
+          tracker.markOpen(clientOrderId);
+        } catch (e) { console.error(`[liveRunner] order tracking failed (${e.message})`); }
+      }
+      events.push(`OPEN ${side.toUpperCase()} @${px} size=$${base} SL=${sl.toFixed(6)} TP=${tp.toFixed(6)}${base < state.equity ? ' (scaled down to 20% treasury allocation)' : ''}`);
     };
     if (sig.long) {
       openPos('long');
@@ -249,6 +349,10 @@ async function scan() {
     returnPct: +((state.equity / (state.initialEquity || CAPITAL) - 1) * 100).toFixed(2),
   };
   if (events.length) { state.log.push(...events.map(e => `${new Date().toISOString()} ${e}`)); state.log = state.log.slice(-200); }
+  // P2 additive field: plain-object snapshot of order tracking, written inside
+  // the SAME saveState call as before (single JSON write per scan).
+  try { state.openOrders = tracker.snapshotStates(); }
+  catch (e) { console.error(`[liveRunner] openOrders snapshot failed (${e.message})`); state.openOrders = {}; }
   saveState(state);
   return { summary, events };
 }

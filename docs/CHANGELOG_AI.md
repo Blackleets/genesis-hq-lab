@@ -1443,3 +1443,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Throttler compartido cableado en toda la cadena Binance: ccxtFeed.fetchOHLCV pasa por acquire(ohlcv), historicalData klines loop idem (mismo presupuesto compartido con ccxtFeed), derivativesContext jget raciona solo URLs fapi (F&G de terceros libre). Presupuesto efectivo con margen 5%: ohlcv 47/min, default 1140/min. Ningun modulo puede monopolizar la API.
 - Files touched: server/genesis/ccxtFeed.mjs, server/genesis/derivativesContext.mjs, server/crypto/backtest/historicalData.mjs
 - Verification: node --check 3/3; fetchOHLCV 50 candles ok via throttler; usage() confirma caps
+
+## 2026-08-24l — Ganador De Dinero (aragan) + subagente P2-final
+- Branch: feat/genesis-improvement-plan
+- Summary: P2 CERRADO — liveRunner ahora usa feeAccountant (schema real con fallback offline, SL/TP como taker) y ClientOrderTracker de connectorCore: cada posicion es InFlightOrder registrada/fillada con snapshotStates persistido aditivamente en openOrders y restoreTrackingStates al cargar. Compatibilidad estricta: campos legacy intactos, senales identicas.
+- Files touched: server/genesis/liveRunner.mjs
+- Verification: node --check ok; scan unico equity=1000 returnPct=0; openOrders presente en estado; campos legacy intactos; typecheck 0 errores. Plan unificado 4 repos: COMPLETO.
