@@ -39,6 +39,13 @@ function saveJson(file, obj) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify(obj, null, 2));
 }
+// Atomic variant (write temp + rename): readers never see a half-written state.
+function saveJsonAtomic(file, obj) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const tmp = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(obj, null, 2));
+  fs.renameSync(tmp, file);
+}
 function appendLedger(entry) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   fs.appendFileSync(LEDGER_FILE, JSON.stringify({ at: new Date().toISOString(), ...entry }) + '\n');
@@ -58,6 +65,8 @@ function loadState() {
     pending: [],
     approvedWhitelistSetup: false,
   });
+  // Additive field: live trading reservations (see reserve/release below).
+  if (!Array.isArray(s.reservations)) s.reservations = [];
   return s;
 }
 
@@ -68,6 +77,68 @@ export function allocationPlan(state) {
   const tradingAlloc = Math.min(balance * 0.2, MAX_DESK_CAP_USD * 0.2);
   const reserve = balance - tradingAlloc;
   return { balance, tradingAlloc: +tradingAlloc.toFixed(2), reserve: +reserve.toFixed(2), cap: MAX_DESK_CAP_USD };
+}
+
+// ---- Live trading reservations (Hummingbot BudgetChecker pattern) ----
+// A reservation blocks a slice of paper capital for an in-flight live position
+// so treasury (paperBalanceUSDT) and liveRunner sizing cannot diverge silently.
+// Pure additive schema: state without `reservations` behaves exactly as before.
+
+export class InsufficientBalanceError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'InsufficientBalanceError';
+    this.code = 'INSUFFICIENT_BALANCE';
+  }
+}
+
+function reservationsOf(state) {
+  return Array.isArray(state?.reservations) ? state.reservations : [];
+}
+
+function reservedTotal(state) {
+  return reservationsOf(state).reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+}
+
+// Free capital = paper balance minus every live reservation. Accepts a state
+// object (pure) or reads the current one when omitted.
+export function availableForTrading(state) {
+  const s = state || loadState();
+  return (Number(s.paperBalanceUSDT) || 0) - reservedTotal(s);
+}
+
+export function listReservations(state) {
+  const s = state || loadState();
+  return reservationsOf(s).map(r => ({ ...r }));
+}
+
+// Block `amountUsdt` of free paper capital. Throws InsufficientBalanceError
+// when free balance is not enough. Returns { reservationId }.
+export function reserve(amountUsdt, reason) {
+  const amount = Number(amountUsdt);
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error('reservation amount must be > 0');
+  const state = loadState();
+  const free = availableForTrading(state);
+  if (amount > free + 1e-9) {
+    throw new InsufficientBalanceError(`INSUFFICIENT_BALANCE: requested $${amount} but only $${+free.toFixed(2)} free (${state.paperBalanceUSDT} balance - $${+reservedTotal(state).toFixed(2)} reserved)`);
+  }
+  const id = `rs_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  state.reservations.push({ id, amount, reason: reason || 'unspecified', createdAt: new Date().toISOString() });
+  saveJsonAtomic(STATE_FILE, state);
+  appendLedger({ op: 'reserve', id, amount, reason: reason || 'unspecified', freeAfter: +availableForTrading(state).toFixed(2) });
+  return { reservationId: id };
+}
+
+// Release a live reservation by id (idempotent-friendly: throws only when the
+// id matches no live reservation).
+export function release(reservationId) {
+  const state = loadState();
+  const idx = state.reservations.findIndex(r => r.id === reservationId);
+  if (idx === -1) throw new Error(`no live reservation with id ${reservationId}`);
+  const [removed] = state.reservations.splice(idx, 1);
+  saveJsonAtomic(STATE_FILE, state);
+  appendLedger({ op: 'release', id: removed.id, amount: removed.amount, reason: removed.reason });
+  return { released: removed.amount };
 }
 
 async function fetchRealBalances() {
@@ -89,6 +160,7 @@ async function cmdStatus() {
   console.log(`paper balance: $${state.paperBalanceUSDT} | allocated to trading: $${state.allocatedToTrading}`);
   console.log(`lifetime deposits: $${state.totalDeposited} | lifetime withdrawals: $${state.totalWithdrawn}`);
   console.log(`allocation plan: trade $${plan.tradingAlloc} | reserve $${plan.reserve} (cap $${plan.cap})`);
+  console.log(`live trading reservations: ${state.reservations.length} ($${+state.reservations.reduce((s, r) => s + (Number(r.amount) || 0), 0).toFixed(2)}) -> available for trading: $${+availableForTrading(state).toFixed(2)}`);
   console.log(`pending ops: ${state.pending.length}`);
   if (real) console.log('real exchange balance:', JSON.stringify(real));
   return state;
@@ -109,7 +181,9 @@ async function cmdDeposit(amount) {
 async function cmdWithdraw(amount, addressLabel) {
   const state = loadState();
   if (!(amount > 0)) throw new Error('amount must be > 0');
-  if (amount > state.paperBalanceUSDT - state.reservedForWithdrawal) throw new Error('insufficient free balance');
+  // Free balance now also excludes live trading reservations (additive safety).
+  const reserved = state.reservations.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  if (amount > state.paperBalanceUSDT - state.reservedForWithdrawal - reserved) throw new Error('insufficient free balance');
   const whitelist = loadJson(WHITELIST_FILE, null);
   if (!whitelist || !Array.isArray(whitelist.addresses) || !whitelist.addresses.includes(addressLabel)) {
     throw new Error(`address "${addressLabel}" not in whitelist. The whitelist file must be created BY THE HUMAN at ${WHITELIST_FILE}`);
@@ -166,9 +240,27 @@ async function main() {
       console.log(JSON.stringify(plan, null, 2));
       break;
     }
+    case 'reserve':
+      console.log(JSON.stringify(reserve(parseFloat(args[0]), args[1] || 'cli'), null, 2));
+      break;
+    case 'release':
+      console.log(JSON.stringify(release(args[0]), null, 2));
+      break;
+    case 'reservations': {
+      const state = loadState();
+      console.log(JSON.stringify({ availableForTrading: +availableForTrading(state).toFixed(2), reservations: listReservations(state) }, null, 2));
+      break;
+    }
     default:
-      console.log('commands: status | deposit <usdt> | withdraw <usdt> <label> | approve <id> <token> | allocate');
+      console.log('commands: status | deposit <usdt> | withdraw <usdt> <label> | approve <id> <token> | allocate | reserve <usdt> [reason] | release <reservationId> | reservations');
   }
 }
 
-main().then(() => process.exit(0)).catch(e => { console.error('ERROR:', e.message); process.exit(1); });
+// Only run the CLI when invoked directly (node treasury.mjs ...); importing
+// this module (tests, liveRunner tooling) must stay side-effect free.
+const invokedDirectly = process.argv[1] && (() => {
+  try { return url.pathToFileURL(process.argv[1]).href === import.meta.url; } catch { return false; }
+})();
+if (invokedDirectly) {
+  main().then(() => process.exit(0)).catch(e => { console.error('ERROR:', e.message); process.exit(1); });
+}

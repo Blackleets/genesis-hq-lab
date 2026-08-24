@@ -25,6 +25,8 @@ from pathlib import Path
 
 import optuna
 
+from genesis_losses import LOSS_REGISTRY
+
 ROOT = Path(__file__).resolve().parents[1]
 EVAL = ROOT / "server" / "genesis" / "evalCandidate.mjs"
 STUDY_DIR = ROOT / "data" / "optuna_studies"
@@ -95,13 +97,23 @@ def main() -> None:
     ap.add_argument("--kinds", nargs="+", default=["meanReversion", "volumeProfile"])
     ap.add_argument("--trials", type=int, default=60)
     ap.add_argument("--seed", type=int, default=42)
+    # P3: pluggable loss — which scalar the sampler maximizes. Gates stay as
+    # user_attrs either way, so honesty filtering is loss-independent.
+    ap.add_argument(
+        "--loss",
+        choices=sorted(LOSS_REGISTRY),
+        default="fitness",
+        help="Objective function from LOSS_REGISTRY (default: fitness)",
+    )
     args = ap.parse_args()
 
     STUDY_DIR.mkdir(parents=True, exist_ok=True)
     # Study name includes the family set: Optuna's CategoricalDistribution is
     # fixed per study, so different --kinds sets need distinct studies.
+    # The loss suffix keeps objectives separate: mixing fitness trials with
+    # calmar trials in one study would corrupt TPE's comparisons.
     fam_tag = "-".join(sorted(args.kinds))[:40]
-    study_name = f"{args.pair}_{args.tf}_{args.days}d_{fam_tag}"
+    study_name = f"{args.pair}_{args.tf}_{args.days}d_{fam_tag}_{args.loss}"
     storage = f"sqlite:///{STUDY_DIR / study_name}.db"
 
     study = optuna.create_study(
@@ -123,32 +135,39 @@ def main() -> None:
         except Exception as exc:  # noqa: BLE001 - any eval failure prunes the trial
             print(f"[trial {trial.number}] FAILED: {exc}", file=sys.stderr)
             raise optuna.TrialPruned(str(exc)) from exc
+        # P0 lookahead guard: evalCandidate now reports the violation count.
+        if result.get("lookaheadViolations", 0) > 0:
+            print(f"[trial {trial.number}] LOOKAHEAD violations={result['lookaheadViolations']}", file=sys.stderr)
+            raise optuna.TrialPruned("LOOKAHEAD")
+        loss_fn = LOSS_REGISTRY[args.loss]
+        loss_value = float(loss_fn(result))
         trial.set_user_attr("go", result["go"])
         trial.set_user_attr("gates", result["gates"])
         trial.set_user_attr("trades", result["metrics"].get("trades", 0))
         print(
             f"[trial {trial.number}] {kind} fit={result['fitness']} "
+            f"loss[{args.loss}]={loss_value:.4f} "
             f"trades={result['metrics'].get('trades')} gates={result['gates']}",
             flush=True,
         )
-        return float(result["fitness"])
+        return loss_value
 
     study.optimize(objective, n_trials=args.trials)
 
-    # Top-5 completed trials by fitness
+    # Top-5 completed trials by the selected loss
     done = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
     done.sort(key=lambda t: t.value or float("-inf"), reverse=True)
     top = []
     for t in done[:5]:
         top.append({
-            "fitness": t.value,
+            "loss_value": t.value,
             "kind": t.params.get("kind"),
             "params": {k: v for k, v in t.params.items() if k != "kind"},
             "go": t.user_attrs.get("go"),
             "gates": t.user_attrs.get("gates"),
             "trades": t.user_attrs.get("trades"),
         })
-    print(json.dumps({"study": study_name, "n_trials": len(done), "top": top}, indent=2))
+    print(json.dumps({"study": study_name, "loss": args.loss, "n_trials": len(done), "top": top}, indent=2))
 
 
 if __name__ == "__main__":

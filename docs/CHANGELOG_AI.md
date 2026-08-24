@@ -1395,3 +1395,15 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: P0 CRITICO — lookahead guard + signal shift en backtestCore.mjs (plan unificado P0, informe Freqtrade): createCappedCtx bloquea acceso a indices futuros con RangeError y registra violaciones; senales ahora ejecutan en open[i+1]; fullReport agrega gate LOOKAHEAD; evalCandidate propaga violaciones. VERIFICADO: estrategia tramposa detectada (199 violaciones), honrada limpia (0). Resultado honesto: el candidato GO historico COTIUSDT MUERE con motor honesto (PF 1.10 < 1.30, t 0.77 < 2.0) — el fill en misma vela inflaba resultados. Dinero real ahorrado.
 - Files touched: server/genesis/backtestCore.mjs, server/genesis/evalCandidate.mjs
 - Verification: node --check ok; tests de deteccion pasan; typecheck 0 errores; liveRunner corre; API viva
+
+## 2026-08-24f — subagente P3 (ox-alpha)
+- Branch: feat/genesis-improvement-plan (sin commit, según instrucción)
+- Summary: P3 plan unificado — loss registry plugable para Optuna (informe Freqtrade Mejora B): scripts/genesis_losses.py con LOSS_REGISTRY {fitness, sharpe, calmar, profit_drawdown}; optuna_evolve.py gana flag --loss (default fitness), study_name con sufijo _<loss>, objective() consume el registry y poda trials con lookaheadViolations > 0 via optuna.TrialPruned('LOOKAHEAD'). user_attrs go/gates/trades intactos.
+- Files touched: scripts/genesis_losses.py (nuevo), scripts/optuna_evolve.py, docs/CHANGELOG_AI.md
+- Verification: python -m py_compile ok en ambos; smoke COTIUSDT 1h 360d 8 trials --loss calmar: estudio nuevo COTIUSDT_1h_360d_meanReversion-volumeProfile_calmar creado, 8/8 completados, floor -100 aplicado a trial con trades=2, 0 violaciones LOOKAHEAD en motor honesto
+
+## 2026-08-24f — Ganador De Dinero (aragan) + flota de subagentes
+- Branch: feat/genesis-improvement-plan
+- Summary: Plan unificado P1+P3+P4+P5 integrados: (P1) treasury reserve/release/availableForTrading + liveRunner respeta reservas — capital unificado, test 200-40=160 exacto. (P3) genesis_losses.py con LOSS_REGISTRY fitness/sharpe/calmar/profit_drawdown + flag --loss en optuna_evolve + poda LOOKAHEAD automatica. (P4) warmup candles GENESIS_WARMUP_CANDLES en folds OOS de oosValidator. (P5) shadowCritic.mjs heuristico determinista: H1 small-sample PF outlier, H2 win rate inflado, H3 demasiado-perfecto; CLI disponible. Fix cosmico formato winRate en H2.
+- Files touched: server/genesis/treasury.mjs, server/genesis/liveRunner.mjs, scripts/genesis_losses.py (nuevo), scripts/optuna_evolve.py, server/genesis/oosValidator.mjs, server/genesis/shadowCritic.mjs (nuevo)
+- Verification: py_compile ok; node --check todos; availableForTrading 200-40=160 verificado; shadow critic DISAGREE con 3 concerns en fake perfecto y AGREE en candidato honesto muerto; smoke optuna calmar 8 trials ok

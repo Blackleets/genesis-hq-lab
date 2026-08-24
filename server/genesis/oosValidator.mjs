@@ -13,6 +13,24 @@ import { fullReport } from './backtestCore.mjs';
 
 const FOLD_DAYS = 90;
 
+// P4 warmup: the first W candles of every OOS segment carry indicators
+// computed from the segment start (cold start) -> distorted metrics.
+// W defaults to the longest lookback any strategy family can ask for,
+// overridable via GENESIS_WARMUP_CANDLES (0 reproduces the old behavior).
+function warmupCandles(params = {}) {
+  const env = parseInt(process.env.GENESIS_WARMUP_CANDLES, 10);
+  if (Number.isFinite(env) && env >= 0) return env;
+  const lookbackKeys = ['donchianPeriod', 'slow', 'vwapLookback', 'volLookback', 'bbPeriod', 'rsiPeriod'];
+  let w = 60; // covers fixed indicators (rsi14/atr14/adx14/bollinger warmup)
+  for (const k of lookbackKeys) {
+    const v = Number(params[k]);
+    if (Number.isFinite(v) && v > w) w = Math.ceil(v);
+  }
+  return w;
+}
+
+const MIN_EVAL_CANDLES = 30;
+
 function buildFolds(candles, foldDays = FOLD_DAYS) {
   // each candle ~ interval; approximate fold size by count fraction
   const ms = candles[candles.length - 1][0] - candles[0][0];
@@ -34,13 +52,27 @@ export async function validateOOS({ pair, interval = '1h', days = 360, kind, par
   const folds = buildFolds(candles, foldDays);
   if (!folds.length) { console.log('Not enough data for folds.'); return { verdict: false, folds: [] }; }
 
+  const warmup = warmupCandles(params);
+  if (warmup > 0) console.log(`Warmup: discarding first ${warmup} candles of each OOS eval segment (train untouched).`);
+
   const results = [];
   for (const f of folds) {
+    // P4: evaluate ONLY on the post-warmup tail of the OOS segment. The train
+    // segment keeps its full length (warmup there is harmless and preserves
+    // comparability with previous runs).
+    const cut = Math.min(warmup, Math.max(0, f.test.length - MIN_EVAL_CANDLES));
+    const evalSeg = f.test.slice(cut);
+    if (evalSeg.length < MIN_EVAL_CANDLES) {
+      console.log(`  Fold ${f.idx}: skipped — only ${evalSeg.length} eval candles left after ${cut}-candle warmup.`);
+      continue;
+    }
     const rTrain = fullReport(f.train, makeStrategy(kind, params));
-    const rTest = fullReport(f.test, makeStrategy(kind, params));
-    results.push({ fold: f.idx, train: rTrain, test: rTest });
+    const rTest = fullReport(evalSeg, makeStrategy(kind, params));
+    results.push({ fold: f.idx, train: rTrain, test: rTest, warmupCandles: cut });
     console.log(`  Fold ${f.idx}: TRAIN trades=${rTrain.metrics.trades} PF=${isFinite(rTrain.metrics.profitFactor) ? rTrain.metrics.profitFactor.toFixed(2) : 'inf'} | OOS trades=${rTest.metrics.trades} WR=${(rTest.metrics.winRate * 100).toFixed(1)}% PF=${isFinite(rTest.metrics.profitFactor) ? rTest.metrics.profitFactor.toFixed(2) : 'inf?'} EV%=${(rTest.metrics.expectancyPctPerTrade).toFixed(3)} t=${rTest.metrics.tstat.toFixed(2)} DD=${(rTest.metrics.maxDrawdown * 100).toFixed(1)}% GATES=${rTest.gates.passed}/${rTest.gates.total} ${rTest.gates.go ? 'GO' : ''}`);
   }
+
+  if (!results.length) { console.log('All folds skipped by warmup — not enough eval candles.'); return { verdict: false, passRate: 0, allPositive: false, results: [] }; }
 
   const oosGates = results.map(r => r.test.gates.go);
   const passRate = oosGates.filter(Boolean).length / oosGates.length;

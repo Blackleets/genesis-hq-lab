@@ -52,13 +52,78 @@ const FEE_RT = 0.001; // 0.10% round trip, same as backtest
 // Working capital sized from treasury: 20% of paper balance if positive, else CAPITAL.
 // Used ONLY as the INITIAL equity base of a brand-new state (no saved equity, no trades).
 // Never re-scales an existing state's history.
+function readTreasury() {
+  try { return JSON.parse(fs.readFileSync(TREASURY_FILE, 'utf8')); } catch { return null; }
+}
+
+// Available paper capital per treasury = paperBalanceUSDT minus every live
+// reservation. Read straight from the JSON file (no import of treasury.mjs:
+// that module runs its CLI as an import side effect, so we avoid the cycle).
+function treasuryAvailable(t) {
+  const s = t || readTreasury();
+  if (!s) return null;
+  const bal = Number(s.paperBalanceUSDT);
+  if (!Number.isFinite(bal)) return null;
+  const reserved = Array.isArray(s.reservations)
+    ? s.reservations.reduce((sum, r) => sum + (Number(r.amount) || 0), 0)
+    : 0;
+  return bal - reserved;
+}
+
 function workingCapital() {
-  try {
-    const t = JSON.parse(fs.readFileSync(TREASURY_FILE, 'utf8'));
-    const wc = Number(t.paperBalanceUSDT) * 0.2;
+  const avail = treasuryAvailable();
+  if (avail !== null) {
+    const wc = avail * 0.2;
     if (Number.isFinite(wc) && wc > 0) return wc;
-  } catch { /* fall through to default */ }
+  }
   return CAPITAL;
+}
+
+// Sizing base for a NEW trade: full-equity compounding like the backtest,
+// but never above the 20% trading allocation of what the treasury still has
+// free (Hummingbot BudgetChecker pattern). If equity exceeds the allocation,
+// scale DOWN — a signal is never rejected for capital reasons. Without a
+// readable treasury this returns plain equity (legacy behavior).
+function tradeEquityBase(state) {
+  const avail = treasuryAvailable();
+  if (avail === null || !Number.isFinite(avail)) return state.equity;
+  const alloc = Math.max(avail * 0.2, 0);
+  return Math.min(state.equity, alloc);
+}
+
+// Register/release this runner's slice in genesis_treasury_state.json.
+// Writes are atomic (temp file + rename) so concurrent readers never see a
+// torn JSON. Failures are logged but never block paper trading.
+function upsertTreasuryReservation(id, amount, reason) {
+  try {
+    const t = readTreasury() || {};
+    if (!Array.isArray(t.reservations)) t.reservations = [];
+    const existing = t.reservations.find(r => r.id === id);
+    if (existing) return; // already registered (idempotent)
+    t.reservations.push({ id, amount, reason, createdAt: new Date().toISOString() });
+    fs.mkdirSync(path.dirname(TREASURY_FILE), { recursive: true });
+    const tmp = `${TREASURY_FILE}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(t, null, 2));
+    fs.renameSync(tmp, TREASURY_FILE);
+  } catch (e) {
+    console.error(`[liveRunner] treasury reservation write failed (${e.message}) — continuing PAPER`);
+  }
+}
+
+function removeTreasuryReservation(id) {
+  if (!id) return;
+  try {
+    const t = readTreasury();
+    if (!t || !Array.isArray(t.reservations)) return;
+    const next = t.reservations.filter(r => r.id !== id);
+    if (next.length === t.reservations.length) return;
+    t.reservations = next;
+    const tmp = `${TREASURY_FILE}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(t, null, 2));
+    fs.renameSync(tmp, TREASURY_FILE);
+  } catch (e) {
+    console.error(`[liveRunner] treasury reservation release failed (${e.message})`);
+  }
 }
 
 function loadState() {
@@ -117,6 +182,14 @@ async function scan() {
   const sig = strategyFn(ctx);
   const events = [];
 
+  // 0) reconcile: if we are flat but a treasury reservation from a previous
+  // run survived (crash mid-position), release it so capital frees up.
+  if (!state.position && state.treasuryReservationId) {
+    removeTreasuryReservation(state.treasuryReservationId);
+    delete state.treasuryReservationId;
+    events.push('RECONCILE released stale treasury reservation');
+  }
+
   // 1) manage open position on the last closed candle
   if (state.position) {
     const pos = state.position;
@@ -131,8 +204,10 @@ async function scan() {
     if (closed) {
       const gross = pos.side === 'long' ? (closed.exitPx - pos.entry) / pos.entry : (pos.entry - closed.exitPx) / pos.entry;
       const net = gross - FEE_RT;
-      const pnl = state.equity * net; // full-equity sizing like backtest
+      const pnl = (typeof pos.size === 'number' && Number.isFinite(pos.size) ? pos.size : state.equity) * net; // sized on the reserved slice
       state.equity += pnl;
+      removeTreasuryReservation(pos.reservationId);
+      delete state.treasuryReservationId;
       state.trades.push({ openedAt: pos.openedAt, closedAt: new Date().toISOString(), side: pos.side, entry: pos.entry, exit: closed.exitPx, reason: closed.reason, pnlPct: +(net * 100).toFixed(3), pnlUsd: +pnl.toFixed(2) });
       events.push(`CLOSE ${pos.side} @${closed.exitPx} (${closed.reason}) net=${(net * 100).toFixed(2)}% equity=${state.equity.toFixed(2)}`);
       state.position = null;
@@ -144,12 +219,20 @@ async function scan() {
   // 2) entry signal on last closed candle (only if flat)
   if (!state.position && sig) {
     const a = ind.atr14[i] || px * 0.01;
+    // Unified capital (P1): size the new trade on treasury's free allocation.
+    // Never reject: scale down to what the 20% allocation still allows.
+    const base = +tradeEquityBase(state).toFixed(2);
+    const reservationId = `rr_${PAIR}_${TF}_${Date.now()}`;
+    const openPos = (side) => {
+      upsertTreasuryReservation(reservationId, base, `liveRunner:${OWNER_HASH || 'operator'}:${PAIR}:${TF}`);
+      state.treasuryReservationId = reservationId;
+      state.position = { side, entry: px, sl: side === 'long' ? px - P.slMult * a : px + P.slMult * a, tp: side === 'long' ? px + P.tpMult * a : px - P.tpMult * a, size: base, openedAt: new Date().toISOString() };
+      events.push(`OPEN ${side.toUpperCase()} @${px} size=$${base} SL=${state.position.sl.toFixed(6)} TP=${state.position.tp.toFixed(6)}${base < state.equity ? ' (scaled down to 20% treasury allocation)' : ''}`);
+    };
     if (sig.long) {
-      state.position = { side: 'long', entry: px, sl: px - P.slMult * a, tp: px + P.tpMult * a, openedAt: new Date().toISOString() };
-      events.push(`OPEN LONG @${px} SL=${state.position.sl.toFixed(6)} TP=${state.position.tp.toFixed(6)}`);
+      openPos('long');
     } else if (sig.short) {
-      state.position = { side: 'short', entry: px, sl: px + P.slMult * a, tp: px - P.tpMult * a, openedAt: new Date().toISOString() };
-      events.push(`OPEN SHORT @${px} SL=${state.position.sl.toFixed(6)} TP=${state.position.tp.toFixed(6)}`);
+      openPos('short');
     }
   }
 
