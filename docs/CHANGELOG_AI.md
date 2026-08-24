@@ -1371,3 +1371,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Task 8 — auditoria de seguridad adversarial contra produccion: 7/7 pruebas pasaron (401 sin token, firma invalida rechazada, rate limit 429 activo, nonce one-shot, JWT manipulado 401, grep limpio de firmas peligrosas, sesion solo sessionStorage). Veredicto: APROBADO con onboarding whitelist.
 - Files touched: docs/SECURITY_AUDIT.md (nuevo)
 - Verification: tests ejecutados contra https://genesis-hq-lab-real.vercel.app en vivo
+
+## 2026-08-24c — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: Liquidation stream en vivo — WebSocket !forceOrder@arr capturando cada liquidacion forzada del mercado 24/7 (host stream.binancefuture.com: fstream.binance.com abre pero entrega 0 frames por bloqueo CDN en esta red). Stats rolling por simbolo/ventana con dominancia longs-vs-shorts y desbalance %. Persistencia JSONL + ring buffer memoria. Endpoint /api/genesis/liquidations. Stream arranca con el server boot. Primera captura real: ETH short liquidado $1.58M, shorts dominando -79% en 15min.
+- Files touched: server/genesis/liquidationStream.mjs (nuevo), server/index.mjs
+- Verification: node --check ok; WS conecta y recibe frames reales; endpoint curl devuelve stats agregadas; arranque automatico en boot verificado

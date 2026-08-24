@@ -695,6 +695,18 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === '/api/genesis/liquidations') {
+    // Live liquidation stats from the persistent stream (started at server boot).
+    try {
+      const url2 = new URL(req.url, `http://${req.headers.host}`);
+      const symbol = url2.searchParams.get('pair') ? url2.searchParams.get('pair').toUpperCase() : null;
+      const minutes = Math.min(parseInt(url2.searchParams.get('minutes') || '60', 10) || 60, 1440);
+      const { getLiquidationStats } = await import('./genesis/liquidationStream.mjs');
+      sendJson(res, 200, { ok: true, stats: getLiquidationStats(symbol, { minutes }) });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
   if (url.pathname === '/api/genesis/candles') {
     // Real candles for the Quant Lab chart (public Binance data via existing fetcher).
     try {
@@ -2052,6 +2064,10 @@ server.on('upgrade', (req, socket, head) => {
 server.listen(PORT, HOST, () => {
   console.log(`[genesis-hq-lab-backend] listening on http://${HOST}:${PORT}`);
   kalshiStartWS();
+  // Genesis liquidation stream: persistent WS capturing forced orders 24/7.
+  import('./genesis/liquidationStream.mjs')
+    .then(m => { m.startLiquidationStream(); console.log('[genesis] liquidation stream started'); })
+    .catch(e => console.error('[genesis] liquidation stream failed:', e.message));
   // Wire solana broadcast + init once the dynamic import resolves
   (async () => {
     let attempts = 0;
