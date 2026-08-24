@@ -1,7 +1,7 @@
 // GenesisSidebar — left-rail nav with division groups.
 // Modules are organized into 5 themed sections to reflect the company structure.
 
-import { Building2, Boxes, Sparkles, Users, BrainCircuit, Activity, FileText, Settings, Gauge, Wallet, Megaphone, Code, Terminal, Workflow, Bot, TrendingUp, Bitcoin, HeartPulse, ScrollText, FlaskConical, BarChart3, Pill, Radio, Dna } from 'lucide-react';
+import { Building2, BrainCircuit, Activity, Settings, Gauge, Wallet, Terminal, Bot, TrendingUp, Bitcoin, HeartPulse, FlaskConical, Radio, Dna } from 'lucide-react';
 import GenesisLockup from '@ui/GenesisLogo';
 import { useT, useLanguage } from '@core/i18n/languageStore';
 import { MODULES, type ModuleId } from '@core/data/moduleRegistry';
@@ -15,26 +15,16 @@ interface Props {
 const ICONS: Record<ModuleId, typeof Building2> = {
   dashboard:    Gauge,
   hq:           Building2,
-  factory:      Boxes,
-  auto:         Sparkles,
-  hr:           Users,
   markets:      Activity,
   decisions:    BrainCircuit,
-  progress:     FileText,
   settings:     Settings,
   wallet:       Wallet,
-  marketing:    Megaphone,
-  tech:         Code,
   console:      Terminal,
-  integrations: Workflow,
   'agents-live':  Bot,
   edge:           TrendingUp,
   crypto:         Bitcoin,
   system:         HeartPulse,
-  operator:       ScrollText,
   alpha:          FlaskConical,
-  'pred-markets':  BarChart3,
-  'solana-alpha':  Pill,
   'live-exec':     Radio,
   'funding-bot':   Radio,
   'quant-bot':     Dna,
@@ -59,25 +49,19 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
     labelEs: 'Trading & Riesgo',
     labelEn: 'Trading & Risk',
     color: '#00ff9c',
-    modules: ['markets', 'decisions', 'edge', 'crypto', 'funding-bot', 'solana-alpha'],
-  },
-  {
-    labelEs: 'Negocios',
-    labelEn: 'Business',
-    color: '#f59e0b',
-    modules: ['marketing', 'tech'],
+    modules: ['markets', 'decisions', 'edge', 'crypto', 'funding-bot'],
   },
   {
     labelEs: 'People & Ops',
     labelEn: 'People & Ops',
     color: '#a855f7',
-    modules: ['agents-live', 'hr', 'factory', 'auto'],
+    modules: ['agents-live'],
   },
   {
     labelEs: 'Plataforma',
     labelEn: 'Platform',
     color: '#6b7280',
-    modules: ['system', 'operator', 'alpha', 'integrations', 'progress', 'settings', 'wallet'],
+    modules: ['system', 'alpha', 'settings', 'wallet'],
   },
 ];
 

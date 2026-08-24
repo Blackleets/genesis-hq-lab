@@ -18,28 +18,32 @@ export const TRANSLATIONS = {
 
   'nav.dashboard':           { es: 'Panel',                        en: 'Dashboard' },
   'nav.hq':                  { es: 'Sede central de Génesis',      en: 'Genesis HQ' },
-  'nav.factory':             { es: 'Fábrica de agentes',           en: 'Agent Factory' },
-  'nav.auto':                { es: 'Agente automático',            en: 'Auto-Agent Mode' },
-  'nav.hr':                  { es: 'Génesis HR',                   en: 'Genesis HR' },
   'nav.markets':             { es: 'Mercados',                     en: 'Markets' },
   'nav.decisions':           { es: 'Decisiones',                   en: 'Decisions' },
-  'nav.progress':            { es: 'Progreso',                     en: 'Progress' },
   'nav.settings':            { es: 'Ajustes',                      en: 'Settings' },
   'nav.wallet':              { es: 'Wallet',                        en: 'Wallet' },
-  'nav.marketing':           { es: 'Marketing',                    en: 'Marketing' },
-  'nav.tech':                { es: 'Tech Studio',                  en: 'Tech Studio' },
   'nav.console':             { es: 'Consola',                      en: 'Console' },
-  'nav.integrations':        { es: 'Integraciones',                en: 'Integrations' },
   'nav.agents-live':         { es: 'Agentes IA',                   en: 'AI Agents' },
   'nav.edge':            { es: 'Edge Scorecard',               en: 'Edge Scorecard' },
   'nav.crypto':          { es: 'Crypto Lab',                    en: 'Crypto Lab' },
   'nav.system':          { es: 'System Health',                 en: 'System Health' },
-  'nav.operator':        { es: 'Operador Timeline',            en: 'Operator Timeline' },
   'nav.alpha':           { es: 'Alpha Validation',             en: 'Alpha Validation' },
-  'nav.pred-markets':    { es: 'Prediction Markets Lab',        en: 'Prediction Markets Lab' },
-  'nav.solana-alpha':   { es: '💊 Pump.fun Alpha',               en: '💊 Pump.fun Alpha' },
   'nav.live-exec':      { es: '📡 Live Executions',              en: '📡 Live Executions' },
   'nav.funding-bot':    { es: '🤖 Bot de Funding',               en: '🤖 Funding Bot' },
+  'hr.title':                { es: 'Génesis HR',                   en: 'Genesis HR' },
+  'hr.intro':                { es: 'Recursos humanos de Génesis: agentes activos, cola de contratación y recomendaciones.', en: 'Genesis HR: active agents, hiring queue, and recommendations.' },
+  'hr.active.title':         { es: 'Plantilla activa',             en: 'Active roster' },
+  'hr.queue.empty':          { es: 'Sin candidatos en cola.',      en: 'No candidates in queue.' },
+  'hr.recommendation.title': { es: 'Recomendaciones del evaluador', en: 'HR Evaluator recommendations' },
+  'auto.title':              { es: 'Agente Automático',            en: 'Auto-Agent Mode' },
+  'auto.intro':              { es: 'Define un objetivo y Génesis propondrá un plan de tareas para ejecutarlo.', en: 'Define a goal and Genesis will propose a task plan to execute it.' },
+  'auto.form.goal':          { es: 'Objetivo (describe qué quieres lograr)',  en: 'Goal (describe what you want to achieve)' },
+  'auto.form.agents':        { es: 'Agentes involucrados',         en: 'Agents involved' },
+  'auto.propose':            { es: 'Proponer plan',                en: 'Propose plan' },
+  'auto.execute':            { es: 'Ejecutar plan',                en: 'Execute plan' },
+  'auto.plan.title':         { es: 'Plan propuesto',               en: 'Proposed plan' },
+  'auto.plan.empty':         { es: 'Escribe un objetivo para generar el plan.', en: 'Enter a goal to generate the plan.' },
+  'auto.success':            { es: 'Plan ejecutado. Las tareas aparecerán en la oficina.', en: 'Plan executed. Tasks will appear in the office.' },
   'nav.quant-bot':      { es: '🧬 Quant Lab (Paper)',            en: '🧬 Quant Lab (Paper)' },
   'nav.terminal':       { es: '💹 Terminal Pro',                 en: '💹 Pro Terminal' },
 
@@ -79,14 +83,9 @@ export const TRANSLATIONS = {
   'metric.tasksActive':        { es: 'Tareas activas',               en: 'Tasks active' },
   'metric.onboardingAgents':   { es: 'En onboarding',               en: 'Onboarding' },
 
-  // ---------------- HR ----------------
-  'hr.title':                { es: 'Génesis HR',                   en: 'Genesis HR' },
-  'hr.intro':                { es: 'Recursos humanos de Génesis: agentes activos, cola de contratación y recomendaciones.', en: 'Genesis HR: active agents, hiring queue, and recommendations.' },
-  'hr.active.title':         { es: 'Plantilla activa',             en: 'Active roster' },
+  // ---------------- HR (keys used by HiringQueue / GenesisDashboard) ----------------
   'hr.queue.title':          { es: 'Cola de contratación',         en: 'Hiring queue' },
   'hr.queue.condition':      { es: 'Se contratará cuando:',        en: 'Will be hired when:' },
-  'hr.queue.empty':          { es: 'Sin candidatos en cola.',      en: 'No candidates in queue.' },
-  'hr.recommendation.title': { es: 'Recomendaciones del evaluador', en: 'HR Evaluator recommendations' },
 
   // ---------------- HQ ----------------
   'hq.zone.market':          { es: 'Escritorio de mercado',        en: 'Market Desk' },
@@ -226,16 +225,6 @@ export const TRANSLATIONS = {
   'onboarding.startedAt':    { es: 'Iniciado',                     en: 'Started at' },
   'onboarding.endsAt':       { es: 'Finaliza',                     en: 'Ends at' },
 
-  // ---------------- FACTORY ----------------
-  'factory.title':           { es: 'Fábrica de Agentes',           en: 'Agent Factory' },
-  'factory.intro':           { es: 'Crea un agente personalizado y agrégalo a la oficina.',  en: 'Create a custom agent and add it to the office.' },
-  'factory.form.name':       { es: 'Nombre del agente',            en: 'Agent name' },
-  'factory.form.role':       { es: 'Rol (aparece en el perfil)',   en: 'Role (shown in profile)' },
-  'factory.form.dept':       { es: 'Departamento',                 en: 'Department' },
-  'factory.form.archetype':  { es: 'Arquetipo visual',             en: 'Visual archetype' },
-  'factory.form.color':      { es: 'Color primario',               en: 'Primary color' },
-  'factory.submit':          { es: 'Crear agente',                 en: 'Create agent' },
-  'factory.success':         { es: 'Agente creado. Aparecerá en HR en onboarding.', en: 'Agent created. Will appear in HR in onboarding.' },
 
   // ---------------- DECISIONS ----------------
   'decisions.title':         { es: 'Decisiones',                   en: 'Decisions' },
@@ -253,16 +242,6 @@ export const TRANSLATIONS = {
   'decisions.status.resolved':{ es: 'resuelta',                   en: 'resolved' },
   'decisions.hint':          { es: 'Cada decisión crea una tarea de revisión en la Sala de Juntas.', en: 'Each decision creates a review task in the Board Room.' },
 
-  // ---------------- AUTO ----------------
-  'auto.title':              { es: 'Agente Automático',            en: 'Auto-Agent Mode' },
-  'auto.intro':              { es: 'Define un objetivo y Génesis propondrá un plan de tareas para ejecutarlo.', en: 'Define a goal and Genesis will propose a task plan to execute it.' },
-  'auto.form.goal':          { es: 'Objetivo (describe qué quieres lograr)',  en: 'Goal (describe what you want to achieve)' },
-  'auto.form.agents':        { es: 'Agentes involucrados',         en: 'Agents involved' },
-  'auto.propose':            { es: 'Proponer plan',                en: 'Propose plan' },
-  'auto.execute':            { es: 'Ejecutar plan',                en: 'Execute plan' },
-  'auto.plan.title':         { es: 'Plan propuesto',               en: 'Proposed plan' },
-  'auto.plan.empty':         { es: 'Escribe un objetivo para generar el plan.', en: 'Enter a goal to generate the plan.' },
-  'auto.success':            { es: 'Plan ejecutado. Las tareas aparecerán en la oficina.', en: 'Plan executed. Tasks will appear in the office.' },
 } as const;
 
 export type TKey = keyof typeof TRANSLATIONS;

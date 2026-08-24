@@ -1449,3 +1449,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: P2 CERRADO — liveRunner ahora usa feeAccountant (schema real con fallback offline, SL/TP como taker) y ClientOrderTracker de connectorCore: cada posicion es InFlightOrder registrada/fillada con snapshotStates persistido aditivamente en openOrders y restoreTrackingStates al cargar. Compatibilidad estricta: campos legacy intactos, senales identicas.
 - Files touched: server/genesis/liveRunner.mjs
 - Verification: node --check ok; scan unico equity=1000 returnPct=0; openOrders presente en estado; campos legacy intactos; typecheck 0 errores. Plan unificado 4 repos: COMPLETO.
+
+## 2026-08-24m — Ganador De Dinero (aragan) + subagente limpieza
+- Branch: feat/genesis-improvement-plan
+- Summary: LIMPIEZA de teatro del frontend: eliminados del nav/switch/registry 9 modulos visual-only sin motor (factory, auto, hr, operator, pred-markets, marketing, tech, integrations, solana-alpha). FundingBotView corregido: la mentira "edge PF 2-7000" reemplazada por veredicto honesto medido (PERDEDOR post-fees, scanner 53 pares). LiveExecutionsView con banner de contexto. Traducciones hr/auto restauradas para las vistas desconectadas que quedan en disco. Referencias sourceModule rotas apuntando a modulos eliminados -> dashboard.
+- Files touched: src/App.tsx, src/core/data/moduleRegistry.ts, src/core/i18n/translations.ts, src/ui/GenesisSidebar.tsx, src/workflows/FundingBotView.tsx, src/workflows/LiveExecutionsView.tsx, src/core/store/genesisStore.ts, src/core/data/initialTasks.ts, src/workflows/AutoView.tsx
+- Verification: typecheck 0 errores; build ok (1m25s); conservados: HQ pixel, Dashboard, Markets, CryptoLab, EdgeScorecard, SystemHealth, Settings, Wallet, QuantBot, Terminal, FundingBot(honesto)

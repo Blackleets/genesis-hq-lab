@@ -78,6 +78,15 @@ export default function LiveExecutionsView() {
         </div>
       )}
 
+      {lastSync === 0 && trades.length === 0 && (
+        <div style={{
+          fontSize: 13, marginBottom: 10, padding: '10px 12px',
+          border: '1px solid #ffa64d55', background: '#ffa64d14', color: '#ffce9e', borderRadius: 6,
+        }}>
+          Backend offline — no execution feed available. Start it with <code>npm run start</code>.
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: '120px 70px 90px 90px 90px 80px', gap: 4, fontSize: 13, opacity: 0.9 }}>
         <div style={{ opacity: 0.5 }}>time</div>
         <div style={{ opacity: 0.5 }}>pair</div>

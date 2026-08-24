@@ -91,7 +91,7 @@ export default function AutoView() {
         type: task.type,
         room: task.room,
         priority: 'normal',
-        sourceModule: 'auto',
+        sourceModule: 'dashboard',
         assignedAgentIds: selectedIds,
         estimatedMs: 4 * 60 * 1000,
         isReal: true,
