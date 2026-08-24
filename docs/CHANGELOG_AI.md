@@ -1407,3 +1407,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Plan unificado P1+P3+P4+P5 integrados: (P1) treasury reserve/release/availableForTrading + liveRunner respeta reservas — capital unificado, test 200-40=160 exacto. (P3) genesis_losses.py con LOSS_REGISTRY fitness/sharpe/calmar/profit_drawdown + flag --loss en optuna_evolve + poda LOOKAHEAD automatica. (P4) warmup candles GENESIS_WARMUP_CANDLES en folds OOS de oosValidator. (P5) shadowCritic.mjs heuristico determinista: H1 small-sample PF outlier, H2 win rate inflado, H3 demasiado-perfecto; CLI disponible. Fix cosmico formato winRate en H2.
 - Files touched: server/genesis/treasury.mjs, server/genesis/liveRunner.mjs, scripts/genesis_losses.py (nuevo), scripts/optuna_evolve.py, server/genesis/oosValidator.mjs, server/genesis/shadowCritic.mjs (nuevo)
 - Verification: py_compile ok; node --check todos; availableForTrading 200-40=160 verificado; shadow critic DISAGREE con 3 concerns en fake perfecto y AGREE en candidato honesto muerto; smoke optuna calmar 8 trials ok
+
+## 2026-08-24g — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: Campana Optuna honesta completa (motor con lookahead guard + signal shift): COTIUSDT 150 trials Calmar -> top calmar=1.44 volumeProfile (366 trades, gates 4/6, 0 podados LOOKAHEAD). XLMUSDT 100 trials Sharpe -> top sharpe=0.06 (mediocre honesto). Lectura: los numeros espectaculares previos eran espejismos del fill en misma vela; con motor incorruptible las familias tecnicas muestran su valor real: marginal. El edge no esta en velas + indicadores clasicos; siguientes frentes: datos alternativos ya integrados (liquidaciones, posicionamiento) o cambio de regimen.
+- Files touched: ninguno (campana de validacion)
+- Verification: 250 trials completos entre ambos pares, 0 violaciones LOOKAHEAD
