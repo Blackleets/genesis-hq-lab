@@ -1431,3 +1431,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: P2 completo — los 6 patrones Hummingbot ahora existen en JS: rateLimiter.mjs (AsyncThrottler ponderado multi-limit_id con margen de seguridad + getSharedThrottler singleton presupuesto Binance compartido), feeAccountant.mjs (schema maker/taker desde ccxt con fallback, computeFee, netProceeds), connectorCore.mjs (OrderState con PARTIALLY_FILLED, InFlightOrder con fills parciales acumulados y avg ponderado, ClientOrderTracker con TTL cache y snapshotStates/restoreTrackingStates para persistencia). Self-test CLI incluido.
 - Files touched: server/genesis/rateLimiter.mjs (nuevo), server/genesis/feeAccountant.mjs (nuevo), server/genesis/connectorCore.mjs (nuevo)
 - Verification: node --check 3/3; self-test connectorCore PASS (fills parciales, snapshot/restore); throttler compartido sin bloqueo; fee 0.1% sobre 10000 = 10 exacto
+
+## 2026-08-24j — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: Rebrand de acentos Quant Lab a familia verde (decision del operador): velas bajistas teal #14b8a6, shorts/marcadores teal, metricas negativas teal-300 en vez de rojo. Rojo semantico solo queda para errores reales del sistema.
+- Files touched: src/workflows/QuantBotView.tsx, src/workflows/QuantChart.tsx
+- Verification: typecheck 0 errores; build ok (42s)

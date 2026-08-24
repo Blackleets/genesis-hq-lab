@@ -74,10 +74,10 @@ export default function QuantChart({ candles, trades = [], height = 320 }: Props
     });
     const series = chart.addSeries(CandlestickSeries, {
       upColor: '#10b981',
-      downColor: '#ef4444',
+      downColor: '#14b8a6',
       borderVisible: false,
       wickUpColor: '#10b981',
-      wickDownColor: '#ef4444',
+      wickDownColor: '#14b8a6',
     });
     chartRef.current = chart;
     seriesRef.current = series;
@@ -105,7 +105,7 @@ export default function QuantChart({ candles, trades = [], height = 320 }: Props
       markers.push({
         time: entryT,
         position: 'belowBar' as const,
-        color: long ? '#10b981' : '#ef4444',
+        color: long ? '#34d399' : '#2dd4bf',
         shape: 'arrowUp' as const,
         text: `${long ? 'L' : 'S'} @${t.entry}`,
       });

@@ -107,7 +107,7 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: '
   return (
     <div className="gx-card px-3 py-2">
       <div className="text-[10px] uppercase tracking-wide text-zinc-500">{label}</div>
-      <div className={`font-mono text-[15px] font-semibold ${tone === 'pos' ? 'text-emerald-400' : tone === 'neg' ? 'text-red-400' : 'text-zinc-100'}`}>
+      <div className={`font-mono text-[15px] font-semibold ${tone === 'pos' ? 'text-emerald-400' : tone === 'neg' ? 'text-teal-300' : 'text-zinc-100'}`}>
         {value}
       </div>
     </div>
@@ -390,11 +390,11 @@ export default function QuantBotView() {
                   {[...bot!.trades].reverse().map((t, i) => (
                     <tr key={i} className="border-b border-carbon-100/50">
                       <td className="px-3 py-1 text-zinc-400">{new Date(t.closedAt).toLocaleString()}</td>
-                      <td className={`px-3 py-1 ${t.side === 'long' ? 'text-emerald-400' : 'text-red-400'}`}>{t.side}</td>
+                      <td className={`px-3 py-1 ${t.side === 'long' ? 'text-emerald-400' : 'text-teal-300'}`}>{t.side}</td>
                       <td className="px-3 py-1 text-right text-zinc-300">{t.entry}</td>
                       <td className="px-3 py-1 text-right text-zinc-300">{t.exit}</td>
                       <td className="px-3 py-1 text-zinc-400">{t.reason}</td>
-                      <td className={`px-3 py-1 text-right ${t.pnlUsd > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      <td className={`px-3 py-1 text-right ${t.pnlUsd > 0 ? 'text-emerald-400' : 'text-teal-300'}`}>
                         {t.pnlUsd > 0 ? '+' : ''}{t.pnlUsd.toFixed(2)}
                       </td>
                     </tr>
