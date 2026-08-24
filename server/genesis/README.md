@@ -1,37 +1,95 @@
-# Genesis Quant Lab — Entregable FINAL (Plan de Mejora A+B+C aplicado)
+# Genesis Quant Lab — Motor Cuant Incorruptible
 
-El "Genesis Terminal" más poderoso del repo, ahora con **3 mejoras de nivel
-quant real** (aislado en server/genesis/, sin tocar Visual Lab ni trading
-existente). Diseñado para **aprender infinitamente** y capturar ganancias
-diarias pequeñas reinvertidas (compounding) en CUALQUIER régimen.
+> "Poderoso porque incorruptible, no porque tenga muchas luces."
 
-## Mejoras A + B + C
-- **A) Market-Maker (edge independiente de régimen):** `marketMaker.mjs` captura
-  bid-ask spread en barras que revierten. Gana en cualquier régimen (no dirección).
-  Modelo honesto: spread 2bps - fee 0.4bps - haircut adverse-selection 40%.
-  Verificado en datos reales 15m: ETH +4.2%, BTC +3.7%, SOL +3.9% / 30d, DD <0.2%.
-- **B) Ensemble + Regime-Switching + multi-TF:** `ensembleEngine.mjs` detecta
-  régimen global (BTC ADX) y sesga el peso de familias; `learningLoop.mjs` ahora
-  escanea 1h/15m/5m y suma el market-maker como familia. Score por consistencia
-  (regime-history en learnings.json) = aprendizaje infinito real.
-- **C) Universo multi-exchange:** `multiExchangeFeed.mjs` usa **ccxt** para
-  traer 4,843 símbolos perp de Binance/Bybit/OKX/KuCoin/GateIO. "Todo el espacio
-  crypto" de verdad. `learnings.json` crece por ciclo (edges + regime-history).
+Laboratorio cuant autocontenido dentro de genesis-hq-lab-real: busca edges en
+datos reales de Binance, los valida con 6 gates institucionales + walk-forward
+con warmup + lookahead guard, y ejecuta paper trading 24/7 automatizado.
+**live_mode = false por diseño estructural.** Cero dólares reales en riesgo.
 
-## Archivos (server/genesis/)
-backtestCore (fee+slippage+Sharpe+ADX), strategyLib (5 familias), evolutionLoops,
-metaStrategyEvolve, ccxtFeed, genesisTerminal, oosValidator, adaptiveEngine
-(trade-the-regime), adaptiveFundingEngine (estacional), learningLoop (aprendiz
-infinito + MM), ensembleEngine (regime-switching), marketMaker (spread capture),
-multiExchangeFeed (universo ccxt), fundingArb/Scanner/Watch.
+## Los 6 patrones Hummingbot (implementados y verificados)
 
-## Resultado REAL (verificado, datos Binance/ccxt)
-- Learning loop con market-maker: **40 pares desplegados**, +$0.72/día,
-  **+$21.83/mes con $1000** (compounding ~2.2%/mes, DD <0.2%).
-- Esto es el edge que funciona en CUALQUIER régimen (captura spread, no dirección).
-- Directional strategies (MR/momentum) siguen FLAT en uptrend actual (honesto).
+| Patrón | Módulo | Nota |
+|---|---|---|
+| Order lifecycle (PARTIALLY_FILLED incl.) | `connectorCore.mjs` | InFlightOrder + ClientOrderTracker con snapshot/restore |
+| Throttling compartido | `rateLimiter.mjs` | AsyncThrottler ponderado multi-limit_id; singleton getSharedThrottler() |
+| Fee accounting | `feeAccountant.mjs` | maker/taker desde ccxt loadMarkets; fallback documentado |
+| Balance validation | `treasury.mjs` | reserve/release/availableForTrading; ledger append-only |
+| Lookahead guard | `backtestCore.mjs` | createCappedCtx bloquea el futuro; señales ejecutan en open[i+1]; violaciones = gate fallido |
+| Lost-order detection | `scripts/genesis_paper_connector.py` | Referencia canónica Python (port JS pendiente) |
 
-## Seguridad (base no negociable)
-- `REAL_TRADING=false`. Ejecución real requiere GO humano + keys + confirm + kill switch.
-- `ccxtFeed` NUNCA firma sin aprobación manual. Cero datos falsos.
-- Telegram: congelado hasta que el usuario lo pida.
+## Pipeline de validación (por este orden, sin atajos)
+
+```
+evalCandidate.mjs          # evaluador one-shot con caché de velas
+  └─ backtestCore.mjs      # motor HONESTO: lookahead guard + signal shift
+       └─ evaluateGates    # 6 gates institucionales
+oosValidator.mjs           # walk-forward con warmup (GENESIS_WARMUP_CANDLES)
+shadowCritic.mjs           # heurística anti-"demasiado perfecto"
+auditor semanal (cron)     # veredicto sabatino: INSUFICIENTE/OBSERVACIÓN/EDGE/KILL
+```
+
+Un candidato solo merece paper capital si sobrevive toda la cadena.
+
+## Optimización
+
+- `evolutionLoops.mjs` — búsqueda genética multi-familia
+- `../scripts/optuna_evolve.py` + `../scripts/genesis_losses.py` — Optuna TPE
+  con loss registry plugable (--loss fitness|sharpe|calmar|profit_drawdown) y
+  poda automática LOOKAHEAD
+- Campaña honesta 2026-08-24: familias técnicas clásicas muestran valor marginal
+  real (Calmar 1.44 top) una vez eliminado el sesgo — documentado, no maquillado.
+
+## Datos vivos (gratis, sin API key)
+
+- `derivativesContext.mjs` — Open Interest, long/short global, taker flow,
+  Fear & Greed (cache 10 min)
+- `liquidationStream.mjs` — WebSocket !forceOrder@arr (host
+  stream.binancefuture.com; fstream entrega 0 frames en algunas redes)
+- `ccxtFeed.mjs` — OHLCV real vía ccxt (presupuesto compartido del throttler)
+
+## Ejecución paper 24/7
+
+- `liveRunner.mjs` — runner por par+timeframe; sizing desde tesorería;
+  namespacing opcional por wallet (`GENESIS_OWNER_ADDR` → data/bots/<hash>/)
+- `treasury.mjs` — depósitos/retiros de 2 pasos, whitelist humana, cap de desk
+- `testnetExecutor.mjs` — GATED: dry-run hasta llaves + TESTNET=true +
+  GENESIS_LIVE_GO.txt creado POR EL HUMANO
+- Cron horario (perfil Hermes aragan): escanea basket, reporta solo eventos
+- Auditor semanal (sábados 20:00): tearsheet QuantStats + veredicto con kill switch
+
+## Multi-usuario (en construcción)
+
+- `../../api/auth/*` — SIWES login (nonce efímero + JWT), rate-limited
+- `../../api/genesis/bots.js` — spawn/list/archive de bots por wallet;
+  catálogo VALIDADO por nosotros, params editables clamped a nuestros límites,
+  max 3 bots/user, $1000 virtuales, liveMode:false estructural
+- Auditoría de seguridad: `../../docs/SECURITY_AUDIT.md` (7/7 aprobada)
+
+## Veredictos medidos (honestidad como feature)
+
+| Edge | Método | Resultado |
+|---|---|---|
+| Familias técnicas (MR/VP/OBI/momentum/breakout) | 340+ trials Optuna, motor honesto | Marginal (Calmar 1.44 top) — documentado |
+| Funding arbitrage | Scanner 53 pares × 500 eventos | Perdedor post-fees |
+| Market-making naive | Fill-test contra flujo real | Perdedor (adverse selection medida) |
+
+No hay humo: cada veredicto tiene script reproducible y commit.
+
+## Comandos rápidos
+
+```bash
+node server/genesis/liveRunner.mjs                    # scan único paper
+node server/genesis/treasury.mjs status               # estado tesorería
+node server/genesis/derivativesContext.mjs context COTIUSDT
+python scripts/optuna_evolve.py --pair COTIUSDT --trials 50 --loss calmar
+node server/genesis/shadowCritic.mjs '<reportJson>'   # ¿demasiado perfecto?
+node server/genesis/connectorCore.mjs                 # self-test patrones HB
+```
+
+## Reglas (AGENTS.md resumidas para este módulo)
+
+1. Nunca main; branch + conventional commits + entrada en docs/CHANGELOG_AI.md
+2. Cambios de schema SIEMPRE aditivos (api/genesis/live.js y bots en producción)
+3. Sin procesos persistentes sin aprobación humana explícita
+4. live_mode=false no se discute; testnet exige GO humano archivado
