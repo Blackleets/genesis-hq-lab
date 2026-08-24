@@ -1377,3 +1377,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Liquidation stream en vivo — WebSocket !forceOrder@arr capturando cada liquidacion forzada del mercado 24/7 (host stream.binancefuture.com: fstream.binance.com abre pero entrega 0 frames por bloqueo CDN en esta red). Stats rolling por simbolo/ventana con dominancia longs-vs-shorts y desbalance %. Persistencia JSONL + ring buffer memoria. Endpoint /api/genesis/liquidations. Stream arranca con el server boot. Primera captura real: ETH short liquidado $1.58M, shorts dominando -79% en 15min.
 - Files touched: server/genesis/liquidationStream.mjs (nuevo), server/index.mjs
 - Verification: node --check ok; WS conecta y recibe frames reales; endpoint curl devuelve stats agregadas; arranque automatico en boot verificado
+
+## 2026-08-24d — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: genesis_paper_connector.py — infraestructura base de ejecucion de ordenes PAPER siguiendo la arquitectura del conector oficial de Hummingbot (ConnectorBase/InFlightOrderBase/ClientOrderTracker/API Throttler/TradeFeeSchema). Decimal en toda la contabilidad, jerarquia propia de excepciones, rate limiter, tracker con TTL cache y deteccion de ordenes perdidas, verificacion exhaustiva de balance virtual antes de cada fill. Semantica HB: MARKET llena contra precio de referencia + slippage; LIMIT descansa OPEN hasta cruce. Demo --demo verifica fills, rechazos por balance insuficiente e ids duplicados.
+- Files touched: scripts/genesis_paper_connector.py (nuevo)
+- Verification: demo corre end-to-end: MARKET FILLED (fee 0.1% aplicada), LIMIT lejos queda OPEN activa, balance-insuficiente rechazado limpio, client_order_id duplicado rechazado
