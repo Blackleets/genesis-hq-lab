@@ -1437,3 +1437,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Rebrand de acentos Quant Lab a familia verde (decision del operador): velas bajistas teal #14b8a6, shorts/marcadores teal, metricas negativas teal-300 en vez de rojo. Rojo semantico solo queda para errores reales del sistema.
 - Files touched: src/workflows/QuantBotView.tsx, src/workflows/QuantChart.tsx
 - Verification: typecheck 0 errores; build ok (42s)
+
+## 2026-08-24k — Ganador De Dinero (aragan) + subagente throttler
+- Branch: feat/genesis-improvement-plan
+- Summary: Throttler compartido cableado en toda la cadena Binance: ccxtFeed.fetchOHLCV pasa por acquire(ohlcv), historicalData klines loop idem (mismo presupuesto compartido con ccxtFeed), derivativesContext jget raciona solo URLs fapi (F&G de terceros libre). Presupuesto efectivo con margen 5%: ohlcv 47/min, default 1140/min. Ningun modulo puede monopolizar la API.
+- Files touched: server/genesis/ccxtFeed.mjs, server/genesis/derivativesContext.mjs, server/crypto/backtest/historicalData.mjs
+- Verification: node --check 3/3; fetchOHLCV 50 candles ok via throttler; usage() confirma caps

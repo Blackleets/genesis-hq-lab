@@ -22,6 +22,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import url from 'node:url';
+import { getSharedThrottler } from './rateLimiter.mjs';
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const CACHE_DIR = path.join(__dirname, '../../data/derivatives_cache');
@@ -30,7 +31,12 @@ const FNG = 'https://api.alternative.me/fng/';
 
 const TTL_MS = 10 * 60 * 1000; // 10 min cache for positioning snapshots
 
-async function jget(u) {
+// fapi /futures/data/* endpoints: IP weight 1 each on Binance futures.
+const FAPI_WEIGHT = 1;
+
+async function jget(u, weight = FAPI_WEIGHT) {
+  // Only Binance fapi calls draw from the shared budget; third-party (Fear & Greed) is not throttled here.
+  if (u.startsWith(FUTS)) await getSharedThrottler().acquire('default', weight);
   const res = await fetch(u, { signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${u.split('?')[0]}`);
   return res.json();

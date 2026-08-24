@@ -5,6 +5,7 @@
 // explicitly enabled AND a key exists. Even then, it logs and requires confirm.
 
 import ccxt from 'ccxt';
+import { getSharedThrottler } from './rateLimiter.mjs';
 
 const EXCHANGE = process.env.GENESIS_EXCHANGE || 'binance';
 
@@ -26,6 +27,8 @@ export async function fetchOHLCV(pair, timeframe = '1h', limit = 1000, { real = 
   const ex = getExchange({ real: false }); // data is public; never needs keys
   const symbol = pair.replace('USDT', '/USDT');
   const since = Date.now() - limit * tfMs(timeframe);
+  // Draw from the SHARED Binance budget (ohlcv: 50 req/min) before the REST call.
+  await getSharedThrottler().acquire('ohlcv');
   const ohlcv = await ex.fetchOHLCV(symbol, timeframe, since, limit);
   // ccxt returns [ts, o, h, l, c, v] -> map to Binance klines shape [ts,o,h,l,c,v,closeTs,quoteVol,...]
   return ohlcv.map(([ts, o, h, l, c, v]) => [ts, String(o), String(h), String(l), String(c), String(v), ts + tfMs(timeframe), String(v * c), 0, '0', '0', '0']);

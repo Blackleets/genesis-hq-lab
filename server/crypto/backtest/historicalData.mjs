@@ -5,6 +5,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getSharedThrottler } from '../../genesis/rateLimiter.mjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const CACHE_DIR = join(__dir, '..', '..', '..', 'data', 'backtest');
@@ -49,6 +50,8 @@ export async function fetchKlines(pair, { days = 30, interval = '1m' } = {}) {
 
   while (startTime < now) {
     const url = `${BINANCE}/klines?symbol=${pair}&interval=${interval}&startTime=${startTime}&limit=1000`;
+    // Same SHARED Binance budget as ccxtFeed (ohlcv: 50 req/min).
+    await getSharedThrottler().acquire('ohlcv');
     const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
     if (!res.ok) throw new Error(`Binance klines HTTP ${res.status} for ${pair}`);
     const batch = await res.json();
