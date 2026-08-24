@@ -1413,3 +1413,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Campana Optuna honesta completa (motor con lookahead guard + signal shift): COTIUSDT 150 trials Calmar -> top calmar=1.44 volumeProfile (366 trades, gates 4/6, 0 podados LOOKAHEAD). XLMUSDT 100 trials Sharpe -> top sharpe=0.06 (mediocre honesto). Lectura: los numeros espectaculares previos eran espejismos del fill en misma vela; con motor incorruptible las familias tecnicas muestran su valor real: marginal. El edge no esta en velas + indicadores clasicos; siguientes frentes: datos alternativos ya integrados (liquidaciones, posicionamiento) o cambio de regimen.
 - Files touched: ninguno (campana de validacion)
 - Verification: 250 trials completos entre ambos pares, 0 violaciones LOOKAHEAD
+
+## 2026-08-24h — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: api/genesis/bots.js — lifecycle de bots POR USUARIO con modelo "core incorruptible, ejecucion por usuario": POST spawn (elige del catalogo VALIDADO por nosotros: meanReversion/volumeProfile; params fijos nuestros + solo slMult/tpMult editables con clamps a nuestros limites; pares whitelisteados; max 3 bots/user; $1000 paper virtual), GET lista propia + catalogo, DELETE archiva el propio. ownerHash sha256(addr)16 namespacing. liveMode:false y mode:paper estructurales en cada estado. Sesion obligatoria.
+- Files touched: api/genesis/bots.js (nuevo)
+- Verification: node --check ok; smoke GET sin token -> 401 correcto (auth activa)
