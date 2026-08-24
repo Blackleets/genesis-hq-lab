@@ -1365,3 +1365,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Wallet-connect multi-tenant (Tasks 1-7 del plan .hermes/plans/2026-08-23_230000): auth SIWES con nonce efimero 5min un-solo-uso, verificacion viem, JWT jose 24h (AUTH_JWT_SECRET env o efimero dev), rate limit 10/min por IP en auth, sessionAuth middleware + tenantFilter (user ve SOLO sus bots por ownerHash=sha256(addr)16, operator ve todo), bots namespaced data/bots/<hash>/ cuando GENESIS_OWNER_ADDR, frontend gate Connect Wallet carbon + sesion sessionStorage + fetch Bearer + logout 401 + vista operator agrupada. Regla central: UNICA firma = nonce login, jamas transfer/approve.
 - Files touched: api/auth/{nonce,verify}.js, api/auth/__tests__/auth.test.js, api/_lib/{sessions,rateLimit,sessionAuth}.js, api/genesis/{live,candles,context}.js, server/genesis/liveRunner.mjs, src/core/auth/{walletTypes,WalletAuthProvider}, src/ui/views/ConnectWalletGate.tsx, src/App.tsx, src/workflows/QuantBotView.tsx
 - Verification: vitest 14/14 auth tests pasan; node --check todos; typecheck 0 errores; build ok (51s)
+
+## 2026-08-24b — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: Task 8 — auditoria de seguridad adversarial contra produccion: 7/7 pruebas pasaron (401 sin token, firma invalida rechazada, rate limit 429 activo, nonce one-shot, JWT manipulado 401, grep limpio de firmas peligrosas, sesion solo sessionStorage). Veredicto: APROBADO con onboarding whitelist.
+- Files touched: docs/SECURITY_AUDIT.md (nuevo)
+- Verification: tests ejecutados contra https://genesis-hq-lab-real.vercel.app en vivo
