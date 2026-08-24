@@ -1419,3 +1419,15 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: api/genesis/bots.js — lifecycle de bots POR USUARIO con modelo "core incorruptible, ejecucion por usuario": POST spawn (elige del catalogo VALIDADO por nosotros: meanReversion/volumeProfile; params fijos nuestros + solo slMult/tpMult editables con clamps a nuestros limites; pares whitelisteados; max 3 bots/user; $1000 paper virtual), GET lista propia + catalogo, DELETE archiva el propio. ownerHash sha256(addr)16 namespacing. liveMode:false y mode:paper estructurales en cada estado. Sesion obligatoria.
 - Files touched: api/genesis/bots.js (nuevo)
 - Verification: node --check ok; smoke GET sin token -> 401 correcto (auth activa)
+
+## 2026-08-24 — ox-alpha (Hermes subagent)
+- Branch: feat/genesis-improvement-plan
+- Summary: P2 — created rateLimiter.mjs (shared sliding-window throttler with weights + safety margin, Binance-style singleton), feeAccountant.mjs (ccxt loadMarkets maker/taker fees, float caveat documented), connectorCore.mjs (HB-pattern OrderState/InFlightOrder/ClientOrderTracker with snapshot+restore and smoke self-test CLI).
+- Files touched: server/genesis/rateLimiter.mjs (new), server/genesis/feeAccountant.mjs (new), server/genesis/connectorCore.mjs (new), docs/CHANGELOG_AI.md
+- Verification: node --check on all 3 ok; `node server/genesis/connectorCore.mjs` self-test PASS. Not committed (per task instruction).
+
+## 2026-08-24i — Ganador De Dinero (aragan) + subagente P2
+- Branch: feat/genesis-improvement-plan
+- Summary: P2 completo — los 6 patrones Hummingbot ahora existen en JS: rateLimiter.mjs (AsyncThrottler ponderado multi-limit_id con margen de seguridad + getSharedThrottler singleton presupuesto Binance compartido), feeAccountant.mjs (schema maker/taker desde ccxt con fallback, computeFee, netProceeds), connectorCore.mjs (OrderState con PARTIALLY_FILLED, InFlightOrder con fills parciales acumulados y avg ponderado, ClientOrderTracker con TTL cache y snapshotStates/restoreTrackingStates para persistencia). Self-test CLI incluido.
+- Files touched: server/genesis/rateLimiter.mjs (nuevo), server/genesis/feeAccountant.mjs (nuevo), server/genesis/connectorCore.mjs (nuevo)
+- Verification: node --check 3/3; self-test connectorCore PASS (fills parciales, snapshot/restore); throttler compartido sin bloqueo; fee 0.1% sobre 10000 = 10 exacto
