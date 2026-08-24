@@ -1455,3 +1455,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: LIMPIEZA de teatro del frontend: eliminados del nav/switch/registry 9 modulos visual-only sin motor (factory, auto, hr, operator, pred-markets, marketing, tech, integrations, solana-alpha). FundingBotView corregido: la mentira "edge PF 2-7000" reemplazada por veredicto honesto medido (PERDEDOR post-fees, scanner 53 pares). LiveExecutionsView con banner de contexto. Traducciones hr/auto restauradas para las vistas desconectadas que quedan en disco. Referencias sourceModule rotas apuntando a modulos eliminados -> dashboard.
 - Files touched: src/App.tsx, src/core/data/moduleRegistry.ts, src/core/i18n/translations.ts, src/ui/GenesisSidebar.tsx, src/workflows/FundingBotView.tsx, src/workflows/LiveExecutionsView.tsx, src/core/store/genesisStore.ts, src/core/data/initialTasks.ts, src/workflows/AutoView.tsx
 - Verification: typecheck 0 errores; build ok (1m25s); conservados: HQ pixel, Dashboard, Markets, CryptoLab, EdgeScorecard, SystemHealth, Settings, Wallet, QuantBot, Terminal, FundingBot(honesto)
+
+## 2026-08-24n — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: FIX wallet 401: @wagmi/core era extraneous (no estaba en deps explicitas, wagmi lo requiere peer) — instalado exact 3.6.4 con --legacy-peer-deps (conflicto ox/viem resuelto). react-is anadido para resolver import de recharts en build. Con esto el boton Connect Wallet deja de fallar con Provider not found / 401.
+- Files touched: package.json, package-lock.json
+- Verification: typecheck 0 errores; build ok; @wagmi/core@3.6.4 instalado con peer viem 2.x satisfecho
