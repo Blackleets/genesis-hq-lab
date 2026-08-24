@@ -1359,3 +1359,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Serverless endpoints para Vercel: api/genesis/live.js (estado bots+treasury desde repo snapshot o Gist fallback), api/genesis/candles.js (klines reales Binance directas), api/genesis/context.js (OI/long-short/taker/F&G directo). Mismos contratos que el backend local — la vista QuantBotView funciona identica en Vercel.
 - Files touched: api/genesis/live.js (nuevo), api/genesis/candles.js (nuevo), api/genesis/context.js (nuevo)
 - Verification: node --check 3/3 ok; typecheck 0 errores; build ok (1m35s)
+
+## 2026-08-24 — Ganador De Dinero (aragan) + subagentes
+- Branch: feat/genesis-improvement-plan
+- Summary: Wallet-connect multi-tenant (Tasks 1-7 del plan .hermes/plans/2026-08-23_230000): auth SIWES con nonce efimero 5min un-solo-uso, verificacion viem, JWT jose 24h (AUTH_JWT_SECRET env o efimero dev), rate limit 10/min por IP en auth, sessionAuth middleware + tenantFilter (user ve SOLO sus bots por ownerHash=sha256(addr)16, operator ve todo), bots namespaced data/bots/<hash>/ cuando GENESIS_OWNER_ADDR, frontend gate Connect Wallet carbon + sesion sessionStorage + fetch Bearer + logout 401 + vista operator agrupada. Regla central: UNICA firma = nonce login, jamas transfer/approve.
+- Files touched: api/auth/{nonce,verify}.js, api/auth/__tests__/auth.test.js, api/_lib/{sessions,rateLimit,sessionAuth}.js, api/genesis/{live,candles,context}.js, server/genesis/liveRunner.mjs, src/core/auth/{walletTypes,WalletAuthProvider}, src/ui/views/ConnectWalletGate.tsx, src/App.tsx, src/workflows/QuantBotView.tsx
+- Verification: vitest 14/14 auth tests pasan; node --check todos; typecheck 0 errores; build ok (51s)

@@ -3,8 +3,10 @@
 // and treasury.mjs. No fabricated data: if the backend is offline or the state
 // files don't exist yet, shows an explicit empty state (no-theater rule).
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '@core/i18n/languageStore';
+import { useWalletAuth } from '@core/auth/WalletAuthProvider';
+import { shortAddress } from '@core/auth/walletTypes';
 import QuantChart, { type ChartCandle, type ChartTrade } from '@workflows/QuantChart';
 
 interface BotPosition {
@@ -34,6 +36,8 @@ interface BotState {
   equityCurve?: number[];
   log?: string[];
   updatedAt: string;
+  /** sha256 prefix of the owner wallet — only sent to operator sessions. */
+  ownerHash?: string;
 }
 
 interface TreasuryState {
@@ -145,6 +149,9 @@ function EquityCurveChart({ curve }: { curve: number[] }) {
 export default function QuantBotView() {
   const lang = useLanguage();
   const es = lang === 'es';
+  const { session, logout } = useWalletAuth();
+  const token = session?.token ?? null;
+  const isOperator = session?.role === 'operator';
   const [data, setData] = useState<LiveResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [botIdx, setBotIdx] = useState(0);
@@ -154,7 +161,14 @@ export default function QuantBotView() {
     let alive = true;
     async function load() {
       try {
-        const r = await fetch('/api/genesis/live');
+        const r = await fetch('/api/genesis/live', {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        if (r.status === 401) {
+          // Session expired/revoked → clean auto-logout back to the gate.
+          if (alive) { setError(null); setData(null); logout(); }
+          return;
+        }
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const j: LiveResponse = await r.json();
         if (alive) { setData(j); setError(null); }
@@ -165,21 +179,39 @@ export default function QuantBotView() {
     load();
     const id = setInterval(load, 30_000); // poll every 30s
     return () => { alive = false; clearInterval(id); };
-  }, [es]);
+  }, [es, token, logout]);
 
   // Candles for the selected bot's pair (real Binance klines).
   useEffect(() => {
     const pair = data?.bots?.[Math.min(botIdx, Math.max((data?.bots?.length ?? 1) - 1, 0))]?.pair;
     if (!pair) return;
     let alive = true;
-    fetch(`/api/genesis/candles?pair=${encodeURIComponent(pair)}&tf=1h&limit=300`)
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+    fetch(`/api/genesis/candles?pair=${encodeURIComponent(pair)}&tf=1h&limit=300`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
+      .then((r) => {
+        if (r.status === 401 && alive) { logout(); }
+        return r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`));
+      })
       .then((j: { candles: ChartCandle[] }) => { if (alive) setCandles(j.candles ?? []); })
       .catch(() => { if (alive) setCandles([]); });
     return () => { alive = false; };
-  }, [botIdx, data?.bots]);
+  }, [botIdx, data?.bots, token, logout]);
 
   const bots = data?.bots ?? [];
+
+  // Operator view: group the fleet by ownerHash (never a raw address in UI).
+  const groups = useMemo(() => {
+    const map = new Map<string, { ownerHash: string; items: Array<{ bot: BotState; idx: number }> }>();
+    bots.forEach((b, idx) => {
+      const key = b.ownerHash ?? '——————';
+      let g = map.get(key);
+      if (!g) { g = { ownerHash: key, items: [] }; map.set(key, g); }
+      g.items.push({ bot: b, idx });
+    });
+    return [...map.values()];
+  }, [bots]);
+
   // Prefer the requested tab; clamp if the backend returns fewer bots.
   const bot = bots.length ? bots[Math.min(botIdx, bots.length - 1)] : null;
 
@@ -198,6 +230,20 @@ export default function QuantBotView() {
   return (
     <main className="flex-1 min-w-0 min-h-0 overflow-y-auto px-6 py-6 bg-carbon-300">
       <div className="max-w-5xl mx-auto space-y-5">
+        {/* Session bar — discreet wallet identity + logout (zinc-500). */}
+        {session && (
+          <section className="flex items-center justify-end gap-3 text-[11px] text-zinc-500">
+            <span className="font-mono">{shortAddress(session.address)}</span>
+            <span className="uppercase tracking-wide">{session.role}</span>
+            <button
+              onClick={logout}
+              className="transition-colors hover:text-zinc-300 hover:underline underline-offset-2"
+            >
+              Salir
+            </button>
+          </section>
+        )}
+
         <header>
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <h1 className="text-xl font-bold text-zinc-100">
@@ -221,8 +267,10 @@ export default function QuantBotView() {
           </span>
         </section>
 
-        {/* Bot tabs (only when the backend reports more than one bot) */}
-        {bots.length > 1 && (
+        {/* Bot tabs (only when the backend reports more than one bot).
+            Operator sessions get the fleet grouped by ownerHash, labeled
+            "user #xxxxxx" — never a raw address in the UI. */}
+        {bots.length > 1 && !isOperator && (
           <section className="flex items-center gap-2 flex-wrap">
             {bots.map((b, i) => (
               <button
@@ -236,6 +284,32 @@ export default function QuantBotView() {
               >
                 {b.pair || `#${i + 1}`} · {b.tf}
               </button>
+            ))}
+          </section>
+        )}
+        {bots.length > 1 && isOperator && (
+          <section className="space-y-2">
+            {groups.map((g) => (
+              <div key={g.ownerHash}>
+                <div className="text-[10px] uppercase tracking-wide text-zinc-500 font-mono mb-1">
+                  user #{g.ownerHash.slice(0, 6)}
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {g.items.map(({ bot: b, idx }) => (
+                    <button
+                      key={`${b.pair}-${b.tf}-${idx}`}
+                      onClick={() => setBotIdx(idx)}
+                      className={`px-3 py-1 rounded text-[12px] font-mono border transition-colors ${
+                        idx === Math.min(botIdx, bots.length - 1)
+                          ? 'border-cyan-400/60 text-zinc-100 bg-[#15171d]'
+                          : 'border-carbon-100 text-zinc-400 hover:text-zinc-200 hover:bg-[#10131a]'
+                      }`}
+                    >
+                      {b.pair || `#${idx + 1}`} · {b.tf}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </section>
         )}

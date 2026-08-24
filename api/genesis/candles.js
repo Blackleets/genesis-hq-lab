@@ -3,6 +3,7 @@
 // (fapi is geo-blocked 451 on Vercel's AWS ranges; spot api.binance.com and
 // data-api.binance.vision are not). No keys, no disk.
 import { sendJson, sendMethodNotAllowed } from '../_lib/http.js';
+import { requireSession } from '../_lib/sessionAuth.js';
 
 const HOSTS = [
   'https://data-api.binance.vision', // public data mirror, no geo-block
@@ -11,6 +12,9 @@ const HOSTS = [
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return sendMethodNotAllowed(res);
+  // Public market data: session gate only (anti-scraping), no tenant filter.
+  const session = await requireSession(req, res);
+  if (!session) return; // 401 sent
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const pair = (url.searchParams.get('pair') || 'COTIUSDT').toUpperCase();

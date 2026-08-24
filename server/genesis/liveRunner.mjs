@@ -24,9 +24,23 @@ const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const PAIR = process.env.GENESIS_PAIR || 'COTIUSDT';
 const TF = process.env.GENESIS_TF || '1h';
 
+// Per-wallet namespacing: when GENESIS_OWNER_ADDR is set, this runner's state
+// lives under data/bots/<sha256(lowercase addr) first 16 hex>/<PAIR>_<TF>.json
+// and the saved state carries ownerHash. The hash avoids writing raw wallet
+// addresses to the filesystem. Without an owner the legacy flat layout
+// (data/genesis_live_state_<PAIR>_<TF>.json, operator-owned) is kept untouched.
+import { createHash } from 'node:crypto';
+const OWNER_ADDR = (process.env.GENESIS_OWNER_ADDR || '').trim();
+const OWNER_HASH = OWNER_ADDR
+  ? createHash('sha256').update(OWNER_ADDR.toLowerCase()).digest('hex').slice(0, 16)
+  : null;
+
 // State file is per pair+timeframe so multiple runners never clobber each other.
 const _pair = PAIR.replace(/[^A-Z0-9]/gi, '');
-const STATE_FILE = path.join(__dirname, `../../data/genesis_live_state_${_pair}_${TF.replace(/[^a-zA-Z0-9]/g, '')}.json`);
+const _tf = TF.replace(/[^a-zA-Z0-9]/g, '');
+const STATE_FILE = OWNER_HASH
+  ? path.join(__dirname, `../../data/bots/${OWNER_HASH}/${_pair}_${_tf}.json`)
+  : path.join(__dirname, `../../data/genesis_live_state_${_pair}_${_tf}.json`);
 const TREASURY_FILE = path.join(__dirname, '../../data/genesis_treasury_state.json');
 const CAPITAL = parseFloat(process.env.GENESIS_CAPITAL || '1000');
 const P = Object.assign(
@@ -63,6 +77,11 @@ function loadState() {
 function saveState(s) {
   s.pair = PAIR;
   s.tf = TF;
+  if (OWNER_HASH) {
+    // Tenant marker consumed by api/genesis/live.js for wallet-scoped reads.
+    // Only the hash is stored, never the raw address.
+    s.ownerHash = OWNER_HASH;
+  }
   s.updatedAt = new Date().toISOString();
   fs.mkdirSync(path.dirname(STATE_FILE), { recursive: true });
   fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2));

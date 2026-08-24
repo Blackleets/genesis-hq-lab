@@ -36,6 +36,8 @@ import QuantBotView from '@workflows/QuantBotView';
 import TerminalView from '@workflows/TerminalView';
 import PredictionMarketsLab from '@workflows/PredictionMarketsLab';
 import SolanaAlphaView from './features/solana-alpha/SolanaAlphaView';
+import WalletAuthProvider from '@core/auth/WalletAuthProvider';
+import ConnectWalletGate from '@ui/views/ConnectWalletGate';
 import { actions, useSelectedModule } from '@core/store/genesisStore';
 import { useLearningSync } from '@hooks/useLearningSync';
 import type { ModuleId } from '@core/data/moduleRegistry';
@@ -107,8 +109,12 @@ function AppShell() {
 
 export default function App() {
   return (
-    <CommandBarProvider>
-      <AppShell />
-    </CommandBarProvider>
+    <WalletAuthProvider>
+      <CommandBarProvider>
+        <ConnectWalletGate>
+          <AppShell />
+        </ConnectWalletGate>
+      </CommandBarProvider>
+    </WalletAuthProvider>
   );
 }

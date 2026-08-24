@@ -4,12 +4,21 @@
 // runs in a browser with access to fapi; this serverless route provides what
 // always works from any region: Fear & Greed Index. Shape matches the local
 // backend's /api/genesis/context (context.fearGreed* fields present).
+//
+// SESSION REQUIRED, NO TENANT FILTERING: the Fear & Greed Index (and any
+// derivatives context) is PUBLIC market sentiment — identical for every
+// wallet, so nothing is scoped by tenant. The session gate exists only to
+// stop anonymous scraping of the endpoint.
 import { sendJson, sendMethodNotAllowed } from '../_lib/http.js';
+import { requireSession } from '../_lib/sessionAuth.js';
 
 const FNG = 'https://api.alternative.me/fng/';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return sendMethodNotAllowed(res);
+  // Public market data: session gate only (anti-scraping), no tenant filter.
+  const session = await requireSession(req, res);
+  if (!session) return; // 401 sent
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const symbol = (url.searchParams.get('pair') || 'COTIUSDT').toUpperCase();
