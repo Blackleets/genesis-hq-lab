@@ -1383,3 +1383,15 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: genesis_paper_connector.py — infraestructura base de ejecucion de ordenes PAPER siguiendo la arquitectura del conector oficial de Hummingbot (ConnectorBase/InFlightOrderBase/ClientOrderTracker/API Throttler/TradeFeeSchema). Decimal en toda la contabilidad, jerarquia propia de excepciones, rate limiter, tracker con TTL cache y deteccion de ordenes perdidas, verificacion exhaustiva de balance virtual antes de cada fill. Semantica HB: MARKET llena contra precio de referencia + slippage; LIMIT descansa OPEN hasta cruce. Demo --demo verifica fills, rechazos por balance insuficiente e ids duplicados.
 - Files touched: scripts/genesis_paper_connector.py (nuevo)
 - Verification: demo corre end-to-end: MARKET FILLED (fee 0.1% aplicada), LIMIT lejos queda OPEN activa, balance-insuficiente rechazado limpio, client_order_id duplicado rechazado
+
+## 2026-08-24e — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: P0 del Plan Unificado — lookahead guard + signal shift en el backtester. createCappedCtx() expone a las estrategias solo datos hasta la vela i (lecturas futuras lanzan RangeError LOOKAHEAD_AT_CANDLE_i); runBacktest() registra violaciones en result.lookaheadViolations sin romper, ejecuta entradas en open[i+1] (signalShift), y fullReport() aplica gate implicito LOOKAHEAD (go=false si hay violaciones). evalCandidate propaga lookaheadViolations/gateReason. Cambios aditivos: contrato {metrics,gates} de evolutionLoops/metaStrategyEvolve intacto.
+- Files touched: server/genesis/backtestCore.mjs, server/genesis/evalCandidate.mjs
+- Verification: node --check ok en ambos; test inline detecta 299 violaciones en estrategia que lee close[i+1] (go=false motivo LOOKAHEAD) y 0 en honrada; signalShift verificado (entryIdx = vela siguiente al signal); re-corrida COTIUSDT volumeProfile GO historico: muere con motor honesto (4/6 gates, PF 1.10 < 1.30, t-stat 0.77 < 2.0, 0 violaciones)
+
+## 2026-08-24e — Ganador De Dinero (aragan) + subagente P0
+- Branch: feat/genesis-improvement-plan
+- Summary: P0 CRITICO — lookahead guard + signal shift en backtestCore.mjs (plan unificado P0, informe Freqtrade): createCappedCtx bloquea acceso a indices futuros con RangeError y registra violaciones; senales ahora ejecutan en open[i+1]; fullReport agrega gate LOOKAHEAD; evalCandidate propaga violaciones. VERIFICADO: estrategia tramposa detectada (199 violaciones), honrada limpia (0). Resultado honesto: el candidato GO historico COTIUSDT MUERE con motor honesto (PF 1.10 < 1.30, t 0.77 < 2.0) — el fill en misma vela inflaba resultados. Dinero real ahorrado.
+- Files touched: server/genesis/backtestCore.mjs, server/genesis/evalCandidate.mjs
+- Verification: node --check ok; tests de deteccion pasan; typecheck 0 errores; liveRunner corre; API viva

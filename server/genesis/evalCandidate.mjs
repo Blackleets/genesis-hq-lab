@@ -57,6 +57,8 @@ async function main() {
       fitness: score(report.metrics),
       go: report.gates?.go ?? false,
       gates: report.gates ? `${report.gates.passed}/${report.gates.total}` : null,
+      gateReason: report.gates?.reason ?? null,
+      lookaheadViolations: Array.isArray(report.result?.lookaheadViolations) ? report.result.lookaheadViolations.length : 0,
       metrics: report.metrics,
     };
     console.log(JSON.stringify(out));

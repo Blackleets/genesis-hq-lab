@@ -142,10 +142,70 @@ export function adx(candles, period = 14) {
   return out;
 }
 
+// ---------- Lookahead guard (P0) ----------
+// Views that only expose data up to index i (inclusive). Any attempt to read
+// a future index throws RangeError('LOOKAHEAD_AT_CANDLE_<i>') instead of
+// silently handing the strategy the future.
+function cappedView(arr, i) {
+  const cap = i;
+  return new Proxy(arr, {
+    get(target, prop) {
+      if (prop === 'length') return cap + 1;
+      if (typeof prop === 'string' && /^\d+$/.test(prop)) {
+        const idx = Number(prop);
+        if (idx > cap) throw new RangeError(`LOOKAHEAD_AT_CANDLE_${i} (index ${idx} > ${cap})`);
+      }
+      if (prop === 'slice') {
+        return (a = 0, b) => Array.prototype.slice.call(target, a, Math.min(b ?? cap + 1, cap + 1));
+      }
+      if (prop === 'at') {
+        return (k) => {
+          const idx = k < 0 ? cap + 1 + k : k;
+          if (idx < 0 || idx > cap) throw new RangeError(`LOOKAHEAD_AT_CANDLE_${i} (at(${k}))`);
+          return target[idx];
+        };
+      }
+      const v = target[prop];
+      return typeof v === 'function' ? v.bind(target) : v;
+    },
+  });
+}
+
+function capIndicators(ind, i) {
+  const out = {};
+  for (const [k, v] of Object.entries(ind || {})) {
+    if (Array.isArray(v)) out[k] = cappedView(v, i);
+    else if (v && typeof v === 'object') {
+      const o = {};
+      for (const [k2, arr] of Object.entries(v)) o[k2] = Array.isArray(arr) ? cappedView(arr, i) : arr;
+      out[k] = o;
+    } else out[k] = v;
+  }
+  return out;
+}
+
+export function createCappedCtx(ctx, i) {
+  return {
+    ...ctx,
+    i,
+    candles: cappedView(ctx.candles, i),
+    close: cappedView(ctx.close, i),
+    open: cappedView(ctx.open, i),
+    high: cappedView(ctx.high, i),
+    low: cappedView(ctx.low, i),
+    vol: cappedView(ctx.vol, i),
+    ind: capIndicators(ctx.ind, i),
+  };
+}
+
 // ---------- Backtest engine ----------
 // strategyFn(ctx) -> { long?: boolean, short?: boolean, exit?: boolean, bias?: number }
 // ctx = { i, candles, close, open, high, low, vol, ind }
-export function runBacktest({ candles, strategyFn, initialCapital = 10000, feeRate = COST_ROUNDTRIP / 2, riskPct = 0.02 }) {
+// strictLookahead: strategy only sees data up to candle i; future reads are
+//   recorded in result.lookaheadViolations and the signal is rejected.
+// signalShift: an entry signal born on candle i fills at the OPEN of candle
+//   i+1 (no fill at the same candle that produced the signal).
+export function runBacktest({ candles, strategyFn, initialCapital = 10000, feeRate = COST_ROUNDTRIP / 2, riskPct = 0.02, strictLookahead = true, signalShift = true }) {
   const close = candles.map(c => +c[4]);
   const open = candles.map(c => +c[1]);
   const high = candles.map(c => +c[2]);
@@ -168,11 +228,45 @@ export function runBacktest({ candles, strategyFn, initialCapital = 10000, feeRa
   let position = null; // { side, entry, size, entryIdx }
   const trades = [];
   const equityCurve = [initialCapital];
+  const lookaheadViolations = [];
+  let pendingSignal = null; // entry signal born on candle i, fills at open[i+1]
+
+  const openPosition = (sig, execIdx, price) => {
+    const side = sig.long ? 'long' : 'short';
+    const size = cash * riskPct;
+    const atrV = ind.atr14[execIdx - 1] || price * 0.01;
+    const slMult = sig.slMult ?? 1.5;
+    const tpMult = sig.tpMult ?? 2.0;
+    position = {
+      side, entry: price, size, entryIdx: execIdx,
+      stop: side === 'long' ? price - atrV * slMult : price + atrV * slMult,
+      target: side === 'long' ? price + atrV * tpMult : price - atrV * tpMult,
+      slMult, tpMult,
+    };
+  };
 
   for (let i = 1; i < candles.length; i++) {
-    const ctx = { i, candles, close, open, high, low, vol, ind };
-    const sig = strategyFn(ctx) || {};
+    // 1) ask the strategy for a signal on candle i (capped view when strict)
+    let sig = null;
+    try {
+      const ctx = strictLookahead
+        ? createCappedCtx({ i, candles, close, open, high, low, vol, ind }, i)
+        : { i, candles, close, open, high, low, vol, ind };
+      sig = strategyFn(ctx) || {};
+    } catch (e) {
+      if (e instanceof RangeError && String(e.message).startsWith('LOOKAHEAD_AT_CANDLE_')) {
+        lookaheadViolations.push({ idx: i, detail: e.message });
+        sig = null; // signal rejected, backtest continues honestly
+      } else {
+        throw e;
+      }
+    }
 
+    // 2) execute a pending entry from the previous candle at THIS candle's open
+    if (signalShift && pendingSignal && !position) openPosition(pendingSignal, i, +open[i]);
+    pendingSignal = (sig && (sig.long || sig.short)) ? sig : null;
+
+    // 3) manage the position on this candle (intrabar stop/target + strategy exit)
     if (position) {
       const dir = position.side === 'long' ? 1 : -1;
       const exitPrice = position.side === 'long' ? low[i] : high[i];
@@ -189,19 +283,9 @@ export function runBacktest({ candles, strategyFn, initialCapital = 10000, feeRa
         trades.push({ side: position.side, entry: position.entry, exit: px, pnl, size: position.size, entryIdx: position.entryIdx, exitIdx: i, bars: i - position.entryIdx });
         position = null;
       }
-    } else if (sig.long || sig.short) {
-      const side = sig.long ? 'long' : 'short';
-      const price = +candles[i][4];
-      const size = cash * riskPct;
-      const atr = ind.atr14[i] || price * 0.01;
-      const slMult = sig.slMult ?? 1.5;
-      const tpMult = sig.tpMult ?? 2.0;
-      position = {
-        side, entry: price, size, entryIdx: i,
-        stop: side === 'long' ? price - atr * slMult : price + atr * slMult,
-        target: side === 'long' ? price + atr * tpMult : price - atr * tpMult,
-        slMult, tpMult,
-      };
+    } else if (!signalShift && sig && (sig.long || sig.short)) {
+      // legacy path (signalShift = false): fill at the close of the signal candle
+      openPosition(sig, i, +candles[i][4]);
     }
     // mark-to-market equity
     let eq = cash;
@@ -222,7 +306,7 @@ export function runBacktest({ candles, strategyFn, initialCapital = 10000, feeRa
     trades.push({ side: position.side, entry: position.entry, exit: px, pnl, size: position.size, entryIdx: position.entryIdx, exitIdx: candles.length - 1, bars: candles.length - 1 - position.entryIdx });
   }
 
-  return { trades, equityCurve, finalCapital: cash, initialCapital };
+  return { trades, equityCurve, finalCapital: cash, initialCapital, lookaheadViolations };
 }
 
 // ---------- Metrics + 6 gates ----------
@@ -281,5 +365,14 @@ export function fullReport(candles, strategyFn, opts = {}) {
   const result = runBacktest({ candles, strategyFn, ...opts });
   const metrics = computeMetrics(result);
   const gates = evaluateGates(metrics);
+  // Implicit 7th gate: any lookahead violation kills the candidate.
+  const nv = Array.isArray(result.lookaheadViolations) ? result.lookaheadViolations.length : 0;
+  if (nv > 0) {
+    gates.gates.push({ name: 'Lookahead guard', pass: false, value: `${nv} violation(s)` });
+    gates.passed = gates.gates.filter(g => g.pass).length;
+    gates.total = gates.gates.length;
+    gates.go = false;
+    gates.reason = 'LOOKAHEAD';
+  }
   return { result, metrics, gates };
 }
