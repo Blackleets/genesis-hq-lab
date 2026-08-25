@@ -6,6 +6,7 @@
 //   node liveRunner.mjs                 # single scan now (prints state, exits)
 //   node liveRunner.mjs --watch         # loop forever, checks every candle close
 //   node liveRunner.mjs --health        # run the healthCheck telemetry report, then exit
+//   node liveRunner.mjs --scan-users    # one scan for EVERY user bot under data/bots/<ownerHash>/<PAIR>_<TF>.json
 //
 // Env overrides:
 //   GENESIS_PAIR (default COTIUSDT), GENESIS_TF (default 1h),
@@ -59,7 +60,10 @@ const P = Object.assign(
 // real exchange fee schema via feeAccountant (loadFeeSchema), with a safe
 // offline fallback when ccxt/markets are unavailable. Order lifecycle is
 // tracked Hummingbot-style with ClientOrderTracker + InFlightOrder.
-const tracker = new ClientOrderTracker();
+// NOTE: the tracker is instantiated PER SCAN (inside scan()), not as a module
+// singleton: in --scan-users mode several bots run through the same process and
+// a shared tracker would leak one bot's openOrders snapshot into another's
+// saved state. Each scan restores its own tracking states from its own file.
 
 // Telemetry: in-memory error counter for this process lifetime (resets every
 // restart by design). Surfaced in the data/health.json heartbeat so healthCheck
@@ -195,9 +199,12 @@ function removeTreasuryReservation(id) {
   }
 }
 
-function loadState() {
+// State helpers are parametrized (stateFile/pair/tf/ownerHash) so the SAME
+// logic serves both the legacy operator runner and --scan-users multi-bot
+// iteration. Legacy callers pass nothing and get the env-derived defaults.
+function loadState(stateFile = STATE_FILE, pair = PAIR, tf = TF, trk = new ClientOrderTracker()) {
   try {
-    const s = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+    const s = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
     if (!Array.isArray(s.trades)) s.trades = [];
     if (typeof s.equity !== 'number' || !Number.isFinite(s.equity)) {
       // saved state with no usable equity: seed it (still only when flat/no history)
@@ -207,35 +214,35 @@ function loadState() {
     if (typeof s.initialEquity !== 'number' || !Number.isFinite(s.initialEquity)) s.initialEquity = s.equity;
     // P2: restore order-tracking from the additive openOrders snapshot if present.
     if (s.openOrders) {
-      try { tracker.restoreTrackingStates(s.openOrders); }
+      try { trk.restoreTrackingStates(s.openOrders); }
       catch (e) { console.error(`[liveRunner] openOrders restore failed (${e.message}) — tracker starts empty`); }
     }
     return s;
-  } catch { const eq = workingCapital(); return { pair: PAIR, tf: TF, equity: eq, initialEquity: eq, position: null, trades: [], log: [], equityCurve: [] }; }
+  } catch { const eq = workingCapital(); return { pair, tf, equity: eq, initialEquity: eq, position: null, trades: [], log: [], equityCurve: [] }; }
 }
-function saveState(s) {
-  s.pair = PAIR;
-  s.tf = TF;
-  if (OWNER_HASH) {
+function saveState(s, stateFile = STATE_FILE, pair = PAIR, tf = TF, ownerHash = OWNER_HASH) {
+  s.pair = pair;
+  s.tf = tf;
+  if (ownerHash) {
     // Tenant marker consumed by api/genesis/live.js for wallet-scoped reads.
     // Only the hash is stored, never the raw address.
-    s.ownerHash = OWNER_HASH;
+    s.ownerHash = ownerHash;
   }
   s.updatedAt = new Date().toISOString();
-  fs.mkdirSync(path.dirname(STATE_FILE), { recursive: true });
-  fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2));
-  writeHeartbeat(s);
+  fs.mkdirSync(path.dirname(stateFile), { recursive: true });
+  fs.writeFileSync(stateFile, JSON.stringify(s, null, 2));
+  writeHeartbeat(s, pair, tf);
 }
 
 // Simple heartbeat: refreshed after every saveState() so healthCheck (and any
 // cron) can tell at a glance whether the runner loop is alive. Atomic
 // temp+rename; failures are logged but NEVER block paper trading.
-function writeHeartbeat(s) {
+function writeHeartbeat(s, pair = PAIR, tf = TF) {
   try {
     atomicWriteJson(HEALTH_FILE, {
       lastRunAt: new Date().toISOString(),
-      pair: PAIR,
-      tf: TF,
+      pair,
+      tf,
       equity: Number.isFinite(s.equity) ? +s.equity.toFixed(2) : null,
       openPosition: !!s.position,
       trades: Array.isArray(s.trades) ? s.trades.length : 0,
@@ -265,9 +272,27 @@ function computeInd(candles) {
   };
 }
 
-async function scan() {
-  const state = loadState();
-  const candles = await fetchOHLCV(PAIR, TF, 400);
+/**
+ * One full scan cycle for ONE bot. Same validated logic (signals, protections,
+ * fee accounting, treasury reservations) regardless of who owns the state.
+ *
+ * @param {object} [cfg]  explicit per-bot config (--scan-users mode). Omitted
+ *   or empty => the legacy env-derived operator runner, byte-for-byte identical
+ *   behavior to before this refactor.
+ *   - cfg.stateFile: absolute path of THIS bot's state JSON (never derived
+ *     from user input elsewhere — the caller passes the discovered path).
+ *   - cfg.pair / cfg.tf: market of this bot.
+ *   - cfg.ownerHash: tenant hash stamped into the saved state (null = operator).
+ */
+async function scan(cfg = {}) {
+  const pair = cfg.pair || PAIR;
+  const tf = cfg.tf || TF;
+  const stateFile = cfg.stateFile || STATE_FILE;
+  const ownerHash = cfg.ownerHash !== undefined ? cfg.ownerHash : OWNER_HASH;
+  // Per-scan order tracker: keeps each bot's openOrders snapshot isolated.
+  const tracker = new ClientOrderTracker();
+  const state = loadState(stateFile, pair, tf, tracker);
+  const candles = await fetchOHLCV(pair, tf, 400);
   if (!candles || candles.length < 60) { console.log('not enough candles'); return state; }
   const ind = computeInd(candles);
   const i = ind.i;
@@ -300,7 +325,7 @@ async function scan() {
       // P2 fee accounting: both legs are taker (SL/TP are stop-market fills).
       // Entry cost + taker fee leaves the wallet on open; exit proceeds minus
       // taker fee come back on close. Short = sell entry, buy-back exit.
-      const schema = pos.feeSchema || loadFeeSchema(undefined, ccxtSymbol(PAIR));
+      const schema = pos.feeSchema || loadFeeSchema(undefined, ccxtSymbol(pair));
       const sizeBase = (typeof pos.size === 'number' && Number.isFinite(pos.size) ? pos.size : state.equity);
       const qty = (typeof pos.amount === 'number' && Number.isFinite(pos.amount) && pos.amount > 0)
         ? pos.amount
@@ -345,7 +370,7 @@ async function scan() {
     trades: state.trades,
     equityNow: state.equity,
     initialEquity: state.initialEquity || CAPITAL,
-    pair: PAIR,
+    pair,
   });
   state.protections = prot;
 
@@ -356,12 +381,15 @@ async function scan() {
     // Unified capital (P1): size the new trade on treasury's free allocation.
     // Never reject: scale down to what the 20% allocation still allows.
     const base = +tradeEquityBase(state).toFixed(2);
-    const reservationId = `rr_${PAIR}_${TF}_${Date.now()}`;
+    // Reservation id carries the ownerHash so two tenants running the same
+    // pair/tf never share (or collide on) a treasury slot. Without an owner
+    // the id format is unchanged from the legacy operator runner.
+    const reservationId = `rr_${pair}_${tf}${ownerHash ? `_${ownerHash}` : ''}_${Date.now()}`;
     // P2: resolve the real fee schema once per entry (offline-safe fallback).
-    const feeSchema = await resolveFeeSchema(PAIR);
+    const feeSchema = await resolveFeeSchema(pair);
     const qty = px > 0 ? base / px : 0; // order amount in base asset
     const openPos = (side) => {
-      upsertTreasuryReservation(reservationId, base, `liveRunner:${OWNER_HASH || 'operator'}:${PAIR}:${TF}`);
+      upsertTreasuryReservation(reservationId, base, `liveRunner:${ownerHash || 'operator'}:${pair}:${tf}`);
       state.treasuryReservationId = reservationId;
       const sl = side === 'long' ? px - P.slMult * a : px + P.slMult * a;
       const tp = side === 'long' ? px + P.tpMult * a : px - P.tpMult * a;
@@ -373,7 +401,7 @@ async function scan() {
         try {
           tracker.register(new InFlightOrder({
             clientOrderId,
-            tradingPair: toTradingPair(PAIR),
+            tradingPair: toTradingPair(pair),
             side: side === 'long' ? 'buy' : 'sell',
             type: 'MARKET',
             price: px,
@@ -401,7 +429,7 @@ async function scan() {
   const gp = wins.reduce((s, t) => s + t.pnlUsd, 0);
   const gl = Math.abs(losses.reduce((s, t) => s + t.pnlUsd, 0));
   const summary = {
-    pair: PAIR, tf: TF, price: px, equity: +state.equity.toFixed(2),
+    pair, tf, price: px, equity: +state.equity.toFixed(2),
     openPosition: state.position,
     trades: state.trades.length, wins: wins.length,
     winRate: state.trades.length ? +(wins.length / state.trades.length * 100).toFixed(1) : null,
@@ -413,8 +441,80 @@ async function scan() {
   // the SAME saveState call as before (single JSON write per scan).
   try { state.openOrders = tracker.snapshotStates(); }
   catch (e) { noteError('openOrders snapshot failed', e); state.openOrders = {}; }
-  saveState(state);
+  saveState(state, stateFile, pair, tf, ownerHash);
   return { summary, events };
+}
+
+// ---------------------------------------------------------------------------
+// MULTI-USER MODE (--scan-users)
+//
+// Iterates every user-created bot (POST /api/genesis/bots) living at
+//   data/bots/<ownerHash>/<PAIR>_<TF>.json
+// and runs the SAME validated scan cycle for each. Isolation rules:
+//   - Each bot reads/writes ONLY its own discovered state file path (the
+//     <ownerHash> directory is its whole world; nothing escapes it).
+//   - Binance rate budget is shared via getSharedThrottler() — one fleet-wide
+//     sliding window, so N bots cannot multiply the request pressure.
+//   - A failing bot (bad JSON, network error, ...) is logged and SKIPPED; the
+//     remaining users still get their scan.
+//   - Archived bots (archived: true in their state) are skipped entirely.
+// ---------------------------------------------------------------------------
+
+const BOTS_DIR = path.join(__dirname, '../../data/bots');
+// ownerHash dirs are sha256(addr).slice(0,16) hex — anything else is not a
+// tenant directory and must never be touched.
+const OWNER_HASH_RE = /^[0-9a-f]{16}$/i;
+// State file names look like COTIUSDT_1h.json / BTCUSDT_15m.json.
+const BOT_FILE_RE = /^([A-Z0-9]+)_([a-zA-Z0-9]+)\.json$/;
+
+function discoverUserBots() {
+  let owners;
+  try { owners = fs.readdirSync(BOTS_DIR, { withFileTypes: true }); }
+  catch { return []; } // no data/bots yet -> zero user bots, nothing to do
+  const bots = [];
+  for (const ent of owners) {
+    if (!ent.isDirectory() || !OWNER_HASH_RE.test(ent.name)) continue;
+    let files;
+    try { files = fs.readdirSync(path.join(BOTS_DIR, ent.name)); }
+    catch (e) { noteError(`scan-users: cannot list ${ent.name}`, e); continue; }
+    for (const f of files) {
+      const m = BOT_FILE_RE.exec(f);
+      if (!m) continue; // stray file inside a tenant dir: ignore, never write
+      const stateFile = path.join(BOTS_DIR, ent.name, f);
+      try {
+        const st = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+        if (st && st.archived) continue; // archived bot: skip silently
+      } catch (e) {
+        // Corrupt/unreadable state: log it, skip this bot, keep going.
+        noteError(`scan-users: unreadable bot state ${ent.name}/${f}`, e);
+        continue;
+      }
+      bots.push({ ownerHash: ent.name, pair: m[1], tf: m[2], stateFile });
+    }
+  }
+  return bots;
+}
+
+async function runScanUsers() {
+  const bots = discoverUserBots();
+  console.log(`[liveRunner] --scan-users: ${bots.length} active user bot(s) found under data/bots/`);
+  let ok = 0, failed = 0;
+  for (const b of bots) {
+    const label = `${b.ownerHash}/${b.pair}_${b.tf}`;
+    try {
+      const { summary, events } = await scan({
+        stateFile: b.stateFile, pair: b.pair, tf: b.tf, ownerHash: b.ownerHash,
+      });
+      for (const e of events) console.log(`[bot ${label}] EVENT: ${e}`);
+      console.log(`[bot ${label}] OK px=${summary.price} equity=${summary.equity} trades=${summary.trades}`);
+      ok += 1;
+    } catch (e) {
+      // One tenant's failure must never abort the rest of the fleet.
+      noteError(`scan-users: bot ${label} failed — continuing with next`, e);
+      failed += 1;
+    }
+  }
+  console.log(`[liveRunner] --scan-users done: ${ok} ok, ${failed} failed`);
 }
 
 async function main() {
@@ -431,6 +531,10 @@ async function main() {
     }
     console.log(`GLOBAL: ${global}`);
     process.exit(global === 'DOWN' ? 1 : 0);
+  }
+  if (process.argv.includes('--scan-users')) {
+    await runScanUsers();
+    return;
   }
   const watch = process.argv.includes('--watch');
   if (!watch) {

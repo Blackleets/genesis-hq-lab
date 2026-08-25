@@ -1503,3 +1503,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Limpieza final del frontend: eliminados alpha (AlphaValidationView, 0 fetches), agents-live (AgentExecutionView, decorado) y dashboard (GenesisDashboard desconectado; LiveBotActivity con feed real migrado a FundingBotView). Sidebar reorganizado sin grupos vacios: Workspace [hq terminal console factory] / Trading & Riesgo [markets quant-bot edge crypto funding-bot] / Plataforma [system settings wallet].
 - Files touched: src/App.tsx, src/core/data/moduleRegistry.ts, src/core/i18n/translations.ts, src/core/store/genesisStore.ts, src/ui/GenesisSidebar.tsx, src/workflows/AutoView.tsx, src/workflows/FundingBotView.tsx
 - Verification: typecheck 0 errores; build ok (46s)
+
+## 2026-08-25c — Ganador De Dinero (aragan) + subagente multi-usuario
+- Branch: feat/genesis-improvement-plan
+- Summary: RUNNER MULTI-USUARIO — flag --scan-users: descubre bots de usuarios en data/bots/<ownerHash>/<PAIR>_<TF>.json (regex estricta de ownerHash hex-16), ejecuta el MISMO ciclo validado por bot con aislamiento total (cada uno escribe solo en su directorio), throttler compartido fleet-wide, fail-safe (un bot fallido no aborta la flota), archivados se saltan. Fix del orquestador: branch --scan-users faltaba en main() (runScanUsers definida pero nunca invocada). Script cron actualizado: tus bots legacy + flota de usuarios.
+- Files touched: server/genesis/liveRunner.mjs, scripts genesis_live_runner.sh (perfil)
+- Verification: 2 fixtures testhash1/testhash2 procesados sin cruzar datos; modo legacy identico; self-tests protections/connectorCore intactos
