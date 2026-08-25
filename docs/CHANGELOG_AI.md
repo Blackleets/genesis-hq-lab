@@ -1479,3 +1479,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: PERSISTENCIA DURABLE — api/_lib/store.js con adaptadores Upstash Redis REST / Supabase PostgREST / memory-degradado segun env. bots.js refactorizado: claves bots:<ownerHash>:<PAIR>_<TF> via store, FIX slots archivados, whitelist ALLOWED_WALLEts honesta (403 si no esta), ownerHashFor deduplicado en sessionAuth. Estado degradado HONESTO: POST responde 503 storage_not_durable sin fingir guardado.
 - Files touched: api/_lib/store.js (nuevo), api/genesis/bots.js, api/_lib/sessionAuth.js, docs
 - Verification: node --check ok; vitest 12/12 store tests pasan; typecheck 0 errores; total suite 30/30 (auth 15 + engine 3 + store 12)
+
+## 2026-08-25b — Ganador De Dinero (aragan) + subagente test engineer
+- Branch: feat/genesis-improvement-plan
+- Summary: Suite de tests del MOTOR: 18 tests vitest en 5 archivos (lookahead guard detecta tramposos y honrado pasa, signal shift llena en open[i+1], protecciones 4 heuristicas, treasury reserve/release ciclo completo con backup del state real, connectorCore fills parciales + snapshot/restore, feeAccountant). npm run test:engine disponible. Total suite proyecto: 48 tests pasando (15 auth + 12 store + 18 engine + 3 misc).
+- Files touched: server/genesis/__tests__/ (5 archivos nuevos), package.json
+- Verification: npx vitest run -> 18/18 engine; typecheck 0 errores
