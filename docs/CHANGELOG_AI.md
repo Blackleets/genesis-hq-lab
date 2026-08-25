@@ -1485,3 +1485,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Suite de tests del MOTOR: 18 tests vitest en 5 archivos (lookahead guard detecta tramposos y honrado pasa, signal shift llena en open[i+1], protecciones 4 heuristicas, treasury reserve/release ciclo completo con backup del state real, connectorCore fills parciales + snapshot/restore, feeAccountant). npm run test:engine disponible. Total suite proyecto: 48 tests pasando (15 auth + 12 store + 18 engine + 3 misc).
 - Files touched: server/genesis/__tests__/ (5 archivos nuevos), package.json
 - Verification: npx vitest run -> 18/18 engine; typecheck 0 errores
+
+## 2026-08-25a — Ganador De Dinero (aragan) + subagente observabilidad
+- Branch: feat/genesis-improvement-plan
+- Summary: Telemetria real: liveRunner escribe heartbeat atomico data/health.json tras cada ciclo (lastRunAt, equity, openPosition, errores24h, protectionsBlocked — fallos de telemetria nunca bloquean trading). healthCheck.mjs CLI --all: tabla componente/status/detalle revisando estados de bots, heartbeat, treasury y conectividad Binance. Reglas WARN >2h / DOWN >24h, exit code para crons. Verificado con inyeccion de JSON corrupto: DOWN + exit 1 correcto.
+- Files touched: server/genesis/liveRunner.mjs, server/genesis/healthCheck.mjs (nuevo)
+- Verification: node --check ok; healthCheck --all GLOBAL OK exit 0 (5 componentes); ruta DOWN probada y restaurada

@@ -5,6 +5,7 @@
 // Usage:
 //   node liveRunner.mjs                 # single scan now (prints state, exits)
 //   node liveRunner.mjs --watch         # loop forever, checks every candle close
+//   node liveRunner.mjs --health        # run the healthCheck telemetry report, then exit
 //
 // Env overrides:
 //   GENESIS_PAIR (default COTIUSDT), GENESIS_TF (default 1h),
@@ -46,6 +47,9 @@ const STATE_FILE = OWNER_HASH
   ? path.join(__dirname, `../../data/bots/${OWNER_HASH}/${_pair}_${_tf}.json`)
   : path.join(__dirname, `../../data/genesis_live_state_${_pair}_${_tf}.json`);
 const TREASURY_FILE = path.join(__dirname, '../../data/genesis_treasury_state.json');
+// Telemetry heartbeat: refreshed after every saveState(). Single file, last
+// writer wins (one heartbeat for the whole runner fleet). Read by healthCheck.
+const HEALTH_FILE = path.join(__dirname, '../../data/health.json');
 const CAPITAL = parseFloat(process.env.GENESIS_CAPITAL || '1000');
 const P = Object.assign(
   { rsiPeriod: 14, rsiLow: 31, rsiHigh: 71, bbPeriod: 22, bbMult: 10, slMult: 2.7, tpMult: 2.5, atrMinPct: 0.004 },
@@ -56,6 +60,24 @@ const P = Object.assign(
 // offline fallback when ccxt/markets are unavailable. Order lifecycle is
 // tracked Hummingbot-style with ClientOrderTracker + InFlightOrder.
 const tracker = new ClientOrderTracker();
+
+// Telemetry: in-memory error counter for this process lifetime (resets every
+// restart by design). Surfaced in the data/health.json heartbeat so healthCheck
+// can report recent error pressure.
+const ERRORS = { count: 0 };
+function noteError(where, e) {
+  ERRORS.count += 1;
+  console.error(`[liveRunner] ${where}:`, e && e.message ? e.message : e);
+}
+
+// Atomic JSON write: temp file + rename so concurrent readers (healthCheck,
+// API) never observe a torn file. Never throws into the caller's path.
+function atomicWriteJson(file, obj) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const tmp = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(obj, null, 2));
+  fs.renameSync(tmp, file);
+}
 
 // 'COTIUSDT' -> 'COTI-USDT' — InFlightOrder tradingPair format BASE-QUOTE.
 function toTradingPair(pair) {
@@ -202,6 +224,27 @@ function saveState(s) {
   s.updatedAt = new Date().toISOString();
   fs.mkdirSync(path.dirname(STATE_FILE), { recursive: true });
   fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2));
+  writeHeartbeat(s);
+}
+
+// Simple heartbeat: refreshed after every saveState() so healthCheck (and any
+// cron) can tell at a glance whether the runner loop is alive. Atomic
+// temp+rename; failures are logged but NEVER block paper trading.
+function writeHeartbeat(s) {
+  try {
+    atomicWriteJson(HEALTH_FILE, {
+      lastRunAt: new Date().toISOString(),
+      pair: PAIR,
+      tf: TF,
+      equity: Number.isFinite(s.equity) ? +s.equity.toFixed(2) : null,
+      openPosition: !!s.position,
+      trades: Array.isArray(s.trades) ? s.trades.length : 0,
+      errors24h: ERRORS.count,
+      protectionsBlocked: !!(s.protections && s.protections.blocked),
+    });
+  } catch (e) {
+    noteError('health.json heartbeat write failed', e);
+  }
 }
 
 function computeInd(candles) {
@@ -288,7 +331,7 @@ async function scan() {
       // then the order retires itself to the tracker's TTL cache.
       if (pos.clientOrderId) {
         try { tracker.applyFill(pos.clientOrderId, { fillAmount: qty, fillPrice: closed.exitPx, fee: exitFee }); }
-        catch (e) { console.error(`[liveRunner] order fill tracking failed (${e.message})`); }
+        catch (e) { noteError('order fill tracking failed', e); }
       }
       state.position = null;
       // equity curve: one point per closed position, capped at last 500
@@ -337,7 +380,7 @@ async function scan() {
             amount: qty,
           }));
           tracker.markOpen(clientOrderId);
-        } catch (e) { console.error(`[liveRunner] order tracking failed (${e.message})`); }
+        } catch (e) { noteError('order tracking failed', e); }
       }
       events.push(`OPEN ${side.toUpperCase()} @${px} size=$${base} SL=${sl.toFixed(6)} TP=${tp.toFixed(6)}${base < state.equity ? ' (scaled down to 20% treasury allocation)' : ''}`);
     };
@@ -369,12 +412,26 @@ async function scan() {
   // P2 additive field: plain-object snapshot of order tracking, written inside
   // the SAME saveState call as before (single JSON write per scan).
   try { state.openOrders = tracker.snapshotStates(); }
-  catch (e) { console.error(`[liveRunner] openOrders snapshot failed (${e.message})`); state.openOrders = {}; }
+  catch (e) { noteError('openOrders snapshot failed', e); state.openOrders = {}; }
   saveState(state);
   return { summary, events };
 }
 
 async function main() {
+  // TAREA 3: `--health` re-exports the healthCheck logic (same module, same
+  // table, same exit code) so the runner doubles as the telemetry entry point.
+  if (process.argv.includes('--health')) {
+    const { runHealthCheck } = await import('./healthCheck.mjs');
+    const { rows, global } = await runHealthCheck({ pair: PAIR, tf: TF });
+    const cw = Math.max(...rows.map(r => r.component.concat('COMPONENTE').length), 'COMPONENTE'.length) + 2;
+    const sw = Math.max(...rows.map(r => r.status.concat('STATUS').length), 'STATUS'.length) + 2;
+    console.log(`${'COMPONENTE'.padEnd(cw)}${'STATUS'.padEnd(sw)}DETALLE`);
+    for (const r of rows) {
+      console.log(`${r.component.padEnd(cw)}${r.status.padEnd(sw)}${r.detail}`);
+    }
+    console.log(`GLOBAL: ${global}`);
+    process.exit(global === 'DOWN' ? 1 : 0);
+  }
   const watch = process.argv.includes('--watch');
   if (!watch) {
     const { summary, events } = await scan();
@@ -390,7 +447,7 @@ async function main() {
       for (const e of events) console.log(`[${new Date().toLocaleTimeString()}] EVENT: ${e}`);
       console.log(`[${new Date().toLocaleTimeString()}] px=${summary.price} equity=${summary.equity} trades=${summary.trades}`);
     } catch (e) {
-      console.error(`[${new Date().toLocaleTimeString()}] scan error:`, e.message);
+      noteError('scan error', e);
     }
     await new Promise(r => setTimeout(r, 5 * 60 * 1000));
   }
