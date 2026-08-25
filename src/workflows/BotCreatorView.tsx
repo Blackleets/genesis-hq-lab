@@ -42,6 +42,15 @@ const TP_DEFAULT = 2.5;
 
 type Phase = 'idle' | 'creating' | 'success' | 'error';
 
+/** Shape of the bot echoed back by POST /api/genesis/bots on 201. */
+interface CreatedBot {
+  pair: string;
+  tf: string;
+  kind: string;
+  equity: number;
+  params?: Record<string, number>;
+}
+
 function errorCopy(code: string, es: boolean): string {
   switch (code) {
     case 'pair_not_allowed':
@@ -86,7 +95,7 @@ function Slider({
     <div>
       <div className="flex items-center justify-between mb-1.5">
         <label className="text-[11px] uppercase tracking-wide text-zinc-400 font-mono">{label}</label>
-        <span className="font-mono text-[13px] text-zinc-100">
+        <span className="font-mono text-[13px]" style={{ color: ACCENT }}>
           x{value.toFixed(2)}
         </span>
       </div>
@@ -121,6 +130,8 @@ export default function BotCreatorView() {
   const [tpMult, setTpMult] = useState(TP_DEFAULT);
   const [phase, setPhase] = useState<Phase>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
+  const [createdBot, setCreatedBot] = useState<CreatedBot | null>(null);
 
   const strategy = STRATEGIES.find((s) => s.kind === kind)!;
   const strategyLabel = es ? strategy.labelEs : strategy.labelEn;
@@ -129,6 +140,7 @@ export default function BotCreatorView() {
     if (!session || phase === 'creating') return;
     setPhase('creating');
     setErrorMsg(null);
+    setErrorCode(null);
     try {
       const r = await fetch('/api/genesis/bots', {
         method: 'POST',
@@ -139,6 +151,13 @@ export default function BotCreatorView() {
         body: JSON.stringify({ pair, kind, params: { slMult, tpMult } }),
       });
       if (r.status === 201) {
+        try {
+          const j = (await r.json()) as { bot?: CreatedBot };
+          setCreatedBot(j.bot ?? null);
+        } catch {
+          // 201 without a parseable body — still a success, just no summary.
+          setCreatedBot(null);
+        }
         setPhase('success');
         return;
       }
@@ -153,9 +172,11 @@ export default function BotCreatorView() {
         code = 'unauthorized';
       }
       setPhase('error');
+      setErrorCode(code || null);
       setErrorMsg(errorCopy(code, es));
     } catch {
       setPhase('error');
+      setErrorCode(null);
       setErrorMsg(errorCopy('', es));
     }
   }
@@ -185,10 +206,39 @@ export default function BotCreatorView() {
               : 'Connect your wallet first to create a bot.'}
           </section>
         ) : phase === 'success' ? (
-          <section className="gx-card px-5 py-6 space-y-4 text-center">
-            <div className="text-[15px] font-semibold text-emerald-400">
-              {es ? 'Bot creado correctamente.' : 'Bot created successfully.'}
+          <section
+            className="rounded px-5 py-5 space-y-3 border"
+            style={{ borderColor: '#34d39955', background: '#10b98114' }}
+            role="status"
+          >
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-emerald-400" />
+              <div className="text-[15px] font-semibold text-emerald-400">
+                {es ? 'Bot creado correctamente.' : 'Bot created successfully.'}
+              </div>
             </div>
+            {createdBot && (
+              <dl className="text-[12px] text-zinc-300 space-y-1 font-mono">
+                <div>
+                  <span className="text-zinc-500">{es ? 'Par' : 'Pair'}: </span>
+                  {createdBot.pair} · {createdBot.tf}
+                </div>
+                <div>
+                  <span className="text-zinc-500">{es ? 'Estrategia' : 'Strategy'}: </span>
+                  {createdBot.kind === 'meanReversion' ? strategyLabel : createdBot.kind}
+                </div>
+                {createdBot.params && (
+                  <div>
+                    <span className="text-zinc-500">SL / TP: </span>x{Number(createdBot.params.slMult).toFixed(2)} / x
+                    {Number(createdBot.params.tpMult).toFixed(2)}
+                  </div>
+                )}
+                <div>
+                  <span className="text-zinc-500">Equity: </span>${Number(createdBot.equity ?? 1000).toFixed(2)}{' '}
+                  <span className="text-zinc-500">(paper)</span>
+                </div>
+              </dl>
+            )}
             <p className="text-[12px] text-zinc-400">
               {es
                 ? 'Tu bot ya está operando en modo paper. Míralo en vivo en Quant Lab.'
@@ -275,9 +325,48 @@ export default function BotCreatorView() {
                 : `Your bot will trade ${pair} with ${strategyLabel} · SL x${slMult.toFixed(2)} TP x${tpMult.toFixed(2)} · Paper $1000 virtual`}
             </section>
 
-            {phase === 'error' && errorMsg && (
-              <div className="gx-card px-4 py-3 text-[12px] text-red-400">{errorMsg}</div>
+            {phase === 'error' && errorCode === 'storage_not_durable' && (
+              <div
+                className="rounded px-4 py-3 text-[12px] border"
+                style={{ borderColor: '#fbbf2455', background: '#f59e0b14' }}
+                role="alert"
+              >
+                <div className="text-amber-400 font-semibold mb-1">
+                  {es
+                    ? 'La creacion de bots requiere persistencia durable. Configura Upstash/Supabase en Vercel.'
+                    : 'Bot creation requires durable persistence. Configure Upstash/Supabase on Vercel.'}
+                </div>
+                <ul className="mt-1 space-y-0.5 font-mono text-[11px] text-zinc-400">
+                  <li>UPSTASH_REDIS_REST_URL</li>
+                  <li>UPSTASH_REDIS_REST_TOKEN</li>
+                  <li>SUPABASE_URL</li>
+                  <li>SUPABASE_SERVICE_KEY</li>
+                </ul>
+              </div>
             )}
+
+            {phase === 'error' && errorCode === 'bot_already_exists' && (
+              <div className="gx-card px-4 py-3 space-y-2" role="alert">
+                <div className="text-[12px] text-amber-400 font-semibold">
+                  {es ? 'Ya tienes un bot en este par' : 'You already have a bot on this pair'}
+                </div>
+                <button
+                  type="button"
+                  onClick={goQuantBot}
+                  className="px-3 py-1.5 rounded text-[12px] font-semibold border border-cyan-400/60 transition-colors hover:bg-cyan-400/10"
+                  style={{ color: ACCENT }}
+                >
+                  {es ? 'Ver mis bots' : 'See my bots'}
+                </button>
+              </div>
+            )}
+
+            {phase === 'error' &&
+              errorCode !== 'storage_not_durable' &&
+              errorCode !== 'bot_already_exists' &&
+              errorMsg && (
+                <div className="gx-card px-4 py-3 text-[12px] text-red-400">{errorMsg}</div>
+              )}
 
             <button
               type="button"

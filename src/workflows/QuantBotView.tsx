@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '@core/i18n/languageStore';
 import { useWalletAuth } from '@core/auth/WalletAuthProvider';
 import { shortAddress } from '@core/auth/walletTypes';
+import { actions } from '@core/store/genesisStore';
 import QuantChart, { type ChartCandle, type ChartTrade } from '@workflows/QuantChart';
 
 interface BotPosition {
@@ -53,6 +54,21 @@ interface LiveResponse {
   bot: BotState | null;
   treasury: TreasuryState | null;
   updatedAt: string;
+}
+
+/** One entry of GET /api/genesis/bots (my own bots, incl. archived). */
+interface MyBot {
+  pair: string;
+  tf: string;
+  kind?: string;
+  equity?: number;
+  /** Backend archives instead of deleting — archived bots keep their key. */
+  archived?: boolean;
+}
+
+interface MyBotsResponse {
+  ok: boolean;
+  bots: MyBot[];
 }
 
 type CronHealth = 'active' | 'delayed' | 'down' | 'unknown';
@@ -156,6 +172,8 @@ export default function QuantBotView() {
   const [error, setError] = useState<string | null>(null);
   const [botIdx, setBotIdx] = useState(0);
   const [candles, setCandles] = useState<ChartCandle[]>([]);
+  const [myBots, setMyBots] = useState<MyBot[]>([]);
+  const [myBotsError, setMyBotsError] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -180,6 +198,23 @@ export default function QuantBotView() {
     const id = setInterval(load, 30_000); // poll every 30s
     return () => { alive = false; clearInterval(id); };
   }, [es, token, logout]);
+
+  // "Mis Bots" chips: GET /api/genesis/bots returns MY bots (incl. archived).
+  useEffect(() => {
+    if (!token) { setMyBots([]); setMyBotsError(false); return; }
+    let alive = true;
+    fetch('/api/genesis/bots', {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((j: MyBotsResponse) => {
+        if (alive) { setMyBots(j.bots ?? []); setMyBotsError(false); }
+      })
+      .catch(() => {
+        if (alive) setMyBotsError(true);
+      });
+    return () => { alive = false; };
+  }, [token, data]); // refetch when the live poll updates, so new bots appear
 
   // Candles for the selected bot's pair (real Binance klines).
   useEffect(() => {
@@ -320,6 +355,59 @@ export default function QuantBotView() {
           <Metric label={es ? 'Retorno' : 'Return'} value={`${ret}%`} tone={parseFloat(ret) > 0 ? 'pos' : parseFloat(ret) < 0 ? 'neg' : undefined} />
           <Metric label="Trades" value={String(nTrades)} />
           <Metric label={es ? 'Win rate' : 'Win rate'} value={wr ? `${wr}%` : '—'} />
+        </section>
+
+        {/* Mis Bots — my own bots from GET /api/genesis/bots, above the chart */}
+        <section className="gx-card px-4 py-3">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <header className="text-[11px] uppercase tracking-wide text-zinc-500 font-mono">
+              {es ? 'Mis Bots' : 'My Bots'}
+            </header>
+            <button
+              type="button"
+              onClick={() => actions.setSelectedModule('factory')}
+              className="px-2.5 py-1 rounded text-[11px] font-semibold border border-cyan-400/40 transition-colors hover:bg-cyan-400/10"
+              style={{ color: '#22d3ee' }}
+            >
+              {es ? '+ Nuevo Bot' : '+ New Bot'}
+            </button>
+          </div>
+          {myBots.length > 0 ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              {myBots.map((b, i) => (
+                <span
+                  key={`${b.pair}-${b.tf}-${i}`}
+                  className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[12px] font-mono ${
+                    b.archived
+                      ? 'border-carbon-100 text-zinc-500'
+                      : 'border-cyan-400/50 text-zinc-100 bg-[#10131a]'
+                  }`}
+                >
+                  {b.pair} · {b.tf}
+                  <span
+                    className={`inline-block w-1.5 h-1.5 rounded-full ${
+                      b.archived ? 'bg-zinc-600' : 'bg-emerald-400'
+                    }`}
+                  />
+                  <span className={b.archived ? 'text-zinc-500' : 'text-emerald-400'}>
+                    {b.archived ? (es ? 'archivado' : 'archived') : es ? 'activo' : 'active'}
+                  </span>
+                </span>
+              ))}
+            </div>
+          ) : myBotsError ? (
+            <p className="text-[12px] text-amber-400">
+              {es
+                ? 'No se pudo cargar tu lista de bots — backend offline.'
+                : 'Could not load your bots — backend offline.'}
+            </p>
+          ) : (
+            <p className="text-[12px] text-zinc-500">
+              {es
+                ? 'Aún no tienes bots. Crea el primero en la fábrica.'
+                : 'No bots yet. Create your first one in the factory.'}
+            </p>
+          )}
         </section>
 
         {/* Price chart — real candles + bot trade markers (TradingView LWC) */}

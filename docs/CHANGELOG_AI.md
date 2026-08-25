@@ -1491,3 +1491,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Telemetria real: liveRunner escribe heartbeat atomico data/health.json tras cada ciclo (lastRunAt, equity, openPosition, errores24h, protectionsBlocked — fallos de telemetria nunca bloquean trading). healthCheck.mjs CLI --all: tabla componente/status/detalle revisando estados de bots, heartbeat, treasury y conectividad Binance. Reglas WARN >2h / DOWN >24h, exit code para crons. Verificado con inyeccion de JSON corrupto: DOWN + exit 1 correcto.
 - Files touched: server/genesis/liveRunner.mjs, server/genesis/healthCheck.mjs (nuevo)
 - Verification: node --check ok; healthCheck --all GLOBAL OK exit 0 (5 componentes); ruta DOWN probada y restaurada
+
+## 2026-08-25b — Ganador De Dinero (aragan) + subagente UI
+- Branch: feat/genesis-improvement-plan
+- Summary: UI pulida: BotCreatorView maneja 503 storage_not_durable con env vars listadas, 409 con navegacion a mis bots, sliders font-mono cyan, banner verde de exito. QuantBotView: seccion Mis Bots (chips par+estado desde GET /api/genesis/bots autenticado) + boton + Nuevo Bot hacia factory. Todo lo previo intacto.
+- Files touched: src/workflows/BotCreatorView.tsx, src/workflows/QuantBotView.tsx
+- Verification: typecheck 0 errores; build ok
