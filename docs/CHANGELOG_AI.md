@@ -1473,3 +1473,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Rediseño FASE 1: eliminados del nav 4 modulos teatro (solana-alpha, marketing, tech, decisions); factory reconstruido como CREADOR DE BOTS (BotCreatorView): dropdown par/estrategia del catalogo validado, sliders SL/TP con clamps, POST /api/genesis/bots con auth wallet, estados idle/creating/success/error. Fixes de integracion post-corte: import BotCreatorView, removido DecisionsView import, re-agregado icono Activity al sidebar.
 - Files touched: src/App.tsx, src/core/data/moduleRegistry.ts, src/core/i18n/translations.ts, src/ui/GenesisSidebar.tsx, src/ui/GenesisHeader.tsx, src/workflows/BotCreatorView.tsx (nuevo), src/workflows/WorkScreen.tsx, src/core/store/genesisStore.ts, src/core/data/initialTasks.ts
 - Verification: typecheck 0 errores; build ok (2m11s)
+
+## 2026-08-25a — Ganador De Dinero (aragan) + subagente persistencia
+- Branch: feat/genesis-improvement-plan
+- Summary: PERSISTENCIA DURABLE — api/_lib/store.js con adaptadores Upstash Redis REST / Supabase PostgREST / memory-degradado segun env. bots.js refactorizado: claves bots:<ownerHash>:<PAIR>_<TF> via store, FIX slots archivados, whitelist ALLOWED_WALLEts honesta (403 si no esta), ownerHashFor deduplicado en sessionAuth. Estado degradado HONESTO: POST responde 503 storage_not_durable sin fingir guardado.
+- Files touched: api/_lib/store.js (nuevo), api/genesis/bots.js, api/_lib/sessionAuth.js, docs
+- Verification: node --check ok; vitest 12/12 store tests pasan; typecheck 0 errores; total suite 30/30 (auth 15 + engine 3 + store 12)
