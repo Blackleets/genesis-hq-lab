@@ -108,10 +108,9 @@ export default function GenesisHeader({ currentModule, onNavigate, onOpenCommand
 
   // Accent color by current division
   const divisionColor = (() => {
-    if (['markets', 'decisions'].includes(currentModule)) return '#00ff9c';
-    if (['marketing', 'tech'].includes(currentModule)) return '#f59e0b';
-    if (['hr', 'factory', 'auto'].includes(currentModule)) return '#a855f7';
-    if (['integrations', 'progress', 'settings', 'wallet'].includes(currentModule)) return '#6b7280';
+    if (currentModule === 'markets') return '#00ff9c';
+    if (currentModule === 'factory') return '#22d3ee';
+    if (['settings', 'wallet'].includes(currentModule)) return '#6b7280';
     return '#3da9fc';
   })();
   const statusColor = systemStatus.tone === 'live'

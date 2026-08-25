@@ -19,7 +19,7 @@ export const TRANSLATIONS = {
   'nav.dashboard':           { es: 'Panel',                        en: 'Dashboard' },
   'nav.hq':                  { es: 'Sede central de Génesis',      en: 'Genesis HQ' },
   'nav.markets':             { es: 'Mercados',                     en: 'Markets' },
-  'nav.decisions':           { es: 'Decisiones',                   en: 'Decisions' },
+  'nav.create-bot':          { es: 'Crear Bot',                    en: 'Create Bot' },
   'nav.settings':            { es: 'Ajustes',                      en: 'Settings' },
   'nav.wallet':              { es: 'Wallet',                        en: 'Wallet' },
   'nav.console':             { es: 'Consola',                      en: 'Console' },

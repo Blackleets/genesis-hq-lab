@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useLanguage, useT } from '@core/i18n/languageStore';
 import { OFFICE_ROOMS } from '@animations/officeRooms';
-import { useAgents, useModuleById, useTasksForRoom } from '@core/store/genesisStore';
+import { useAgents, useTasksForRoom } from '@core/store/genesisStore';
 import type { RoomId } from '@core/types/office';
 import { pickRole } from '@agents/agentHelpers';
 import type { Task, TaskStatus } from '@core/types/task';
@@ -90,10 +90,9 @@ export default function WorkScreen({ room, onClose }: Props) {
   const tasks = useTasksForRoom(room);
   const agents = useAgents().filter((a) => a.currentRoom === room);
 
-  const isExec = room === 'execution-desk';
   const isMarket = room === 'market-desk';
-  const decisionsModule = useModuleById('decisions');
-  const isExecLocked = isExec && decisionsModule?.state === 'locked-backend';
+  // The execution desk used to be gated on the 'decisions' module, which was
+  // removed in the Fase 1 redesign — no lock applies anymore.
 
   return (
     <main className="flex-1 min-w-0 min-h-0 overflow-y-auto px-8 py-8 bg-carbon-300">
@@ -114,11 +113,6 @@ export default function WorkScreen({ room, onClose }: Props) {
           </button>
         </header>
 
-        {isExecLocked && (
-          <div className="border border-red-400/40 bg-red-500/10 px-4 py-3 font-mono text-[12px] text-red-200">
-            {t('work.execLocked')}
-          </div>
-        )}
         {isMarket && (
           <div className="border border-amber-400/40 bg-amber-500/10 px-4 py-3 font-mono text-[12px] text-amber-200">
             {t('work.marketReadonly')}

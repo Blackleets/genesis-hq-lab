@@ -38,7 +38,7 @@ export const INITIAL_TASKS: Task[] = [
     status: 'assigned',
     priority: 'high',
     createdAt: now,
-    sourceModule: 'decisions',
+    sourceModule: 'dashboard',
     estimatedMs: 1000 * 120,
     evidence: ['Visual/local seed task'],
     isSeed: true,

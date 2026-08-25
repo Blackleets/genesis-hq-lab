@@ -13,7 +13,6 @@ export type ModuleId =
   | 'dashboard'
   | 'hq'
   | 'markets'
-  | 'decisions'
   | 'settings'
   | 'wallet'
   | 'console'
@@ -25,7 +24,8 @@ export type ModuleId =
   | 'live-exec'
   | 'funding-bot'
   | 'quant-bot'
-  | 'terminal';
+  | 'terminal'
+  | 'factory';
 
 export type ModuleState =
   | 'ready'
@@ -112,21 +112,21 @@ export const MODULES: ModuleEntry[] = [
     },
   },
   {
-    id: 'decisions',
-    navKey: 'nav.decisions',
+    id: 'factory',
+    navKey: 'nav.create-bot',
     state: 'ready',
     description: {
-      es: 'Decisiones tomadas por Génesis con razones, riesgos y resultado.',
-      en: 'Decisions taken by Genesis with reasons, risks, and outcomes.',
+      es: 'Creador de bots: elige par, estrategia y riesgo (SL/TP) y crea tu bot paper con $1000 virtuales. Requiere wallet conectada.',
+      en: 'Bot creator: pick pair, strategy and risk (SL/TP) and launch your paper bot with $1000 virtual. Requires a connected wallet.',
     },
     futureActions: [
-      { es: 'Disparar análisis Bull / Bear / Riesgo.', en: 'Trigger Bull / Bear / Risk analysis.' },
-      { es: 'Ver veto del Guardián de Riesgo.',        en: 'See the Risk Guardian veto.' },
-      { es: 'Auditar precisión cuando se resuelve.',   en: 'Audit accuracy when resolved.' },
+      { es: 'Elegir par (COTI, XLM, BTC, ETH, SOL).', en: 'Pick a pair (COTI, XLM, BTC, ETH, SOL).' },
+      { es: 'Elegir estrategia validada del catálogo.', en: 'Choose a validated strategy from the catalog.' },
+      { es: 'Ajustar multiplicadores SL/TP.', en: 'Tune SL/TP multipliers.' },
     ],
     relation: {
-      es: 'Cada decisión refleja una conversación entre agentes en HQ.',
-      en: 'Each decision reflects an agent conversation in HQ.',
+      es: 'El bot creado aparece vivo en Quant Lab (paper).',
+      en: 'The created bot shows up live in Quant Lab (paper).',
     },
   },
   {

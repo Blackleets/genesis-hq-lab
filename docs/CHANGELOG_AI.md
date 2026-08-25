@@ -1461,3 +1461,15 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: FIX wallet 401: @wagmi/core era extraneous (no estaba en deps explicitas, wagmi lo requiere peer) — instalado exact 3.6.4 con --legacy-peer-deps (conflicto ox/viem resuelto). react-is anadido para resolver import de recharts en build. Con esto el boton Connect Wallet deja de fallar con Provider not found / 401.
 - Files touched: package.json, package-lock.json
 - Verification: typecheck 0 errores; build ok; @wagmi/core@3.6.4 instalado con peer viem 2.x satisfecho
+
+## 2026-08-25 — ox-alpha (subagente)
+- Branch: feat/genesis-improvement-plan
+- Summary: Protecciones estilo Freqtrade (StoplossGuard, MaxDrawdown, LowProfitPairs, CooldownPeriod) en nuevo server/genesis/protections.mjs con CLI self-test 4 escenarios. Integradas en liveRunner.mjs: se evaluan tras cerrar trade y antes de nueva senal; campo aditivo state.protections; entrada vetada esa vela con EVENT "BLOCKED protection <reason>".
+- Files touched: server/genesis/protections.mjs (nuevo), server/genesis/liveRunner.mjs, docs/CHANGELOG_AI.md
+- Verification: node --check ambos OK; self-test 4/4 PASS; liveRunner scan unico OK (equity 1000, returnPct 0); npm run build no aplicable (solo server)
+
+## 2026-08-25 — Ganador De Dinero (aragan) + subagente redesign
+- Branch: feat/genesis-improvement-plan
+- Summary: Rediseño FASE 1: eliminados del nav 4 modulos teatro (solana-alpha, marketing, tech, decisions); factory reconstruido como CREADOR DE BOTS (BotCreatorView): dropdown par/estrategia del catalogo validado, sliders SL/TP con clamps, POST /api/genesis/bots con auth wallet, estados idle/creating/success/error. Fixes de integracion post-corte: import BotCreatorView, removido DecisionsView import, re-agregado icono Activity al sidebar.
+- Files touched: src/App.tsx, src/core/data/moduleRegistry.ts, src/core/i18n/translations.ts, src/ui/GenesisSidebar.tsx, src/ui/GenesisHeader.tsx, src/workflows/BotCreatorView.tsx (nuevo), src/workflows/WorkScreen.tsx, src/core/store/genesisStore.ts, src/core/data/initialTasks.ts
+- Verification: typecheck 0 errores; build ok (2m11s)

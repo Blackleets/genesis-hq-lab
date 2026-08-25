@@ -15,7 +15,6 @@ import SettingsView from '@ui/views/SettingsView';
 import GenesisDashboard from '@dashboard/GenesisDashboard';
 import MarketsView from '@workflows/MarketsView';
 import CommandConsole from '@workflows/CommandConsole';
-import DecisionsView from '@workflows/DecisionsView';
 import { CommandBarProvider, useCommandBar } from '@workflows/CommandBar';
 import AgentExecutionView from '@agents/AgentExecutionView';
 import EdgeScorecardView from '@workflows/EdgeScorecardView';
@@ -26,11 +25,12 @@ import LiveExecutionsView from '@workflows/LiveExecutionsView';
 import FundingBotView from '@workflows/FundingBotView';
 import QuantBotView from '@workflows/QuantBotView';
 import TerminalView from '@workflows/TerminalView';
+import BotCreatorView from '@workflows/BotCreatorView';
 // Disconnected theatrical views (visual-only, no real engine behind them).
 // Files kept on disk on purpose; do not re-import without wiring a real backend:
 //   MarketingView, TechView, IntegrationsView, HRView, ProgressView,
 //   AgentCreator, AutoView, OperatorTimelineView, PredictionMarketsLab,
-//   SolanaAlphaView.
+//   SolanaAlphaView, DecisionsView.
 import WalletAuthProvider from '@core/auth/WalletAuthProvider';
 import ConnectWalletGate from '@ui/views/ConnectWalletGate';
 import { actions, useSelectedModule } from '@core/store/genesisStore';
@@ -45,7 +45,7 @@ function ModuleRenderer({ module, setModule }: { module: ModuleId; setModule: (m
     case 'dashboard':     return <GenesisDashboard onOpenHQ={() => setModule('hq')} />;
     case 'markets':       return <MarketsView />;
     case 'settings':      return <SettingsView />;
-    case 'decisions':     return <DecisionsView />;
+    case 'factory':       return <BotCreatorView />;
     case 'wallet':        return <WalletView />;
     case 'console':       return <CommandConsole />;
     case 'agents-live':   return <AgentExecutionView />;

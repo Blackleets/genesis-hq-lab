@@ -708,7 +708,7 @@ export const actions = {
       status: 'queued',
       priority: 'high',
       createdAt: now,
-      sourceModule: 'decisions',
+      sourceModule: 'dashboard',
       estimatedMs: 5 * 60 * 1000,
       isSeed: false,
       isReal: true,
@@ -1596,7 +1596,9 @@ function evaluateHiringQueue(s: GenesisStateShape): GenesisStateShape {
         break;
       }
       case 'module-unlocked-decisions':
-        unlocked = s.modules['decisions']?.state !== 'locked-backend';
+        // 'decisions' module was removed in the Fase 1 redesign; the
+        // condition is auto-satisfied so those candidates can unlock.
+        unlocked = true;
         break;
       case 'module-unlocked-markets':
         unlocked = s.modules['markets']?.state === 'ready';
