@@ -1509,3 +1509,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: RUNNER MULTI-USUARIO — flag --scan-users: descubre bots de usuarios en data/bots/<ownerHash>/<PAIR>_<TF>.json (regex estricta de ownerHash hex-16), ejecuta el MISMO ciclo validado por bot con aislamiento total (cada uno escribe solo en su directorio), throttler compartido fleet-wide, fail-safe (un bot fallido no aborta la flota), archivados se saltan. Fix del orquestador: branch --scan-users faltaba en main() (runScanUsers definida pero nunca invocada). Script cron actualizado: tus bots legacy + flota de usuarios.
 - Files touched: server/genesis/liveRunner.mjs, scripts genesis_live_runner.sh (perfil)
 - Verification: 2 fixtures testhash1/testhash2 procesados sin cruzar datos; modo legacy identico; self-tests protections/connectorCore intactos
+
+## 2026-08-25c — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: Cierre de fase: trackeados archivos que faltaban en git (protections.mjs —modulo critico del runner—, store.test.mjs, tests del engine, planes). Auditoria externa 10 puntos: 7 PASS, hallazgos = protections sin trackear (fix este commit), 2 suites con SQLite-lock en paralelo, 66 placeholders vacios ensuciando exit code.
+- Files touched: server/genesis/protections.mjs, api/_lib/__tests__/store.test.mjs, server/genesis/__tests__/*, .hermes/plans/*
+- Verification: auditoria independiente confirmo 44/44 tests core pasando, typecheck/build/health/scan-users/secrets verdes
