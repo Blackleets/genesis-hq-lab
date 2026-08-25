@@ -205,7 +205,14 @@ export function createCappedCtx(ctx, i) {
 //   recorded in result.lookaheadViolations and the signal is rejected.
 // signalShift: an entry signal born on candle i fills at the OPEN of candle
 //   i+1 (no fill at the same candle that produced the signal).
-export function runBacktest({ candles, strategyFn, initialCapital = 10000, feeRate = COST_ROUNDTRIP / 2, riskPct = 0.02, strictLookahead = true, signalShift = true }) {
+// protections (optional, Freqtrade --enable-protections style, simulated):
+//   { stoplossStreak, cooldownCandles, maxDrawdownPct }
+//   - stoplossStreak + cooldownCandles: after `stoplossStreak` consecutive
+//     losing trades, entry signals are skipped until `cooldownCandles` candles
+//     have passed since the last losing close.
+//   - maxDrawdownPct: if current drawdown ((peakEquity - equity)/peakEquity)
+//     exceeds the limit, NO further entries for the rest of the backtest.
+export function runBacktest({ candles, strategyFn, initialCapital = 10000, feeRate = COST_ROUNDTRIP / 2, riskPct = 0.02, strictLookahead = true, signalShift = true, protections = null }) {
   const close = candles.map(c => +c[4]);
   const open = candles.map(c => +c[1]);
   const high = candles.map(c => +c[2]);
@@ -230,6 +237,28 @@ export function runBacktest({ candles, strategyFn, initialCapital = 10000, feeRa
   const equityCurve = [initialCapital];
   const lookaheadViolations = [];
   let pendingSignal = null; // entry signal born on candle i, fills at open[i+1]
+
+  // --- Simulated protections state (Freqtrade-style guards) ---
+  const prot = protections ? {
+    stoplossStreak: Number.isFinite(+protections.stoplossStreak) ? +protections.stoplossStreak : 3,
+    cooldownCandles: Number.isFinite(+protections.cooldownCandles) ? +protections.cooldownCandles : 4,
+    maxDrawdownPct: Number.isFinite(+protections.maxDrawdownPct) ? +protections.maxDrawdownPct : 0.15,
+  } : null;
+  let consecLosses = 0;      // rolling consecutive losing trades
+  let peakEquity = initialCapital;
+  let lastLossIdx = null;    // candle index of the last losing close
+  let ddLocked = false;      // MaxDrawdown fired -> no entries for the rest
+  let ddLockIdx = null;
+  const protectionEvents = { entryBlocks: 0, stoplossGuard: 0, drawdownLock: false };
+
+  // Entry gate evaluated BEFORE accepting a signal. Causal: uses only state
+  // from candles strictly before i (lastLossIdx is always < i).
+  const protectionEntryBlock = (i) => {
+    if (!prot) return null;
+    if (ddLocked) return 'MAX_DD';
+    if (consecLosses >= prot.stoplossStreak && lastLossIdx !== null && (i - lastLossIdx) < prot.cooldownCandles) return 'STOPLOSS_COOLDOWN';
+    return null;
+  };
 
   const openPosition = (sig, execIdx, price) => {
     const side = sig.long ? 'long' : 'short';
@@ -262,6 +291,17 @@ export function runBacktest({ candles, strategyFn, initialCapital = 10000, feeRa
       }
     }
 
+    // 1b) protections gate: strip entry flags BEFORE accepting the signal
+    // (exit signals still pass through so an open position can be managed).
+    if (prot && sig && (sig.long || sig.short)) {
+      const blockReason = protectionEntryBlock(i);
+      if (blockReason) {
+        protectionEvents.entryBlocks++;
+        if (blockReason === 'STOPLOSS_COOLDOWN') protectionEvents.stoplossGuard++;
+        sig = { ...sig, long: false, short: false };
+      }
+    }
+
     // 2) execute a pending entry from the previous candle at THIS candle's open
     if (signalShift && pendingSignal && !position) openPosition(pendingSignal, i, +open[i]);
     pendingSignal = (sig && (sig.long || sig.short)) ? sig : null;
@@ -281,6 +321,10 @@ export function runBacktest({ candles, strategyFn, initialCapital = 10000, feeRa
         const pnl = dir * (fillExit - fillEntry) / fillEntry * position.size - position.size * feeRate * 2;
         cash += pnl;
         trades.push({ side: position.side, entry: position.entry, exit: px, pnl, size: position.size, entryIdx: position.entryIdx, exitIdx: i, bars: i - position.entryIdx });
+        if (prot) {
+          if (pnl <= 0) { consecLosses++; lastLossIdx = i; }
+          else consecLosses = 0;
+        }
         position = null;
       }
     } else if (!signalShift && sig && (sig.long || sig.short)) {
@@ -294,6 +338,15 @@ export function runBacktest({ candles, strategyFn, initialCapital = 10000, feeRa
       eq += dir * (+candles[i][4] - position.entry) / position.entry * position.size;
     }
     equityCurve.push(eq);
+    // protections rolling state: peak equity + permanent drawdown lock
+    if (prot) {
+      if (eq > peakEquity) peakEquity = eq;
+      if (!ddLocked && peakEquity > 0 && (peakEquity - eq) / peakEquity > prot.maxDrawdownPct) {
+        ddLocked = true;
+        ddLockIdx = i;
+        protectionEvents.drawdownLock = true;
+      }
+    }
   }
   // force-close at end
   if (position) {
@@ -306,7 +359,11 @@ export function runBacktest({ candles, strategyFn, initialCapital = 10000, feeRa
     trades.push({ side: position.side, entry: position.entry, exit: px, pnl, size: position.size, entryIdx: position.entryIdx, exitIdx: candles.length - 1, bars: candles.length - 1 - position.entryIdx });
   }
 
-  return { trades, equityCurve, finalCapital: cash, initialCapital, lookaheadViolations };
+  return {
+    trades, equityCurve, finalCapital: cash, initialCapital, lookaheadViolations,
+    protectionsActive: !!prot,
+    protectionEvents: prot ? { ...protectionEvents, ddLockIdx } : null,
+  };
 }
 
 // ---------- Metrics + 6 gates ----------
@@ -345,7 +402,10 @@ export function computeMetrics(result) {
     winRate, profitFactor: pf, expectancy, expectancyPctPerTrade: avgPct,
     tstat, sharpe, maxDrawdown: maxDD,
     finalCapital, initialCapital, returnPct: (finalCapital - initialCapital) / initialCapital,
+    protectionsActive: !!result.protectionsActive,
   };
+  if (result.protectionEvents) m.protectionEvents = result.protectionEvents;
+  return m;
 }
 
 export function evaluateGates(m) {

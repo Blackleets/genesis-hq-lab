@@ -44,16 +44,22 @@ function score(metrics) {
 }
 
 async function main() {
-  const [pair, tf, daysStr, kind, paramsJson] = process.argv.slice(2);
+  const rawArgs = process.argv.slice(2);
+  // --protections flag (default OFF for backward compat): run the backtest
+  // with simulated Freqtrade-style protections active during the simulation.
+  const useProtections = rawArgs.includes('--protections');
+  const DEFAULT_PROTECTIONS = { stoplossStreak: 3, cooldownCandles: 4, maxDrawdownPct: 0.15 };
+  const [pair, tf, daysStr, kind, paramsJson] = rawArgs.filter(a => a !== '--protections');
   const days = parseInt(daysStr, 10);
   let params = {};
   try { params = JSON.parse(paramsJson || '{}'); } catch { console.error(JSON.stringify({ error: 'bad params json' })); process.exit(1); }
   try {
     const candles = await getCandles(pair, tf, days);
     const fn = makeStrategy(kind, params);
-    const report = fullReport(candles, fn);
+    const report = fullReport(candles, fn, useProtections ? { protections: DEFAULT_PROTECTIONS } : {});
     const out = {
       pair, tf, days, kind, params,
+      protections: useProtections ? DEFAULT_PROTECTIONS : null,
       fitness: score(report.metrics),
       go: report.gates?.go ?? false,
       gates: report.gates ? `${report.gates.passed}/${report.gates.total}` : null,

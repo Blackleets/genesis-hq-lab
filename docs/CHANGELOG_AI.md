@@ -1515,3 +1515,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: Cierre de fase: trackeados archivos que faltaban en git (protections.mjs —modulo critico del runner—, store.test.mjs, tests del engine, planes). Auditoria externa 10 puntos: 7 PASS, hallazgos = protections sin trackear (fix este commit), 2 suites con SQLite-lock en paralelo, 66 placeholders vacios ensuciando exit code.
 - Files touched: server/genesis/protections.mjs, api/_lib/__tests__/store.test.mjs, server/genesis/__tests__/*, .hermes/plans/*
 - Verification: auditoria independiente confirmo 44/44 tests core pasando, typecheck/build/health/scan-users/secrets verdes
+
+## 2026-08-25d — Ganador De Dinero (aragan) + subagente backtest-protections
+- Branch: feat/genesis-improvement-plan
+- Summary: PROTECCIONES SIMULADAS EN EL BACKTESTER (estilo Freqtrade --enable-protections): runBacktest acepta config {stoplossStreak, cooldownCandles, maxDrawdownPct}; stoploss guard strippea senales tras racha perdedora (cooldown causal sin lookahead), drawdown lock permanente al superar 15%. metrics.protectionsActive + protectionEvents (entryBlocks, stoplossGuard, drawdownLock). evalCandidate flag CLI --protections default OFF compat. A/B verificado: SIN 529 trades PF 1.079 vs CON 527 trades PF 1.091 — las defensas mejoran marginalmente PF y cortan 2 trades; go:false en ambos (candidato sigue muerto honestamente).
+- Files touched: server/genesis/backtestCore.mjs, server/genesis/evalCandidate.mjs
+- Verification: node --check ok; lookahead tests 3/3 pasan; A/B ejecutado con resultados reales
