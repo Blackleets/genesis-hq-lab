@@ -13,6 +13,7 @@
     "start:render:lean": "concurrently -n server,agent -c green,magenta --restart-tries -1 --restart-after 5000 \"npm run server\" \"npm run agent\"",
     "mcp": "node server/mcpServer.mjs",
     "test": "node --test --test-concurrency=1 \"server/tests/**/*.test.mjs\"",
+    "test:engine": "vitest run server/genesis/__tests__",
     "backtest": "node --env-file-if-exists=.env server/crypto/backtest/runBacktest.mjs",
     "optimizer": "node --env-file-if-exists=.env server/crypto/runOptimizer.mjs",
     "agent": "node --env-file-if-exists=.env server/agentRunner.mjs",

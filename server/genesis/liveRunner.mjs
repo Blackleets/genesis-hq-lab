@@ -18,6 +18,7 @@ import { makeStrategy } from './strategyLib.mjs';
 import { sma, ema, rsi, atr, bollinger, adx } from './backtestCore.mjs';
 import { loadFeeSchema, computeFee, netProceeds } from './feeAccountant.mjs';
 import { ClientOrderTracker, InFlightOrder, newClientOrderId } from './connectorCore.mjs';
+import { evaluateProtections, shouldBlockEntry } from './protections.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import url from 'node:url';
@@ -295,8 +296,19 @@ async function scan() {
     }
   }
 
-  // 2) entry signal on last closed candle (only if flat)
-  if (!state.position && sig) {
+  // P3: Freqtrade-style protections, evaluated AFTER closing a trade and
+  // BEFORE any new entry signal (additive state field `protections`).
+  const prot = evaluateProtections({
+    trades: state.trades,
+    equityNow: state.equity,
+    initialEquity: state.initialEquity || CAPITAL,
+    pair: PAIR,
+  });
+  state.protections = prot;
+
+  // 2) entry signal on last closed candle (only if flat, and only if no
+  // protection blocks the entry this candle)
+  if (!state.position && sig && !shouldBlockEntry(prot).blocked) {
     const a = ind.atr14[i] || px * 0.01;
     // Unified capital (P1): size the new trade on treasury's free allocation.
     // Never reject: scale down to what the 20% allocation still allows.
@@ -334,6 +346,11 @@ async function scan() {
     } else if (sig.short) {
       openPos('short');
     }
+  }
+  // A signal existed but a protection vetoed the entry this candle.
+  const protVeto = !state.position && sig ? shouldBlockEntry(prot) : null;
+  if (protVeto && protVeto.blocked) {
+    events.push(`BLOCKED protection ${protVeto.reason}`);
   }
 
   const wins = state.trades.filter(t => t.pnlUsd > 0);
