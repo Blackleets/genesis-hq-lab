@@ -10,17 +10,14 @@
 import type { TKey } from '@core/i18n/translations';
 
 export type ModuleId =
-  | 'dashboard'
   | 'hq'
   | 'markets'
   | 'settings'
   | 'wallet'
   | 'console'
-  | 'agents-live'
   | 'edge'
   | 'crypto'
   | 'system'
-  | 'alpha'
   | 'live-exec'
   | 'funding-bot'
   | 'quant-bot'
@@ -57,24 +54,6 @@ export function stateTKey(s: ModuleState): TKey {
 }
 
 export const MODULES: ModuleEntry[] = [
-  {
-    id: 'dashboard',
-    navKey: 'nav.dashboard',
-    state: 'ready',
-    description: {
-      es: 'Vista general de Génesis: agentes activos, nivel de aprendizaje, salud de la empresa y módulos desbloqueados.',
-      en: 'Overview of Genesis: active agents, learning level, company health, and unlocked modules.',
-    },
-    futureActions: [
-      { es: 'Resumen de tareas del día.',           en: 'Daily task summary.' },
-      { es: 'Saltos rápidos a cada módulo.',         en: 'Quick jumps to each module.' },
-      { es: 'Alertas pendientes del Guardián de Riesgo.', en: 'Pending alerts from Risk Guardian.' },
-    ],
-    relation: {
-      es: 'Es el punto de entrada antes de bajar a la oficina.',
-      en: 'The entry point before going down to the office.',
-    },
-  },
   {
     id: 'hq',
     navKey: 'nav.hq',
@@ -183,24 +162,6 @@ export const MODULES: ModuleEntry[] = [
     },
   },
   {
-    id: 'alpha',
-    navKey: 'nav.alpha',
-    state: 'ready',
-    description: {
-      es: 'Validación de edge institucional: expectativa, calibración, scoring de agentes y análisis de régimen de mercado.',
-      en: 'Institutional edge validation: expectancy, calibration, agent scoring, and market regime analysis.',
-    },
-    futureActions: [
-      { es: '¿Tiene Genesis edge real?', en: 'Does Genesis have real edge?' },
-      { es: 'Qué nivel de confianza funciona.', en: 'Which confidence level works.' },
-      { es: 'Qué mercado duele al rendimiento.', en: 'Which market hurts performance.' },
-    ],
-    relation: {
-      es: 'Capa de verdad cuantitativa — mide si el sistema gana por skill o por suerte.',
-      en: 'Quantitative truth layer — measures whether the system wins by skill or luck.',
-    },
-  },
-  {
     id: 'settings',
     navKey: 'nav.settings',
     state: 'visual-only',
@@ -252,24 +213,6 @@ export const MODULES: ModuleEntry[] = [
     relation: {
       es: 'Los comandos de la consola crean tareas que los agentes ejecutan en Génesis HQ.',
       en: 'Console commands create tasks that agents execute in Genesis HQ.',
-    },
-  },
-  {
-    id: 'agents-live',
-    navKey: 'nav.agents-live',
-    state: 'ready',
-    description: {
-      es: 'Agentes IA reales con ejecución de tareas, memoria por agente, logs en vivo y soporte multi-proveedor (Claude, OpenAI, Gemini).',
-      en: 'Real AI agents with task execution, per-agent memory, live logs, and multi-provider support (Claude, OpenAI, Gemini).',
-    },
-    futureActions: [
-      { es: 'Asignar tareas a agentes específicos.', en: 'Assign tasks to specific agents.' },
-      { es: 'Ver logs de ejecución en tiempo real.', en: 'View real-time execution logs.' },
-      { es: 'Cambiar proveedor LLM por agente.', en: 'Switch LLM provider per agent.' },
-    ],
-    relation: {
-      es: 'Cada agente aquí tiene un gemelo visual en Génesis HQ.',
-      en: 'Each agent here has a visual twin in Genesis HQ.',
     },
   },
   {

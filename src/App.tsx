@@ -12,15 +12,12 @@ import ModulePlaceholder from '@ui/ModulePlaceholder';
 import WalletView from '@ui/WalletView';
 import HQView from '@ui/views/HQView';
 import SettingsView from '@ui/views/SettingsView';
-import GenesisDashboard from '@dashboard/GenesisDashboard';
 import MarketsView from '@workflows/MarketsView';
 import CommandConsole from '@workflows/CommandConsole';
 import { CommandBarProvider, useCommandBar } from '@workflows/CommandBar';
-import AgentExecutionView from '@agents/AgentExecutionView';
 import EdgeScorecardView from '@workflows/EdgeScorecardView';
 import CryptoLabView from '@workflows/CryptoLabView';
 import SystemHealthView from '@ui/views/SystemHealthView';
-import AlphaValidationView from '@workflows/AlphaValidationView';
 import LiveExecutionsView from '@workflows/LiveExecutionsView';
 import FundingBotView from '@workflows/FundingBotView';
 import QuantBotView from '@workflows/QuantBotView';
@@ -30,7 +27,8 @@ import BotCreatorView from '@workflows/BotCreatorView';
 // Files kept on disk on purpose; do not re-import without wiring a real backend:
 //   MarketingView, TechView, IntegrationsView, HRView, ProgressView,
 //   AgentCreator, AutoView, OperatorTimelineView, PredictionMarketsLab,
-//   SolanaAlphaView, DecisionsView.
+//   SolanaAlphaView, DecisionsView, GenesisDashboard, AgentExecutionView,
+//   AlphaValidationView.
 import WalletAuthProvider from '@core/auth/WalletAuthProvider';
 import ConnectWalletGate from '@ui/views/ConnectWalletGate';
 import { actions, useSelectedModule } from '@core/store/genesisStore';
@@ -42,17 +40,14 @@ const TICK_MS = 5000;
 function ModuleRenderer({ module, setModule }: { module: ModuleId; setModule: (m: ModuleId) => void }) {
   switch (module) {
     case 'hq':            return <HQView />;
-    case 'dashboard':     return <GenesisDashboard onOpenHQ={() => setModule('hq')} />;
     case 'markets':       return <MarketsView />;
     case 'settings':      return <SettingsView />;
     case 'factory':       return <BotCreatorView />;
     case 'wallet':        return <WalletView />;
     case 'console':       return <CommandConsole />;
-    case 'agents-live':   return <AgentExecutionView />;
     case 'edge':        return <EdgeScorecardView />;
     case 'crypto':        return <CryptoLabView />;
     case 'system':        return <SystemHealthView />;
-    case 'alpha':         return <AlphaValidationView />;
     case 'live-exec':       return <LiveExecutionsView />;
     case 'funding-bot':     return <FundingBotView />;
     case 'quant-bot':       return <QuantBotView />;

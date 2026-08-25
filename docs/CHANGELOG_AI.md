@@ -1497,3 +1497,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: UI pulida: BotCreatorView maneja 503 storage_not_durable con env vars listadas, 409 con navegacion a mis bots, sliders font-mono cyan, banner verde de exito. QuantBotView: seccion Mis Bots (chips par+estado desde GET /api/genesis/bots autenticado) + boton + Nuevo Bot hacia factory. Todo lo previo intacto.
 - Files touched: src/workflows/BotCreatorView.tsx, src/workflows/QuantBotView.tsx
 - Verification: typecheck 0 errores; build ok
+
+## 2026-08-25b — Ganador De Dinero (aragan) + subagente limpieza final
+- Branch: feat/genesis-improvement-plan
+- Summary: Limpieza final del frontend: eliminados alpha (AlphaValidationView, 0 fetches), agents-live (AgentExecutionView, decorado) y dashboard (GenesisDashboard desconectado; LiveBotActivity con feed real migrado a FundingBotView). Sidebar reorganizado sin grupos vacios: Workspace [hq terminal console factory] / Trading & Riesgo [markets quant-bot edge crypto funding-bot] / Plataforma [system settings wallet].
+- Files touched: src/App.tsx, src/core/data/moduleRegistry.ts, src/core/i18n/translations.ts, src/core/store/genesisStore.ts, src/ui/GenesisSidebar.tsx, src/workflows/AutoView.tsx, src/workflows/FundingBotView.tsx
+- Verification: typecheck 0 errores; build ok (46s)
