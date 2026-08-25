@@ -1521,3 +1521,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: PROTECCIONES SIMULADAS EN EL BACKTESTER (estilo Freqtrade --enable-protections): runBacktest acepta config {stoplossStreak, cooldownCandles, maxDrawdownPct}; stoploss guard strippea senales tras racha perdedora (cooldown causal sin lookahead), drawdown lock permanente al superar 15%. metrics.protectionsActive + protectionEvents (entryBlocks, stoplossGuard, drawdownLock). evalCandidate flag CLI --protections default OFF compat. A/B verificado: SIN 529 trades PF 1.079 vs CON 527 trades PF 1.091 — las defensas mejoran marginalmente PF y cortan 2 trades; go:false en ambos (candidato sigue muerto honestamente).
 - Files touched: server/genesis/backtestCore.mjs, server/genesis/evalCandidate.mjs
 - Verification: node --check ok; lookahead tests 3/3 pasan; A/B ejecutado con resultados reales
+
+## 2026-08-25e — Ganador De Dinero (aragan) + subagente sentimiento
+- Branch: feat/genesis-improvement-plan
+- Summary: SENTIMENTENGINE (P6, cierra FinGPT) — vader-lite lexicon embebido (~179 terminos financieros con pesos -4..4, longest-match-first sin doble conteo), fuentes GDELT DOC + CryptoCompare + fallback RSS CoinDesk/Cointelegraph (parse XML minimo sin deps), dedupe por titulo normalizado, score agregado clamp -1..1, cache TTL 1h con escritura atomica, CLI legible. Fixes del orquestador: jget tolera mocks sin .ok, parsea XML por content-type; fetchRssHeadlines lanza si TODOS los feeds caen (para que el error honesto sea posible). 16 tests pasando.
+- Files touched: server/genesis/sentimentEngine.mjs (nuevo), server/genesis/__tests__/sentiment.test.mjs (nuevo)
+- Verification: vitest 16/16 sentiment; snapshot REAL BTC obtenido via RSS (40 menciones, score -0.091 NEUTRAL); suite completa 60+ tests verdes
