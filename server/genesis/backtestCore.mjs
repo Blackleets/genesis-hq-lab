@@ -212,7 +212,7 @@ export function createCappedCtx(ctx, i) {
 //     have passed since the last losing close.
 //   - maxDrawdownPct: if current drawdown ((peakEquity - equity)/peakEquity)
 //     exceeds the limit, NO further entries for the rest of the backtest.
-export function runBacktest({ candles, strategyFn, initialCapital = 10000, feeRate = COST_ROUNDTRIP / 2, riskPct = 0.02, strictLookahead = true, signalShift = true, protections = null }) {
+export function runBacktest({ candles, strategyFn, initialCapital = 10000, feeRate = COST_ROUNDTRIP / 2, riskPct = 0.02, strictLookahead = true, signalShift = true, protections = null, edgePositioning = null }) {
   const close = candles.map(c => +c[4]);
   const open = candles.map(c => +c[1]);
   const high = candles.map(c => +c[2]);
@@ -250,6 +250,12 @@ export function runBacktest({ candles, strategyFn, initialCapital = 10000, feeRa
   let ddLocked = false;      // MaxDrawdown fired -> no entries for the rest
   let ddLockIdx = null;
   const protectionEvents = { entryBlocks: 0, stoplossGuard: 0, drawdownLock: false };
+  let edgeWP = null;
+  if (edgePositioning) {
+    const { window = 20, minMultiplier = 0.5, maxMultiplier = 2.0 } = edgePositioning;
+    edgeWP = { window, minMultiplier, maxMultiplier };
+  }
+  let edgeResults = []; // rolling window of win/loss (1/0)
 
   // Entry gate evaluated BEFORE accepting a signal. Causal: uses only state
   // from candles strictly before i (lastLossIdx is always < i).
@@ -260,9 +266,9 @@ export function runBacktest({ candles, strategyFn, initialCapital = 10000, feeRa
     return null;
   };
 
-  const openPosition = (sig, execIdx, price) => {
+  const openPosition = (sig, execIdx, price, riskPctOverride = riskPct) => {
     const side = sig.long ? 'long' : 'short';
-    const size = cash * riskPct;
+    const size = cash * riskPctOverride;
     const atrV = ind.atr14[execIdx - 1] || price * 0.01;
     const slMult = sig.slMult ?? 1.5;
     const tpMult = sig.tpMult ?? 2.0;
@@ -303,7 +309,15 @@ export function runBacktest({ candles, strategyFn, initialCapital = 10000, feeRa
     }
 
     // 2) execute a pending entry from the previous candle at THIS candle's open
-    if (signalShift && pendingSignal && !position) openPosition(pendingSignal, i, +open[i]);
+    // edge positioning sizing
+  let effectiveRiskPct = riskPct;
+  if (edgeWP) {
+    const wins = edgeResults.filter(r => r === 1).length;
+    const winRate = edgeResults.length ? wins / edgeResults.length : 0.5;
+    const multiplier = edgeWP.minMultiplier + (edgeWP.maxMultiplier - edgeWP.minMultiplier) * winRate;
+    effectiveRiskPct = riskPct * multiplier;
+  }
+  if (signalShift && pendingSignal && !position) openPosition(pendingSignal, i, +open[i], effectiveRiskPct);
     pendingSignal = (sig && (sig.long || sig.short)) ? sig : null;
 
     // 3) manage the position on this candle (intrabar stop/target + strategy exit)
@@ -320,6 +334,9 @@ export function runBacktest({ candles, strategyFn, initialCapital = 10000, feeRa
         const fillExit = position.side === 'long' ? px * (1 - SLIPPAGE) : px * (1 + SLIPPAGE);
         const pnl = dir * (fillExit - fillEntry) / fillEntry * position.size - position.size * feeRate * 2;
         cash += pnl;
+  // update edge positioning results
+  if (edgeWP) edgeResults.push(pnl > 0 ? 1 : 0);
+  if (edgeWP && edgeResults.length > edgeWP.window) edgeResults.shift();
         trades.push({ side: position.side, entry: position.entry, exit: px, pnl, size: position.size, entryIdx: position.entryIdx, exitIdx: i, bars: i - position.entryIdx });
         if (prot) {
           if (pnl <= 0) { consecLosses++; lastLossIdx = i; }
@@ -329,7 +346,15 @@ export function runBacktest({ candles, strategyFn, initialCapital = 10000, feeRa
       }
     } else if (!signalShift && sig && (sig.long || sig.short)) {
       // legacy path (signalShift = false): fill at the close of the signal candle
-      openPosition(sig, i, +candles[i][4]);
+      // edge positioning sizing
+  let effectiveRiskPct = riskPct;
+  if (edgeWP) {
+    const wins = edgeResults.filter(r => r === 1).length;
+    const winRate = edgeResults.length ? wins / edgeResults.length : 0.5;
+    const multiplier = edgeWP.minMultiplier + (edgeWP.maxMultiplier - edgeWP.minMultiplier) * winRate;
+    effectiveRiskPct = riskPct * multiplier;
+  }
+  openPosition(sig, i, +candles[i][4], effectiveRiskPct);
     }
     // mark-to-market equity
     let eq = cash;
@@ -357,6 +382,9 @@ export function runBacktest({ candles, strategyFn, initialCapital = 10000, feeRa
     const pnl = dir * (fillExit - fillEntry) / fillEntry * position.size - position.size * feeRate * 2;
     cash += pnl;
     trades.push({ side: position.side, entry: position.entry, exit: px, pnl, size: position.size, entryIdx: position.entryIdx, exitIdx: candles.length - 1, bars: candles.length - 1 - position.entryIdx });
+  // update edge positioning results
+  if (edgeWP) edgeResults.push(pnl > 0 ? 1 : 0);
+  if (edgeWP && edgeResults.length > edgeWP.window) edgeResults.shift();
   }
 
   return {

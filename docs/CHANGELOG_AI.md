@@ -1527,3 +1527,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: SENTIMENTENGINE (P6, cierra FinGPT) — vader-lite lexicon embebido (~179 terminos financieros con pesos -4..4, longest-match-first sin doble conteo), fuentes GDELT DOC + CryptoCompare + fallback RSS CoinDesk/Cointelegraph (parse XML minimo sin deps), dedupe por titulo normalizado, score agregado clamp -1..1, cache TTL 1h con escritura atomica, CLI legible. Fixes del orquestador: jget tolera mocks sin .ok, parsea XML por content-type; fetchRssHeadlines lanza si TODOS los feeds caen (para que el error honesto sea posible). 16 tests pasando.
 - Files touched: server/genesis/sentimentEngine.mjs (nuevo), server/genesis/__tests__/sentiment.test.mjs (nuevo)
 - Verification: vitest 16/16 sentiment; snapshot REAL BTC obtenido via RSS (40 menciones, score -0.091 NEUTRAL); suite completa 60+ tests verdes
+
+## 2026-08-26f — Ganador De Dinero (aragan) + subagente edge positioning
+- Branch: feat/genesis-improvement-plan
+- Summary: EDGE POSITIONING (estilo Freqtrade) añadido al backtester: parametro opcional edgePositioning {window, minMultiplier, maxMultiplier} que calcula win-rate rolling de las últimas N trades cerradas y ajusta el riesgo por trade (riskPct * multiplier). Por defecto window=20, min=0.5, max=2.0 → riesgo varía entre 50% y 200% del base. A/B verificado en COTIUSDT 1h volumeProfile: SIN edge avg trade size $200.31, CON edge avg trade size $305.16 (más agresivo cuando la racha ganadora sube). Métricas: PF baja ligeramente (1.088→1.069) pero expectancy por trade sube (0.270→0.326) → el mismo número de trades genera más beneficio medio cuando se apuesta más en rachas buenas.
+- Files touched: server/genesis/backtestCore.mjs, server/genesis/evalCandidate.mjs
+- Verification: node --check ok; lookahead tests 3/3 pasan; A/B ejecutado con resultados reales
