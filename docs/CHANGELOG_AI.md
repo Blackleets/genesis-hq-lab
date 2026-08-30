@@ -1,5 +1,15 @@
 # CHANGELOG_AI
 
+## 2026-08-31 — New Bot (premium wire: rooms mount real desks)
+
+- Branch: `feat/premium-wire` (stacked on `feat/capture-desk`)
+- Summary: HQ rooms no longer open a generic task overlay. Execution mounts the paper Capture Desk (OKX public tape → existing `scoreTapeAndBook` + `replayUniverse`). Strategy Lab mounts `QuantReadinessPanel`. Memory Archive mounts `EdgeScorecardView`. Board shows real funding-bot gist equity. Risk bunker states PAPER / LIVE_OFF with no invented DD. Tile office desks now click through to those rooms. FundingBotHUD trader lines use only `BotState` fields (no PF 2–7000, no DD 1.5%, no "47 mercados"). Office ticker falls back to the paper funding feed when diagnostics 401, and always shows PAPER · LIVE_OFF. `/api/crypto/executions` no longer returns sample SOLUSDT fills when the gist is down — honest empty. New public `/api/genesis/capture` (no session) scans ≤6 OKX SWAP names; QUOTE/CAPTURED is still not a 6-gate GO. Live trading still off. Nothing invented.
+- Files created: `api/genesis/capture.js`, `src/services/captureClient.ts`, `src/components/crypto/CaptureDeskPanel.tsx`, `server/genesis/captureCore.mjs` (pure score, no ccxt, so the Vercel function does not bundle the CLI scanner)
+- Files modified: `server/genesis/captureDesk.mjs` (re-exports core; CLI/ccxt stays here), `server/genesis/captureEngine.mjs` (imports core), `src/workflows/WorkScreen.tsx`, `src/workflows/FundingBotHUD.tsx`, `src/hooks/useLiveOfficeState.ts`, `src/office/OfficeStatusBar.tsx`, `src/office/TileOffice.tsx`, `src/ui/views/HQView.tsx`, `src/services/useFundingBotState.ts` (default start 10000, gist still overrides), `api/crypto/executions.js`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check` on capture.js; local replay of captureEngine still honest (through-tape books, toxic dump $0). No fake PnL. No REAL_TRADING flip.
+- Honesty: live OKX tape can still VPIN-halt or book a paper loss (RIVN −1.89 was already measured). The UI shows that. Empty gist = empty trades, not sample fills.
+
+
 ## 2026-08-31 — New Bot (Capture Desk books paper USDT)
 
 - Branch: `feat/capture-desk`
