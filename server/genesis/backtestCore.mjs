@@ -1,5 +1,6 @@
 // server/genesis/backtestCore.mjs
 // Honest backtest engine for Genesis HQ Lab.
+import { applyExtraNoGos } from './math/extraNoGos.mjs';
 // Real-data-first, costs (fee + slippage) included, 6-gate evaluation (+ Sharpe).
 // No live trading. PAPER only. The ONLY path to real capital is a human GO
 // + API keys + the gates report (see evolutionLoops / terminal).
@@ -436,7 +437,7 @@ export function computeMetrics(result) {
   return m;
 }
 
-export function evaluateGates(m) {
+export function evaluateGates(m, trades) {
   const gates = [
     { name: 'Sample >= 50 trades', pass: m.trades >= 50, value: m.trades },
     { name: 'Win rate >= 45%', pass: m.winRate >= 0.45, value: (m.winRate * 100).toFixed(1) + '%' },
@@ -446,7 +447,10 @@ export function evaluateGates(m) {
     { name: 'Drawdown <= 25%', pass: m.maxDrawdown <= 0.25, value: (m.maxDrawdown * 100).toFixed(1) + '%' },
   ];
   const passed = gates.filter(g => g.pass).length;
-  return { gates, passed, total: gates.length, go: passed === gates.length };
+  const result = { gates, passed, total: gates.length, go: passed === gates.length };
+  // Optional 2nd arg: extra NO-GOs can only fail a GO, never flip a fail to pass.
+  if (trades) return applyExtraNoGos(result, trades);
+  return result;
 }
 
 export function fullReport(candles, strategyFn, opts = {}) {
@@ -461,6 +465,12 @@ export function fullReport(candles, strategyFn, opts = {}) {
     gates.total = gates.gates.length;
     gates.go = false;
     gates.reason = 'LOOKAHEAD';
+  }
+  // Extra NO-GOs (bootstrap mean LB, median, CVaR). Can only fail go.
+  // Skip when extraNoGos === false so callers that want the raw 6 gates keep them.
+  if (opts.extraNoGos !== false) {
+    const merged = applyExtraNoGos(gates, result.trades);
+    return { result, metrics, gates: merged };
   }
   return { result, metrics, gates };
 }
