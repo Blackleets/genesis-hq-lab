@@ -1,5 +1,15 @@
 # CHANGELOG_AI
 
+## 2026-08-31 — New Bot (edge loop: markout halt + deny-on-loss)
+
+- Branch: `feat/edge-markout-kill` (stacked on `feat/premium-wire`)
+- Summary: Paper capture now stops quoting a name **mid-session** when post-fill markout on **later prints only** is worse than −feeBps (`MARKOUT_HALT`; booked fills/pnl kept, not zeroed). A name whose last paper session lost money is denied for 6 hours (`DENY_NEG_PNL`, earn-the-right-to-quote). CLI worker appends one honest JSONL line per session to `data/harvest.jsonl` (never invented names). Vercel Capture API is read-only on the denylist (no write). QUOTE / CAPTURED / MARKOUT_HALT is still **not** a 6-gate GO. `LIVE_OFF` stays true. No `REAL_TRADING` flip. No invented live edge — the synthetic two-sided fixture is still just a loop check, not OKX tape.
+- Files created: `server/genesis/captureDeny.mjs`, `server/genesis/__tests__/edgeMarkout.smoke.mjs`
+- Files modified: `server/genesis/captureEngine.mjs` (walk-forward markout halt), `server/genesis/captureCore.mjs` (deny skip), `server/genesis/captureDesk.mjs` (CLI load/save deny + harvest JSONL), `api/genesis/capture.js` (read-only deny), `docs/CHANGELOG_AI.md`
+- Verification: standalone `node` asserts (no vitest, no ccxt) — two-sided through-tape still fills with positive pnl; 80-sell toxic dump still 0 fills / 0 pnl; buy-then-dump → MARKOUT_HALT; negative paper session → next call DENY_NEG_PNL.
+- Honesty: live OKX tape currently has no maker edge. This patch only refuses names that already proved adverse on paper. 6-gate thresholds untouched (n≥50, WR≥45%, PF≥1.30, expectancy>0.05%/trade, t-stat≥2.0, DD≤25%).
+
+
 ## 2026-08-31 — New Bot (premium wire: rooms mount real desks)
 
 - Branch: `feat/premium-wire` (stacked on `feat/capture-desk`)
