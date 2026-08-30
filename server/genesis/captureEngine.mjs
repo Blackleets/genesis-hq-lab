@@ -19,7 +19,7 @@ import { VPIN_HALT } from './math/harvest.mjs';
 import {
   LIVE_OFF,
   scoreTapeAndBook,
-} from './captureDesk.mjs';
+} from './captureCore.mjs';
 
 export const PAPER_CAPITAL = 10000;
 const QUOTE_FRAC = 0.10;
