@@ -25,7 +25,7 @@ export interface BotState {
   updatedAt: number | null;
 }
 
-const START = 50;
+const START = 10000; // lab paper capital; gist overrides when present
 
 export function useFundingBotState(pollMs = 9000): BotState {
   const [s, setS] = useState<BotState>({

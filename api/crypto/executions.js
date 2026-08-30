@@ -28,19 +28,15 @@ export default async function handler(req, res) {
         const data = await r.json();
         return sendJson(res, 200, { ok: true, ...data, source: 'live-gist' });
       }
-    } catch (g) { /* fall through to sample */ }
+    } catch (g) { /* fall through to empty */ }
     return sendJson(res, 200, {
       ok: true,
-      mode: 'sample',
-      pairs: 23,
-      interval: '4h',
-      start: 2300,
+      mode: 'empty',
+      trades: [],
+      start: 10000,
       updatedAt: Date.now(),
-      trades: [
-        { t: Date.now() - 60000, pair: 'SOLUSDT', event: 'OPEN', side: 'SHORT', price: 152.4, live: false, order: 'paper' },
-        { t: Date.now() - 30000, pair: 'WIFUSDT', event: 'TP', side: 'LONG', price: 2.13, pnl: 1.85, equity: 101.85, live: false },
-      ],
-      source: 'sample',
+      source: 'empty',
+      note: 'no gist, no local file. honest empty. no sample fills.',
     });
   } catch (e) {
     return sendJson(res, 500, { ok: false, error: 'executions_read_failed' });

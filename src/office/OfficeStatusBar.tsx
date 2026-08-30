@@ -1,8 +1,5 @@
-// OfficeStatusBar — operations header over the office (approved "Pantalla 1"
-// direction): GENESIS HQ brand · engine · positions · risk · activity · clock.
-// Every value is real or an honest placeholder (unknown / unavailable /
-// waiting). Engine state pairs a glyph with text so it never relies on
-// color alone.
+// OfficeStatusBar — operations header over the office.
+// Real values or honest placeholders. PAPER / LIVE_OFF are always visible.
 
 import { useEffect, useState } from 'react';
 import type { EngineStatus, LiveOfficeState } from './officeTypes';
@@ -27,7 +24,6 @@ function fmtClock(ts: number): string {
 
 interface Props {
   state: LiveOfficeState;
-  /** number of live office agents currently rendered (real, from the loop) */
   agentCount: number;
 }
 
@@ -50,17 +46,19 @@ export default function OfficeStatusBar({ state, agentCount }: Props) {
       <span className="font-bold tracking-[0.08em] text-zinc-100">
         <span style={{ color: '#34d27b' }}>⬢</span> GENESIS HQ
       </span>
-      <span title="Derived from real loop heartbeats (/api/crypto/diagnostics)">
+      <span className="px-1 text-amber-300" style={{ border: '1px solid rgba(245, 158, 11, 0.45)' }}>PAPER</span>
+      <span className="px-1 text-zinc-300" style={{ border: '1px solid rgba(67, 81, 99, 0.55)' }}>LIVE_OFF</span>
+      <span title="Derived from real loop heartbeats (/api/crypto/diagnostics) or paper feed">
         engine: <span style={{ color: ENGINE_COLOR[state.engineStatus] }}>{ENGINE_GLYPH[state.engineStatus]}</span>
         {' '}<span className="text-zinc-200">{state.engineStatus}</span>
       </span>
       <span title="Live office agents rendered in this scene">
         agents: <span style={{ color: '#34d27b' }}>{agentCount}</span>
       </span>
-      <span title="Real open positions from /api/crypto/overview">
+      <span title="Open positions from overview, else paper funding feed">
         pos: <span className="text-zinc-200">{positions}</span>
       </span>
-      <span title="Trade autopsy recommendation severity (real)">
+      <span title="Trade autopsy severity, or PAPER when only the funding feed is up">
         risk: <span className="text-zinc-200">{risk}</span>
       </span>
       <span className="flex-1 min-w-0 overflow-hidden text-ellipsis" title={state.latestActivity ?? undefined}>

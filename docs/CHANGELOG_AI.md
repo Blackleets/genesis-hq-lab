@@ -1,5 +1,33 @@
 # CHANGELOG_AI
 
+## 2026-08-31 — New Bot (premium wire: rooms mount real desks)
+
+- Branch: `feat/premium-wire` (stacked on `feat/capture-desk`)
+- Summary: HQ rooms no longer open a generic task overlay. Execution mounts the paper Capture Desk (OKX public tape → existing `scoreTapeAndBook` + `replayUniverse`). Strategy Lab mounts `QuantReadinessPanel`. Memory Archive mounts `EdgeScorecardView`. Board shows real funding-bot gist equity. Risk bunker states PAPER / LIVE_OFF with no invented DD. Tile office desks now click through to those rooms. FundingBotHUD trader lines use only `BotState` fields (no PF 2–7000, no DD 1.5%, no "47 mercados"). Office ticker falls back to the paper funding feed when diagnostics 401, and always shows PAPER · LIVE_OFF. `/api/crypto/executions` no longer returns sample SOLUSDT fills when the gist is down — honest empty. New public `/api/genesis/capture` (no session) scans ≤6 OKX SWAP names; QUOTE/CAPTURED is still not a 6-gate GO. Live trading still off. Nothing invented.
+- Files created: `api/genesis/capture.js`, `src/services/captureClient.ts`, `src/components/crypto/CaptureDeskPanel.tsx`, `server/genesis/captureCore.mjs` (pure score, no ccxt, so the Vercel function does not bundle the CLI scanner)
+- Files modified: `server/genesis/captureDesk.mjs` (re-exports core; CLI/ccxt stays here), `server/genesis/captureEngine.mjs` (imports core), `src/workflows/WorkScreen.tsx`, `src/workflows/FundingBotHUD.tsx`, `src/hooks/useLiveOfficeState.ts`, `src/office/OfficeStatusBar.tsx`, `src/office/TileOffice.tsx`, `src/ui/views/HQView.tsx`, `src/services/useFundingBotState.ts` (default start 10000, gist still overrides), `api/crypto/executions.js`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check` on capture.js; local replay of captureEngine still honest (through-tape books, toxic dump $0). No fake PnL. No REAL_TRADING flip.
+- Honesty: live OKX tape can still VPIN-halt or book a paper loss (RIVN −1.89 was already measured). The UI shows that. Empty gist = empty trades, not sample fills.
+
+
+## 2026-08-31 — New Bot (Capture Desk books paper USDT)
+
+- Branch: `feat/capture-desk`
+- Summary: The desk no longer only scores. `captureEngine.replayCapture` walk-forwards: first half of the tape is the harvest/VPIN **gate**; second half is last-in-queue maker fills at **previously posted** GLFT quotes (never chasing the print). Maker fee via `computeFee(isMaker:true)`. Paper capital $10,000, 10% per fill, 50% inventory cap. Toxic dump still captures **$0**. Two-sided through-tape books **+$45.38** on the synthetic fixture (45 bps). CLI scans then books a paper ledger in memory. Still never sends orders, never flips `REAL_TRADING`, never mints a 6-gate GO.
+- Files created: `server/genesis/captureEngine.mjs`
+- Files modified: `server/genesis/captureDesk.mjs` (attach tape, replay after scan), `server/genesis/__tests__/captureDesk.test.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: node asserts — through-tape CAPTURED netPnl>0 and ledger > 10000; toxic VPIN_HALT fills=0 netPnl=0. `LIVE_OFF` frozen.
+- Honesty: synthetic through-flow proves the **capture loop** makes paper money when the tape actually trades through our quotes. Live names still have to clear harvest; a live scan can stand down with $0. That is the desk working, not a fake fill.
+
+## 2026-08-31 — New Bot (Capture Desk: VPIN harvest, maker-fee L2)
+
+- Branch: `feat/capture-desk`
+- Summary: Additive paper Capture Desk. Scores live (or synthetic) books with real **maker** fees, VPIN/Kyle/markout toxicity, and a harvest H = spread·P(two-sided) − 2·makerFee − E[AS] − inventory. High VPIN halts quoting; grey-zone VPIN widens the AS tax. GLFT quotes are refused if they would cross the book (taker). CLI `node captureDesk.mjs <exchange> [limit] [offset] [minEdgeBps]` never sends orders and cannot arm live. Does **not** invent a current-regime edge: naive touch MM already lost vs real flow; this desk's job is to stand down when H≤0. 6 gates, Terminal, `liveRunner`, and `REAL_TRADING` untouched.
+- Files created: `server/genesis/math/toxicity.mjs`, `server/genesis/math/harvest.mjs`, `server/genesis/captureDesk.mjs`, `server/genesis/__tests__/captureDesk.test.mjs`
+- Files modified: `server/genesis/math/index.mjs` (additive exports), `docs/CHANGELOG_AI.md`
+- Verification: synthetic noise tape quotes a fat quiet book; informed sell tape VPIN-halts (H=−∞). `LIVE_OFF` frozen true. No network in tests. No fake PnL.
+- Honesty: a QUOTE from the desk is a paper candidate, not a 6-gate GO. Extra NO-GOs from PR #41 still apply if you later feed fills into `fullReport`.
+
 ## 2026-08-30 — New Bot (paper-safe GLFT maker + extra NO-GOs)
 
 - Branch: `feat/math-edge-paper-safe`

@@ -7,3 +7,20 @@ export { bootstrapMeanCI, cvar, jarqueBera, mean, median, wilcoxonSignedRank } f
 export { inverseCapped, ledoitWolf, sampleCov } from './cov.mjs';
 export { multiAssetKelly, singleAssetKelly } from './kelly.mjs';
 export { applyExtraNoGos, extraNoGos } from './extraNoGos.mjs';
+export {
+  kyleLambda,
+  markoutAsBps,
+  sigmaFromTrades,
+  signedAmount,
+  tickSide,
+  vpinFromCandles,
+  vpinFromTrades,
+} from './toxicity.mjs';
+export {
+  DEFAULT_MIN_EDGE_BPS,
+  DEFAULT_TWO_SIDED,
+  VPIN_HALT,
+  VPIN_WIDEN,
+  harvestScore,
+  rankHarvest,
+} from './harvest.mjs';
