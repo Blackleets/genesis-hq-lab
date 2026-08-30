@@ -11,6 +11,7 @@ import {
   markoutAsBps,
   sigmaFromTrades,
 } from './math/toxicity.mjs';
+import { isDenied } from './captureDeny.mjs';
 
 export const LIVE_OFF = true; // desk never arms live. human + 6 gates elsewhere.
 
@@ -41,7 +42,27 @@ export function scoreTapeAndBook({
   makerFeePct = 0.0002,
   minEdgeBps = DEFAULT_MIN_EDGE_BPS,
   q = 0,
+  denyMap = null,
+  now = Date.now(),
 } = {}) {
+  if (denyMap && isDenied(denyMap, symbol, now)) {
+    return {
+      symbol,
+      bid: +bid || 0,
+      ask: +ask || 0,
+      spreadBps: 0,
+      vpin: 0,
+      asBps: 0,
+      harvestBps: Number.NEGATIVE_INFINITY,
+      quote: false,
+      reason: 'DENY_NEG_PNL',
+      makerFeePct,
+      feeBps: 0,
+      netPnl: 0,
+      fills: [],
+      liveOff: LIVE_OFF,
+    };
+  }
   const spreadBps = bookSpreadBps(bid, ask);
   if (spreadBps == null) {
     return {

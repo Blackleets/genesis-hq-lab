@@ -9,6 +9,10 @@
 // Same worst-case queue assumption as paperFillTester, but quotes are GLFT
 // (deeper / skewed) and VPIN can still halt mid-replay if flow turns toxic.
 //
+// After a fill, walk-forward markout on LATER prints only. If the post-fill
+// markout is worse than −feeBps, stop quoting this session (MARKOUT_HALT).
+// Keeps booked fills/pnl. Does not zero them. LIVE_OFF stays true.
+//
 // Paper capital default $10,000. 10% notional per fill, 50% inventory cap.
 // Maker fee via feeAccountant.computeFee(isMaker:true).
 
@@ -20,15 +24,24 @@ import {
   LIVE_OFF,
   scoreTapeAndBook,
 } from './captureCore.mjs';
+import { isDenied } from './captureDeny.mjs';
 
 export const PAPER_CAPITAL = 10000;
 const QUOTE_FRAC = 0.10;
 const INVENTORY_CAP = 0.5;
 const WARMUP = 10;
+const MARKOUT_H = 5;
 
 function schemaOf(makerFeePct) {
   const m = Math.max(0, +makerFeePct || 0.0002);
   return { makerPercent: m, takerPercent: Math.max(m, 0.0004), addedToCost: true };
+}
+
+/** Walk-forward fill markout in bps. Negative = adverse. Later prints only. */
+function fillMarkoutBps(side, fillPx, laterPx) {
+  if (!(fillPx > 0) || !(laterPx > 0)) return 0;
+  if (side === 'buy') return ((laterPx - fillPx) / fillPx) * 10000;
+  return ((fillPx - laterPx) / fillPx) * 10000;
 }
 
 function fillLot(state, side, px, coins, fee, fills) {
@@ -93,9 +106,10 @@ export function replayCapture({
   makerFeePct = 0.0002,
   minEdgeBps = 0.5,
   capital = PAPER_CAPITAL,
+  denyMap = null,
+  now = Date.now(),
 } = {}) {
   const cap = Number.isFinite(+capital) && +capital > 0 ? +capital : PAPER_CAPITAL;
-  const list = Array.isArray(trades) ? trades : [];
   const empty = (reason) => ({
     symbol,
     reason,
@@ -111,28 +125,35 @@ export function replayCapture({
   });
 
   if (!LIVE_OFF) return empty('LIVE_BLOCK'); // belt: this file cannot arm live
-  if (list.length < WARMUP * 2) return empty('SHORT_TAPE');
+  if (denyMap && isDenied(denyMap, symbol, now)) return empty('DENY_NEG_PNL');
+  if (listSafe(trades).length < WARMUP * 2) return empty('SHORT_TAPE');
 
+  const list = listSafe(trades);
   const split = Math.max(WARMUP, Math.floor(list.length / 2));
   const gateTape = list.slice(0, split);
   const fillTape = list.slice(split);
   const scored = scoreTapeAndBook({
-    symbol, bid, ask, trades: gateTape, makerFeePct, minEdgeBps,
+    symbol, bid, ask, trades: gateTape, makerFeePct, minEdgeBps, denyMap, now,
   });
   if (!scored.quote) return empty(scored.reason);
 
   const schema = schemaOf(makerFeePct);
+  const feeBps = 2 * Math.max(0, +makerFeePct || 0) * 10000;
   const state = { cash: cap, qty: 0, avg: 0 };
   const fills = [];
   let realized = 0;
   let fair = scored.mid || (+bid + +ask) / 2;
   let lastPx = fair;
   const trail = gateTape.slice();
+  const pending = []; // { side, px, idx } — markout vs LATER prints only
+  let markoutHalt = false;
 
   // Quotes are posted on the PREVIOUS fair. The new print either hits them
   // (last in queue) or it does not. Chasing the print with a new fair would
   // make through-fills impossible.
-  for (const t of fillTape) {
+  for (let i = 0; i < fillTape.length; i++) {
+    if (markoutHalt) break;
+    const t = fillTape[i];
     const px = +t.price;
     if (!Number.isFinite(px) || px <= 0) continue;
     const vp = vpinFromTrades(trail);
@@ -140,6 +161,7 @@ export function replayCapture({
       trail.push(t);
       lastPx = px;
       fair = px;
+      if (checkMarkouts(pending, i, px, fillTape.length, feeBps)) markoutHalt = true;
       continue;
     }
 
@@ -167,20 +189,24 @@ export function replayCapture({
         if (coins > 0) {
           const fee = computeFee({ schema, isMaker: true, cost: coins * fillPx });
           realized += fillLot(state, fillSide, fillPx, coins, fee, fills);
+          pending.push({ side: fillSide, px: fillPx, idx: i, done: false, later: [] });
         }
       }
     }
     trail.push(t);
     lastPx = px;
     fair = px;
+    if (checkMarkouts(pending, i, px, fillTape.length, feeBps)) markoutHalt = true;
   }
 
   const equity = state.cash + state.qty * lastPx;
   const netPnl = equity - cap;
   const roundTrips = fills.reduce((n, f) => n + (f.realized ? 1 : 0), 0);
+  let reason = fills.length ? 'CAPTURED' : 'NO_THROUGH_FILL';
+  if (markoutHalt && fills.length) reason = 'MARKOUT_HALT';
   return {
     symbol,
-    reason: fills.length ? 'CAPTURED' : 'NO_THROUGH_FILL',
+    reason,
     quote: true,
     fills,
     roundTrips,
@@ -193,6 +219,33 @@ export function replayCapture({
     liveOff: LIVE_OFF,
     gate: { harvestBps: scored.harvestBps, vpin: scored.vpin, reason: scored.reason },
   };
+}
+
+function listSafe(trades) {
+  return Array.isArray(trades) ? trades : [];
+}
+
+/**
+ * After a fill, wait for MARKOUT_H later prints (or end of remaining tape if
+ * shorter but ≥1). Halt only if EVERY later print in that window is adverse
+ * worse than −feeBps (one-sided dump). Two-sided flow that mean-reverts
+ * through the other side does not halt. Walk-forward only — never the past.
+ */
+function checkMarkouts(pending, i, laterPx, tapeLen, feeBps) {
+  const atEnd = i >= tapeLen - 1;
+  let halt = false;
+  for (const p of pending) {
+    if (p.done) continue;
+    if (i <= p.idx) continue; // fill print itself is not a later print
+    p.later.push(laterPx);
+    if (p.later.length < MARKOUT_H && !atEnd) continue;
+    if (p.later.length < 1) continue;
+    p.done = true;
+    const window = p.later.slice(0, MARKOUT_H);
+    const allAdverse = window.every((px) => fillMarkoutBps(p.side, p.px, px) < -feeBps);
+    if (allAdverse) halt = true;
+  }
+  return halt;
 }
 
 /** Apply a session's net PnL onto an in-memory paper ledger. No files, no live. */
@@ -215,6 +268,8 @@ export function applyToPaperLedger(ledger, session) {
 
 export function replayUniverse(rows, opts = {}) {
   const capital = opts.capital ?? PAPER_CAPITAL;
+  const denyMap = opts.denyMap || null;
+  const now = opts.now ?? Date.now();
   let ledger = { paperBalanceUSDT: capital, fills: 0, liveOff: LIVE_OFF };
   const sessions = [];
   for (const r of rows || []) {
@@ -226,6 +281,8 @@ export function replayUniverse(rows, opts = {}) {
       makerFeePct: r.makerFeePct,
       minEdgeBps: opts.minEdgeBps,
       capital,
+      denyMap,
+      now,
     });
     sessions.push(session);
     if (session.quote && session.netPnl) ledger = applyToPaperLedger(ledger, session);

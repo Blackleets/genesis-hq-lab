@@ -8,6 +8,7 @@ import {
   PAPER_CAPITAL,
 } from '../../server/genesis/captureEngine.mjs';
 import { scoreTapeAndBook, LIVE_OFF } from '../../server/genesis/captureCore.mjs';
+import { loadDeny } from '../../server/genesis/captureDeny.mjs';
 
 const OKX = 'https://www.okx.com';
 const MAKER = 0.0002; // OKX SWAP listed maker, not a fitted edge
@@ -91,6 +92,8 @@ export default async function handler(req, res) {
   try {
     const uni = await pickUniverse(limit);
     const loaded = await Promise.all(uni.map((u) => loadName(u.instId).catch(() => null)));
+    // Read-only deny skip. Serverless must not persist the map.
+    const denyMap = loadDeny();
     const rows = [];
     for (const name of loaded) {
       if (!name) continue;
@@ -100,11 +103,12 @@ export default async function handler(req, res) {
         ask: name.ask,
         trades: name.trades,
         makerFeePct: MAKER,
+        denyMap,
       });
       row.tape = name.trades;
       rows.push(row);
     }
-    const book = replayUniverse(rows);
+    const book = replayUniverse(rows, { denyMap });
     const bySym = new Map((book.sessions || []).map((s) => [s.symbol, s]));
     const out = rows.map((r) => {
       const s = bySym.get(r.symbol);
