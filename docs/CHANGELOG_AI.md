@@ -1,5 +1,14 @@
 # CHANGELOG_AI
 
+## 2026-08-31 — New Bot (Capture Desk: VPIN harvest, maker-fee L2)
+
+- Branch: `feat/capture-desk`
+- Summary: Additive paper Capture Desk. Scores live (or synthetic) books with real **maker** fees, VPIN/Kyle/markout toxicity, and a harvest H = spread·P(two-sided) − 2·makerFee − E[AS] − inventory. High VPIN halts quoting; grey-zone VPIN widens the AS tax. GLFT quotes are refused if they would cross the book (taker). CLI `node captureDesk.mjs <exchange> [limit] [offset] [minEdgeBps]` never sends orders and cannot arm live. Does **not** invent a current-regime edge: naive touch MM already lost vs real flow; this desk's job is to stand down when H≤0. 6 gates, Terminal, `liveRunner`, and `REAL_TRADING` untouched.
+- Files created: `server/genesis/math/toxicity.mjs`, `server/genesis/math/harvest.mjs`, `server/genesis/captureDesk.mjs`, `server/genesis/__tests__/captureDesk.test.mjs`
+- Files modified: `server/genesis/math/index.mjs` (additive exports), `docs/CHANGELOG_AI.md`
+- Verification: synthetic noise tape quotes a fat quiet book; informed sell tape VPIN-halts (H=−∞). `LIVE_OFF` frozen true. No network in tests. No fake PnL.
+- Honesty: a QUOTE from the desk is a paper candidate, not a 6-gate GO. Extra NO-GOs from PR #41 still apply if you later feed fills into `fullReport`.
+
 ## 2026-08-30 — New Bot (paper-safe GLFT maker + extra NO-GOs)
 
 - Branch: `feat/math-edge-paper-safe`
