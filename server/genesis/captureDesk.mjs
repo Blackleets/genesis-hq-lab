@@ -2,7 +2,9 @@
 // Capture Desk — maker harvest scanner. PAPER ONLY.
 //
 // Does NOT send orders. Does NOT flip REAL_TRADING. Does NOT mint a 6-gate GO.
-// Uses live L2 + tape (ccxt, public) only as INPUTS to a score:
+// Uses live L2 + tape (ccxt, public) only as INPUTS to a score, then
+// captureEngine.replayCapture books paper USDT on the second half of the tape
+// (GLFT last-in-queue fills, maker fee). Score:
 //   harvest H = spread * P(two-sided) − 2·makerFee − E[adverse] − inventory
 //   VPIN halt / widen from math/toxicity.mjs
 //   quotes from GLFT (math/glft.mjs); refuse if the quote would cross the book
@@ -185,6 +187,7 @@ async function scanExchange({
         makerFeePct: schema.makerPercent,
         minEdgeBps,
       });
+      row.tape = trades;
       rows.push(row);
     } catch { /* skip dead pairs */ }
     scanned++;
@@ -193,7 +196,7 @@ async function scanExchange({
   return rows;
 }
 
-function printReport(exchangeId, rows, minEdgeBps) {
+function printReport(exchangeId, rows, minEdgeBps, book = null) {
   const ok = rankQuoteable(rows);
   const halted = rows.filter((r) => r.reason === 'VPIN_HALT').length;
   const dead = rows.filter((r) => r.reason === 'H_LE_EDGE' || r.reason === 'WOULD_CROSS').length;
@@ -202,12 +205,18 @@ function printReport(exchangeId, rows, minEdgeBps) {
   const show = ok.length ? ok : rankHarvest(rows).slice(0, 15);
   for (const r of show.slice(0, 25)) {
     const h = Number.isFinite(r.harvestBps) ? r.harvestBps.toFixed(2) : String(r.harvestBps);
+    const pnl = Number.isFinite(r.netPnl) ? r.netPnl.toFixed(4) : '';
     console.log(
-      `${String(r.symbol).padEnd(22)} H=${h.padStart(8)}  spread=${String(r.spreadBps).padStart(7)}  fee=${r.feeBps.toFixed(2)}  AS=${r.asBps.toFixed(2)}  VPIN=${r.vpin.toFixed(2)}  ${r.quote ? 'QUOTE' : r.reason}`,
+      `${String(r.symbol).padEnd(22)} H=${h.padStart(8)}  spread=${String(r.spreadBps).padStart(7)}  fee=${r.feeBps.toFixed(2)}  AS=${r.asBps.toFixed(2)}  VPIN=${r.vpin.toFixed(2)}  ${r.quote ? 'QUOTE' : r.reason}  pnl=${pnl}`,
     );
   }
   if (!ok.length) {
     console.log('no name cleared harvest. desk stands down. do not invent a fill.');
+  }
+  if (book && book.ledger) {
+    const L = book.ledger;
+    const captured = (book.sessions || []).filter((s) => s.fills && s.fills.length).length;
+    console.log(`\npaper book: ${L.paperBalanceUSDT} USDT  (start 10000)  sessions_with_fills=${captured}  liveOff=${L.liveOff}`);
   }
 }
 
@@ -217,8 +226,19 @@ async function main() {
   const offset = parseInt(process.argv[4] || '0', 10);
   const minEdgeBps = parseFloat(process.argv[5] || String(DEFAULT_MIN_EDGE_BPS));
   const rows = await scanExchange({ exchangeId, limit, offset, minEdgeBps });
-  printReport(exchangeId, rows, minEdgeBps);
-  return rows;
+  const { replayUniverse } = await import('./captureEngine.mjs');
+  const book = replayUniverse(rows, { minEdgeBps });
+  const bySym = new Map((book.sessions || []).map((s) => [s.symbol, s]));
+  for (const r of rows) {
+    const s = bySym.get(r.symbol);
+    if (s) {
+      r.netPnl = s.netPnl;
+      r.captureReason = s.reason;
+      r.fillCount = s.fills.length;
+    }
+  }
+  printReport(exchangeId, rows, minEdgeBps, book);
+  return { rows, book };
 }
 
 const isCli = process.argv[1] && /captureDesk\.mjs$/.test(String(process.argv[1]).replace(/\\/g, '/'));

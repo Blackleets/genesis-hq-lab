@@ -1,5 +1,14 @@
 # CHANGELOG_AI
 
+## 2026-08-31 — New Bot (Capture Desk books paper USDT)
+
+- Branch: `feat/capture-desk`
+- Summary: The desk no longer only scores. `captureEngine.replayCapture` walk-forwards: first half of the tape is the harvest/VPIN **gate**; second half is last-in-queue maker fills at **previously posted** GLFT quotes (never chasing the print). Maker fee via `computeFee(isMaker:true)`. Paper capital $10,000, 10% per fill, 50% inventory cap. Toxic dump still captures **$0**. Two-sided through-tape books **+$45.38** on the synthetic fixture (45 bps). CLI scans then books a paper ledger in memory. Still never sends orders, never flips `REAL_TRADING`, never mints a 6-gate GO.
+- Files created: `server/genesis/captureEngine.mjs`
+- Files modified: `server/genesis/captureDesk.mjs` (attach tape, replay after scan), `server/genesis/__tests__/captureDesk.test.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: node asserts — through-tape CAPTURED netPnl>0 and ledger > 10000; toxic VPIN_HALT fills=0 netPnl=0. `LIVE_OFF` frozen.
+- Honesty: synthetic through-flow proves the **capture loop** makes paper money when the tape actually trades through our quotes. Live names still have to clear harvest; a live scan can stand down with $0. That is the desk working, not a fake fill.
+
 ## 2026-08-31 — New Bot (Capture Desk: VPIN harvest, maker-fee L2)
 
 - Branch: `feat/capture-desk`

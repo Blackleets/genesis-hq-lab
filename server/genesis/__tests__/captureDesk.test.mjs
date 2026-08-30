@@ -169,3 +169,58 @@ describe('captureDesk', () => {
     expect(rankHarvest([{ harvestBps: 1 }, { harvestBps: 3 }])[0].harvestBps).toBe(3);
   });
 });
+
+import {
+  replayCapture,
+  applyToPaperLedger,
+  PAPER_CAPITAL,
+} from '../captureEngine.mjs';
+
+function throughTape() {
+  const trades = [];
+  for (let i = 0; i < 40; i++) {
+    const side = i % 2 === 0 ? 'buy' : 'sell';
+    const p = 100 + ((i % 4) - 1.5) * 0.002;
+    trades.push({ price: p, amount: 1, side });
+  }
+  for (let i = 0; i < 20; i++) {
+    trades.push({ price: 99.2, amount: 1, side: 'sell' });
+    trades.push({ price: 100.8, amount: 1, side: 'buy' });
+  }
+  return trades;
+}
+
+describe('replayCapture paper money', () => {
+  it('books positive USDT when two-sided flow trades through GLFT quotes', () => {
+    const s = replayCapture({
+      symbol: 'MAKE/USDT',
+      bid: 99.5,
+      ask: 100.5,
+      trades: throughTape(),
+      makerFeePct: 0.00005,
+      minEdgeBps: 0.5,
+      capital: PAPER_CAPITAL,
+    });
+    expect(s.liveOff).toBe(true);
+    expect(s.quote).toBe(true);
+    expect(s.fills.length).toBeGreaterThan(0);
+    expect(s.netPnl).toBeGreaterThan(0);
+    const led = applyToPaperLedger({ paperBalanceUSDT: PAPER_CAPITAL }, s);
+    expect(led.paperBalanceUSDT).toBeGreaterThan(PAPER_CAPITAL);
+    expect(led.liveOff).toBe(true);
+  });
+
+  it('does not trade a toxic dump (no invented PnL)', () => {
+    const s = replayCapture({
+      symbol: 'TOX/USDT',
+      bid: 99,
+      ask: 101,
+      trades: toxicSellTape({ n: 90, start: 100 }),
+      makerFeePct: 0.0002,
+      minEdgeBps: 0.5,
+    });
+    expect(s.fills.length).toBe(0);
+    expect(s.netPnl).toBe(0);
+    expect(s.quote).toBe(false);
+  });
+});
