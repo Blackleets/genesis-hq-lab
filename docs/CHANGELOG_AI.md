@@ -1,5 +1,14 @@
 # CHANGELOG_AI
 
+## 2026-08-30 — New Bot (paper-safe GLFT maker + extra NO-GOs)
+
+- Branch: `feat/math-edge-paper-safe`
+- Summary: Wired applied math onto the isolated Quant Lab without flipping live or rewriting the 6 gates. Replaced the internals of `marketMaker.mjs` (same exports, default capital 1000) with Kalman fair value + infinite-horizon GLFT quotes and an honest OHLCV maker fill (bid if `low<=bid`, ask if `high>=ask`, inventory marked to close, maker fee via `feeAccountant`). Added extra NO-GOs in `fullReport` that can only fail a GO (bootstrap 5% mean LB > 0, median PnL > 0, CVaR95 not worse than 3×|mean|). Additive `glftMaker` family in `strategyLib` (existing five untouched). Fractional Kelly 0.25–0.50 with CVaR haircut; μ≤0 → size 0. This does **not** claim a current-regime edge: public AS/GLFT research typically loses after fees; taker scalping is dead at the lab’s 0.10% RT. Paper only. `REAL_TRADING` untouched.
+- Files created: `server/genesis/math/{kalman,ofi,glft,stats,cov,kelly,extraNoGos,index}.mjs`, `server/genesis/__tests__/mathEdge.test.mjs`
+- Files modified: `server/genesis/marketMaker.mjs` (internals only), `server/genesis/backtestCore.mjs` (`fullReport` extra NO-GOs; `evaluateGates` optional 2nd arg), `server/genesis/strategyLib.mjs` (additive `glftMaker`), `docs/CHANGELOG_AI.md`
+- Verification: vitest `server/genesis/__tests__/mathEdge.test.mjs` (synthetic Gaussian vs fat-tail; API freeze on `simulateMarketMaker`). No live path. No fake PnL.
+- Honesty: extra NO-GOs never flip a 6-gate fail to pass. `computeMetrics` dead-code after the early return was left untouched on purpose.
+
 ## 2026-06-14 - Codex
 
 - Branch: `feat/genesis-life-os`

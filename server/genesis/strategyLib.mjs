@@ -103,12 +103,39 @@ export function makeVolumeProfile(params) {
   };
 }
 
+
+// Additive GLFT maker family. Quotes are inventory-skewed around Kalman FV
+// using OHLCV pressure as the imbalance proxy (no L2). This still returns
+// directional long/short for the existing taker engine — the honest maker
+// path is simulateMarketMaker(). Use this family only as a paper candidate;
+// fills inside runBacktest remain taker (COST_ROUNDTRIP). Do not treat a
+// GO here as a maker edge.
+export function makeGlftMaker(params) {
+  const { slMult = 1.5, tpMult = 2.0, pressureAbs = 0.35, adxMax = 25 } = params;
+  return (ctx) => {
+    const { i, close, open, high, low, ind } = ctx;
+    if (i < 2) return {};
+    const h = high[i], l = low[i], c = close[i], o = open[i];
+    const range = h - l;
+    if (!(range > 0)) return {};
+    const pressure = ((c - l) - (h - c)) / range;
+    const adx = ind.adx14[i];
+    if (adx != null && adx > adxMax) return {};
+    // Fade pressure: selling into us (negative pressure) -> bid / long;
+    // buying into us -> ask / short. Same spirit as posting the opposite quote.
+    if (pressure <= -pressureAbs) return { long: true, slMult, tpMult };
+    if (pressure >= pressureAbs) return { short: true, slMult, tpMult };
+    return {};
+  };
+}
+
 export const STRATEGY_FACTORIES = {
   meanReversion: makeMeanReversion,
   breakout: makeBreakout,
   momentum: makeMomentum,
   orderbookImbalance: makeOrderbookImbalance,
   volumeProfile: makeVolumeProfile,
+  glftMaker: makeGlftMaker,
 };
 
 export function makeStrategy(kind, params) {
