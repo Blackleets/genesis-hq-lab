@@ -130,7 +130,7 @@ export default async function handler(req, res) {
       const s = bySym.get(r.symbol);
       const tape = r.tape;
       delete r.tape;
-      return {
+      const rowOut = {
         symbol: r.symbol,
         quote: !!r.quote,
         reason: r.reason,
@@ -144,6 +144,11 @@ export default async function handler(req, res) {
         captureReason: s ? s.reason : r.reason,
         tapeLen: Array.isArray(tape) ? tape.length : 0,
       };
+      if (Number.isFinite(r.fair)) rowOut.fair = r.fair;
+      if (Number.isFinite(r.mid)) rowOut.mid = r.mid;
+      if (Number.isFinite(r.imbalance)) rowOut.imbalance = r.imbalance;
+      if (s && Number.isFinite(s.kellyF)) rowOut.kellyF = s.kellyF;
+      return rowOut;
     });
     const quoted = out.filter((r) => r.quote).length;
     const filled = out.filter((r) => r.fillCount > 0).length;

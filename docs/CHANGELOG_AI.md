@@ -1,5 +1,16 @@
 # CHANGELOG_AI
 
+## 2026-08-31 — New Bot (Spanish why-codes, Kelly cap, Kalman fair on Capture)
+
+- Branch: `feat/capture-readable-kelly` (stacked on `feat/kalman-micro-fair`, PR #45)
+- Summary: Capture panel maps machine why-codes to Spanish (code kept as tooltip/suffix). Kalman `fair` vs mid is shown when the API actually sends it — never invented. After ≥4 per-fill `realized` numbers, next lot notional is `min(QUOTE_FRAC, singleAssetKelly(pnls, {fraction:0.25}).f)`; mean≤0 → size 0 (`KELLY_FLAT`) without wiping booked fills/pnl. First lots still 10% (no history). extraNoGos already applied on `evaluateGates`/`fullReport` (can only kill a GO); capture API still `go: false`. LIVE_OFF stays true. No invented live edge.
+- Files created: `server/genesis/__tests__/readableKelly.smoke.mjs`
+- Files modified: `src/components/crypto/CaptureDeskPanel.tsx`, `src/services/captureClient.ts`, `api/genesis/capture.js`, `server/genesis/captureEngine.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: standalone `node` asserts — two-sided through-tape still CAPTURED; toxic dump 0 fills; buy-then-dump MARKOUT_HALT or KELLY_FLAT with fills kept; ≥4 negative realized → next lot 0.
+- Honesty: this is not a 6-gate GO. Fractional Kelly is a size ceiling after paper history, not an edge. 6-gate thresholds untouched (n≥50, WR≥45%, PF≥1.30, expectancy>0.05%/trade, t-stat≥2.0, DD≤25%).
+
+
+
 ## 2026-08-31 — New Bot (capture fair: Kalman microprice, not last print)
 
 - Branch: `feat/kalman-micro-fair` (stacked on `feat/edge-markout-kill`, PR #44)

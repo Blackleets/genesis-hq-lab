@@ -13,6 +13,10 @@ export interface CaptureRow {
   fillCount: number;
   captureReason: string;
   tapeLen: number;
+  fair?: number;
+  mid?: number;
+  imbalance?: number;
+  kellyF?: number;
 }
 
 export interface CaptureLedger {
