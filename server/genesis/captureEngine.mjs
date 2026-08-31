@@ -17,7 +17,11 @@
 // markout is worse than −feeBps, stop quoting this session (MARKOUT_HALT).
 // Keeps booked fills/pnl. Does not zero them. LIVE_OFF stays true.
 //
-// Paper capital default $10,000. 10% notional per fill, 50% inventory cap.
+// Paper capital default $10,000. First lots 10% notional (no history).
+// After ≥4 per-fill realized numbers, next lot = min(QUOTE_FRAC, Kelly-f)×capital.
+// Kelly is a ceiling (0.25 fraction, 25% name cap). mean≤0 → f=0 (KELLY_FLAT).
+// Does not wipe booked fills/pnl. extraNoGos is NOT called in the fill loop
+// (n≥50 promotion gate only, on evaluateGates). Inventory cap 50% stays.
 // Maker fee via feeAccountant.computeFee(isMaker:true).
 
 import { computeFee } from './feeAccountant.mjs';
@@ -31,14 +35,42 @@ import {
   scoreTapeAndBook,
 } from './captureCore.mjs';
 import { isDenied } from './captureDeny.mjs';
+import { singleAssetKelly } from './math/kelly.mjs';
 
 export const PAPER_CAPITAL = 10000;
-const QUOTE_FRAC = 0.10;
+export const QUOTE_FRAC = 0.10;
 const INVENTORY_CAP = 0.5;
 const WARMUP = 10;
 const MARKOUT_H = 5;
+const KELLY_MIN_N = 4;
 const FV_ALPHA = 0.0005; // same as marketMaker.mjs
 const FLOW_ALPHA = 0.2;
+
+function realizedList(fills) {
+  // Opens book realized=0. Those are not a PnL sample — Kelly waits for
+  // ≥4 closed-lot realized numbers so the first fill stays QUOTE_FRAC.
+  return (fills || []).map((f) => +f.realized).filter((x) => Number.isFinite(x) && x !== 0);
+}
+
+/**
+ * Next lot fraction of capital. No history (<4 realized) → QUOTE_FRAC.
+ * Else min(QUOTE_FRAC, singleAssetKelly.f). mean≤0 → 0.
+ */
+export function nextLotFrac(realizedPnls) {
+  const xs = Array.isArray(realizedPnls) ? realizedPnls.map(Number).filter(Number.isFinite) : [];
+  if (xs.length < KELLY_MIN_N) return QUOTE_FRAC;
+  const k = singleAssetKelly(xs, { fraction: 0.25 });
+  const f = Number.isFinite(k.f) ? k.f : 0;
+  if (!(f > 0)) return 0;
+  return Math.min(QUOTE_FRAC, f);
+}
+
+function kellyFFrom(realizedPnls) {
+  const xs = Array.isArray(realizedPnls) ? realizedPnls.map(Number).filter(Number.isFinite) : [];
+  if (xs.length < KELLY_MIN_N) return 0;
+  const k = singleAssetKelly(xs, { fraction: 0.25 });
+  return Number.isFinite(k.f) ? k.f : 0;
+}
 
 function schemaOf(makerFeePct) {
   const m = Math.max(0, +makerFeePct || 0.0002);
@@ -95,16 +127,18 @@ function fillLot(state, side, px, coins, fee, fills) {
   return realized;
 }
 
-function lotCoins(state, cap, px, side) {
+function lotCoins(state, cap, px, side, frac = QUOTE_FRAC) {
+  const f = Number.isFinite(+frac) ? Math.max(0, Math.min(QUOTE_FRAC, +frac)) : 0;
+  if (!(f > 0) || !(px > 0)) return 0;
   const maxNotional = cap * INVENTORY_CAP;
   const signed = state.qty * px;
   const nextDir = side === 'buy' ? 1 : -1;
-  const projected = Math.abs(signed + nextDir * cap * QUOTE_FRAC);
+  const projected = Math.abs(signed + nextDir * cap * f);
   if (projected > maxNotional + 1e-9 && Math.abs(signed) >= maxNotional - 1e-9) return 0;
-  let usd = cap * QUOTE_FRAC;
+  let usd = cap * f;
   const room = maxNotional - Math.abs(signed);
   if (nextDir * signed > 0 && room < usd) usd = Math.max(0, room);
-  if (!(usd > 0) || !(px > 0)) return 0;
+  if (!(usd > 0)) return 0;
   return usd / px;
 }
 
@@ -137,6 +171,7 @@ export function replayCapture({
     equity: cap,
     capital: cap,
     netBps: 0,
+    kellyF: 0,
     liveOff: LIVE_OFF,
   });
 
@@ -170,6 +205,7 @@ export function replayCapture({
   const trail = gateTape.slice();
   const pending = []; // { side, px, idx } — markout vs LATER prints only
   let markoutHalt = false;
+  let kellyFlat = false;
 
   // Quotes are posted on the PREVIOUS Kalman fair. The new print either hits
   // them (last in queue) or it does not. Then fair updates. Never chase.
@@ -208,11 +244,14 @@ export function replayCapture({
       if (hitBid !== hitAsk) {
         const fillSide = hitBid ? 'buy' : 'sell';
         const fillPx = hitBid ? quotes.bid : quotes.ask;
-        const coins = lotCoins(state, cap, fillPx, fillSide);
+        const frac = nextLotFrac(realizedList(fills));
+        const coins = lotCoins(state, cap, fillPx, fillSide, frac);
         if (coins > 0) {
           const fee = computeFee({ schema, isMaker: true, cost: coins * fillPx });
           realized += fillLot(state, fillSide, fillPx, coins, fee, fills);
           pending.push({ side: fillSide, px: fillPx, idx: i, done: false, later: [] });
+        } else if (!(frac > 0) && fills.length) {
+          kellyFlat = true;
         }
       }
     }
@@ -226,8 +265,10 @@ export function replayCapture({
   const equity = state.cash + state.qty * lastPx;
   const netPnl = equity - cap;
   const roundTrips = fills.reduce((n, f) => n + (f.realized ? 1 : 0), 0);
+  const kellyF = kellyFFrom(realizedList(fills));
   let reason = fills.length ? 'CAPTURED' : 'NO_THROUGH_FILL';
   if (markoutHalt && fills.length) reason = 'MARKOUT_HALT';
+  else if (kellyFlat && fills.length) reason = 'KELLY_FLAT';
   return {
     symbol,
     reason,
@@ -241,6 +282,7 @@ export function replayCapture({
     netBps: cap > 0 ? +((netPnl / cap) * 10000).toFixed(4) : 0,
     realized: +realized.toFixed(6),
     fair,
+    kellyF,
     liveOff: LIVE_OFF,
     gate: { harvestBps: scored.harvestBps, vpin: scored.vpin, reason: scored.reason, fair: scored.fair },
   };

@@ -4,6 +4,21 @@ import { fetchCaptureReport, type CaptureReport, type CaptureRow } from '@servic
 const BG = '#0a0c10';
 const BORDER = '#1c2430';
 
+const WHY_ES: Record<string, string> = {
+  VPIN_HALT: 'Flujo informado. No cotizo.',
+  H_LE_EDGE: 'Spread no cubre fees + toxicidad',
+  WOULD_CROSS: 'Cruzaría el libro. No soy taker.',
+  SHORT_TAPE: 'Cinta corta',
+  DEAD_BOOK: 'Libro muerto',
+  MARKOUT_HALT: 'Me pickearon. Paro.',
+  DENY_NEG_PNL: 'Ya perdió paper. Cooldown.',
+  NO_THROUGH_FILL: 'Cotiza, nadie cruzó',
+  CAPTURED: 'Fills paper (no es GO)',
+  HARVEST: 'Candidato paper',
+  KELLY_FLAT: 'Media ≤ 0. Tamaño 0.',
+  LIVE_BLOCK: 'Live off',
+};
+
 function fmtBps(n: number) {
   return Number.isFinite(n) ? n.toFixed(2) : '—';
 }
@@ -13,11 +28,20 @@ function fmtUsd(n: number) {
   return `${sign}${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function fmtPx(n: number | undefined) {
+  return Number.isFinite(n as number) ? (n as number).toFixed(4) : null;
+}
+
 function reasonColor(row: CaptureRow): string {
   if (row.fillCount > 0) return '#22c55e';
   if (row.quote) return '#f59e0b';
   if (row.reason === 'VPIN_HALT') return '#ef4444';
   return '#71717a';
+}
+
+function whyLabel(code: string, es: boolean) {
+  if (!es) return code;
+  return WHY_ES[code] || code;
 }
 
 export function CaptureDeskPanel({ es = true }: { es?: boolean }) {
@@ -53,14 +77,21 @@ export function CaptureDeskPanel({ es = true }: { es?: boolean }) {
           <div className="font-mono text-[9px] uppercase tracking-[0.22em] text-zinc-500">
             {es ? 'Mesa de captura · PAPER' : 'Capture desk · PAPER'}
           </div>
-          <div className="font-mono text-[18px] font-bold text-zinc-100 mt-0.5">
+          {es ? (
+            <div className="font-mono text-[10px] text-zinc-500 mt-1 leading-tight space-y-0.5">
+              <div>Tóxico → no cotizo. Me pickean → paro. Precio justo = Kalman, no el último tick.</div>
+              <div>PAPER · LIVE_OFF · esto no abre live ni es un GO de 6 gates.</div>
+            </div>
+          ) : (
+            <div className="font-mono text-[10px] text-zinc-500 mt-0.5">
+              LIVE_OFF · not a 6-gate GO · {report?.venue ?? 'okx'}
+            </div>
+          )}
+          <div className="font-mono text-[18px] font-bold text-zinc-100 mt-1">
             ${equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             <span className={`ml-2 text-[12px] ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
               {fmtUsd(pnl)}
             </span>
-          </div>
-          <div className="font-mono text-[10px] text-zinc-500 mt-0.5">
-            LIVE_OFF · {es ? 'no es un GO de 6 gates' : 'not a 6-gate GO'} · {report?.venue ?? 'okx'}
           </div>
         </div>
         <button
@@ -94,28 +125,47 @@ export function CaptureDeskPanel({ es = true }: { es?: boolean }) {
               <th className="text-right py-1 px-1">H</th>
               <th className="text-right py-1 px-1">spr</th>
               <th className="text-right py-1 px-1">VPIN</th>
+              <th className="text-right py-1 px-1">fv</th>
               <th className="text-left py-1 px-1">why</th>
               <th className="text-right py-1 px-1">fills</th>
               <th className="text-right py-1 pl-1">pnl</th>
             </tr>
           </thead>
           <tbody>
-            {(report?.rows ?? []).map((row) => (
-              <tr key={row.symbol} style={{ borderTop: `1px solid ${BORDER}` }}>
-                <td className="py-1.5 pr-2 text-zinc-200">{row.symbol.replace('-USDT-SWAP', '')}</td>
-                <td className="text-right px-1 text-zinc-300">{fmtBps(row.harvestBps)}</td>
-                <td className="text-right px-1 text-zinc-400">{fmtBps(row.spreadBps)}</td>
-                <td className="text-right px-1 text-zinc-400">{row.vpin.toFixed(2)}</td>
-                <td className="px-1" style={{ color: reasonColor(row) }}>{row.captureReason || row.reason}</td>
-                <td className="text-right px-1 text-zinc-300">{row.fillCount}</td>
-                <td className={`text-right pl-1 ${row.netPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {fmtUsd(row.netPnl)}
-                </td>
-              </tr>
-            ))}
+            {(report?.rows ?? []).map((row) => {
+              const code = row.captureReason || row.reason;
+              const label = whyLabel(code, es);
+              const fair = fmtPx(row.fair);
+              const mid = fmtPx(row.mid);
+              const k = Number.isFinite(row.kellyF as number) ? (row.kellyF as number).toFixed(3) : null;
+              return (
+                <tr key={row.symbol} style={{ borderTop: `1px solid ${BORDER}` }}>
+                  <td className="py-1.5 pr-2 text-zinc-200">{row.symbol.replace('-USDT-SWAP', '')}</td>
+                  <td className="text-right px-1 text-zinc-300">{fmtBps(row.harvestBps)}</td>
+                  <td className="text-right px-1 text-zinc-400">{fmtBps(row.spreadBps)}</td>
+                  <td className="text-right px-1 text-zinc-400">{row.vpin.toFixed(2)}</td>
+                  <td className="text-right px-1 text-zinc-300">
+                    {fair ?? '—'}
+                    {fair && mid ? (
+                      <div className="text-zinc-600">mid {mid}{k != null ? ` · k ${k}` : ''}</div>
+                    ) : (k != null ? <div className="text-zinc-600">k {k}</div> : null)}
+                  </td>
+                  <td className="px-1" style={{ color: reasonColor(row) }} title={code}>
+                    {label}
+                    {es && WHY_ES[code] ? (
+                      <span className="text-zinc-700 ml-1">{code}</span>
+                    ) : null}
+                  </td>
+                  <td className="text-right px-1 text-zinc-300">{row.fillCount}</td>
+                  <td className={`text-right pl-1 ${row.netPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {fmtUsd(row.netPnl)}
+                  </td>
+                </tr>
+              );
+            })}
             {!busy && (report?.rows?.length ?? 0) === 0 && (
               <tr>
-                <td colSpan={7} className="py-4 text-zinc-600">
+                <td colSpan={8} className="py-4 text-zinc-600">
                   {es ? 'Sin cinta. No se inventa un fill.' : 'No tape. No invented fill.'}
                 </td>
               </tr>
