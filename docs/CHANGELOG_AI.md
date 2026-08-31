@@ -1,5 +1,15 @@
 # CHANGELOG_AI
 
+## 2026-08-31 — New Bot (capture fair: Kalman microprice, not last print)
+
+- Branch: `feat/kalman-micro-fair` (stacked on `feat/edge-markout-kill`, PR #44)
+- Summary: Capture desk fair is now Kalman(microprice)+OFI/tape imbalance, the same modules `marketMaker` already uses. `scoreTapeAndBook` centers GLFT on Kalman(microprice, book imbalance) when L2 sizes exist, else mid. Harvest stays on the live book spread (not a Kalman-invented tighter spread). `replayCapture` keeps last-in-queue vs the previous Kalman fair, then updates with `fairValue(kalman, print, EWMA signed tape, 0.0005)` — it no longer sets `fair = last print`. OKX/ccxt loaders pass bidSz/askSz when present; missing sizes fall back to mid (honest, not invented). Still not a 6-gate GO. `LIVE_OFF` stays true. No invented live edge or fills.
+- Files created: `server/genesis/__tests__/kalmanFair.smoke.mjs`
+- Files modified: `server/genesis/captureCore.mjs`, `server/genesis/captureEngine.mjs`, `server/genesis/captureDesk.mjs`, `api/genesis/capture.js`, `docs/CHANGELOG_AI.md`
+- Verification: standalone `node` asserts (no vitest, no ccxt) — two-sided through-tape still fills; toxic dump 0 fills / 0 pnl; buy-then-dump MARKOUT_HALT; session fair ≠ last raw print; microprice geometry vs sizes.
+- Honesty: this wires existing math. It does not claim live OKX will now profit. Last-print center was noise, not an edge. 6-gate thresholds untouched (n≥50, WR≥45%, PF≥1.30, expectancy>0.05%/trade, t-stat≥2.0, DD≤25%).
+
+
 ## 2026-08-31 — New Bot (edge loop: markout halt + deny-on-loss)
 
 - Branch: `feat/edge-markout-kill` (stacked on `feat/premium-wire`)

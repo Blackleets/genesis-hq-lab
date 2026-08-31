@@ -69,15 +69,24 @@ async function loadName(instId) {
     fetchJson(`${OKX}/api/v5/market/trades?instId=${encodeURIComponent(instId)}&limit=${TRADE_LIMIT}`, 8000),
   ]);
   const book = bookJ.data && bookJ.data[0];
-  const bid = book && book.bids && book.bids[0] ? +book.bids[0][0] : NaN;
-  const ask = book && book.asks && book.asks[0] ? +book.asks[0][0] : NaN;
+  const bidRow = book && book.bids && book.bids[0];
+  const askRow = book && book.asks && book.asks[0];
+  const bid = bidRow ? +bidRow[0] : NaN;
+  const ask = askRow ? +askRow[0] : NaN;
+  const bidSz = bidRow && +bidRow[1] > 0 ? +bidRow[1] : undefined;
+  const askSz = askRow && +askRow[1] > 0 ? +askRow[1] : undefined;
   if (!(bid > 0) || !(ask > bid)) return null;
-  return {
+  const name = {
     symbol: instId,
     bid,
     ask,
     trades: mapTrades(tradeJ.data),
   };
+  if (bidSz > 0 && askSz > 0) {
+    name.bidSz = bidSz;
+    name.askSz = askSz;
+  }
+  return name;
 }
 
 export default async function handler(req, res) {
@@ -97,15 +106,22 @@ export default async function handler(req, res) {
     const rows = [];
     for (const name of loaded) {
       if (!name) continue;
-      const row = scoreTapeAndBook({
+      const scoreOpts = {
         symbol: name.symbol,
         bid: name.bid,
         ask: name.ask,
         trades: name.trades,
         makerFeePct: MAKER,
         denyMap,
-      });
+      };
+      if (name.bidSz > 0 && name.askSz > 0) {
+        scoreOpts.bidSz = name.bidSz;
+        scoreOpts.askSz = name.askSz;
+      }
+      const row = scoreTapeAndBook(scoreOpts);
       row.tape = name.trades;
+      if (name.bidSz > 0) row.bidSz = name.bidSz;
+      if (name.askSz > 0) row.askSz = name.askSz;
       rows.push(row);
     }
     const book = replayUniverse(rows, { denyMap });
