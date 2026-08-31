@@ -1,4 +1,4 @@
-// HQView â€” the pixel office viewport: agents at work, bubbles, room drill-in.
+// HQView — pixel office + paper capture blotter. Public root. No wallet wall.
 
 import { useMemo, useState } from 'react';
 import { useT, useLanguage } from '@core/i18n/languageStore';
@@ -16,25 +16,20 @@ import OfficeViewport from '@animations/OfficeViewport';
 import GenesisOfficeWorld from '@animations/GenesisOfficeWorld';
 import AgentTooltip from '@agents/AgentTooltip';
 import AgentInspector from '@agents/AgentInspector';
-import FundingBotHUD from '@workflows/FundingBotHUD';
 import { TRADING_AGENTS } from '@agents/data/tradingAgents';
 import type { TradingAgent } from '@core/types/tradingAgent';
 import TileOffice from '@office/TileOffice';
 import { OFFICE_CANVAS_H, OFFICE_CANVAS_W } from '@office/officeLayout';
+import { CaptureDeskPanel } from '@components/crypto/CaptureDeskPanel';
 
 const HQ_RENDERER = 'canvas' as const;
 
-// Map a visual agent to its matching TradingAgent.
-// Trading specialist agents (id prefix 'trading-') match directly.
-// Original visual seed agents fall back to department-based mapping.
 function tradingDataForAgent(agent: Agent | null): TradingAgent | undefined {
   if (!agent) return undefined;
-  // Direct match for trading specialist agents
   if (agent.id.startsWith('trading-')) {
     const tradingId = agent.id.replace('trading-', '');
     return TRADING_AGENTS.find(a => a.id === tradingId);
   }
-  // Department fallback for original visual seed agents
   switch (agent.department) {
     case 'Market Room':     return TRADING_AGENTS.find(a => a.id === 'scalping-hunter');
     case 'Risk Office':     return TRADING_AGENTS.find(a => a.id === 'risk-sentinel');
@@ -49,6 +44,7 @@ function tradingDataForAgent(agent: Agent | null): TradingAgent | undefined {
 export default function HQView() {
   const t = useT();
   const lang = useLanguage();
+  const es = lang === 'es';
   const agents = useAgents();
   const bubbles = useLiveBubbles();
   const selectedAgent = useSelectedAgent();
@@ -82,24 +78,31 @@ export default function HQView() {
 
   return (
     <>
-      <main className="flex-1 min-w-0 min-h-0 relative flex flex-col">
-        <div className="bg-carbon-200 border-b border-trim px-3 py-1.5 flex flex-wrap items-center gap-1.5 overflow-hidden">
-          <span className="gx-label shrink-0 mr-1">
-            {t('work.title')}:
+      <main className="flex-1 min-w-0 min-h-0 relative flex flex-col bg-[#05070a]">
+        <div className="bg-[#07090d] border-b border-[#1c2430] px-3 py-1 flex flex-wrap items-center gap-1.5 overflow-hidden">
+          <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-zinc-500 shrink-0 mr-1">
+            {t('work.title')}
           </span>
+          <span className="font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 border border-amber-500/40 text-amber-300">PAPER</span>
+          <span className="font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 border border-zinc-700 text-zinc-500">LIVE_OFF</span>
+          <span className="font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 border border-red-500/30 text-red-400">GO NO</span>
+          <span className="font-mono text-[9px] text-zinc-600 hidden sm:inline">
+            {es ? '10k paper · Kalman fair · sin fills inventados' : '10k paper · Kalman fair · no invented fills'}
+          </span>
+          <span className="w-px h-3 bg-[#1c2430] mx-1 hidden sm:block" />
           {(Object.keys(OFFICE_ROOMS) as RoomId[]).map((rid) => (
             <button
               key={rid}
               type="button"
               onClick={() => setRoomOpen(rid)}
-              className="shrink-0 font-mono text-[9px] uppercase tracking-[0.12em] px-2 py-1 border border-trim text-zinc-300 hover:bg-white/5"
+              className="shrink-0 font-mono text-[9px] uppercase tracking-[0.12em] px-2 py-1 border text-zinc-300 hover:bg-white/5"
               style={{ borderColor: `${OFFICE_ROOMS[rid].color}55` }}
             >
               {OFFICE_ROOMS[rid].label[lang]}
             </button>
           ))}
         </div>
-        <div className="flex-1 min-h-0 flex bg-carbon-300">
+        <div className="flex-1 min-h-0 flex flex-col">
           <div className="flex-1 min-h-0 relative">
           {tileOfficeActive ? (
             <PixelOfficeViewport internalWidth={OFFICE_CANVAS_W} internalHeight={OFFICE_CANVAS_H}>
@@ -157,7 +160,9 @@ export default function HQView() {
             tradingData={tradingDataForAgent(selectedAgent)}
           />
           </div>
-          <FundingBotHUD />
+          <div className="shrink-0 max-h-[42%] overflow-y-auto border-t border-[#1c2430]">
+            <CaptureDeskPanel es={es} />
+          </div>
         </div>
       </main>
       <AgentActivityFeed />

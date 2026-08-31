@@ -87,9 +87,6 @@ function AppShell() {
 }
 
 export default function App() {
-  // Wallet auth stays available for the Wallet module. It is NOT a product gate.
-  // Public root is the HQ office (paper). ConnectWalletGate hid the desk behind
-  // a 401 splash — that is not Genesis HQ.
   return (
     <WalletAuthProvider>
       <CommandBarProvider>
