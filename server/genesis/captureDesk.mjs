@@ -66,6 +66,8 @@ export async function scanExchange({
       if (!ob.bids?.length || !ob.asks?.length) continue;
       const bid = ob.bids[0][0];
       const ask = ob.asks[0][0];
+      const bidSz = +ob.bids[0][1];
+      const askSz = +ob.asks[0][1];
       let trades = [];
       try {
         const raw = await ex.fetchTrades(sym, undefined, 80);
@@ -76,7 +78,7 @@ export async function scanExchange({
         }));
       } catch { /* tape optional; VPIN stays 0 */ }
       const schema = loadFeeSchema(ex, sym);
-      const row = scoreTapeAndBook({
+      const scoreOpts = {
         symbol: sym,
         bid,
         ask,
@@ -84,8 +86,15 @@ export async function scanExchange({
         makerFeePct: schema.makerPercent,
         minEdgeBps,
         denyMap,
-      });
+      };
+      if (bidSz > 0 && askSz > 0) {
+        scoreOpts.bidSz = bidSz;
+        scoreOpts.askSz = askSz;
+      }
+      const row = scoreTapeAndBook(scoreOpts);
       row.tape = trades;
+      if (bidSz > 0) row.bidSz = bidSz;
+      if (askSz > 0) row.askSz = askSz;
       rows.push(row);
     } catch { /* skip dead pairs */ }
     scanned++;

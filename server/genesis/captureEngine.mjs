@@ -9,6 +9,10 @@
 // Same worst-case queue assumption as paperFillTester, but quotes are GLFT
 // (deeper / skewed) and VPIN can still halt mid-replay if flow turns toxic.
 //
+// Fair is Kalman + tape-imbalance EWMA (same modules as marketMaker). Quotes
+// are posted on the PREVIOUS fair. The new print is tested, THEN fair updates.
+// Never fair = last print.
+//
 // After a fill, walk-forward markout on LATER prints only. If the post-fill
 // markout is worse than −feeBps, stop quoting this session (MARKOUT_HALT).
 // Keeps booked fills/pnl. Does not zero them. LIVE_OFF stays true.
@@ -20,6 +24,8 @@ import { computeFee } from './feeAccountant.mjs';
 import { glftQuotes } from './math/glft.mjs';
 import { vpinFromTrades, sigmaFromTrades } from './math/toxicity.mjs';
 import { VPIN_HALT } from './math/harvest.mjs';
+import { createKalman, fairValue } from './math/kalman.mjs';
+import { ewma } from './math/ofi.mjs';
 import {
   LIVE_OFF,
   scoreTapeAndBook,
@@ -31,6 +37,8 @@ const QUOTE_FRAC = 0.10;
 const INVENTORY_CAP = 0.5;
 const WARMUP = 10;
 const MARKOUT_H = 5;
+const FV_ALPHA = 0.0005; // same as marketMaker.mjs
+const FLOW_ALPHA = 0.2;
 
 function schemaOf(makerFeePct) {
   const m = Math.max(0, +makerFeePct || 0.0002);
@@ -42,6 +50,12 @@ function fillMarkoutBps(side, fillPx, laterPx) {
   if (!(fillPx > 0) || !(laterPx > 0)) return 0;
   if (side === 'buy') return ((laterPx - fillPx) / fillPx) * 10000;
   return ((fillPx - laterPx) / fillPx) * 10000;
+}
+
+function signedTape(side) {
+  if (side === 'buy') return 1;
+  if (side === 'sell') return -1;
+  return 0;
 }
 
 function fillLot(state, side, px, coins, fee, fills) {
@@ -102,6 +116,8 @@ export function replayCapture({
   symbol = 'SYNTH',
   bid,
   ask,
+  bidSz,
+  askSz,
   trades = [],
   makerFeePct = 0.0002,
   minEdgeBps = 0.5,
@@ -133,7 +149,7 @@ export function replayCapture({
   const gateTape = list.slice(0, split);
   const fillTape = list.slice(split);
   const scored = scoreTapeAndBook({
-    symbol, bid, ask, trades: gateTape, makerFeePct, minEdgeBps, denyMap, now,
+    symbol, bid, ask, bidSz, askSz, trades: gateTape, makerFeePct, minEdgeBps, denyMap, now,
   });
   if (!scored.quote) return empty(scored.reason);
 
@@ -142,15 +158,21 @@ export function replayCapture({
   const state = { cash: cap, qty: 0, avg: 0 };
   const fills = [];
   let realized = 0;
-  let fair = scored.mid || (+bid + +ask) / 2;
+  const kalman = createKalman({ q: 1e-6, r: 1e-4 });
+  const z0 = Number.isFinite(scored.microprice)
+    ? scored.microprice
+    : (Number.isFinite(scored.mid) ? scored.mid : (+bid + +ask) / 2);
+  // Seed Kalman with the same z the gate used so state is consistent.
+  if (Number.isFinite(z0) && z0 > 0) kalman.update(z0);
+  let fair = Number.isFinite(scored.fair) ? scored.fair : z0;
+  let flowImb;
   let lastPx = fair;
   const trail = gateTape.slice();
   const pending = []; // { side, px, idx } — markout vs LATER prints only
   let markoutHalt = false;
 
-  // Quotes are posted on the PREVIOUS fair. The new print either hits them
-  // (last in queue) or it does not. Chasing the print with a new fair would
-  // make through-fills impossible.
+  // Quotes are posted on the PREVIOUS Kalman fair. The new print either hits
+  // them (last in queue) or it does not. Then fair updates. Never chase.
   for (let i = 0; i < fillTape.length; i++) {
     if (markoutHalt) break;
     const t = fillTape[i];
@@ -160,7 +182,8 @@ export function replayCapture({
     if (vp.vpin >= VPIN_HALT) {
       trail.push(t);
       lastPx = px;
-      fair = px;
+      flowImb = ewma(flowImb, signedTape(t.side), FLOW_ALPHA);
+      fair = fairValue(kalman, px, flowImb, FV_ALPHA);
       if (checkMarkouts(pending, i, px, fillTape.length, feeBps)) markoutHalt = true;
       continue;
     }
@@ -195,7 +218,8 @@ export function replayCapture({
     }
     trail.push(t);
     lastPx = px;
-    fair = px;
+    flowImb = ewma(flowImb, signedTape(t.side), FLOW_ALPHA);
+    fair = fairValue(kalman, px, flowImb, FV_ALPHA);
     if (checkMarkouts(pending, i, px, fillTape.length, feeBps)) markoutHalt = true;
   }
 
@@ -216,8 +240,9 @@ export function replayCapture({
     capital: cap,
     netBps: cap > 0 ? +((netPnl / cap) * 10000).toFixed(4) : 0,
     realized: +realized.toFixed(6),
+    fair,
     liveOff: LIVE_OFF,
-    gate: { harvestBps: scored.harvestBps, vpin: scored.vpin, reason: scored.reason },
+    gate: { harvestBps: scored.harvestBps, vpin: scored.vpin, reason: scored.reason, fair: scored.fair },
   };
 }
 
@@ -277,6 +302,8 @@ export function replayUniverse(rows, opts = {}) {
       symbol: r.symbol,
       bid: r.bid,
       ask: r.ask,
+      bidSz: r.bidSz,
+      askSz: r.askSz,
       trades: r.tape || r.trades || [],
       makerFeePct: r.makerFeePct,
       minEdgeBps: opts.minEdgeBps,

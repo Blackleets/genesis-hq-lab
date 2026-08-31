@@ -2,6 +2,7 @@
 // Pure score: book + tape → harvest / VPIN / GLFT. No I/O. No ccxt. No orders.
 // captureDesk.mjs re-exports these and owns the CLI scanner (ccxt).
 // The Vercel Capture API imports THIS file so Hobby functions never bundle ccxt.
+// Fair = Kalman(microprice or mid) + alpha * imbalance — same math as marketMaker.
 
 import { glftQuotes } from './math/glft.mjs';
 import { harvestScore, rankHarvest, DEFAULT_MIN_EDGE_BPS } from './math/harvest.mjs';
@@ -11,9 +12,13 @@ import {
   markoutAsBps,
   sigmaFromTrades,
 } from './math/toxicity.mjs';
+import { createKalman, fairValue } from './math/kalman.mjs';
+import { microprice, bookImbalance } from './math/ofi.mjs';
 import { isDenied } from './captureDeny.mjs';
 
 export const LIVE_OFF = true; // desk never arms live. human + 6 gates elsewhere.
+
+const FV_ALPHA = 0.0005; // same as marketMaker.mjs
 
 export function bookSpreadBps(bid, ask) {
   const b = +bid;
@@ -30,14 +35,33 @@ export function wouldCross(quotes, bid, ask) {
   return false;
 }
 
+function observationZ(bid, ask, bidSz, askSz) {
+  const mid = (+bid + +ask) / 2;
+  const bs = +bidSz;
+  const asz = +askSz;
+  if (bs > 0 && asz > 0) {
+    const z = microprice({ bid, ask, bidSz: bs, askSz: asz });
+    const imb = bookImbalance({ bidSz: bs, askSz: asz });
+    return {
+      z: Number.isFinite(z) ? z : mid,
+      imb: Number.isFinite(imb) ? imb : 0,
+    };
+  }
+  return { z: mid, imb: 0 };
+}
+
 /**
  * Score one name from a live (or synthetic) book + trade tape.
  * Pure given inputs. No I/O. No orders.
+ * Optional bidSz/askSz: when both > 0, fair is Kalman(microprice)+OFI.
+ * Missing sizes → mid, imbalance 0. Harvest stays on the live book spread.
  */
 export function scoreTapeAndBook({
   symbol = 'SYNTH',
   bid,
   ask,
+  bidSz,
+  askSz,
   trades = [],
   makerFeePct = 0.0002,
   minEdgeBps = DEFAULT_MIN_EDGE_BPS,
@@ -80,6 +104,9 @@ export function scoreTapeAndBook({
     };
   }
   const mid = (+bid + +ask) / 2;
+  const { z, imb } = observationZ(bid, ask, bidSz, askSz);
+  const kalman = createKalman({ q: 1e-6, r: 1e-4 });
+  const fv = fairValue(kalman, z, imb, FV_ALPHA);
   const { vpin, buckets } = vpinFromTrades(trades);
   const { asBps: markout } = markoutAsBps(trades, 5);
   const { lambda } = kyleLambda(trades);
@@ -88,7 +115,7 @@ export function scoreTapeAndBook({
   const asBps = Math.max(markout, kyleAs);
   const sigma = sigmaFromTrades(trades);
   const quotes = glftQuotes({
-    fair: mid,
+    fair: fv,
     sigma,
     q,
     makerFee: makerFeePct,
@@ -107,11 +134,14 @@ export function scoreTapeAndBook({
     quote = false;
     reason = 'WOULD_CROSS';
   }
-  return {
+  const out = {
     symbol,
     bid: +bid,
     ask: +ask,
     mid,
+    fair: fv,
+    microprice: z,
+    imbalance: imb,
     spreadBps: +spreadBps.toFixed(4),
     makerFeePct,
     feeBps: h.feeBps,
@@ -134,6 +164,9 @@ export function scoreTapeAndBook({
       : null,
     liveOff: LIVE_OFF,
   };
+  if (+bidSz > 0) out.bidSz = +bidSz;
+  if (+askSz > 0) out.askSz = +askSz;
+  return out;
 }
 
 function typicalFill(trades) {
@@ -148,4 +181,3 @@ function typicalFill(trades) {
 export function rankQuoteable(rows) {
   return rankHarvest((rows || []).filter((r) => r && r.quote));
 }
-
