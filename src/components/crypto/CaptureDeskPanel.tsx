@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { fetchCaptureReport, type CaptureReport, type CaptureRow } from '@services/captureClient';
 
-const BG = '#0a0c10';
+const BG = '#07090d';
 const BORDER = '#1c2430';
 
 const WHY_ES: Record<string, string> = {
@@ -19,8 +19,8 @@ const WHY_ES: Record<string, string> = {
   LIVE_BLOCK: 'Live off',
 };
 
-function fmtBps(n: number) {
-  return Number.isFinite(n) ? n.toFixed(2) : '—';
+function fmtBps(n: number | null | undefined) {
+  return Number.isFinite(n as number) ? (n as number).toFixed(2) : '—';
 }
 
 function fmtUsd(n: number) {
@@ -29,7 +29,10 @@ function fmtUsd(n: number) {
 }
 
 function fmtPx(n: number | undefined) {
-  return Number.isFinite(n as number) ? (n as number).toFixed(4) : null;
+  if (!Number.isFinite(n as number)) return null;
+  const v = n as number;
+  if (Math.abs(v) > 0 && Math.abs(v) < 1e-4) return v.toExponential(3);
+  return v.toFixed(4);
 }
 
 function reasonColor(row: CaptureRow): string {
@@ -67,15 +70,31 @@ export function CaptureDeskPanel({ es = true }: { es?: boolean }) {
     void load();
   }, [load]);
 
-  const equity = report?.ledger?.paperBalanceUSDT ?? 10000;
-  const pnl = equity - (report?.ledger?.start ?? 10000);
+  const start = report?.ledger?.start ?? report?.capital ?? 10000;
+  const equity = report?.ledger?.paperBalanceUSDT ?? start;
+  const pnl = equity - start;
+  const paper = report?.paper ?? true;
+  const liveOff = report?.liveOff ?? true;
+  const go = report?.go ?? false;
 
   return (
-    <div style={{ background: BG, border: `1px solid ${BORDER}` }} className="px-3 py-3">
-      <div className="flex items-start justify-between gap-3 mb-3">
+    <div style={{ background: BG, borderTop: `1px solid ${BORDER}` }} className="px-3 py-2.5">
+      <div className="flex items-start justify-between gap-3 mb-2">
         <div>
-          <div className="font-mono text-[9px] uppercase tracking-[0.22em] text-zinc-500">
-            {es ? 'Mesa de captura · PAPER' : 'Capture desk · PAPER'}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-zinc-500">
+              {es ? 'Mesa de captura' : 'Capture desk'}
+            </span>
+            <span className="font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 border border-amber-500/40 text-amber-300">
+              {paper ? 'PAPER' : 'NOT-PAPER'}
+            </span>
+            <span className="font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 border border-zinc-700 text-zinc-500">
+              {liveOff ? 'LIVE_OFF' : 'LIVE'}
+            </span>
+            <span className={`font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 border ${go ? 'border-emerald-500/40 text-emerald-300' : 'border-red-500/30 text-red-400'}`}>
+              {go ? 'GO' : 'GO NO'}
+            </span>
+            <span className="font-mono text-[9px] text-zinc-600">{report?.venue ?? 'okx'}</span>
           </div>
           {es ? (
             <div className="font-mono text-[10px] text-zinc-500 mt-1 leading-tight space-y-0.5">
@@ -87,9 +106,9 @@ export function CaptureDeskPanel({ es = true }: { es?: boolean }) {
               LIVE_OFF · not a 6-gate GO · {report?.venue ?? 'okx'}
             </div>
           )}
-          <div className="font-mono text-[18px] font-bold text-zinc-100 mt-1">
+          <div className="font-mono text-[16px] font-semibold text-zinc-100 mt-1 tabular-nums">
             ${equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            <span className={`ml-2 text-[12px] ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            <span className={`ml-2 text-[11px] ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
               {fmtUsd(pnl)}
             </span>
           </div>
@@ -104,28 +123,27 @@ export function CaptureDeskPanel({ es = true }: { es?: boolean }) {
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-3 font-mono text-[10px] mb-3">
+      <div className="flex flex-wrap gap-3 font-mono text-[10px] mb-2">
         <span className="text-zinc-500">scan <span className="text-zinc-200">{report?.scanned ?? 0}</span></span>
         <span className="text-zinc-500">quote <span className="text-amber-300">{report?.quoted ?? 0}</span></span>
         <span className="text-zinc-500">fills <span className="text-emerald-300">{report?.filled ?? 0}</span></span>
-        <span className="text-zinc-500">GO <span className="text-red-400">NO</span></span>
       </div>
 
       {err && (
-        <div className="mb-3 border border-zinc-700 px-3 py-2 font-mono text-[11px] text-zinc-400">
+        <div className="mb-2 border border-zinc-700 px-3 py-2 font-mono text-[11px] text-zinc-400">
           {es ? 'Desk en stand-down' : 'Desk stood down'}: {err}
         </div>
       )}
 
       <div className="overflow-x-auto">
-        <table className="w-full font-mono text-[10px]">
+        <table className="w-full font-mono text-[10px] tabular-nums">
           <thead>
             <tr className="text-zinc-600 uppercase tracking-wider text-[8px]">
               <th className="text-left py-1 pr-2">sym</th>
               <th className="text-right py-1 px-1">H</th>
               <th className="text-right py-1 px-1">spr</th>
               <th className="text-right py-1 px-1">VPIN</th>
-              <th className="text-right py-1 px-1">fv</th>
+              <th className="text-right py-1 px-1">fair K</th>
               <th className="text-left py-1 px-1">why</th>
               <th className="text-right py-1 px-1">fills</th>
               <th className="text-right py-1 pl-1">pnl</th>
@@ -143,7 +161,7 @@ export function CaptureDeskPanel({ es = true }: { es?: boolean }) {
                   <td className="py-1.5 pr-2 text-zinc-200">{row.symbol.replace('-USDT-SWAP', '')}</td>
                   <td className="text-right px-1 text-zinc-300">{fmtBps(row.harvestBps)}</td>
                   <td className="text-right px-1 text-zinc-400">{fmtBps(row.spreadBps)}</td>
-                  <td className="text-right px-1 text-zinc-400">{row.vpin.toFixed(2)}</td>
+                  <td className="text-right px-1 text-zinc-400">{Number.isFinite(row.vpin) ? row.vpin.toFixed(2) : '—'}</td>
                   <td className="text-right px-1 text-zinc-300">
                     {fair ?? '—'}
                     {fair && mid ? (
