@@ -30,7 +30,6 @@ import BotCreatorView from '@workflows/BotCreatorView';
 //   SolanaAlphaView, DecisionsView, GenesisDashboard, AgentExecutionView,
 //   AlphaValidationView.
 import WalletAuthProvider from '@core/auth/WalletAuthProvider';
-import ConnectWalletGate from '@ui/views/ConnectWalletGate';
 import { actions, useSelectedModule } from '@core/store/genesisStore';
 import { useLearningSync } from '@hooks/useLearningSync';
 import type { ModuleId } from '@core/data/moduleRegistry';
@@ -88,12 +87,13 @@ function AppShell() {
 }
 
 export default function App() {
+  // Wallet auth stays available for the Wallet module. It is NOT a product gate.
+  // Public root is the HQ office (paper). ConnectWalletGate hid the desk behind
+  // a 401 splash — that is not Genesis HQ.
   return (
     <WalletAuthProvider>
       <CommandBarProvider>
-        <ConnectWalletGate>
-          <AppShell />
-        </ConnectWalletGate>
+        <AppShell />
       </CommandBarProvider>
     </WalletAuthProvider>
   );
