@@ -13,6 +13,7 @@
     "start:render:lean": "concurrently -n server,agent -c green,magenta --restart-tries -1 --restart-after 5000 \"npm run server\" \"npm run agent\"",
     "mcp": "node server/mcpServer.mjs",
     "test": "node --test --test-concurrency=1 \"server/tests/**/*.test.mjs\"",
+    "test:engine": "vitest run server/genesis/__tests__",
     "backtest": "node --env-file-if-exists=.env server/crypto/backtest/runBacktest.mjs",
     "optimizer": "node --env-file-if-exists=.env server/crypto/runOptimizer.mjs",
     "agent": "node --env-file-if-exists=.env server/agentRunner.mjs",
@@ -38,17 +39,21 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@tanstack/react-query": "^5.100.14",
+    "@tanstack/react-query": "^5.102.2",
+    "@wagmi/core": "3.6.4",
     "better-sqlite3": "^12.10.0",
+    "ccxt": "^4.5.75",
     "framer-motion": "^12.40.0",
-    "lightweight-charts": "^5.2.0",
+    "jose": "^6.2.10",
+    "lightweight-charts": "^5.2.1",
     "lucide-react": "^1.16.0",
     "pg": "^8.21.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
+    "react-is": "^19.2.8",
     "recharts": "^3.8.1",
-    "viem": "^2.51.3",
-    "wagmi": "^3.6.16",
+    "viem": "^2.55.19",
+    "wagmi": "^3.7.6",
     "ws": "^8.21.0"
   },
   "devDependencies": {
@@ -68,6 +73,7 @@
     "tailwindcss": "^3.4.19",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
-    "vite": "^8.0.12"
+    "vite": "^8.0.12",
+    "vitest": "^4.1.11"
   }
 }

@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -681,6 +681,75 @@ const server = createServer(async (req, res) => {
         sendJson(res, 200, { ok: true, treasury });
       } catch (e2) { sendJson(res, 500, { ok: false, error: e2.message }); }
     }
+    return;
+  }
+
+  if (url.pathname === '/api/genesis/context') {
+    // Derivatives positioning context for a pair (real Binance futures data + Fear&Greed).
+    try {
+      const symbol = (url.searchParams.get('pair') || 'COTIUSDT').toUpperCase();
+      const { getContext } = await import('./genesis/derivativesContext.mjs');
+      const ctx = await getContext(symbol);
+      sendJson(res, 200, { ok: true, context: ctx });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  if (url.pathname === '/api/genesis/liquidations') {
+    // Live liquidation stats from the persistent stream (started at server boot).
+    try {
+      const url2 = new URL(req.url, `http://${req.headers.host}`);
+      const symbol = url2.searchParams.get('pair') ? url2.searchParams.get('pair').toUpperCase() : null;
+      const minutes = Math.min(parseInt(url2.searchParams.get('minutes') || '60', 10) || 60, 1440);
+      const { getLiquidationStats } = await import('./genesis/liquidationStream.mjs');
+      sendJson(res, 200, { ok: true, stats: getLiquidationStats(symbol, { minutes }) });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  if (url.pathname === '/api/genesis/candles') {
+    // Real candles for the Quant Lab chart (public Binance data via existing fetcher).
+    try {
+      const pair = (url.searchParams.get('pair') || 'COTIUSDT').toUpperCase();
+      const tf = url.searchParams.get('tf') || '1h';
+      const limit = Math.min(parseInt(url.searchParams.get('limit') || '300', 10) || 300, 1000);
+      const { fetchKlines } = await import('./crypto/backtest/historicalData.mjs');
+      const klines = await fetchKlines(pair, { days: Math.ceil(limit / 24) + 2, interval: tf });
+      const candles = klines.slice(-limit).map(k => ({
+        time: Math.floor(k[0] / 1000),
+        open: +k[1], high: +k[2], low: +k[3], close: +k[4],
+      }));
+      sendJson(res, 200, { ok: true, pair, tf, candles });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  if (url.pathname === '/api/genesis/live') {
+    // Genesis Quant Lab live state: ALL paper bots + treasury (read-only, no auth — public paper data).
+    try {
+      const liveDir = join(__dir, '..', 'data');
+      const stateFiles = readdirSync(liveDir)
+        .filter(f => /^genesis_live_state_.+\.json$/.test(f))
+        .sort();
+      const bots = [];
+      for (const f of stateFiles) {
+        try {
+          const raw = JSON.parse(readFileSync(join(liveDir, f), 'utf8'));
+          if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+          // derive pair/tf from filename genesis_live_state_<PAIR>_<TF>.json if the state lacks them
+          let pair = raw.pair, tf = raw.tf;
+          if (!pair) {
+            const m = f.match(/^genesis_live_state_(.+)_(\w+)\.json$/);
+            if (m) { pair = m[1]; if (!tf) tf = m[2]; }
+          }
+          bots.push({ pair, tf, ...raw });
+        } catch { /* skip corrupt state file */ }
+      }
+      let treasury = null;
+      try { treasury = JSON.parse(readFileSync(join(liveDir, 'genesis_treasury_state.json'), 'utf8')); } catch { /* no treasury yet */ }
+      // Back-compat: expose the first bot's full state as `bot` (bots entries are flattened {pair, tf, ...state})
+      sendJson(res, 200, { ok: true, bots, bot: bots[0] ?? null, treasury, updatedAt: new Date().toISOString() });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;
   }
 
@@ -1995,6 +2064,10 @@ server.on('upgrade', (req, socket, head) => {
 server.listen(PORT, HOST, () => {
   console.log(`[genesis-hq-lab-backend] listening on http://${HOST}:${PORT}`);
   kalshiStartWS();
+  // Genesis liquidation stream: persistent WS capturing forced orders 24/7.
+  import('./genesis/liquidationStream.mjs')
+    .then(m => { m.startLiquidationStream(); console.log('[genesis] liquidation stream started'); })
+    .catch(e => console.error('[genesis] liquidation stream failed:', e.message));
   // Wire solana broadcast + init once the dynamic import resolves
   (async () => {
     let attempts = 0;

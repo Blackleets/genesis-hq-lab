@@ -180,7 +180,7 @@ function hydrateState(saved: Partial<GenesisStateShape>): GenesisStateShape {
       : base.selectedModule;
   // FORCE landing on the pixel office (HQ) for noisy/legacy modules so users
   // see the live, on-vision trading office instead of broken/empty modules.
-  const FORCE_HQ = ['pred-markets', 'crypto', 'terminal', 'dashboard', 'console'];
+  const FORCE_HQ = ['pred-markets', 'crypto', 'terminal', 'console'];
   const finalModule = FORCE_HQ.includes(selectedModule) ? 'hq' : selectedModule;
   const selectedAgent =
     saved.selectedAgent && hydratedAgents[saved.selectedAgent]
@@ -577,7 +577,7 @@ export const actions = {
       status: 'queued',
       priority: 'normal',
       createdAt: new Date().toISOString(),
-      sourceModule: 'hr',
+      sourceModule: 'hq',
       estimatedMs: 1000 * 60 * 10,
       isSeed: false,
       isReal: true,
@@ -708,7 +708,7 @@ export const actions = {
       status: 'queued',
       priority: 'high',
       createdAt: now,
-      sourceModule: 'decisions',
+      sourceModule: 'hq',
       estimatedMs: 5 * 60 * 1000,
       isSeed: false,
       isReal: true,
@@ -951,7 +951,7 @@ export const actions = {
         status: 'queued',
         priority: 'normal',
         createdAt: new Date().toISOString(),
-        sourceModule: 'progress',
+        sourceModule: 'hq',
         estimatedMs: 1000 * 60 * 4,
         evidence: task.output ? [task.output.en] : ['Local task completion'],
         output: undefined,
@@ -1596,7 +1596,9 @@ function evaluateHiringQueue(s: GenesisStateShape): GenesisStateShape {
         break;
       }
       case 'module-unlocked-decisions':
-        unlocked = s.modules['decisions']?.state !== 'locked-backend';
+        // 'decisions' module was removed in the Fase 1 redesign; the
+        // condition is auto-satisfied so those candidates can unlock.
+        unlocked = true;
         break;
       case 'module-unlocked-markets':
         unlocked = s.modules['markets']?.state === 'ready';
@@ -1733,7 +1735,7 @@ function runAutoTrainingInTick(s: GenesisStateShape, now: number): GenesisStateS
       status: 'queued',
       priority: 'low',
       createdAt: new Date(now).toISOString(),
-      sourceModule: 'hr',
+      sourceModule: 'hq',
       estimatedMs: 5 * 60 * 1000,
       isSeed: false,
       isReal: true,
@@ -1784,7 +1786,7 @@ function runAutoTrainingInTick(s: GenesisStateShape, now: number): GenesisStateS
         status: 'queued',
         priority: 'low',
         createdAt: new Date(now).toISOString(),
-        sourceModule: 'hr',
+        sourceModule: 'hq',
         estimatedMs: 8 * 60 * 1000,
         isSeed: false,
         isReal: true,

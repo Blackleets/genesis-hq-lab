@@ -1,5 +1,73 @@
 # CHANGELOG_AI
 
+## 2026-08-31 — New Bot (Spanish why-codes, Kelly cap, Kalman fair on Capture)
+
+- Branch: `feat/capture-readable-kelly` (stacked on `feat/kalman-micro-fair`, PR #45)
+- Summary: Capture panel maps machine why-codes to Spanish (code kept as tooltip/suffix). Kalman `fair` vs mid is shown when the API actually sends it — never invented. After ≥4 per-fill `realized` numbers, next lot notional is `min(QUOTE_FRAC, singleAssetKelly(pnls, {fraction:0.25}).f)`; mean≤0 → size 0 (`KELLY_FLAT`) without wiping booked fills/pnl. First lots still 10% (no history). extraNoGos already applied on `evaluateGates`/`fullReport` (can only kill a GO); capture API still `go: false`. LIVE_OFF stays true. No invented live edge.
+- Files created: `server/genesis/__tests__/readableKelly.smoke.mjs`
+- Files modified: `src/components/crypto/CaptureDeskPanel.tsx`, `src/services/captureClient.ts`, `api/genesis/capture.js`, `server/genesis/captureEngine.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: standalone `node` asserts — two-sided through-tape still CAPTURED; toxic dump 0 fills; buy-then-dump MARKOUT_HALT or KELLY_FLAT with fills kept; ≥4 negative realized → next lot 0.
+- Honesty: this is not a 6-gate GO. Fractional Kelly is a size ceiling after paper history, not an edge. 6-gate thresholds untouched (n≥50, WR≥45%, PF≥1.30, expectancy>0.05%/trade, t-stat≥2.0, DD≤25%).
+
+
+
+## 2026-08-31 — New Bot (capture fair: Kalman microprice, not last print)
+
+- Branch: `feat/kalman-micro-fair` (stacked on `feat/edge-markout-kill`, PR #44)
+- Summary: Capture desk fair is now Kalman(microprice)+OFI/tape imbalance, the same modules `marketMaker` already uses. `scoreTapeAndBook` centers GLFT on Kalman(microprice, book imbalance) when L2 sizes exist, else mid. Harvest stays on the live book spread (not a Kalman-invented tighter spread). `replayCapture` keeps last-in-queue vs the previous Kalman fair, then updates with `fairValue(kalman, print, EWMA signed tape, 0.0005)` — it no longer sets `fair = last print`. OKX/ccxt loaders pass bidSz/askSz when present; missing sizes fall back to mid (honest, not invented). Still not a 6-gate GO. `LIVE_OFF` stays true. No invented live edge or fills.
+- Files created: `server/genesis/__tests__/kalmanFair.smoke.mjs`
+- Files modified: `server/genesis/captureCore.mjs`, `server/genesis/captureEngine.mjs`, `server/genesis/captureDesk.mjs`, `api/genesis/capture.js`, `docs/CHANGELOG_AI.md`
+- Verification: standalone `node` asserts (no vitest, no ccxt) — two-sided through-tape still fills; toxic dump 0 fills / 0 pnl; buy-then-dump MARKOUT_HALT; session fair ≠ last raw print; microprice geometry vs sizes.
+- Honesty: this wires existing math. It does not claim live OKX will now profit. Last-print center was noise, not an edge. 6-gate thresholds untouched (n≥50, WR≥45%, PF≥1.30, expectancy>0.05%/trade, t-stat≥2.0, DD≤25%).
+
+
+## 2026-08-31 — New Bot (edge loop: markout halt + deny-on-loss)
+
+- Branch: `feat/edge-markout-kill` (stacked on `feat/premium-wire`)
+- Summary: Paper capture now stops quoting a name **mid-session** when post-fill markout on **later prints only** is worse than −feeBps (`MARKOUT_HALT`; booked fills/pnl kept, not zeroed). A name whose last paper session lost money is denied for 6 hours (`DENY_NEG_PNL`, earn-the-right-to-quote). CLI worker appends one honest JSONL line per session to `data/harvest.jsonl` (never invented names). Vercel Capture API is read-only on the denylist (no write). QUOTE / CAPTURED / MARKOUT_HALT is still **not** a 6-gate GO. `LIVE_OFF` stays true. No `REAL_TRADING` flip. No invented live edge — the synthetic two-sided fixture is still just a loop check, not OKX tape.
+- Files created: `server/genesis/captureDeny.mjs`, `server/genesis/__tests__/edgeMarkout.smoke.mjs`
+- Files modified: `server/genesis/captureEngine.mjs` (walk-forward markout halt), `server/genesis/captureCore.mjs` (deny skip), `server/genesis/captureDesk.mjs` (CLI load/save deny + harvest JSONL), `api/genesis/capture.js` (read-only deny), `docs/CHANGELOG_AI.md`
+- Verification: standalone `node` asserts (no vitest, no ccxt) — two-sided through-tape still fills with positive pnl; 80-sell toxic dump still 0 fills / 0 pnl; buy-then-dump → MARKOUT_HALT; negative paper session → next call DENY_NEG_PNL.
+- Honesty: live OKX tape currently has no maker edge. This patch only refuses names that already proved adverse on paper. 6-gate thresholds untouched (n≥50, WR≥45%, PF≥1.30, expectancy>0.05%/trade, t-stat≥2.0, DD≤25%).
+
+
+## 2026-08-31 — New Bot (premium wire: rooms mount real desks)
+
+- Branch: `feat/premium-wire` (stacked on `feat/capture-desk`)
+- Summary: HQ rooms no longer open a generic task overlay. Execution mounts the paper Capture Desk (OKX public tape → existing `scoreTapeAndBook` + `replayUniverse`). Strategy Lab mounts `QuantReadinessPanel`. Memory Archive mounts `EdgeScorecardView`. Board shows real funding-bot gist equity. Risk bunker states PAPER / LIVE_OFF with no invented DD. Tile office desks now click through to those rooms. FundingBotHUD trader lines use only `BotState` fields (no PF 2–7000, no DD 1.5%, no "47 mercados"). Office ticker falls back to the paper funding feed when diagnostics 401, and always shows PAPER · LIVE_OFF. `/api/crypto/executions` no longer returns sample SOLUSDT fills when the gist is down — honest empty. New public `/api/genesis/capture` (no session) scans ≤6 OKX SWAP names; QUOTE/CAPTURED is still not a 6-gate GO. Live trading still off. Nothing invented.
+- Files created: `api/genesis/capture.js`, `src/services/captureClient.ts`, `src/components/crypto/CaptureDeskPanel.tsx`, `server/genesis/captureCore.mjs` (pure score, no ccxt, so the Vercel function does not bundle the CLI scanner)
+- Files modified: `server/genesis/captureDesk.mjs` (re-exports core; CLI/ccxt stays here), `server/genesis/captureEngine.mjs` (imports core), `src/workflows/WorkScreen.tsx`, `src/workflows/FundingBotHUD.tsx`, `src/hooks/useLiveOfficeState.ts`, `src/office/OfficeStatusBar.tsx`, `src/office/TileOffice.tsx`, `src/ui/views/HQView.tsx`, `src/services/useFundingBotState.ts` (default start 10000, gist still overrides), `api/crypto/executions.js`, `docs/CHANGELOG_AI.md`
+- Verification: `node --check` on capture.js; local replay of captureEngine still honest (through-tape books, toxic dump $0). No fake PnL. No REAL_TRADING flip.
+- Honesty: live OKX tape can still VPIN-halt or book a paper loss (RIVN −1.89 was already measured). The UI shows that. Empty gist = empty trades, not sample fills.
+
+
+## 2026-08-31 — New Bot (Capture Desk books paper USDT)
+
+- Branch: `feat/capture-desk`
+- Summary: The desk no longer only scores. `captureEngine.replayCapture` walk-forwards: first half of the tape is the harvest/VPIN **gate**; second half is last-in-queue maker fills at **previously posted** GLFT quotes (never chasing the print). Maker fee via `computeFee(isMaker:true)`. Paper capital $10,000, 10% per fill, 50% inventory cap. Toxic dump still captures **$0**. Two-sided through-tape books **+$45.38** on the synthetic fixture (45 bps). CLI scans then books a paper ledger in memory. Still never sends orders, never flips `REAL_TRADING`, never mints a 6-gate GO.
+- Files created: `server/genesis/captureEngine.mjs`
+- Files modified: `server/genesis/captureDesk.mjs` (attach tape, replay after scan), `server/genesis/__tests__/captureDesk.test.mjs`, `docs/CHANGELOG_AI.md`
+- Verification: node asserts — through-tape CAPTURED netPnl>0 and ledger > 10000; toxic VPIN_HALT fills=0 netPnl=0. `LIVE_OFF` frozen.
+- Honesty: synthetic through-flow proves the **capture loop** makes paper money when the tape actually trades through our quotes. Live names still have to clear harvest; a live scan can stand down with $0. That is the desk working, not a fake fill.
+
+## 2026-08-31 — New Bot (Capture Desk: VPIN harvest, maker-fee L2)
+
+- Branch: `feat/capture-desk`
+- Summary: Additive paper Capture Desk. Scores live (or synthetic) books with real **maker** fees, VPIN/Kyle/markout toxicity, and a harvest H = spread·P(two-sided) − 2·makerFee − E[AS] − inventory. High VPIN halts quoting; grey-zone VPIN widens the AS tax. GLFT quotes are refused if they would cross the book (taker). CLI `node captureDesk.mjs <exchange> [limit] [offset] [minEdgeBps]` never sends orders and cannot arm live. Does **not** invent a current-regime edge: naive touch MM already lost vs real flow; this desk's job is to stand down when H≤0. 6 gates, Terminal, `liveRunner`, and `REAL_TRADING` untouched.
+- Files created: `server/genesis/math/toxicity.mjs`, `server/genesis/math/harvest.mjs`, `server/genesis/captureDesk.mjs`, `server/genesis/__tests__/captureDesk.test.mjs`
+- Files modified: `server/genesis/math/index.mjs` (additive exports), `docs/CHANGELOG_AI.md`
+- Verification: synthetic noise tape quotes a fat quiet book; informed sell tape VPIN-halts (H=−∞). `LIVE_OFF` frozen true. No network in tests. No fake PnL.
+- Honesty: a QUOTE from the desk is a paper candidate, not a 6-gate GO. Extra NO-GOs from PR #41 still apply if you later feed fills into `fullReport`.
+
+## 2026-08-30 — New Bot (paper-safe GLFT maker + extra NO-GOs)
+
+- Branch: `feat/math-edge-paper-safe`
+- Summary: Wired applied math onto the isolated Quant Lab without flipping live or rewriting the 6 gates. Replaced the internals of `marketMaker.mjs` (same exports, default capital 1000) with Kalman fair value + infinite-horizon GLFT quotes and an honest OHLCV maker fill (bid if `low<=bid`, ask if `high>=ask`, inventory marked to close, maker fee via `feeAccountant`). Added extra NO-GOs in `fullReport` that can only fail a GO (bootstrap 5% mean LB > 0, median PnL > 0, CVaR95 not worse than 3×|mean|). Additive `glftMaker` family in `strategyLib` (existing five untouched). Fractional Kelly 0.25–0.50 with CVaR haircut; μ≤0 → size 0. This does **not** claim a current-regime edge: public AS/GLFT research typically loses after fees; taker scalping is dead at the lab’s 0.10% RT. Paper only. `REAL_TRADING` untouched.
+- Files created: `server/genesis/math/{kalman,ofi,glft,stats,cov,kelly,extraNoGos,index}.mjs`, `server/genesis/__tests__/mathEdge.test.mjs`
+- Files modified: `server/genesis/marketMaker.mjs` (internals only), `server/genesis/backtestCore.mjs` (`fullReport` extra NO-GOs; `evaluateGates` optional 2nd arg), `server/genesis/strategyLib.mjs` (additive `glftMaker`), `docs/CHANGELOG_AI.md`
+- Verification: vitest `server/genesis/__tests__/mathEdge.test.mjs` (synthetic Gaussian vs fat-tail; API freeze on `simulateMarketMaker`). No live path. No fake PnL.
+- Honesty: extra NO-GOs never flip a 6-gate fail to pass. `computeMetrics` dead-code after the early return was left untouched on purpose.
+
 ## 2026-06-14 - Codex
 
 - Branch: `feat/genesis-life-os`
@@ -1258,3 +1326,278 @@ at the top. Use one block per session. Be honest about failures.
 - Honesty: PAPER simulation of funding income using REAL Binance rates. No real money. AGENTS.md §5 cronjob operator-ratified. Bubbles sourced from real bot state (anti-fake, §5).
 - Files touched: `src/core/store/genesisStore.ts`, `src/ui/GenesisSidebar.tsx`, `src/services/useFundingBotState.ts`, `src/workflows/FundingBotHUD.tsx`, `src/ui/views/HQView.tsx`, `server/crypto/backtest/fundingTrader.mjs`, `docs/CHANGELOG_AI.md`.
 - Verification: `npm run typecheck` ok; `npm run build` ok (36s); bot local run with FT_CAPITAL=500 wrote FUNDING events (COTI 0.008, ONG 0.01); deploy #25 pending.
+
+## 2026-08-21 - Ganador De Dinero (agente aragan) — Plan de mejora + auditoría de verdad
+- Branch: `feat/genesis-improvement-plan` (creada desde `feat/genesis-life-os` @ e013a97)
+- Summary: Auditoría honesta del repo y plan de mejora secuencial. Revisión descubrió DOS realidades en un mismo GitHub repo: `main` (Visual Lab seguro, frontend puro, gates OK) vs `feat/genesis-life-os` (sistema real, backend Node ~47k LOC, PAPER por defecto, auth API real en server/index.mjs:185).
+- Contradicción de docs: `PROYECTO_ESTADO_COMPLETO.md` (19 jun, "8 blockers impiden REAL_TRADING, crypto edge NEGATIVO PF=0.10") vs `HITO1_COMPLETADO.md` (21 jun, "SEGURO PARA REAL_TRADING, 8/8 completados"). Afirmaciones opuestas en 48h. Estado declarado NO fiable.
+- `data/executions.json`: mode "funding-paper", todos live:false, equity ~$208 desde $10k. Cero dinero real. `fund_winners.jsonl`: 20 estrategias PF>1.3, mejor COTIUSDT PF=7055 WR=99.2% sobre t=500 — overfit sospechoso.
+- Plan P0-A (reconciliar docs + correr los 6 gates OOS reales) → P0-B (drawdown persistence, reconciliación, Kalshi fail, monitoring) → P1 (des-overfit funding-paper hacia gates) → P2 (arquitectura). Escrito en `docs/IMPROVEMENT_PLAN.md`.
+- Honesty: NO se tocó código de trading. SOLO docs (plan + changelog) en rama nueva. `live_mode=false`/`REAL_TRADING=false` respetados. Nada ejecutado aún.
+- Files touched: `docs/IMPROVEMENT_PLAN.md` (new), `docs/CHANGELOG_AI.md`.
+- Verification: `git checkout -b feat/genesis-improvement-plan` ok; archivos escritos ok; SIN commit (pendiente de GO del usuario para ejecutar P0-A).
+
+## 2026-08-21 - Ganador De Dinero (agente aragan) — Genesis Terminal: cerebro cuant evolutivo real
+- Branch: `feat/genesis-improvement-plan` (misma del plan).
+- Summary: Construido el "Genesis Terminal" — módulo de trading cuant real sobre datos de Binance, con búsqueda evolutiva de edges y los 6 gates. Respeta pedido del usuario (ganar dinero de verdad) + skills (`/prompt-evolution-loops` aplicado en `evolutionLoops.mjs` y `metaStrategyEvolve.mjs`) + herramienta GitHub #1 (`ccxt` 4.5.75 instalada para datos/exec real).
+- `server/genesis/backtestCore.mjs`: motor backtest honesto (costos 0.10% round-trip, SMA/EMA/RSI/ATR/Bollinger/Donchian), métricas y 6-gate evaluator.
+- `server/genesis/strategyLib.mjs`: familias meanReversion / breakout / momentum parametrizables.
+- `server/genesis/evolutionLoops.mjs`: población → evaluar (backtest real) → mutar elites → loop. Búsqueda multi-par.
+- `server/genesis/metaStrategyEvolve.mjs`: patrón prompt-evolution-loops a nivel agente (GENERATOR→CRITIC→MUTATOR con híbridos).
+- `server/genesis/ccxtFeed.mjs`: datos reales vía ccxt + PAPER order + requestRealOrder GATED por REAL_TRADING + keys + confirm humana (NUNCA firma solo).
+- `server/genesis/genesisTerminal.mjs`: REPL + modos `--backtest/--evolve/--multi`.
+- Verificación real: `--backtest COTIUSDT 1h 90` trajo 2160 velas REALES de Binance, corrió, EV ya no NaN (bug de `size` corregido). `--evolve BTCUSDT 1h 180 2`: loop mejora fitness 17→22, top candidate 4/6 gates (WR 52.8%, PF 1.08, EV +0.063%/trade). ccxt trajo 5 velas BTC reales (close 77132.36). Todos los módulos `node --check` OK. Edge encontrado AÚN NO llega a GO (PF<1.30, t<2) — se reporta honesto, no se infla.
+- Honesty: PAPER ONLY. Cero ejecución real. No se tocó código de trading del repo existente (solo nueva carpeta `server/genesis/`). `REAL_TRADING=false` respetado.
+- Files touched: `server/genesis/*` (7 archivos nuevos), `package.json` (dep ccxt), `docs/CHANGELOG_AI.md`.
+- Verification: backtests reales OK; `node --check` en los 6 módulos OK; `npm run typecheck` del repo NO roto; evolución multi-par corriendo en background (data/genesis_evolution_report.txt). SIN commit aún (pendiente de GO del usuario).
+- NOTA de seguridad: "ganar dinero de verdad" = edge validado en datos reales + GO humano. NO se firmará ni ejecutará orden real con dinero del usuario sin su confirmación explícita + llaves.
+
+## 2026-08-21 — L2 Real Spread Scanner (edge MEDIDO, no hipótesis)
+- Nuevo: server/genesis/l2SpreadScanner.mjs — scan L2 en vivo vía ccxt sobre OKX/Bybit USDT perps.
+- Resultado REAL (medido): OKX 85/100 pares con spread neto positivo post-fees (APLD 54 bps, CRM 24.5); Bybit 91/100 (AMC 73.9, AAL 49.9).
+- Advertencia honesta: spread medido ≠ profit. Requiere paper-test de fill-rate antes de cualquier capital.
+
+## 2026-08-21 — Paper fill-rate test (MM edge medido: NO existe naive)
+- Nuevo: server/genesis/paperFillTester.mjs — reproduce flujo REAL de trades contra quotes best-of-book, sin llaves ni capital.
+- Resultado MEDIDO (120s por símbolo): AMC 74.7bps spread -> 0 fills; AAL 50.5bps -> 1 pata; BTC 0.01bps -> 23 fills / 11 RTs / -13bps netos.
+- Conclusión honesta: MM naive es perdedor en ambos extremos — ilíquidos sin flujo, líquidos con adverse selection. Edge requiere queue position + smart routing (fuera de alcance paper).
+
+## 2026-08-23 — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: Live PAPER runner (liveRunner.mjs) ejecutando la estrategia COTIUSDT 1h meanReversion validada contra datos reales Binance; estado persistente por par+timeframe en data/. Automatizado via cron horario (solo reporta eventos) + auditor semanal con veredicto kill-switch/edge-confirmado.
+- Files touched: server/genesis/liveRunner.mjs (nuevo)
+- Verification: node --check ok, scan unico en vivo ok (COTIUSDT px real obtenido), npm run build no requerido (modulo server aislado)
+
+## 2026-08-23b — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: Genesis Treasury — orquestación de depositos/retiros con flujo de dos pasos (request -> approve con token), whitelist de direcciones creada por el humano, ledger append-only, plan de asignacion (20% trading / 80% reserva) y cap de desk $500. Verificado end-to-end en paper.
+- Files touched: server/genesis/treasury.mjs (nuevo), data/genesis_treasury_whitelist.json (paper-only)
+- Verification: node --check ok; deposit 200 OK; withdraw bloqueado sin whitelist OK; withdraw+approve paper OK; ledger consistente
+
+## 2026-08-23c — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: Integracion del Quant Lab a la misma web: vista QuantBotView (equity, trades, tesoreria, kill switch) + endpoint /api/genesis/live leyendo estados reales de data/. Sin datos fabricados.
+- Files touched: server/index.mjs, src/workflows/QuantBotView.tsx (nuevo), src/App.tsx, src/core/data/moduleRegistry.ts, src/core/i18n/translations.ts, src/ui/GenesisSidebar.tsx
+- Verification: npm run typecheck ok, npm run build ok (1m3s), curl /api/genesis/live ok en :8787
+
+## 2026-08-23d — Ganador De Dinero (aragan) + subagentes Hermes
+- Branch: feat/genesis-improvement-plan
+- Summary: Fase 2 del Quant Lab: (1) liveRunner usa workingCapital() de la tesoreria (20% del balance) como base inicial; (2) soporte multi-par con estados por par y API /api/genesis/live devolviendo bots[]; (3) equityCurve server-side (cap 500); (4) testnetExecutor.mjs gated dry-run (exige llaves + TESTNET=true + GENESIS_LIVE_GO.txt creado por humano); (5) QuantBotView migrada a bots[] con curva SVG de equity e indicador de salud del cron. Fix: returnPct usa initialEquity guardado.
+- Files touched: server/genesis/liveRunner.mjs, server/index.mjs, server/genesis/testnetExecutor.mjs (nuevo), src/workflows/QuantBotView.tsx, scripts genesis_live_runner.sh (perfil aragan)
+- Verification: node --check ok en los 3 .mjs; scan XLMUSDT+COTIUSDT ok (XLM equity=$30=150*0.2); curl /api/genesis/live devuelve bots.length=2 con contrato; typecheck ok; build ok (1m16s); executor dry-run confirmado sin llaves
+
+## 2026-08-23e — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: Puente Optuna->backtestCore: evalCandidate.mjs (evaluador one-shot con cache de velas, fitness identico a evolutionLoops, verificado bit-a-bit vs evolucion: 13.306 vs 13.31) + scripts/optuna_evolve.py (TPE bayesiano multi-familia, estudio sqlite reanudable). Primera corrida real: 40 trials COTIUSDT 360d -> top fitness 23.61 (volumeProfile, 264 trades, gates 4/6) vs 13.31 del genetico. Walk-forward RECHAZO los top-3 (0/171 folds OOS) — in-sample overfit confirmado de nuevo; el gate OOS sigue siendo el filtro que protege.
+- Files touched: server/genesis/evalCandidate.mjs (nuevo), scripts/optuna_evolve.py (nuevo)
+- Verification: node --check ok; evaluador calibrado contra evolutionLoops (delta solo redondeo); optuna 4.9.0 instalado; 40 trials completados; oosValidator corrio sobre top candidates
+
+## 2026-08-23f — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: TradingView Lightweight Charts v5 integrado a QuantBotView: grafico de velas reales (endpoint /api/genesis/candles sobre klines Binance) con marcadores de entradas/salidas reales del bot paper (L/S, TP/SL + PnL). Paleta carbon segun DESIGN_DIRECTION.
+- Files touched: src/workflows/QuantChart.tsx (nuevo), src/workflows/QuantBotView.tsx, server/index.mjs, package.json
+- Verification: typecheck 0 errores; build ok (1m29s); curl /api/genesis/candles devuelve velas reales
+
+## 2026-08-23g — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: QuantStats integrado: scripts/quantstats_tearsheet.py genera tearsheet HTML profesional (Sharpe, Sortino, maxDD, volatilidad) desde los trades REALES del estado del bot; con <5 trades emite insufficient_data sin fabricar stats (verificado con fixture temporal, luego limpiado). Auditor semanal actualizado para incluir tearsheet en el veredicto sabatino. Corridas Optuna grandes lanzadas en background: COTIUSDT 200 trials x 5 familias, XLMUSDT 100 trials x 3 familias.
+- Files touched: scripts/quantstats_tearsheet.py (nuevo)
+- Verification: tearsheet de prueba generado (374KB HTML con metricas) y eliminado; insufficient_data honesto con 0 trades; optuna runs activos en data/optuna_run200.log y data/optuna_xlm100.log
+
+## 2026-08-23h — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: Fix optuna_evolve: nombre de estudio incluye el set de familias (CategoricalDistribution es fija por estudio). XLMUSDT 100 trials completado: top meanReversion fit=28.10 (46 trades, gates 4/6). COTIUSDT 200-trials x 5 familias relanzado con estudio nuevo.
+- Files touched: scripts/optuna_evolve.py
+- Verification: XLM study sqlite con 100 trials completos; relanzamiento activo
+
+## 2026-08-23i — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: Campana Optuna completa (COTI 200 trials x 5 familias + XLM 100 trials x 3). Tops in-sample fuertes (COTI volumeProfile fit=32.83, 486 trades; XLM meanReversion fit=28.10) pero walk-forward RECHAZO todos: 0/171 folds OOS en los 3 validados. Conclusion honesta: el edge in-sample de estas familias NO sobrevive out-of-sample en el regimen actual; el pipeline busca+rechaza correctamente. Paper 24/7 y auditor sabatino siguen como unica via de confirmacion empirica.
+- Files touched: ninguno nuevo (validacion)
+- Verification: oosValidator corrio sobre top1 COTI, top2 COTI y top1 XLM — todos RECHAZADOS con 0 folds pasados
+
+## 2026-08-23j — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: derivativesContext.mjs — contexto de posicionamiento real mas alla de velas: Open Interest historico, ratio long/short global, taker buy/sell (delta oficial), Fear & Greed Index. Todo gratis sin API key, con cache 10min. Endpoint /api/genesis/context expuesto. Primera lectura real: COTI OI $7.79M (-0.22%), crowd neutral 0.73, taker bias 0.941, F&G 27.
+- Files touched: server/genesis/derivativesContext.mjs (nuevo), server/index.mjs
+- Verification: node --check ok; CLI context devuelve JSON real; endpoint curl verificado
+
+## 2026-08-23k — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: Serverless endpoints para Vercel: api/genesis/live.js (estado bots+treasury desde repo snapshot o Gist fallback), api/genesis/candles.js (klines reales Binance directas), api/genesis/context.js (OI/long-short/taker/F&G directo). Mismos contratos que el backend local — la vista QuantBotView funciona identica en Vercel.
+- Files touched: api/genesis/live.js (nuevo), api/genesis/candles.js (nuevo), api/genesis/context.js (nuevo)
+- Verification: node --check 3/3 ok; typecheck 0 errores; build ok (1m35s)
+
+## 2026-08-24 — Ganador De Dinero (aragan) + subagentes
+- Branch: feat/genesis-improvement-plan
+- Summary: Wallet-connect multi-tenant (Tasks 1-7 del plan .hermes/plans/2026-08-23_230000): auth SIWES con nonce efimero 5min un-solo-uso, verificacion viem, JWT jose 24h (AUTH_JWT_SECRET env o efimero dev), rate limit 10/min por IP en auth, sessionAuth middleware + tenantFilter (user ve SOLO sus bots por ownerHash=sha256(addr)16, operator ve todo), bots namespaced data/bots/<hash>/ cuando GENESIS_OWNER_ADDR, frontend gate Connect Wallet carbon + sesion sessionStorage + fetch Bearer + logout 401 + vista operator agrupada. Regla central: UNICA firma = nonce login, jamas transfer/approve.
+- Files touched: api/auth/{nonce,verify}.js, api/auth/__tests__/auth.test.js, api/_lib/{sessions,rateLimit,sessionAuth}.js, api/genesis/{live,candles,context}.js, server/genesis/liveRunner.mjs, src/core/auth/{walletTypes,WalletAuthProvider}, src/ui/views/ConnectWalletGate.tsx, src/App.tsx, src/workflows/QuantBotView.tsx
+- Verification: vitest 14/14 auth tests pasan; node --check todos; typecheck 0 errores; build ok (51s)
+
+## 2026-08-24b — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: Task 8 — auditoria de seguridad adversarial contra produccion: 7/7 pruebas pasaron (401 sin token, firma invalida rechazada, rate limit 429 activo, nonce one-shot, JWT manipulado 401, grep limpio de firmas peligrosas, sesion solo sessionStorage). Veredicto: APROBADO con onboarding whitelist.
+- Files touched: docs/SECURITY_AUDIT.md (nuevo)
+- Verification: tests ejecutados contra https://genesis-hq-lab-real.vercel.app en vivo
+
+## 2026-08-24c — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: Liquidation stream en vivo — WebSocket !forceOrder@arr capturando cada liquidacion forzada del mercado 24/7 (host stream.binancefuture.com: fstream.binance.com abre pero entrega 0 frames por bloqueo CDN en esta red). Stats rolling por simbolo/ventana con dominancia longs-vs-shorts y desbalance %. Persistencia JSONL + ring buffer memoria. Endpoint /api/genesis/liquidations. Stream arranca con el server boot. Primera captura real: ETH short liquidado $1.58M, shorts dominando -79% en 15min.
+- Files touched: server/genesis/liquidationStream.mjs (nuevo), server/index.mjs
+- Verification: node --check ok; WS conecta y recibe frames reales; endpoint curl devuelve stats agregadas; arranque automatico en boot verificado
+
+## 2026-08-24d — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: genesis_paper_connector.py — infraestructura base de ejecucion de ordenes PAPER siguiendo la arquitectura del conector oficial de Hummingbot (ConnectorBase/InFlightOrderBase/ClientOrderTracker/API Throttler/TradeFeeSchema). Decimal en toda la contabilidad, jerarquia propia de excepciones, rate limiter, tracker con TTL cache y deteccion de ordenes perdidas, verificacion exhaustiva de balance virtual antes de cada fill. Semantica HB: MARKET llena contra precio de referencia + slippage; LIMIT descansa OPEN hasta cruce. Demo --demo verifica fills, rechazos por balance insuficiente e ids duplicados.
+- Files touched: scripts/genesis_paper_connector.py (nuevo)
+- Verification: demo corre end-to-end: MARKET FILLED (fee 0.1% aplicada), LIMIT lejos queda OPEN activa, balance-insuficiente rechazado limpio, client_order_id duplicado rechazado
+
+## 2026-08-24e — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: P0 del Plan Unificado — lookahead guard + signal shift en el backtester. createCappedCtx() expone a las estrategias solo datos hasta la vela i (lecturas futuras lanzan RangeError LOOKAHEAD_AT_CANDLE_i); runBacktest() registra violaciones en result.lookaheadViolations sin romper, ejecuta entradas en open[i+1] (signalShift), y fullReport() aplica gate implicito LOOKAHEAD (go=false si hay violaciones). evalCandidate propaga lookaheadViolations/gateReason. Cambios aditivos: contrato {metrics,gates} de evolutionLoops/metaStrategyEvolve intacto.
+- Files touched: server/genesis/backtestCore.mjs, server/genesis/evalCandidate.mjs
+- Verification: node --check ok en ambos; test inline detecta 299 violaciones en estrategia que lee close[i+1] (go=false motivo LOOKAHEAD) y 0 en honrada; signalShift verificado (entryIdx = vela siguiente al signal); re-corrida COTIUSDT volumeProfile GO historico: muere con motor honesto (4/6 gates, PF 1.10 < 1.30, t-stat 0.77 < 2.0, 0 violaciones)
+
+## 2026-08-24e — Ganador De Dinero (aragan) + subagente P0
+- Branch: feat/genesis-improvement-plan
+- Summary: P0 CRITICO — lookahead guard + signal shift en backtestCore.mjs (plan unificado P0, informe Freqtrade): createCappedCtx bloquea acceso a indices futuros con RangeError y registra violaciones; senales ahora ejecutan en open[i+1]; fullReport agrega gate LOOKAHEAD; evalCandidate propaga violaciones. VERIFICADO: estrategia tramposa detectada (199 violaciones), honrada limpia (0). Resultado honesto: el candidato GO historico COTIUSDT MUERE con motor honesto (PF 1.10 < 1.30, t 0.77 < 2.0) — el fill en misma vela inflaba resultados. Dinero real ahorrado.
+- Files touched: server/genesis/backtestCore.mjs, server/genesis/evalCandidate.mjs
+- Verification: node --check ok; tests de deteccion pasan; typecheck 0 errores; liveRunner corre; API viva
+
+## 2026-08-24f — subagente P3 (ox-alpha)
+- Branch: feat/genesis-improvement-plan (sin commit, según instrucción)
+- Summary: P3 plan unificado — loss registry plugable para Optuna (informe Freqtrade Mejora B): scripts/genesis_losses.py con LOSS_REGISTRY {fitness, sharpe, calmar, profit_drawdown}; optuna_evolve.py gana flag --loss (default fitness), study_name con sufijo _<loss>, objective() consume el registry y poda trials con lookaheadViolations > 0 via optuna.TrialPruned('LOOKAHEAD'). user_attrs go/gates/trades intactos.
+- Files touched: scripts/genesis_losses.py (nuevo), scripts/optuna_evolve.py, docs/CHANGELOG_AI.md
+- Verification: python -m py_compile ok en ambos; smoke COTIUSDT 1h 360d 8 trials --loss calmar: estudio nuevo COTIUSDT_1h_360d_meanReversion-volumeProfile_calmar creado, 8/8 completados, floor -100 aplicado a trial con trades=2, 0 violaciones LOOKAHEAD en motor honesto
+
+## 2026-08-24f — Ganador De Dinero (aragan) + flota de subagentes
+- Branch: feat/genesis-improvement-plan
+- Summary: Plan unificado P1+P3+P4+P5 integrados: (P1) treasury reserve/release/availableForTrading + liveRunner respeta reservas — capital unificado, test 200-40=160 exacto. (P3) genesis_losses.py con LOSS_REGISTRY fitness/sharpe/calmar/profit_drawdown + flag --loss en optuna_evolve + poda LOOKAHEAD automatica. (P4) warmup candles GENESIS_WARMUP_CANDLES en folds OOS de oosValidator. (P5) shadowCritic.mjs heuristico determinista: H1 small-sample PF outlier, H2 win rate inflado, H3 demasiado-perfecto; CLI disponible. Fix cosmico formato winRate en H2.
+- Files touched: server/genesis/treasury.mjs, server/genesis/liveRunner.mjs, scripts/genesis_losses.py (nuevo), scripts/optuna_evolve.py, server/genesis/oosValidator.mjs, server/genesis/shadowCritic.mjs (nuevo)
+- Verification: py_compile ok; node --check todos; availableForTrading 200-40=160 verificado; shadow critic DISAGREE con 3 concerns en fake perfecto y AGREE en candidato honesto muerto; smoke optuna calmar 8 trials ok
+
+## 2026-08-24g — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: Campana Optuna honesta completa (motor con lookahead guard + signal shift): COTIUSDT 150 trials Calmar -> top calmar=1.44 volumeProfile (366 trades, gates 4/6, 0 podados LOOKAHEAD). XLMUSDT 100 trials Sharpe -> top sharpe=0.06 (mediocre honesto). Lectura: los numeros espectaculares previos eran espejismos del fill en misma vela; con motor incorruptible las familias tecnicas muestran su valor real: marginal. El edge no esta en velas + indicadores clasicos; siguientes frentes: datos alternativos ya integrados (liquidaciones, posicionamiento) o cambio de regimen.
+- Files touched: ninguno (campana de validacion)
+- Verification: 250 trials completos entre ambos pares, 0 violaciones LOOKAHEAD
+
+## 2026-08-24h — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: api/genesis/bots.js — lifecycle de bots POR USUARIO con modelo "core incorruptible, ejecucion por usuario": POST spawn (elige del catalogo VALIDADO por nosotros: meanReversion/volumeProfile; params fijos nuestros + solo slMult/tpMult editables con clamps a nuestros limites; pares whitelisteados; max 3 bots/user; $1000 paper virtual), GET lista propia + catalogo, DELETE archiva el propio. ownerHash sha256(addr)16 namespacing. liveMode:false y mode:paper estructurales en cada estado. Sesion obligatoria.
+- Files touched: api/genesis/bots.js (nuevo)
+- Verification: node --check ok; smoke GET sin token -> 401 correcto (auth activa)
+
+## 2026-08-24 — ox-alpha (Hermes subagent)
+- Branch: feat/genesis-improvement-plan
+- Summary: P2 — created rateLimiter.mjs (shared sliding-window throttler with weights + safety margin, Binance-style singleton), feeAccountant.mjs (ccxt loadMarkets maker/taker fees, float caveat documented), connectorCore.mjs (HB-pattern OrderState/InFlightOrder/ClientOrderTracker with snapshot+restore and smoke self-test CLI).
+- Files touched: server/genesis/rateLimiter.mjs (new), server/genesis/feeAccountant.mjs (new), server/genesis/connectorCore.mjs (new), docs/CHANGELOG_AI.md
+- Verification: node --check on all 3 ok; `node server/genesis/connectorCore.mjs` self-test PASS. Not committed (per task instruction).
+
+## 2026-08-24i — Ganador De Dinero (aragan) + subagente P2
+- Branch: feat/genesis-improvement-plan
+- Summary: P2 completo — los 6 patrones Hummingbot ahora existen en JS: rateLimiter.mjs (AsyncThrottler ponderado multi-limit_id con margen de seguridad + getSharedThrottler singleton presupuesto Binance compartido), feeAccountant.mjs (schema maker/taker desde ccxt con fallback, computeFee, netProceeds), connectorCore.mjs (OrderState con PARTIALLY_FILLED, InFlightOrder con fills parciales acumulados y avg ponderado, ClientOrderTracker con TTL cache y snapshotStates/restoreTrackingStates para persistencia). Self-test CLI incluido.
+- Files touched: server/genesis/rateLimiter.mjs (nuevo), server/genesis/feeAccountant.mjs (nuevo), server/genesis/connectorCore.mjs (nuevo)
+- Verification: node --check 3/3; self-test connectorCore PASS (fills parciales, snapshot/restore); throttler compartido sin bloqueo; fee 0.1% sobre 10000 = 10 exacto
+
+## 2026-08-24j — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: Rebrand de acentos Quant Lab a familia verde (decision del operador): velas bajistas teal #14b8a6, shorts/marcadores teal, metricas negativas teal-300 en vez de rojo. Rojo semantico solo queda para errores reales del sistema.
+- Files touched: src/workflows/QuantBotView.tsx, src/workflows/QuantChart.tsx
+- Verification: typecheck 0 errores; build ok (42s)
+
+## 2026-08-24k — Ganador De Dinero (aragan) + subagente throttler
+- Branch: feat/genesis-improvement-plan
+- Summary: Throttler compartido cableado en toda la cadena Binance: ccxtFeed.fetchOHLCV pasa por acquire(ohlcv), historicalData klines loop idem (mismo presupuesto compartido con ccxtFeed), derivativesContext jget raciona solo URLs fapi (F&G de terceros libre). Presupuesto efectivo con margen 5%: ohlcv 47/min, default 1140/min. Ningun modulo puede monopolizar la API.
+- Files touched: server/genesis/ccxtFeed.mjs, server/genesis/derivativesContext.mjs, server/crypto/backtest/historicalData.mjs
+- Verification: node --check 3/3; fetchOHLCV 50 candles ok via throttler; usage() confirma caps
+
+## 2026-08-24l — Ganador De Dinero (aragan) + subagente P2-final
+- Branch: feat/genesis-improvement-plan
+- Summary: P2 CERRADO — liveRunner ahora usa feeAccountant (schema real con fallback offline, SL/TP como taker) y ClientOrderTracker de connectorCore: cada posicion es InFlightOrder registrada/fillada con snapshotStates persistido aditivamente en openOrders y restoreTrackingStates al cargar. Compatibilidad estricta: campos legacy intactos, senales identicas.
+- Files touched: server/genesis/liveRunner.mjs
+- Verification: node --check ok; scan unico equity=1000 returnPct=0; openOrders presente en estado; campos legacy intactos; typecheck 0 errores. Plan unificado 4 repos: COMPLETO.
+
+## 2026-08-24m — Ganador De Dinero (aragan) + subagente limpieza
+- Branch: feat/genesis-improvement-plan
+- Summary: LIMPIEZA de teatro del frontend: eliminados del nav/switch/registry 9 modulos visual-only sin motor (factory, auto, hr, operator, pred-markets, marketing, tech, integrations, solana-alpha). FundingBotView corregido: la mentira "edge PF 2-7000" reemplazada por veredicto honesto medido (PERDEDOR post-fees, scanner 53 pares). LiveExecutionsView con banner de contexto. Traducciones hr/auto restauradas para las vistas desconectadas que quedan en disco. Referencias sourceModule rotas apuntando a modulos eliminados -> dashboard.
+- Files touched: src/App.tsx, src/core/data/moduleRegistry.ts, src/core/i18n/translations.ts, src/ui/GenesisSidebar.tsx, src/workflows/FundingBotView.tsx, src/workflows/LiveExecutionsView.tsx, src/core/store/genesisStore.ts, src/core/data/initialTasks.ts, src/workflows/AutoView.tsx
+- Verification: typecheck 0 errores; build ok (1m25s); conservados: HQ pixel, Dashboard, Markets, CryptoLab, EdgeScorecard, SystemHealth, Settings, Wallet, QuantBot, Terminal, FundingBot(honesto)
+
+## 2026-08-24n — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: FIX wallet 401: @wagmi/core era extraneous (no estaba en deps explicitas, wagmi lo requiere peer) — instalado exact 3.6.4 con --legacy-peer-deps (conflicto ox/viem resuelto). react-is anadido para resolver import de recharts en build. Con esto el boton Connect Wallet deja de fallar con Provider not found / 401.
+- Files touched: package.json, package-lock.json
+- Verification: typecheck 0 errores; build ok; @wagmi/core@3.6.4 instalado con peer viem 2.x satisfecho
+
+## 2026-08-25 — ox-alpha (subagente)
+- Branch: feat/genesis-improvement-plan
+- Summary: Protecciones estilo Freqtrade (StoplossGuard, MaxDrawdown, LowProfitPairs, CooldownPeriod) en nuevo server/genesis/protections.mjs con CLI self-test 4 escenarios. Integradas en liveRunner.mjs: se evaluan tras cerrar trade y antes de nueva senal; campo aditivo state.protections; entrada vetada esa vela con EVENT "BLOCKED protection <reason>".
+- Files touched: server/genesis/protections.mjs (nuevo), server/genesis/liveRunner.mjs, docs/CHANGELOG_AI.md
+- Verification: node --check ambos OK; self-test 4/4 PASS; liveRunner scan unico OK (equity 1000, returnPct 0); npm run build no aplicable (solo server)
+
+## 2026-08-25 — Ganador De Dinero (aragan) + subagente redesign
+- Branch: feat/genesis-improvement-plan
+- Summary: Rediseño FASE 1: eliminados del nav 4 modulos teatro (solana-alpha, marketing, tech, decisions); factory reconstruido como CREADOR DE BOTS (BotCreatorView): dropdown par/estrategia del catalogo validado, sliders SL/TP con clamps, POST /api/genesis/bots con auth wallet, estados idle/creating/success/error. Fixes de integracion post-corte: import BotCreatorView, removido DecisionsView import, re-agregado icono Activity al sidebar.
+- Files touched: src/App.tsx, src/core/data/moduleRegistry.ts, src/core/i18n/translations.ts, src/ui/GenesisSidebar.tsx, src/ui/GenesisHeader.tsx, src/workflows/BotCreatorView.tsx (nuevo), src/workflows/WorkScreen.tsx, src/core/store/genesisStore.ts, src/core/data/initialTasks.ts
+- Verification: typecheck 0 errores; build ok (2m11s)
+
+## 2026-08-25a — Ganador De Dinero (aragan) + subagente persistencia
+- Branch: feat/genesis-improvement-plan
+- Summary: PERSISTENCIA DURABLE — api/_lib/store.js con adaptadores Upstash Redis REST / Supabase PostgREST / memory-degradado segun env. bots.js refactorizado: claves bots:<ownerHash>:<PAIR>_<TF> via store, FIX slots archivados, whitelist ALLOWED_WALLEts honesta (403 si no esta), ownerHashFor deduplicado en sessionAuth. Estado degradado HONESTO: POST responde 503 storage_not_durable sin fingir guardado.
+- Files touched: api/_lib/store.js (nuevo), api/genesis/bots.js, api/_lib/sessionAuth.js, docs
+- Verification: node --check ok; vitest 12/12 store tests pasan; typecheck 0 errores; total suite 30/30 (auth 15 + engine 3 + store 12)
+
+## 2026-08-25b — Ganador De Dinero (aragan) + subagente test engineer
+- Branch: feat/genesis-improvement-plan
+- Summary: Suite de tests del MOTOR: 18 tests vitest en 5 archivos (lookahead guard detecta tramposos y honrado pasa, signal shift llena en open[i+1], protecciones 4 heuristicas, treasury reserve/release ciclo completo con backup del state real, connectorCore fills parciales + snapshot/restore, feeAccountant). npm run test:engine disponible. Total suite proyecto: 48 tests pasando (15 auth + 12 store + 18 engine + 3 misc).
+- Files touched: server/genesis/__tests__/ (5 archivos nuevos), package.json
+- Verification: npx vitest run -> 18/18 engine; typecheck 0 errores
+
+## 2026-08-25a — Ganador De Dinero (aragan) + subagente observabilidad
+- Branch: feat/genesis-improvement-plan
+- Summary: Telemetria real: liveRunner escribe heartbeat atomico data/health.json tras cada ciclo (lastRunAt, equity, openPosition, errores24h, protectionsBlocked — fallos de telemetria nunca bloquean trading). healthCheck.mjs CLI --all: tabla componente/status/detalle revisando estados de bots, heartbeat, treasury y conectividad Binance. Reglas WARN >2h / DOWN >24h, exit code para crons. Verificado con inyeccion de JSON corrupto: DOWN + exit 1 correcto.
+- Files touched: server/genesis/liveRunner.mjs, server/genesis/healthCheck.mjs (nuevo)
+- Verification: node --check ok; healthCheck --all GLOBAL OK exit 0 (5 componentes); ruta DOWN probada y restaurada
+
+## 2026-08-25b — Ganador De Dinero (aragan) + subagente UI
+- Branch: feat/genesis-improvement-plan
+- Summary: UI pulida: BotCreatorView maneja 503 storage_not_durable con env vars listadas, 409 con navegacion a mis bots, sliders font-mono cyan, banner verde de exito. QuantBotView: seccion Mis Bots (chips par+estado desde GET /api/genesis/bots autenticado) + boton + Nuevo Bot hacia factory. Todo lo previo intacto.
+- Files touched: src/workflows/BotCreatorView.tsx, src/workflows/QuantBotView.tsx
+- Verification: typecheck 0 errores; build ok
+
+## 2026-08-25b — Ganador De Dinero (aragan) + subagente limpieza final
+- Branch: feat/genesis-improvement-plan
+- Summary: Limpieza final del frontend: eliminados alpha (AlphaValidationView, 0 fetches), agents-live (AgentExecutionView, decorado) y dashboard (GenesisDashboard desconectado; LiveBotActivity con feed real migrado a FundingBotView). Sidebar reorganizado sin grupos vacios: Workspace [hq terminal console factory] / Trading & Riesgo [markets quant-bot edge crypto funding-bot] / Plataforma [system settings wallet].
+- Files touched: src/App.tsx, src/core/data/moduleRegistry.ts, src/core/i18n/translations.ts, src/core/store/genesisStore.ts, src/ui/GenesisSidebar.tsx, src/workflows/AutoView.tsx, src/workflows/FundingBotView.tsx
+- Verification: typecheck 0 errores; build ok (46s)
+
+## 2026-08-25c — Ganador De Dinero (aragan) + subagente multi-usuario
+- Branch: feat/genesis-improvement-plan
+- Summary: RUNNER MULTI-USUARIO — flag --scan-users: descubre bots de usuarios en data/bots/<ownerHash>/<PAIR>_<TF>.json (regex estricta de ownerHash hex-16), ejecuta el MISMO ciclo validado por bot con aislamiento total (cada uno escribe solo en su directorio), throttler compartido fleet-wide, fail-safe (un bot fallido no aborta la flota), archivados se saltan. Fix del orquestador: branch --scan-users faltaba en main() (runScanUsers definida pero nunca invocada). Script cron actualizado: tus bots legacy + flota de usuarios.
+- Files touched: server/genesis/liveRunner.mjs, scripts genesis_live_runner.sh (perfil)
+- Verification: 2 fixtures testhash1/testhash2 procesados sin cruzar datos; modo legacy identico; self-tests protections/connectorCore intactos
+
+## 2026-08-25c — Ganador De Dinero (aragan)
+- Branch: feat/genesis-improvement-plan
+- Summary: Cierre de fase: trackeados archivos que faltaban en git (protections.mjs —modulo critico del runner—, store.test.mjs, tests del engine, planes). Auditoria externa 10 puntos: 7 PASS, hallazgos = protections sin trackear (fix este commit), 2 suites con SQLite-lock en paralelo, 66 placeholders vacios ensuciando exit code.
+- Files touched: server/genesis/protections.mjs, api/_lib/__tests__/store.test.mjs, server/genesis/__tests__/*, .hermes/plans/*
+- Verification: auditoria independiente confirmo 44/44 tests core pasando, typecheck/build/health/scan-users/secrets verdes
+
+## 2026-08-25d — Ganador De Dinero (aragan) + subagente backtest-protections
+- Branch: feat/genesis-improvement-plan
+- Summary: PROTECCIONES SIMULADAS EN EL BACKTESTER (estilo Freqtrade --enable-protections): runBacktest acepta config {stoplossStreak, cooldownCandles, maxDrawdownPct}; stoploss guard strippea senales tras racha perdedora (cooldown causal sin lookahead), drawdown lock permanente al superar 15%. metrics.protectionsActive + protectionEvents (entryBlocks, stoplossGuard, drawdownLock). evalCandidate flag CLI --protections default OFF compat. A/B verificado: SIN 529 trades PF 1.079 vs CON 527 trades PF 1.091 — las defensas mejoran marginalmente PF y cortan 2 trades; go:false en ambos (candidato sigue muerto honestamente).
+- Files touched: server/genesis/backtestCore.mjs, server/genesis/evalCandidate.mjs
+- Verification: node --check ok; lookahead tests 3/3 pasan; A/B ejecutado con resultados reales
+
+## 2026-08-25e — Ganador De Dinero (aragan) + subagente sentimiento
+- Branch: feat/genesis-improvement-plan
+- Summary: SENTIMENTENGINE (P6, cierra FinGPT) — vader-lite lexicon embebido (~179 terminos financieros con pesos -4..4, longest-match-first sin doble conteo), fuentes GDELT DOC + CryptoCompare + fallback RSS CoinDesk/Cointelegraph (parse XML minimo sin deps), dedupe por titulo normalizado, score agregado clamp -1..1, cache TTL 1h con escritura atomica, CLI legible. Fixes del orquestador: jget tolera mocks sin .ok, parsea XML por content-type; fetchRssHeadlines lanza si TODOS los feeds caen (para que el error honesto sea posible). 16 tests pasando.
+- Files touched: server/genesis/sentimentEngine.mjs (nuevo), server/genesis/__tests__/sentiment.test.mjs (nuevo)
+- Verification: vitest 16/16 sentiment; snapshot REAL BTC obtenido via RSS (40 menciones, score -0.091 NEUTRAL); suite completa 60+ tests verdes
+
+## 2026-08-26f — Ganador De Dinero (aragan) + subagente edge positioning
+- Branch: feat/genesis-improvement-plan
+- Summary: EDGE POSITIONING (estilo Freqtrade) añadido al backtester: parametro opcional edgePositioning {window, minMultiplier, maxMultiplier} que calcula win-rate rolling de las últimas N trades cerradas y ajusta el riesgo por trade (riskPct * multiplier). Por defecto window=20, min=0.5, max=2.0 → riesgo varía entre 50% y 200% del base. A/B verificado en COTIUSDT 1h volumeProfile: SIN edge avg trade size $200.31, CON edge avg trade size $305.16 (más agresivo cuando la racha ganadora sube). Métricas: PF baja ligeramente (1.088→1.069) pero expectancy por trade sube (0.270→0.326) → el mismo número de trades genera más beneficio medio cuando se apuesta más en rachas buenas.
+- Files touched: server/genesis/backtestCore.mjs, server/genesis/evalCandidate.mjs
+- Verification: node --check ok; lookahead tests 3/3 pasan; A/B ejecutado con resultados reales

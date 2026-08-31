@@ -109,6 +109,7 @@ export default function HQView() {
                     console.warn('[TileOffice] falling back to legacy office:', error.message);
                     setTileOfficeFailed(true);
                   }}
+                  onRoomClick={(room) => setRoomOpen(room)}
                 />
               )}
             </PixelOfficeViewport>

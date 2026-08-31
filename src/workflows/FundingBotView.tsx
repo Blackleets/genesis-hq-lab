@@ -21,6 +21,16 @@ export default function FundingBotView() {
           </p>
         </header>
 
+        {/* Honest verdict banner — measured result, not marketing */}
+        <div
+          className="rounded-md border px-4 py-3 text-[12px] font-semibold leading-snug"
+          style={{ borderColor: '#ff5d5d55', background: '#ff5d5d14', color: '#ffb4b4' }}
+        >
+          {es
+            ? '⚠ Veredicto honesto medido: Funding arbitrage es PERDEDOR post-fees (scanner 53 pares x 500 eventos, 2026-08). No poner dinero real.'
+            : '⚠ Honest measured verdict: funding arbitrage is a LOSER post-fees (scanner 53 pairs x 500 events, 2026-08). Do not fund with real money.'}
+        </div>
+
         {/* The live widget — REAL data, polls every 5s */}
         <LiveBotActivity />
 
@@ -40,8 +50,8 @@ export default function FundingBotView() {
               ? 'Protección anti-quemadura: delta-neutral + cierre si el drawdown >1.5%. Modo paper: $50 simulados, cero órdenes reales.'
               : 'Burn protection: delta-neutral + close if drawdown >1.5%. Paper mode: $50 simulated, zero real orders.'}</li>
             <li>• {es
-              ? 'Edge validado en datos reales: 20 pares pasan los gates (PF 2–7000). El scalping discreto y la microestructura NO tienen edge (0/240 probados).'
-              : 'Edge validated on real data: 20 pairs pass gates (PF 2–7000). Discrete scalping & microstructure have NO edge (0/240 tested).'}</li>
+              ? 'Veredicto honesto medido (2026-08): PERDEDOR post-fees. Scanner sobre 53 pares x 500 eventos de funding no recuperó los costos de spread+slippage+comisiones. El scalping discreto y la microestructura tampoco tienen edge (0/240 probados).'
+              : 'Honest measured verdict (2026-08): LOSER post-fees. Scanner over 53 pairs x 500 funding events did not recover spread+slippage+fees costs. Discrete scalping & microstructure have NO edge either (0/240 tested).'}</li>
             <li>• {es
               ? 'Para ganar dinero REAL: se requiere tu cuenta Binance Futures (retiro deshabilitado) + $50 cap + tu autorización. Hasta entonces, esto es entrenamiento.'
               : 'For REAL money: your Binance Futures account (withdraw disabled) + $50 cap + your GO. Until then, this is training.'}</li>

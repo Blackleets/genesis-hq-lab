@@ -10,31 +10,27 @@ import TopBar from '@ui/TopBar';
 import ToastContainer from '@ui/ToastContainer';
 import ModulePlaceholder from '@ui/ModulePlaceholder';
 import WalletView from '@ui/WalletView';
-import MarketingView from '@ui/MarketingView';
-import TechView from '@ui/TechView';
-import IntegrationsView from '@ui/IntegrationsView';
 import HQView from '@ui/views/HQView';
-import HRView from '@ui/views/HRView';
 import SettingsView from '@ui/views/SettingsView';
-import GenesisDashboard from '@dashboard/GenesisDashboard';
-import ProgressView from '@dashboard/ProgressView';
 import MarketsView from '@workflows/MarketsView';
 import CommandConsole from '@workflows/CommandConsole';
-import DecisionsView from '@workflows/DecisionsView';
-import AutoView from '@workflows/AutoView';
 import { CommandBarProvider, useCommandBar } from '@workflows/CommandBar';
-import AgentExecutionView from '@agents/AgentExecutionView';
-import AgentCreator from '@creator/AgentCreator';
 import EdgeScorecardView from '@workflows/EdgeScorecardView';
 import CryptoLabView from '@workflows/CryptoLabView';
 import SystemHealthView from '@ui/views/SystemHealthView';
-import OperatorTimelineView from '@workflows/OperatorTimelineView';
-import AlphaValidationView from '@workflows/AlphaValidationView';
 import LiveExecutionsView from '@workflows/LiveExecutionsView';
 import FundingBotView from '@workflows/FundingBotView';
+import QuantBotView from '@workflows/QuantBotView';
 import TerminalView from '@workflows/TerminalView';
-import PredictionMarketsLab from '@workflows/PredictionMarketsLab';
-import SolanaAlphaView from './features/solana-alpha/SolanaAlphaView';
+import BotCreatorView from '@workflows/BotCreatorView';
+// Disconnected theatrical views (visual-only, no real engine behind them).
+// Files kept on disk on purpose; do not re-import without wiring a real backend:
+//   MarketingView, TechView, IntegrationsView, HRView, ProgressView,
+//   AgentCreator, AutoView, OperatorTimelineView, PredictionMarketsLab,
+//   SolanaAlphaView, DecisionsView, GenesisDashboard, AgentExecutionView,
+//   AlphaValidationView.
+import WalletAuthProvider from '@core/auth/WalletAuthProvider';
+import ConnectWalletGate from '@ui/views/ConnectWalletGate';
 import { actions, useSelectedModule } from '@core/store/genesisStore';
 import { useLearningSync } from '@hooks/useLearningSync';
 import type { ModuleId } from '@core/data/moduleRegistry';
@@ -44,29 +40,17 @@ const TICK_MS = 5000;
 function ModuleRenderer({ module, setModule }: { module: ModuleId; setModule: (m: ModuleId) => void }) {
   switch (module) {
     case 'hq':            return <HQView />;
-    case 'dashboard':     return <GenesisDashboard onOpenHQ={() => setModule('hq')} />;
-    case 'hr':            return <HRView />;
     case 'markets':       return <MarketsView />;
-    case 'progress':      return <ProgressView />;
     case 'settings':      return <SettingsView />;
-    case 'factory':       return <AgentCreator />;
-    case 'decisions':     return <DecisionsView />;
-    case 'auto':          return <AutoView />;
+    case 'factory':       return <BotCreatorView />;
     case 'wallet':        return <WalletView />;
-    case 'marketing':     return <MarketingView />;
-    case 'tech':          return <TechView />;
     case 'console':       return <CommandConsole />;
-    case 'integrations':  return <IntegrationsView />;
-    case 'agents-live':   return <AgentExecutionView />;
     case 'edge':        return <EdgeScorecardView />;
     case 'crypto':        return <CryptoLabView />;
     case 'system':        return <SystemHealthView />;
-    case 'operator':      return <OperatorTimelineView />;
-    case 'alpha':         return <AlphaValidationView />;
-    case 'pred-markets':   return <PredictionMarketsLab />;
-    case 'solana-alpha':   return <SolanaAlphaView />;
     case 'live-exec':       return <LiveExecutionsView />;
     case 'funding-bot':     return <FundingBotView />;
+    case 'quant-bot':       return <QuantBotView />;
     case 'terminal':        return <TerminalView />;
     default:
       return <ModulePlaceholder module={module} onBack={() => setModule('hq')} />;
@@ -105,8 +89,12 @@ function AppShell() {
 
 export default function App() {
   return (
-    <CommandBarProvider>
-      <AppShell />
-    </CommandBarProvider>
+    <WalletAuthProvider>
+      <CommandBarProvider>
+        <ConnectWalletGate>
+          <AppShell />
+        </ConnectWalletGate>
+      </CommandBarProvider>
+    </WalletAuthProvider>
   );
 }
