@@ -48,10 +48,12 @@ async function pickUniverse(limit) {
     if (!(bid > 0) || !(ask > bid) || !(vol > 0)) continue;
     const instId = String(t.instId || '');
     if (!instId.endsWith('-USDT-SWAP')) continue;
-    scored.push({ instId, bid, ask, vol, spread: spreadBps(bid, ask) });
+    const mid = (bid + ask) / 2;
+    const notional = vol * mid; // volCcy24h is coin units; SATS/PEPE dominate otherwise
+    scored.push({ instId, bid, ask, vol, notional, spread: spreadBps(bid, ask) });
   }
-  scored.sort((a, b) => b.vol - a.vol);
-  const liquid = scored.filter((s) => s.vol >= MIN_VOL);
+  scored.sort((a, b) => b.notional - a.notional);
+  const liquid = scored.filter((s) => s.notional >= MIN_VOL);
   const pool = liquid.length >= limit ? liquid : scored;
   return pool.slice(0, limit);
 }
@@ -211,7 +213,7 @@ export default async function handler(req, res) {
       filled,
       rows: out,
       ledger: { start: PAPER_CAPITAL, ...(book.ledger || emptyLedger), liveOff: LIVE_OFF },
-      note: 'Top 40 OKX USDT-SWAP by 24h volume. QUOTE/CAPTURED is paper only. Not a 6-gate GO. No orders sent.',
+      note: 'Top 40 OKX USDT-SWAP by 24h USDT notional (volCcy24h × mid). QUOTE/CAPTURED is paper only. Not a 6-gate GO. No orders sent.',
       updatedAt: new Date().toISOString(),
     });
   } catch (e) {
