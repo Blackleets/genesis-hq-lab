@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { fetchCaptureReport, type CaptureReport } from '@services/captureClient';
 
-const BG = '#07090d';
-const BORDER = '#1c2430';
-
 const NAME: Record<string, string> = {
   XAU: 'Oro',
   CL: 'Petróleo',
@@ -74,101 +71,126 @@ export function CaptureDeskPanel({ es = true }: { es?: boolean }) {
   const fees = f?.feesUsdt ?? 0;
   const neto = cobrado + mercado - fees;
   const holds = f?.holds ?? [];
+  const paper = report?.paper ?? true;
+  const liveOff = report?.liveOff ?? true;
+  const go = report?.go ?? false;
 
   return (
-    <div style={{ background: BG, borderTop: `1px solid ${BORDER}` }} className="px-4 py-3">
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div>
-          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-            {es ? 'Qué está pasando' : 'Now'}
-          </div>
-          <div className="text-[15px] text-zinc-100 mt-1 leading-snug max-w-xl">
+    <div className="flex-1 min-h-0 flex flex-col bg-carbon-300 text-zinc-200">
+      <header className="shrink-0 h-11 border-b border-trim bg-[#07090d] flex items-center px-4 md:px-6 gap-3">
+        <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-zinc-100 shrink-0">
+          Génesis HQ
+        </span>
+        <span className="w-px h-3.5 bg-trim shrink-0" aria-hidden />
+        <span className="font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 border border-amber-500/40 text-amber-300">
+          {paper ? 'PAPER' : 'NOT-PAPER'}
+        </span>
+        <span className="font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 border border-zinc-700 text-zinc-500">
+          {liveOff ? 'LIVE OFF' : 'LIVE'}
+        </span>
+        <span className={`font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 border ${go ? 'border-emerald-500/40 text-emerald-300' : 'border-red-500/30 text-red-400'}`}>
+          {go ? 'GO' : 'GO NO'}
+        </span>
+        <span className="font-mono text-[9px] text-zinc-500">{report?.venue ?? 'OKX'}</span>
+        <span className="ml-auto">
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={busy}
+            className="gx-btn text-[9px] disabled:opacity-40"
+          >
+            {busy ? '…' : (es ? 'actualizar' : 'refresh')}
+          </button>
+        </span>
+      </header>
+
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 md:px-6 py-5">
+        <div className="mb-5">
+          <div className="gx-overline">{es ? 'Qué está pasando' : 'Now'}</div>
+          <p className="text-[15px] text-zinc-100 mt-1.5 leading-snug max-w-2xl">
             {es
-              ? 'Enfoque: el exchange nos paga por aguantar (funding). Paper. Live apagado. El spread no se cotiza.'
-              : 'Approach: collect funding. Paper. Live off. Spread desk quotes 0.'}
-          </div>
+              ? 'Enfoque: cobro del exchange por aguantar. El spread no se cotiza. Paper. Live apagado. No es un GO.'
+              : 'Approach: collect funding. Spread desk quotes 0. Paper. Live off.'}
+          </p>
         </div>
-        <button
-          type="button"
-          onClick={() => void load()}
-          disabled={busy}
-          className="font-mono text-[10px] uppercase tracking-wider px-2 py-1 border border-zinc-700 text-zinc-300 hover:bg-white/5 disabled:opacity-40"
-        >
-          {busy ? (es ? '…' : '…') : (es ? 'actualizar' : 'refresh')}
-        </button>
-      </div>
 
-      <div className="grid grid-cols-3 gap-2 mb-3">
-        {[
-          { label: es ? 'Cobrado' : 'Collected', value: cobrado, hint: es ? 'solo settles reales' : 'realized only' },
-          { label: es ? 'A mercado' : 'Mark', value: mercado, hint: es ? 'aún no es cobro' : 'unrealized' },
-          { label: es ? 'Fees' : 'Fees', value: -Math.abs(fees), hint: es ? 'ya pagados' : 'paid' },
-        ].map((c) => (
-          <div key={c.label} style={{ border: `1px solid ${BORDER}` }} className="px-3 py-2">
-            <div className="font-mono text-[9px] uppercase tracking-wider text-zinc-500">{c.label}</div>
-            <div className="font-mono text-[20px] tabular-nums mt-0.5" style={{ color: moneyColor(c.value) }}>
-              {fmtUsd(c.value)}
-            </div>
-            <div className="font-mono text-[9px] text-zinc-600">{c.hint}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="flex items-baseline gap-2 mb-3">
-        <span className="font-mono text-[9px] uppercase tracking-wider text-zinc-500">{es ? 'Neto paper' : 'Paper net'}</span>
-        <span className="font-mono text-[18px] tabular-nums" style={{ color: moneyColor(neto) }}>{fmtUsd(neto)}</span>
-        <span className="font-mono text-[9px] text-zinc-600">{es ? 'PAPER · live apagado · no es un GO' : 'PAPER · live off'}</span>
-      </div>
-
-      {err && (
-        <div className="mb-2 font-mono text-[11px] text-zinc-400">{es ? 'Desk en pausa' : 'Stood down'}: {err}</div>
-      )}
-
-      <div className="font-mono text-[9px] uppercase tracking-wider text-zinc-500 mb-1">
-        {es ? 'Posiciones paper' : 'Paper holds'}
-      </div>
-      {holds.length === 0 ? (
-        <div className="font-mono text-[12px] text-zinc-500 mb-3">
-          {es ? 'Aún no hay posición en cinta. No se inventa.' : 'No hold on tape. Nothing invented.'}
-        </div>
-      ) : (
-        <div className="grid gap-2 mb-3 sm:grid-cols-3">
-          {holds.map((h) => (
-            <div key={h.instId} style={{ border: `1px solid ${BORDER}` }} className="px-3 py-2">
-              <div className="text-[14px] text-zinc-100">
-                {instName(h.instId)} <span className="text-zinc-500">{sideEs(h.side)}</span>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
+          {[
+            { label: es ? 'Cobrado' : 'Collected', value: cobrado, hint: es ? 'solo settles reales' : 'realized only' },
+            { label: es ? 'A mercado' : 'Mark', value: mercado, hint: es ? 'aún no es cobro' : 'unrealized' },
+            { label: es ? 'Fees' : 'Fees', value: -Math.abs(fees), hint: es ? 'ya pagados' : 'paid' },
+          ].map((c) => (
+            <div key={c.label} className="gx-tile px-4 py-3">
+              <div className="gx-label">{c.label}</div>
+              <div className="gx-value text-[22px] mt-1" style={{ color: moneyColor(c.value) }}>
+                {fmtUsd(c.value)}
               </div>
-              <div className="font-mono text-[10px] text-zinc-500 mt-1">
-                {es ? 'próximo cobro' : 'next'} {parisWhen(h.nextFundingTime)}
-              </div>
-              <div className="font-mono text-[12px] tabular-nums mt-1" style={{ color: moneyColor(h.mtmUsdt || 0) }}>
-                {es ? 'a mercado' : 'mark'} {fmtUsd(h.mtmUsdt || 0)}
-              </div>
-              <div className="font-mono text-[11px] text-zinc-400">
-                {es ? 'cobrado' : 'collected'} {fmtUsd(h.realizedFundingUsdt || 0)}
-              </div>
+              <div className="font-mono text-[9px] text-zinc-600 mt-1">{c.hint}</div>
             </div>
           ))}
         </div>
-      )}
 
-      <button
-        type="button"
-        onClick={() => setDetalle((v) => !v)}
-        className="font-mono text-[10px] text-zinc-600 underline-offset-2 hover:text-zinc-400"
-      >
-        {detalle
-          ? (es ? 'ocultar mesa del spread' : 'hide spread desk')
-          : (es ? 'mesa del spread (no cotizamos)' : 'spread desk (quoting 0)')}
-      </button>
-
-      {detalle && (
-        <div className="mt-2 font-mono text-[11px] text-zinc-500">
-          {es
-            ? `Scan ${report?.scanned ?? 0} · cotizo ${report?.quoted ?? 0} · fills ${report?.filled ?? 0}. El libro no cubre fees. Por eso el enfoque es funding, no spread.`
-            : `Scan ${report?.scanned ?? 0} · quote ${report?.quoted ?? 0} · fills ${report?.filled ?? 0}.`}
+        <div className="flex items-baseline gap-3 mb-6">
+          <span className="gx-label">{es ? 'Neto paper' : 'Paper net'}</span>
+          <span className="gx-value text-[18px]" style={{ color: moneyColor(neto) }}>{fmtUsd(neto)}</span>
+          <span className="font-mono text-[9px] text-zinc-600">
+            {es ? 'PAPER · live apagado · no es un GO' : 'PAPER · live off'}
+          </span>
         </div>
-      )}
+
+        {err && (
+          <div className="mb-4 font-mono text-[11px] text-zinc-400">
+            {es ? 'Desk en pausa' : 'Stood down'}: {err}
+          </div>
+        )}
+
+        <div className="gx-overline mb-2">
+          {es ? 'Posiciones paper' : 'Paper holds'}
+          {holds.length ? ` · ${holds.length}` : ''}
+        </div>
+        {holds.length === 0 ? (
+          <div className="gx-card px-4 py-6 font-mono text-[12px] text-zinc-500 mb-6">
+            {es ? 'Aún no hay posición en cinta. No se inventa.' : 'No hold on tape. Nothing invented.'}
+          </div>
+        ) : (
+          <div className="grid gap-2 mb-6 sm:grid-cols-3">
+            {holds.map((h) => (
+              <article key={h.instId} className="gx-card px-4 py-3">
+                <div className="text-[15px] text-zinc-100">
+                  {instName(h.instId)}{' '}
+                  <span className="text-zinc-500">{sideEs(h.side)}</span>
+                </div>
+                <div className="font-mono text-[10px] text-zinc-500 mt-2">
+                  {es ? 'próximo cobro' : 'next'} {parisWhen(h.nextFundingTime)}
+                </div>
+                <div className="gx-value text-[13px] mt-2" style={{ color: moneyColor(h.mtmUsdt || 0) }}>
+                  {es ? 'a mercado' : 'mark'} {fmtUsd(h.mtmUsdt || 0)}
+                </div>
+                <div className="font-mono text-[11px] text-zinc-400 mt-0.5">
+                  {es ? 'cobrado' : 'collected'} {fmtUsd(h.realizedFundingUsdt || 0)}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setDetalle((v) => !v)}
+          className="font-mono text-[10px] text-zinc-600 hover:text-zinc-400"
+        >
+          {detalle
+            ? (es ? 'ocultar mesa del spread' : 'hide spread desk')
+            : (es ? 'mesa del spread (no cotizamos)' : 'spread desk (quoting 0)')}
+        </button>
+        {detalle && (
+          <div className="mt-2 font-mono text-[11px] text-zinc-500">
+            {es
+              ? `Scan ${report?.scanned ?? 0} · cotizo ${report?.quoted ?? 0} · fills ${report?.filled ?? 0}. El libro no cubre fees.`
+              : `Scan ${report?.scanned ?? 0} · quote ${report?.quoted ?? 0} · fills ${report?.filled ?? 0}.`}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
