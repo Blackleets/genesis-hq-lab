@@ -53,6 +53,7 @@ export interface CaptureReport {
     liveOff: boolean;
     go: boolean;
   } | null;
+  intersection?: { liquid: number; hGe: number; band: number; both: number };
   hz1?: {
     ts: string | null;
     preQuote: number;

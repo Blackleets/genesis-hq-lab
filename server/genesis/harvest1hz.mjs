@@ -15,6 +15,7 @@ import { scoreTapeAndBook, LIVE_OFF } from './captureCore.mjs';
 import { replayCapture } from './captureEngine.mjs';
 import { harvestScore } from './math/harvest.mjs';
 import { tickerRows, OKX, MIN_NOTIONAL } from './captureUniverse.mjs';
+import { selectScore, intersection, preH, MIN_EDGE_BPS } from './math/select.mjs';
 
 const MAKER = 0.0002;
 const TICK_MS = 1000;
@@ -85,22 +86,16 @@ async function loadName(instId) {
 function prefilter(rows, now) {
   const out = [];
   for (const s of rows) {
-    if (!(s.notional >= MIN_NOTIONAL)) continue;
-    const h = harvestScore({
-      spreadBps: s.spread,
-      makerFeePct: MAKER,
-      asBps: 0,
-      vpin: 0,
-    });
-    s.preH = Number.isFinite(h.harvestBps) ? h.harvestBps : null;
-    s.preQuote = !!h.quote;
-    s.preReason = h.reason;
-    if (!h.quote) continue;
+    const score = selectScore(s);
+    s.preH = preH(s.spread);
+    s.select = score;
+    s.preQuote = s.preH >= MIN_EDGE_BPS;
+    if (!Number.isFinite(score)) continue;
     const prev = lastFull.get(s.instId) || 0;
     if (now - prev < SCORE_COOLDOWN_MS) continue;
     out.push(s);
   }
-  out.sort((a, b) => (b.preH || -Infinity) - (a.preH || -Infinity));
+  out.sort((a, b) => b.select - a.select);
   return out.slice(0, MAX_FULL_PER_TICK);
 }
 
@@ -117,6 +112,7 @@ function trimJsonl(path) {
 async function tick() {
   const t0 = Date.now();
   const all = await fetchTickers();
+  const inter = intersection(all);
   const cand = prefilter(all, t0);
   const scored = [];
   for (const s of cand) {
@@ -187,10 +183,7 @@ async function tick() {
   const reasons = {};
   for (const r of scored) reasons[r.reason] = (reasons[r.reason] || 0) + 1;
   const quoted = scored.filter((r) => r.quote);
-  const preN = all.filter((s) => {
-    const h = harvestScore({ spreadBps: s.spread, makerFeePct: MAKER, asBps: 0, vpin: 0 });
-    return h.quote && s.notional >= MIN_NOTIONAL;
-  }).length;
+  const preN = inter.hGe;
   const snap = {
     ts: new Date().toISOString(),
     liveOff: LIVE_OFF,
@@ -207,7 +200,8 @@ async function tick() {
     reasons,
     ms: Date.now() - t0,
     scored,
-    formula: 'H=spread*0.35-4bps; Kalman+VPIN+GLFT; last-in-queue paper fills. not a GO.',
+    intersection: inter,
+    formula: 'H=spread*0.35-4bps; width is a toxicity prior. Kalman+VPIN+GLFT. not a GO.',
   };
   mkdirSync(dirname(OUT), { recursive: true });
   mkdirSync(dirname(JSONL), { recursive: true });

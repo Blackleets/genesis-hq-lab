@@ -10,7 +10,7 @@ import {
 } from '../../server/genesis/captureEngine.mjs';
 import { scoreTapeAndBook, LIVE_OFF } from '../../server/genesis/captureCore.mjs';
 import { loadDeny } from '../../server/genesis/captureDeny.mjs';
-import { pickUniverse as pickOkxUniverse } from '../../server/genesis/captureUniverse.mjs';
+import { pickUniverse as pickOkxUniverse, lastIntersection } from '../../server/genesis/captureUniverse.mjs';
 
 const OKX = 'https://www.okx.com';
 const MAKER = 0.0002; // OKX SWAP listed maker, not a fitted edge
@@ -249,7 +249,8 @@ export default async function handler(req, res) {
       ledger: { start: PAPER_CAPITAL, ...(book.ledger || emptyLedger), liveOff: LIVE_OFF },
       tape,
       hz1,
-      note: 'Maker sleeve: notional ≥ $1M and spread ≥ 5 bps, then watch majors. QUOTE is paper only. Not a 6-gate GO. tape = last 24/7 harvest, not a fill. No orders sent.',
+      intersection: lastIntersection(),
+      note: 'H=spread*0.35-4bps. Width is a Glosten-Milgrom toxicity prior. Intersection H>0 ∩ band 2-12bps often empty → quote 0. Paper. Not a GO.',
       updatedAt: new Date().toISOString(),
     });
   } catch (e) {

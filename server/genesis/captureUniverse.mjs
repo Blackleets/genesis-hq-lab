@@ -1,11 +1,16 @@
-// Shared OKX universe for Vercel API + harvest worker.
-// Rank by USDT notional (volCcy24h × mid). Maker sleeve: notional floor +
-// spread wide enough that a maker quote is not an instant cross of ETH/BTC.
-// Never invents a name. Empty tape → empty list.
+// Shared OKX universe. Rank by Glosten–Milgrom select (width = toxicity prior),
+// not by widest spread. Never invents a name. Empty tape → empty list.
+
+import { selectScore, intersection as makerIntersection } from './math/select.mjs';
 
 export const OKX = 'https://www.okx.com';
 export const MIN_NOTIONAL = 1_000_000;
 export const MIN_MAKER_SPREAD_BPS = 5;
+
+let LAST_INTERSECTION = { liquid: 0, hGe: 0, band: 0, both: 0 };
+export function lastIntersection() {
+  return LAST_INTERSECTION;
+}
 
 export function spreadBps(bid, ask) {
   const mid = (bid + ask) / 2;
@@ -39,19 +44,16 @@ export function tickerRows(data) {
   return out;
 }
 
-/**
- * Maker-first: liquid names with spread >= MIN_MAKER_SPREAD_BPS.
- * Fill remaining slots with top notional (ETH/BTC watch) so the blotter
- * still shows why those books refuse a maker quote. Unique instId.
- */
 export function pickUniverseFromTickers(data, limit = 40) {
   const all = tickerRows(data);
-  const maker = all.filter(
-    (s) => s.notional >= MIN_NOTIONAL && s.spread >= MIN_MAKER_SPREAD_BPS,
-  );
+  LAST_INTERSECTION = makerIntersection(all);
+  const ranked = all
+    .map((s) => ({ ...s, select: selectScore(s) }))
+    .filter((s) => Number.isFinite(s.select))
+    .sort((a, b) => b.select - a.select);
   const seen = new Set();
   const out = [];
-  for (const s of maker) {
+  for (const s of ranked) {
     if (out.length >= limit) break;
     seen.add(s.instId);
     out.push({ ...s, sleeve: 'maker' });

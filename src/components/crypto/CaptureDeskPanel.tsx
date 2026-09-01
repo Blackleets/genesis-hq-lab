@@ -101,8 +101,13 @@ export function CaptureDeskPanel({ es = true }: { es?: boolean }) {
           {es ? (
             <div className="font-mono text-[10px] text-zinc-500 mt-1 leading-tight space-y-0.5">
               <div>Tóxico → no cotizo. Me pickean → paro. Precio justo = Kalman, no el último tick.</div>
-              <div>ETH/BTC a 0.0x bps cruzaría. Sleeve maker: nocional ≥ $1M y spread ≥ 5 bps.</div>
+              <div>H = spread×0.35 − 4 bps. Spread ancho = prior tóxico (Glosten–Milgrom), no edge.</div>
               <div>PAPER · LIVE_OFF · esto no abre live ni es un GO de 6 gates.</div>
+              {report?.intersection ? (
+                <div>
+                  intersección H&gt;0 ∩ banda 2–12 bps = {report.intersection.both} (líquidos {report.intersection.liquid}, H {report.intersection.hGe}, banda {report.intersection.band}). Si es 0, no cotizo.
+                </div>
+              ) : null}
               {report?.tape?.ts ? (
                 <div>
                   cinta 24/7 {report.tape.ts.slice(11, 16)} UTC · quote {report.tape.quoted}
