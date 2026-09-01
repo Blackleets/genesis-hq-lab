@@ -9,6 +9,7 @@ const WHY_ES: Record<string, string> = {
   H_LE_EDGE: 'Spread no cubre fees + toxicidad',
   WOULD_CROSS: 'Cruzaría el libro. No soy taker.',
   SHORT_TAPE: 'Cinta corta',
+  TAPE_PENDING: 'Este tick no cargó libro. No invento fair.',
   DEAD_BOOK: 'Libro muerto',
   MARKOUT_HALT: 'Me pickearon. Paro.',
   DENY_NEG_PNL: 'Ya perdió paper. Cooldown.',
@@ -56,7 +57,7 @@ export function CaptureDeskPanel({ es = true }: { es?: boolean }) {
     setBusy(true);
     setErr(null);
     try {
-      const r = await fetchCaptureReport(6);
+      const r = await fetchCaptureReport(40);
       setReport(r);
       if (!r.ok && r.error) setErr(r.error);
     } catch (e) {
@@ -95,6 +96,7 @@ export function CaptureDeskPanel({ es = true }: { es?: boolean }) {
               {go ? 'GO' : 'GO NO'}
             </span>
             <span className="font-mono text-[9px] text-zinc-600">{report?.venue ?? 'okx'}</span>
+            <span className="font-mono text-[9px] text-zinc-600">New Bot · harvest paper · no live</span>
           </div>
           {es ? (
             <div className="font-mono text-[10px] text-zinc-500 mt-1 leading-tight space-y-0.5">

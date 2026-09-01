@@ -1,7 +1,8 @@
 // api/genesis/capture.js — public OKX tape → paper Capture Desk (score + replay).
 // Never sends an order. Never flips REAL_TRADING. LIVE_OFF is frozen true.
-// No session: same public-market posture as /api/crypto/executions.
-// If OKX is down or H does not clear, we return honest zeros — never a fake fill.
+// Universe = top N USDT-SWAP by 24h volume, NOT widest spread (spread-sort
+// was feeding toxic junk: PURR / VPIN_HALT). Full Kalman score per name;
+// if a book fetch dies, that row is TAPE_PENDING — never a fake fill.
 import { sendJson, sendMethodNotAllowed } from '../_lib/http.js';
 import {
   replayUniverse,
@@ -12,9 +13,11 @@ import { loadDeny } from '../../server/genesis/captureDeny.mjs';
 
 const OKX = 'https://www.okx.com';
 const MAKER = 0.0002; // OKX SWAP listed maker, not a fitted edge
-const DEFAULT_LIMIT = 6;
-const MAX_LIMIT = 10;
+const DEFAULT_LIMIT = 40;
+const MAX_LIMIT = 40;
 const TRADE_LIMIT = 80;
+const CONC = 8;
+const MIN_VOL = 50_000;
 
 function clampLimit(n) {
   const x = Number.parseInt(String(n ?? DEFAULT_LIMIT), 10);
@@ -22,7 +25,7 @@ function clampLimit(n) {
   return Math.min(MAX_LIMIT, x);
 }
 
-async function fetchJson(url, ms = 8000) {
+async function fetchJson(url, ms = 7000) {
   const r = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(ms) });
   if (!r.ok) throw new Error(`HTTP ${r.status} ${url}`);
   return r.json();
@@ -47,9 +50,8 @@ async function pickUniverse(limit) {
     if (!instId.endsWith('-USDT-SWAP')) continue;
     scored.push({ instId, bid, ask, vol, spread: spreadBps(bid, ask) });
   }
-  scored.sort((a, b) => b.spread - a.spread);
-  // Prefer names with real 24h notional so the tape is not empty.
-  const liquid = scored.filter((s) => s.vol >= 50_000);
+  scored.sort((a, b) => b.vol - a.vol);
+  const liquid = scored.filter((s) => s.vol >= MIN_VOL);
   const pool = liquid.length >= limit ? liquid : scored;
   return pool.slice(0, limit);
 }
@@ -65,8 +67,8 @@ function mapTrades(data) {
 
 async function loadName(instId) {
   const [bookJ, tradeJ] = await Promise.all([
-    fetchJson(`${OKX}/api/v5/market/books?instId=${encodeURIComponent(instId)}&sz=5`, 8000),
-    fetchJson(`${OKX}/api/v5/market/trades?instId=${encodeURIComponent(instId)}&limit=${TRADE_LIMIT}`, 8000),
+    fetchJson(`${OKX}/api/v5/market/books?instId=${encodeURIComponent(instId)}&sz=5`, 7000),
+    fetchJson(`${OKX}/api/v5/market/trades?instId=${encodeURIComponent(instId)}&limit=${TRADE_LIMIT}`, 7000),
   ]);
   const book = bookJ.data && bookJ.data[0];
   const bidRow = book && book.bids && book.bids[0];
@@ -89,6 +91,41 @@ async function loadName(instId) {
   return name;
 }
 
+async function poolMap(items, n, fn) {
+  const out = new Array(items.length);
+  let i = 0;
+  async function worker() {
+    while (i < items.length) {
+      const idx = i++;
+      try {
+        out[idx] = await fn(items[idx], idx);
+      } catch {
+        out[idx] = null;
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, worker));
+  return out;
+}
+
+function pendingRow(u) {
+  return {
+    symbol: u.instId,
+    quote: false,
+    reason: 'TAPE_PENDING',
+    harvestBps: Number.NEGATIVE_INFINITY,
+    spreadBps: u.spread,
+    feeBps: 0,
+    asBps: 0,
+    vpin: 0,
+    netPnl: 0,
+    fillCount: 0,
+    captureReason: 'TAPE_PENDING',
+    tapeLen: 0,
+    mid: (u.bid + u.ask) / 2,
+  };
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') return sendMethodNotAllowed(res);
   const url = new URL(req.url, `http://${req.headers.host}`);
@@ -100,12 +137,16 @@ export default async function handler(req, res) {
   };
   try {
     const uni = await pickUniverse(limit);
-    const loaded = await Promise.all(uni.map((u) => loadName(u.instId).catch(() => null)));
-    // Read-only deny skip. Serverless must not persist the map.
+    const loaded = await poolMap(uni, CONC, (u) => loadName(u.instId));
     const denyMap = loadDeny();
-    const rows = [];
-    for (const name of loaded) {
-      if (!name) continue;
+    const scored = [];
+    const byIndex = new Array(uni.length);
+    for (let i = 0; i < uni.length; i++) {
+      const name = loaded[i];
+      if (!name) {
+        byIndex[i] = pendingRow(uni[i]);
+        continue;
+      }
       const scoreOpts = {
         symbol: name.symbol,
         bid: name.bid,
@@ -122,11 +163,13 @@ export default async function handler(req, res) {
       row.tape = name.trades;
       if (name.bidSz > 0) row.bidSz = name.bidSz;
       if (name.askSz > 0) row.askSz = name.askSz;
-      rows.push(row);
+      scored.push(row);
+      byIndex[i] = row;
     }
-    const book = replayUniverse(rows, { denyMap });
+    const book = replayUniverse(scored, { denyMap });
     const bySym = new Map((book.sessions || []).map((s) => [s.symbol, s]));
-    const out = rows.map((r) => {
+    const out = byIndex.map((r, i) => {
+      if (!r || r.reason === 'TAPE_PENDING') return r || pendingRow(uni[i]);
       const s = bySym.get(r.symbol);
       const tape = r.tape;
       delete r.tape;
@@ -152,6 +195,7 @@ export default async function handler(req, res) {
     });
     const quoted = out.filter((r) => r.quote).length;
     const filled = out.filter((r) => r.fillCount > 0).length;
+    const pending = out.filter((r) => r.reason === 'TAPE_PENDING').length;
     return sendJson(res, 200, {
       ok: true,
       liveOff: LIVE_OFF,
@@ -161,11 +205,13 @@ export default async function handler(req, res) {
       makerFeePct: MAKER,
       capital: PAPER_CAPITAL,
       scanned: out.length,
+      scored: scored.length,
+      pending,
       quoted,
       filled,
       rows: out,
       ledger: { start: PAPER_CAPITAL, ...(book.ledger || emptyLedger), liveOff: LIVE_OFF },
-      note: 'QUOTE/CAPTURED is paper only. Not a 6-gate GO. No orders sent.',
+      note: 'Top 40 OKX USDT-SWAP by 24h volume. QUOTE/CAPTURED is paper only. Not a 6-gate GO. No orders sent.',
       updatedAt: new Date().toISOString(),
     });
   } catch (e) {
