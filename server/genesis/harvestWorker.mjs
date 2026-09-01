@@ -17,8 +17,8 @@ function arg(name, fallback) {
   return fallback;
 }
 
-const OUT = arg('--out', 'data/capture-latest.json');
-const JSONL = arg('--jsonl', 'data/capture.jsonl');
+const OUT = arg('--out', 'paper-tape/capture-latest.json');
+const JSONL = arg('--jsonl', 'paper-tape/capture.jsonl');
 const once = process.argv.includes('--once');
 
 async function fetchJson(url, ms = 7000) {
