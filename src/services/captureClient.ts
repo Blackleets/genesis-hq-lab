@@ -36,6 +36,8 @@ export interface CaptureReport {
   scanned: number;
   quoted: number;
   filled: number;
+  pending?: number;
+  scored?: number;
   rows: CaptureRow[];
   ledger: CaptureLedger;
   note?: string;
@@ -43,7 +45,7 @@ export interface CaptureReport {
   updatedAt: string;
 }
 
-export async function fetchCaptureReport(limit = 6): Promise<CaptureReport> {
+export async function fetchCaptureReport(limit = 40): Promise<CaptureReport> {
   const res = await fetchApi(apiUrl(`/api/genesis/capture?limit=${limit}`));
   if (!res.ok) throw new Error(`genesis/capture ${res.status}`);
   return res.json() as Promise<CaptureReport>;
