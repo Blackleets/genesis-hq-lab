@@ -12,6 +12,7 @@
 import { mkdirSync, writeFileSync, appendFileSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { scoreTapeAndBook, LIVE_OFF } from './captureCore.mjs';
+import { replayCapture } from './captureEngine.mjs';
 import { harvestScore } from './math/harvest.mjs';
 import { tickerRows, OKX, MIN_NOTIONAL } from './captureUniverse.mjs';
 
@@ -144,6 +145,23 @@ async function tick() {
         opts.askSz = name.askSz;
       }
       const row = scoreTapeAndBook(opts);
+      let fillCount = 0;
+      let netPnl = 0;
+      let captureReason = row.reason;
+      if (row.quote) {
+        const session = replayCapture({
+          symbol: name.symbol,
+          bid: name.bid,
+          ask: name.ask,
+          bidSz: name.bidSz,
+          askSz: name.askSz,
+          trades: name.trades,
+          makerFeePct: MAKER,
+        });
+        fillCount = session.fills ? session.fills.length : 0;
+        netPnl = Number.isFinite(session.netPnl) ? session.netPnl : 0;
+        captureReason = session.reason || row.reason;
+      }
       scored.push({
         symbol: row.symbol,
         preH: s.preH,
@@ -152,6 +170,9 @@ async function tick() {
         reason: row.reason,
         harvestBps: Number.isFinite(row.harvestBps) ? +row.harvestBps.toFixed(4) : null,
         vpin: Number.isFinite(row.vpin) ? +row.vpin.toFixed(4) : null,
+        fillCount,
+        netPnl,
+        captureReason,
       });
     } catch {
       scored.push({
@@ -181,10 +202,12 @@ async function tick() {
     full: scored.length,
     quoted: quoted.length,
     quotedNames: quoted.map((r) => r.symbol),
+    filled: scored.filter((r) => r.fillCount > 0).length,
+    paperPnl: scored.reduce((a, r) => a + (Number.isFinite(r.netPnl) ? r.netPnl : 0), 0),
     reasons,
     ms: Date.now() - t0,
     scored,
-    formula: 'H=spread*0.35-4bps; then Kalman+VPIN+GLFT. not a GO.',
+    formula: 'H=spread*0.35-4bps; Kalman+VPIN+GLFT; last-in-queue paper fills. not a GO.',
   };
   mkdirSync(dirname(OUT), { recursive: true });
   mkdirSync(dirname(JSONL), { recursive: true });
@@ -197,6 +220,8 @@ async function tick() {
       full: snap.full,
       quoted: snap.quoted,
       quotedNames: snap.quotedNames,
+      filled: snap.filled,
+      paperPnl: snap.paperPnl,
       reasons: snap.reasons,
     }) + '\n',
   );

@@ -112,6 +112,13 @@ export function CaptureDeskPanel({ es = true }: { es?: boolean }) {
               ) : (
                 <div>cinta 24/7 aún no llega. no se inventa.</div>
               )}
+              {report?.hz1?.ts ? (
+                <div>
+                  1Hz {report.hz1.ts.slice(11, 16)} UTC · preH {report.hz1.preQuote} · quote {report.hz1.quoted} · fills {report.hz1.filled}
+                  {report.hz1.quotedNames.length ? ` · ${report.hz1.quotedNames.map((s) => s.replace('-USDT-SWAP', '')).join(' ')}` : ''}
+                  {' '}paper {report.hz1.paperPnl.toFixed(2)} USDT (no live)
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="font-mono text-[10px] text-zinc-500 mt-0.5">

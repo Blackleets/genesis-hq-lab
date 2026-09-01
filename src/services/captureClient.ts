@@ -53,6 +53,17 @@ export interface CaptureReport {
     liveOff: boolean;
     go: boolean;
   } | null;
+  hz1?: {
+    ts: string | null;
+    preQuote: number;
+    quoted: number;
+    filled: number;
+    paperPnl: number;
+    quotedNames: string[];
+    reasons: Record<string, number>;
+    liveOff: boolean;
+    go: boolean;
+  } | null;
 }
 
 export async function fetchCaptureReport(limit = 40): Promise<CaptureReport> {
