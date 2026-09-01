@@ -21,6 +21,31 @@ const CONC = 8;
 
 
 const TAPE_URL = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/capture-tape/paper-tape/capture-latest.json';
+const HZ1_URL = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/capture-tape/paper-tape/hz1-latest.json';
+
+
+async function loadHz1() {
+  try {
+    const r = await fetch(HZ1_URL, { cache: 'no-store', signal: AbortSignal.timeout(2500) });
+    if (!r.ok) return null;
+    const j = await r.json();
+    if (!j || j.paper !== true) return null;
+    const names = Array.isArray(j.quotedNames) ? j.quotedNames.filter((s) => typeof s === 'string').slice(0, 8) : [];
+    return {
+      ts: j.ts || null,
+      preQuote: Number.isFinite(+j.preQuote) ? +j.preQuote : 0,
+      quoted: Number.isFinite(+j.quoted) ? +j.quoted : 0,
+      filled: Number.isFinite(+j.filled) ? +j.filled : 0,
+      paperPnl: Number.isFinite(+j.paperPnl) ? +j.paperPnl : 0,
+      quotedNames: names,
+      reasons: j.reasons && typeof j.reasons === 'object' ? j.reasons : {},
+      liveOff: true,
+      go: false,
+    };
+  } catch {
+    return null;
+  }
+}
 
 async function loadTape() {
   try {
@@ -146,7 +171,7 @@ export default async function handler(req, res) {
     liveOff: LIVE_OFF,
   };
   try {
-    const [uni, tape] = await Promise.all([pickUniverse(limit), loadTape()]);
+    const [uni, tape, hz1] = await Promise.all([pickUniverse(limit), loadTape(), loadHz1()]);
     const loaded = await poolMap(uni, CONC, (u) => loadName(u.instId));
     const denyMap = loadDeny();
     const scored = [];
@@ -223,6 +248,7 @@ export default async function handler(req, res) {
       rows: out,
       ledger: { start: PAPER_CAPITAL, ...(book.ledger || emptyLedger), liveOff: LIVE_OFF },
       tape,
+      hz1,
       note: 'Maker sleeve: notional ≥ $1M and spread ≥ 5 bps, then watch majors. QUOTE is paper only. Not a 6-gate GO. tape = last 24/7 harvest, not a fill. No orders sent.',
       updatedAt: new Date().toISOString(),
     });
