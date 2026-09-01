@@ -100,14 +100,16 @@ export function CaptureDeskPanel({ es = true }: { es?: boolean }) {
           </div>
           {es ? (
             <div className="font-mono text-[10px] text-zinc-500 mt-1 leading-tight space-y-0.5">
-              <div>Tóxico → no cotizo. Me pickean → paro. Precio justo = Kalman, no el último tick.</div>
-              <div>H = spread×0.35 − 4 bps. Spread ancho = prior tóxico (Glosten–Milgrom), no edge.</div>
-              <div>PAPER · LIVE_OFF · esto no abre live ni es un GO de 6 gates.</div>
-              {report?.intersection ? (
+              <div>En cristiano: el spread no nos está pagando. Paper. Live apagado. No es un GO.</div>
+              {report?.funding ? (
                 <div>
-                  intersección H&gt;0 ∩ banda 2–12 bps = {report.intersection.both} (líquidos {report.intersection.liquid}, H {report.intersection.hGe}, banda {report.intersection.band}). Si es 0, no cotizo.
+                  Cobro del exchange (funding): {report.funding.holds.length ? report.funding.holds.map((h) => `${String(h.instId || '').replace('-USDT-SWAP', '')} ${h.side}`).join(', ') : 'aún sin hold'}.
+                  {' '}Cobrado {report.funding.realizedFundingUsdt.toFixed(2)} USDT en {report.funding.settledCount} settles.
+                  {' '}A mercado {report.funding.mtmUsdt.toFixed(2)}. Fees {report.funding.feesUsdt.toFixed(2)}.
                 </div>
-              ) : null}
+              ) : (
+                <div>Paper funding aún no llega. No se inventa un cobro.</div>
+              )}
               {report?.tape?.ts ? (
                 <div>
                   cinta 24/7 {report.tape.ts.slice(11, 16)} UTC · quote {report.tape.quoted}

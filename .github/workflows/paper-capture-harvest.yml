@@ -24,13 +24,15 @@ jobs:
         run: node server/genesis/harvestWorker.mjs --once --out tape/paper-tape/capture-latest.json --jsonl tape/paper-tape/capture.jsonl
       - name: run 1Hz paper tick
         run: node server/genesis/harvest1hz.mjs --once --out tape/paper-tape/hz1-latest.json --jsonl tape/paper-tape/hz1.jsonl
+      - name: run paper funding hold
+        run: node server/genesis/fundingHold.mjs --once --state tape/paper-tape/funding-latest.json
       - name: publish tape
         working-directory: tape
         run: |
           git config user.name "genesis-capture"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mkdir -p paper-tape
-          git add -f paper-tape/capture-latest.json paper-tape/capture.jsonl paper-tape/hz1-latest.json paper-tape/hz1.jsonl
+          git add -f paper-tape/capture-latest.json paper-tape/capture.jsonl paper-tape/hz1-latest.json paper-tape/hz1.jsonl paper-tape/funding-latest.json
           if git diff --staged --quiet; then
             echo "no change"
             exit 0

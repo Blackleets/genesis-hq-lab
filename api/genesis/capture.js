@@ -22,6 +22,7 @@ const CONC = 8;
 
 const TAPE_URL = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/capture-tape/paper-tape/capture-latest.json';
 const HZ1_URL = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/capture-tape/paper-tape/hz1-latest.json';
+const FUNDING_URL = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/capture-tape/paper-tape/funding-latest.json';
 
 
 async function loadHz1() {
@@ -41,6 +42,38 @@ async function loadHz1() {
       reasons: j.reasons && typeof j.reasons === 'object' ? j.reasons : {},
       liveOff: true,
       go: false,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function loadFunding() {
+  try {
+    const r = await fetch(FUNDING_URL, { cache: 'no-store', signal: AbortSignal.timeout(2500) });
+    if (!r.ok) return null;
+    const j = await r.json();
+    if (!j || j.paper !== true) return null;
+    const holds = Array.isArray(j.holds) ? j.holds.slice(0, 8).map((h) => ({
+      instId: h.instId,
+      side: h.side,
+      predictedBps: h.predictedBps,
+      lastRealizedBps: h.lastRealizedBps,
+      nextFundingTime: h.nextFundingTime,
+      realizedFundingUsdt: h.realizedFundingUsdt,
+      mtmUsdt: h.mtmUsdt,
+      halt: !!h.halt,
+    })) : [];
+    return {
+      ts: j.ts || null,
+      settledCount: Number.isFinite(+j.settledCount) ? +j.settledCount : 0,
+      realizedFundingUsdt: Number.isFinite(+j.realizedFundingUsdt) ? +j.realizedFundingUsdt : 0,
+      mtmUsdt: Number.isFinite(+j.mtmUsdt) ? +j.mtmUsdt : 0,
+      feesUsdt: Number.isFinite(+j.feesUsdt) ? +j.feesUsdt : 0,
+      holds,
+      liveOff: true,
+      go: false,
+      note: typeof j.note === 'string' ? j.note : null,
     };
   } catch {
     return null;
@@ -171,7 +204,7 @@ export default async function handler(req, res) {
     liveOff: LIVE_OFF,
   };
   try {
-    const [uni, tape, hz1] = await Promise.all([pickUniverse(limit), loadTape(), loadHz1()]);
+    const [uni, tape, hz1, funding] = await Promise.all([pickUniverse(limit), loadTape(), loadHz1(), loadFunding()]);
     const loaded = await poolMap(uni, CONC, (u) => loadName(u.instId));
     const denyMap = loadDeny();
     const scored = [];
@@ -249,8 +282,9 @@ export default async function handler(req, res) {
       ledger: { start: PAPER_CAPITAL, ...(book.ledger || emptyLedger), liveOff: LIVE_OFF },
       tape,
       hz1,
+      funding,
       intersection: lastIntersection(),
-      note: 'H=spread*0.35-4bps. Width is a Glosten-Milgrom toxicity prior. Intersection H>0 ∩ band 2-12bps often empty → quote 0. Paper. Not a GO.',
+      note: 'En cristiano: el spread no paga. Paper funding hold (cobro del exchange). Live off. No es un GO.',
       updatedAt: new Date().toISOString(),
     });
   } catch (e) {

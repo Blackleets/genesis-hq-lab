@@ -54,6 +54,17 @@ export interface CaptureReport {
     go: boolean;
   } | null;
   intersection?: { liquid: number; hGe: number; band: number; both: number };
+  funding?: {
+    ts: string | null;
+    settledCount: number;
+    realizedFundingUsdt: number;
+    mtmUsdt: number;
+    feesUsdt: number;
+    holds: { instId: string; side: string; predictedBps?: number; lastRealizedBps?: number; nextFundingTime?: number; realizedFundingUsdt?: number; mtmUsdt?: number; halt?: boolean }[];
+    liveOff: boolean;
+    go: boolean;
+    note?: string | null;
+  } | null;
   hz1?: {
     ts: string | null;
     preQuote: number;
