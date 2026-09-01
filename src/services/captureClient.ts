@@ -44,6 +44,15 @@ export interface CaptureReport {
   note?: string;
   error?: string;
   updatedAt: string;
+  tape?: {
+    ts: string | null;
+    scored: number;
+    quoted: number;
+    reasons: Record<string, number>;
+    quotedNames: string[];
+    liveOff: boolean;
+    go: boolean;
+  } | null;
 }
 
 export async function fetchCaptureReport(limit = 40): Promise<CaptureReport> {

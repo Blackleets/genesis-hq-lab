@@ -103,6 +103,15 @@ export function CaptureDeskPanel({ es = true }: { es?: boolean }) {
               <div>Tóxico → no cotizo. Me pickean → paro. Precio justo = Kalman, no el último tick.</div>
               <div>ETH/BTC a 0.0x bps cruzaría. Sleeve maker: nocional ≥ $1M y spread ≥ 5 bps.</div>
               <div>PAPER · LIVE_OFF · esto no abre live ni es un GO de 6 gates.</div>
+              {report?.tape?.ts ? (
+                <div>
+                  cinta 24/7 {report.tape.ts.slice(11, 16)} UTC · quote {report.tape.quoted}
+                  {report.tape.quotedNames.length ? ` · ${report.tape.quotedNames.map((s) => s.replace('-USDT-SWAP', '')).join(' ')}` : ''}
+                  {' '}(candidato paper, no fill)
+                </div>
+              ) : (
+                <div>cinta 24/7 aún no llega. no se inventa.</div>
+              )}
             </div>
           ) : (
             <div className="font-mono text-[10px] text-zinc-500 mt-0.5">

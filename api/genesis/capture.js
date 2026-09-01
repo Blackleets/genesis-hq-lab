@@ -19,6 +19,30 @@ const MAX_LIMIT = 40;
 const TRADE_LIMIT = 80;
 const CONC = 8;
 
+
+const TAPE_URL = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/capture-tape/paper-tape/capture-latest.json';
+
+async function loadTape() {
+  try {
+    const r = await fetch(TAPE_URL, { cache: 'no-store', signal: AbortSignal.timeout(2500) });
+    if (!r.ok) return null;
+    const j = await r.json();
+    if (!j || j.paper !== true) return null;
+    const names = Array.isArray(j.quotedNames) ? j.quotedNames.filter((s) => typeof s === 'string').slice(0, 8) : [];
+    return {
+      ts: j.ts || null,
+      scored: Number.isFinite(+j.scored) ? +j.scored : 0,
+      quoted: Number.isFinite(+j.quoted) ? +j.quoted : 0,
+      reasons: j.reasons && typeof j.reasons === 'object' ? j.reasons : {},
+      quotedNames: names,
+      liveOff: true,
+      go: false,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function clampLimit(n) {
   const x = Number.parseInt(String(n ?? DEFAULT_LIMIT), 10);
   if (!Number.isFinite(x) || x < 1) return DEFAULT_LIMIT;
@@ -122,7 +146,7 @@ export default async function handler(req, res) {
     liveOff: LIVE_OFF,
   };
   try {
-    const uni = await pickUniverse(limit);
+    const [uni, tape] = await Promise.all([pickUniverse(limit), loadTape()]);
     const loaded = await poolMap(uni, CONC, (u) => loadName(u.instId));
     const denyMap = loadDeny();
     const scored = [];
@@ -198,7 +222,8 @@ export default async function handler(req, res) {
       filled,
       rows: out,
       ledger: { start: PAPER_CAPITAL, ...(book.ledger || emptyLedger), liveOff: LIVE_OFF },
-      note: 'Maker sleeve: notional ≥ $1M and spread ≥ 5 bps, then watch majors. QUOTE is paper only. Not a 6-gate GO. No orders sent.',
+      tape,
+      note: 'Maker sleeve: notional ≥ $1M and spread ≥ 5 bps, then watch majors. QUOTE is paper only. Not a 6-gate GO. tape = last 24/7 harvest, not a fill. No orders sent.',
       updatedAt: new Date().toISOString(),
     });
   } catch (e) {

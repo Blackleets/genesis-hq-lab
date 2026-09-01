@@ -106,8 +106,23 @@ async function cycle() {
   const loaded = await poolMap(uni, CONC, (u) => loadName(u.instId));
   const rows = [];
   const sleeveOf = new Map(uni.map((u) => [u.instId, u.sleeve]));
-  for (const name of loaded) {
-    if (!name) continue;
+  for (let i = 0; i < uni.length; i++) {
+    const name = loaded[i];
+    const sleeve = sleeveOf.get(uni[i].instId);
+    if (!name) {
+      rows.push({
+        symbol: uni[i].instId,
+        sleeve: sleeve || null,
+        quote: false,
+        reason: 'TAPE_PENDING',
+        harvestBps: null,
+        spreadBps: Number.isFinite(uni[i].spread) ? +uni[i].spread.toFixed(4) : null,
+        vpin: null,
+        fair: null,
+        mid: Number.isFinite(uni[i].mid) ? uni[i].mid : null,
+      });
+      continue;
+    }
     const opts = {
       symbol: name.symbol,
       bid: name.bid,
@@ -120,7 +135,7 @@ async function cycle() {
       opts.askSz = name.askSz;
     }
     const row = scoreTapeAndBook(opts);
-    rows.push(compact(row, sleeveOf.get(name.symbol)));
+    rows.push(compact(row, sleeve));
   }
   const reasons = {};
   for (const r of rows) reasons[r.reason] = (reasons[r.reason] || 0) + 1;
@@ -157,7 +172,8 @@ async function cycle() {
   return snap;
 }
 
-const first = await cycle();
+let first = await cycle();
+if (first.scored === 0) first = await cycle();
 if (once) process.exit(0);
 setInterval(() => {
   cycle().catch((e) => console.error('cycle_fail', e && e.message));
