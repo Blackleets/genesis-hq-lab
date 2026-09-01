@@ -2,6 +2,7 @@ import { apiUrl, fetchApi } from '@services/apiBase';
 
 export interface CaptureRow {
   symbol: string;
+  sleeve?: string | null;
   quote: boolean;
   reason: string;
   harvestBps: number;

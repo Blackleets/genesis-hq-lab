@@ -101,6 +101,7 @@ export function CaptureDeskPanel({ es = true }: { es?: boolean }) {
           {es ? (
             <div className="font-mono text-[10px] text-zinc-500 mt-1 leading-tight space-y-0.5">
               <div>Tóxico → no cotizo. Me pickean → paro. Precio justo = Kalman, no el último tick.</div>
+              <div>ETH/BTC a 0.0x bps cruzaría. Sleeve maker: nocional ≥ $1M y spread ≥ 5 bps.</div>
               <div>PAPER · LIVE_OFF · esto no abre live ni es un GO de 6 gates.</div>
             </div>
           ) : (
@@ -160,7 +161,7 @@ export function CaptureDeskPanel({ es = true }: { es?: boolean }) {
               const k = Number.isFinite(row.kellyF as number) ? (row.kellyF as number).toFixed(3) : null;
               return (
                 <tr key={row.symbol} style={{ borderTop: `1px solid ${BORDER}` }}>
-                  <td className="py-1.5 pr-2 text-zinc-200">{row.symbol.replace('-USDT-SWAP', '')}</td>
+                  <td className="py-1.5 pr-2 text-zinc-200">{row.symbol.replace('-USDT-SWAP', '')}{row.sleeve === 'maker' ? <span className="text-zinc-600"> m</span> : row.sleeve === 'watch' ? <span className="text-zinc-700"> w</span> : null}</td>
                   <td className="text-right px-1 text-zinc-300">{fmtBps(row.harvestBps)}</td>
                   <td className="text-right px-1 text-zinc-400">{fmtBps(row.spreadBps)}</td>
                   <td className="text-right px-1 text-zinc-400">{Number.isFinite(row.vpin) ? row.vpin.toFixed(2) : '—'}</td>
