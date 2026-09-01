@@ -1,0 +1,36 @@
+# Paper-only OKX harvest. Writes to capture-tape (NOT feat/genesis-life-os)
+# so Vercel does not redeploy every tick. Never sends an order.
+name: paper-capture-harvest
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  harvest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: code
+        uses: actions/checkout@v4
+      - name: tape
+        uses: actions/checkout@v4
+        with:
+          ref: capture-tape
+          path: tape
+      - name: run paper harvest
+        run: node server/genesis/harvestWorker.mjs --once --out tape/data/capture-latest.json --jsonl tape/data/capture.jsonl
+      - name: publish tape
+        working-directory: tape
+        run: |
+          git config user.name "genesis-capture"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p data
+          git add data/capture-latest.json data/capture.jsonl
+          if git diff --staged --quiet; then
+            echo "no change"
+            exit 0
+          fi
+          git commit -m "paper harvest $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push

@@ -10,6 +10,7 @@ import {
 } from '../../server/genesis/captureEngine.mjs';
 import { scoreTapeAndBook, LIVE_OFF } from '../../server/genesis/captureCore.mjs';
 import { loadDeny } from '../../server/genesis/captureDeny.mjs';
+import { pickUniverse as pickOkxUniverse } from '../../server/genesis/captureUniverse.mjs';
 
 const OKX = 'https://www.okx.com';
 const MAKER = 0.0002; // OKX SWAP listed maker, not a fitted edge
@@ -17,7 +18,6 @@ const DEFAULT_LIMIT = 40;
 const MAX_LIMIT = 40;
 const TRADE_LIMIT = 80;
 const CONC = 8;
-const MIN_VOL = 50_000;
 
 function clampLimit(n) {
   const x = Number.parseInt(String(n ?? DEFAULT_LIMIT), 10);
@@ -38,24 +38,7 @@ function spreadBps(bid, ask) {
 }
 
 async function pickUniverse(limit) {
-  const j = await fetchJson(`${OKX}/api/v5/market/tickers?instType=SWAP`, 9000);
-  const rows = Array.isArray(j.data) ? j.data : [];
-  const scored = [];
-  for (const t of rows) {
-    const bid = +t.bidPx;
-    const ask = +t.askPx;
-    const vol = +t.volCcy24h;
-    if (!(bid > 0) || !(ask > bid) || !(vol > 0)) continue;
-    const instId = String(t.instId || '');
-    if (!instId.endsWith('-USDT-SWAP')) continue;
-    const mid = (bid + ask) / 2;
-    const notional = vol * mid; // volCcy24h is coin units; SATS/PEPE dominate otherwise
-    scored.push({ instId, bid, ask, vol, notional, spread: spreadBps(bid, ask) });
-  }
-  scored.sort((a, b) => b.notional - a.notional);
-  const liquid = scored.filter((s) => s.notional >= MIN_VOL);
-  const pool = liquid.length >= limit ? liquid : scored;
-  return pool.slice(0, limit);
+  return pickOkxUniverse(limit);
 }
 
 function mapTrades(data) {
@@ -113,6 +96,7 @@ async function poolMap(items, n, fn) {
 function pendingRow(u) {
   return {
     symbol: u.instId,
+    sleeve: u.sleeve || null,
     quote: false,
     reason: 'TAPE_PENDING',
     harvestBps: Number.NEGATIVE_INFINITY,
@@ -177,6 +161,7 @@ export default async function handler(req, res) {
       delete r.tape;
       const rowOut = {
         symbol: r.symbol,
+        sleeve: r.sleeve || (uni.find((u) => u.instId === r.symbol) || {}).sleeve || null,
         quote: !!r.quote,
         reason: r.reason,
         harvestBps: r.harvestBps,
@@ -213,7 +198,7 @@ export default async function handler(req, res) {
       filled,
       rows: out,
       ledger: { start: PAPER_CAPITAL, ...(book.ledger || emptyLedger), liveOff: LIVE_OFF },
-      note: 'Top 40 OKX USDT-SWAP by 24h USDT notional (volCcy24h × mid). QUOTE/CAPTURED is paper only. Not a 6-gate GO. No orders sent.',
+      note: 'Maker sleeve: notional ≥ $1M and spread ≥ 5 bps, then watch majors. QUOTE is paper only. Not a 6-gate GO. No orders sent.',
       updatedAt: new Date().toISOString(),
     });
   } catch (e) {
