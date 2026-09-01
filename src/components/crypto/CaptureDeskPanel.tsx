@@ -1,57 +1,52 @@
 import { useCallback, useEffect, useState } from 'react';
-import { fetchCaptureReport, type CaptureReport, type CaptureRow } from '@services/captureClient';
+import { fetchCaptureReport, type CaptureReport } from '@services/captureClient';
 
 const BG = '#07090d';
 const BORDER = '#1c2430';
 
-const WHY_ES: Record<string, string> = {
-  VPIN_HALT: 'Flujo informado. No cotizo.',
-  H_LE_EDGE: 'Spread no cubre fees + toxicidad',
-  WOULD_CROSS: 'Cruzaría el libro. No soy taker.',
-  SHORT_TAPE: 'Cinta corta',
-  TAPE_PENDING: 'Este tick no cargó libro. No invento fair.',
-  DEAD_BOOK: 'Libro muerto',
-  MARKOUT_HALT: 'Me pickearon. Paro.',
-  DENY_NEG_PNL: 'Ya perdió paper. Cooldown.',
-  NO_THROUGH_FILL: 'Cotiza, nadie cruzó',
-  CAPTURED: 'Fills paper (no es GO)',
-  HARVEST: 'Candidato paper',
-  KELLY_FLAT: 'Media ≤ 0. Tamaño 0.',
-  LIVE_BLOCK: 'Live off',
+const NAME: Record<string, string> = {
+  XAU: 'Oro',
+  CL: 'Petróleo',
+  XAG: 'Plata',
+  BTC: 'Bitcoin',
+  ETH: 'Ether',
 };
 
-function fmtBps(n: number | null | undefined) {
-  return Number.isFinite(n as number) ? (n as number).toFixed(2) : '—';
+function fmtUsd(n: number, sign = true) {
+  const s = sign && n >= 0 ? '+' : '';
+  return `${s}${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function fmtUsd(n: number) {
-  const sign = n >= 0 ? '+' : '';
-  return `${sign}${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function moneyColor(n: number) {
+  if (n > 0) return '#4ade80';
+  if (n < 0) return '#f87171';
+  return '#a1a1aa';
 }
 
-function fmtPx(n: number | undefined) {
-  if (!Number.isFinite(n as number)) return null;
-  const v = n as number;
-  if (Math.abs(v) > 0 && Math.abs(v) < 1e-4) return v.toExponential(3);
-  return v.toFixed(4);
+function instName(instId: string) {
+  const code = String(instId || '').replace('-USDT-SWAP', '');
+  return NAME[code] || code;
 }
 
-function reasonColor(row: CaptureRow): string {
-  if (row.fillCount > 0) return '#22c55e';
-  if (row.quote) return '#f59e0b';
-  if (row.reason === 'VPIN_HALT') return '#ef4444';
-  return '#71717a';
+function sideEs(side: string) {
+  return side === 'short' ? 'corto' : side === 'long' ? 'largo' : side;
 }
 
-function whyLabel(code: string, es: boolean) {
-  if (!es) return code;
-  return WHY_ES[code] || code;
+function parisWhen(ms?: number) {
+  if (!ms || !Number.isFinite(ms)) return '—';
+  return new Date(ms).toLocaleString('es-ES', {
+    timeZone: 'Europe/Paris',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 export function CaptureDeskPanel({ es = true }: { es?: boolean }) {
   const [report, setReport] = useState<CaptureReport | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(true);
+  const [detalle, setDetalle] = useState(false);
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -61,7 +56,7 @@ export function CaptureDeskPanel({ es = true }: { es?: boolean }) {
       setReport(r);
       if (!r.ok && r.error) setErr(r.error);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'capture unreachable');
+      setErr(e instanceof Error ? e.message : 'sin cinta');
     } finally {
       setBusy(false);
     }
@@ -69,74 +64,28 @@ export function CaptureDeskPanel({ es = true }: { es?: boolean }) {
 
   useEffect(() => {
     void load();
+    const t = window.setInterval(() => void load(), 30_000);
+    return () => window.clearInterval(t);
   }, [load]);
 
-  const start = report?.ledger?.start ?? report?.capital ?? 10000;
-  const equity = report?.ledger?.paperBalanceUSDT ?? start;
-  const pnl = equity - start;
-  const paper = report?.paper ?? true;
-  const liveOff = report?.liveOff ?? true;
-  const go = report?.go ?? false;
+  const f = report?.funding;
+  const cobrado = f?.realizedFundingUsdt ?? 0;
+  const mercado = f?.mtmUsdt ?? 0;
+  const fees = f?.feesUsdt ?? 0;
+  const neto = cobrado + mercado - fees;
+  const holds = f?.holds ?? [];
 
   return (
-    <div style={{ background: BG, borderTop: `1px solid ${BORDER}` }} className="px-3 py-2.5">
-      <div className="flex items-start justify-between gap-3 mb-2">
+    <div style={{ background: BG, borderTop: `1px solid ${BORDER}` }} className="px-4 py-3">
+      <div className="flex items-start justify-between gap-3 mb-3">
         <div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-zinc-500">
-              {es ? 'Mesa de captura' : 'Capture desk'}
-            </span>
-            <span className="font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 border border-amber-500/40 text-amber-300">
-              {paper ? 'PAPER' : 'NOT-PAPER'}
-            </span>
-            <span className="font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 border border-zinc-700 text-zinc-500">
-              {liveOff ? 'LIVE_OFF' : 'LIVE'}
-            </span>
-            <span className={`font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 border ${go ? 'border-emerald-500/40 text-emerald-300' : 'border-red-500/30 text-red-400'}`}>
-              {go ? 'GO' : 'GO NO'}
-            </span>
-            <span className="font-mono text-[9px] text-zinc-600">{report?.venue ?? 'okx'}</span>
-            <span className="font-mono text-[9px] text-zinc-600">New Bot · harvest paper · no live</span>
+          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+            {es ? 'Qué está pasando' : 'Now'}
           </div>
-          {es ? (
-            <div className="font-mono text-[10px] text-zinc-500 mt-1 leading-tight space-y-0.5">
-              <div>En cristiano: el spread no nos está pagando. Paper. Live apagado. No es un GO.</div>
-              {report?.funding ? (
-                <div>
-                  Cobro del exchange (funding): {report.funding.holds.length ? report.funding.holds.map((h) => `${String(h.instId || '').replace('-USDT-SWAP', '')} ${h.side}`).join(', ') : 'aún sin hold'}.
-                  {' '}Cobrado {report.funding.realizedFundingUsdt.toFixed(2)} USDT en {report.funding.settledCount} settles.
-                  {' '}A mercado {report.funding.mtmUsdt.toFixed(2)}. Fees {report.funding.feesUsdt.toFixed(2)}.
-                </div>
-              ) : (
-                <div>Paper funding aún no llega. No se inventa un cobro.</div>
-              )}
-              {report?.tape?.ts ? (
-                <div>
-                  cinta 24/7 {report.tape.ts.slice(11, 16)} UTC · quote {report.tape.quoted}
-                  {report.tape.quotedNames.length ? ` · ${report.tape.quotedNames.map((s) => s.replace('-USDT-SWAP', '')).join(' ')}` : ''}
-                  {' '}(candidato paper, no fill)
-                </div>
-              ) : (
-                <div>cinta 24/7 aún no llega. no se inventa.</div>
-              )}
-              {report?.hz1?.ts ? (
-                <div>
-                  1Hz {report.hz1.ts.slice(11, 16)} UTC · preH {report.hz1.preQuote} · quote {report.hz1.quoted} · fills {report.hz1.filled}
-                  {report.hz1.quotedNames.length ? ` · ${report.hz1.quotedNames.map((s) => s.replace('-USDT-SWAP', '')).join(' ')}` : ''}
-                  {' '}paper {report.hz1.paperPnl.toFixed(2)} USDT (no live)
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <div className="font-mono text-[10px] text-zinc-500 mt-0.5">
-              LIVE_OFF · not a 6-gate GO · {report?.venue ?? 'okx'}
-            </div>
-          )}
-          <div className="font-mono text-[16px] font-semibold text-zinc-100 mt-1 tabular-nums">
-            ${equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            <span className={`ml-2 text-[11px] ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-              {fmtUsd(pnl)}
-            </span>
+          <div className="text-[15px] text-zinc-100 mt-1 leading-snug max-w-xl">
+            {es
+              ? 'Enfoque: el exchange nos paga por aguantar (funding). Paper. Live apagado. El spread no se cotiza.'
+              : 'Approach: collect funding. Paper. Live off. Spread desk quotes 0.'}
           </div>
         </div>
         <button
@@ -145,80 +94,80 @@ export function CaptureDeskPanel({ es = true }: { es?: boolean }) {
           disabled={busy}
           className="font-mono text-[10px] uppercase tracking-wider px-2 py-1 border border-zinc-700 text-zinc-300 hover:bg-white/5 disabled:opacity-40"
         >
-          {busy ? (es ? 'escaneando…' : 'scanning…') : (es ? 'rescan' : 'rescan')}
+          {busy ? (es ? '…' : '…') : (es ? 'actualizar' : 'refresh')}
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-3 font-mono text-[10px] mb-2">
-        <span className="text-zinc-500">scan <span className="text-zinc-200">{report?.scanned ?? 0}</span></span>
-        <span className="text-zinc-500">quote <span className="text-amber-300">{report?.quoted ?? 0}</span></span>
-        <span className="text-zinc-500">fills <span className="text-emerald-300">{report?.filled ?? 0}</span></span>
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        {[
+          { label: es ? 'Cobrado' : 'Collected', value: cobrado, hint: es ? 'solo settles reales' : 'realized only' },
+          { label: es ? 'A mercado' : 'Mark', value: mercado, hint: es ? 'aún no es cobro' : 'unrealized' },
+          { label: es ? 'Fees' : 'Fees', value: -Math.abs(fees), hint: es ? 'ya pagados' : 'paid' },
+        ].map((c) => (
+          <div key={c.label} style={{ border: `1px solid ${BORDER}` }} className="px-3 py-2">
+            <div className="font-mono text-[9px] uppercase tracking-wider text-zinc-500">{c.label}</div>
+            <div className="font-mono text-[20px] tabular-nums mt-0.5" style={{ color: moneyColor(c.value) }}>
+              {fmtUsd(c.value)}
+            </div>
+            <div className="font-mono text-[9px] text-zinc-600">{c.hint}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-baseline gap-2 mb-3">
+        <span className="font-mono text-[9px] uppercase tracking-wider text-zinc-500">{es ? 'Neto paper' : 'Paper net'}</span>
+        <span className="font-mono text-[18px] tabular-nums" style={{ color: moneyColor(neto) }}>{fmtUsd(neto)}</span>
+        <span className="font-mono text-[9px] text-zinc-600">{es ? 'PAPER · live apagado · no es un GO' : 'PAPER · live off'}</span>
       </div>
 
       {err && (
-        <div className="mb-2 border border-zinc-700 px-3 py-2 font-mono text-[11px] text-zinc-400">
-          {es ? 'Desk en stand-down' : 'Desk stood down'}: {err}
+        <div className="mb-2 font-mono text-[11px] text-zinc-400">{es ? 'Desk en pausa' : 'Stood down'}: {err}</div>
+      )}
+
+      <div className="font-mono text-[9px] uppercase tracking-wider text-zinc-500 mb-1">
+        {es ? 'Posiciones paper' : 'Paper holds'}
+      </div>
+      {holds.length === 0 ? (
+        <div className="font-mono text-[12px] text-zinc-500 mb-3">
+          {es ? 'Aún no hay posición en cinta. No se inventa.' : 'No hold on tape. Nothing invented.'}
+        </div>
+      ) : (
+        <div className="grid gap-2 mb-3 sm:grid-cols-3">
+          {holds.map((h) => (
+            <div key={h.instId} style={{ border: `1px solid ${BORDER}` }} className="px-3 py-2">
+              <div className="text-[14px] text-zinc-100">
+                {instName(h.instId)} <span className="text-zinc-500">{sideEs(h.side)}</span>
+              </div>
+              <div className="font-mono text-[10px] text-zinc-500 mt-1">
+                {es ? 'próximo cobro' : 'next'} {parisWhen(h.nextFundingTime)}
+              </div>
+              <div className="font-mono text-[12px] tabular-nums mt-1" style={{ color: moneyColor(h.mtmUsdt || 0) }}>
+                {es ? 'a mercado' : 'mark'} {fmtUsd(h.mtmUsdt || 0)}
+              </div>
+              <div className="font-mono text-[11px] text-zinc-400">
+                {es ? 'cobrado' : 'collected'} {fmtUsd(h.realizedFundingUsdt || 0)}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full font-mono text-[10px] tabular-nums">
-          <thead>
-            <tr className="text-zinc-600 uppercase tracking-wider text-[8px]">
-              <th className="text-left py-1 pr-2">sym</th>
-              <th className="text-right py-1 px-1">H</th>
-              <th className="text-right py-1 px-1">spr</th>
-              <th className="text-right py-1 px-1">VPIN</th>
-              <th className="text-right py-1 px-1">fair K</th>
-              <th className="text-left py-1 px-1">why</th>
-              <th className="text-right py-1 px-1">fills</th>
-              <th className="text-right py-1 pl-1">pnl</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(report?.rows ?? []).map((row) => {
-              const code = row.captureReason || row.reason;
-              const label = whyLabel(code, es);
-              const fair = fmtPx(row.fair);
-              const mid = fmtPx(row.mid);
-              const k = Number.isFinite(row.kellyF as number) ? (row.kellyF as number).toFixed(3) : null;
-              return (
-                <tr key={row.symbol} style={{ borderTop: `1px solid ${BORDER}` }}>
-                  <td className="py-1.5 pr-2 text-zinc-200">{row.symbol.replace('-USDT-SWAP', '')}{row.sleeve === 'maker' ? <span className="text-zinc-600"> m</span> : row.sleeve === 'watch' ? <span className="text-zinc-700"> w</span> : null}</td>
-                  <td className="text-right px-1 text-zinc-300">{fmtBps(row.harvestBps)}</td>
-                  <td className="text-right px-1 text-zinc-400">{fmtBps(row.spreadBps)}</td>
-                  <td className="text-right px-1 text-zinc-400">{Number.isFinite(row.vpin) ? row.vpin.toFixed(2) : '—'}</td>
-                  <td className="text-right px-1 text-zinc-300">
-                    {fair ?? '—'}
-                    {fair && mid ? (
-                      <div className="text-zinc-600">mid {mid}{k != null ? ` · k ${k}` : ''}</div>
-                    ) : (k != null ? <div className="text-zinc-600">k {k}</div> : null)}
-                  </td>
-                  <td className="px-1" style={{ color: reasonColor(row) }} title={code}>
-                    {label}
-                    {es && WHY_ES[code] ? (
-                      <span className="text-zinc-700 ml-1">{code}</span>
-                    ) : null}
-                  </td>
-                  <td className="text-right px-1 text-zinc-300">{row.fillCount}</td>
-                  <td className={`text-right pl-1 ${row.netPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {fmtUsd(row.netPnl)}
-                  </td>
-                </tr>
-              );
-            })}
-            {!busy && (report?.rows?.length ?? 0) === 0 && (
-              <tr>
-                <td colSpan={8} className="py-4 text-zinc-600">
-                  {es ? 'Sin cinta. No se inventa un fill.' : 'No tape. No invented fill.'}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-      {report?.note && (
-        <div className="mt-2 font-mono text-[9px] text-zinc-600">{report.note}</div>
+      <button
+        type="button"
+        onClick={() => setDetalle((v) => !v)}
+        className="font-mono text-[10px] text-zinc-600 underline-offset-2 hover:text-zinc-400"
+      >
+        {detalle
+          ? (es ? 'ocultar mesa del spread' : 'hide spread desk')
+          : (es ? 'mesa del spread (no cotizamos)' : 'spread desk (quoting 0)')}
+      </button>
+
+      {detalle && (
+        <div className="mt-2 font-mono text-[11px] text-zinc-500">
+          {es
+            ? `Scan ${report?.scanned ?? 0} · cotizo ${report?.quoted ?? 0} · fills ${report?.filled ?? 0}. El libro no cubre fees. Por eso el enfoque es funding, no spread.`
+            : `Scan ${report?.scanned ?? 0} · quote ${report?.quoted ?? 0} · fills ${report?.filled ?? 0}.`}
+        </div>
       )}
     </div>
   );
