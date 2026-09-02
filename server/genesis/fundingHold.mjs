@@ -9,7 +9,7 @@ import { dirname } from 'node:path';
 export const OKX = 'https://www.okx.com';
 export const TAKER = 0.0005; // listed VIP0 SWAP taker 5bps
 export const NOTIONAL = 500;
-export const MAX_HOLDS = 3;
+export const MAX_HOLDS = 2;
 export const HALT_BPS = 25;
 export const MIN_LIQ = 1_000_000;
 export const MIN_PRED_BPS = 4;
@@ -150,14 +150,16 @@ export async function runHold({ statePath, once = false } = {}) {
   state.holds = state.holds.filter((h) => !h.halt);
 
   // open slots: predicted |bps| >= 4, last realized same sign, liquid
-  const denyUntil = 6 * 3600 * 1000;
+  const denyUntil = 24 * 3600 * 1000;
   const denied = new Set(
     (state.closed || [])
       .filter((c) => c.haltReason === 'MARKOUT_HALT' && Date.now() - (Date.parse(c.closedTs) || 0) < denyUntil)
       .map((c) => c.instId),
   );
   const openIds = new Set(state.holds.map((h) => h.instId));
-  if (state.holds.length < MAX_HOLDS) {
+  const behind = state.feesUsdt > state.realizedFundingUsdt;
+  // Don't buy more tickets while fees > cobrado. Let current holds collect.
+  if (state.holds.length < MAX_HOLDS && !behind) {
     const cand = liquid.filter((s) => !openIds.has(s.instId) && !denied.has(s.instId)).slice(0, 20);
     const scored = [];
     await pool(cand, 4, async (s) => {
