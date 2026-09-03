@@ -1,54 +1,66 @@
 {
-  "ts": "2026-09-03T09:51:35.890Z",
+  "ts": "2026-09-03T14:12:52.362Z",
   "liveOff": true,
   "paper": true,
   "go": false,
   "hz": 1,
   "tickers": 453,
-  "preQuote": 5,
+  "preQuote": 2,
   "full": 4,
   "quoted": 0,
   "quotedNames": [],
   "filled": 0,
   "paperPnl": 0,
   "reasons": {
-    "TAPE_PENDING": 4
+    "TAPE_PENDING": 2,
+    "H_LE_EDGE": 1,
+    "VPIN_HALT": 1
   },
-  "ms": 1078,
+  "ms": 1128,
   "scored": [
     {
-      "symbol": "IREN-USDT-SWAP",
-      "preH": -0.40380169535006694,
-      "spread": 10.274852298999809,
+      "symbol": "CASHCAT-USDT-SWAP",
+      "preH": -0.009880296409332079,
+      "spread": 11.400342010259052,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
-      "symbol": "OPENAI-USDT-SWAP",
-      "preH": -0.6207434364441005,
-      "spread": 9.655018753016856,
+      "symbol": "COHR-USDT-SWAP",
+      "preH": -0.21709256542922706,
+      "spread": 10.808306955916494,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
-      "symbol": "MERL-USDT-SWAP",
-      "preH": -0.6134494436382614,
-      "spread": 9.67585873246211,
+      "symbol": "RECALL-USDT-SWAP",
+      "preH": -0.34655532359096375,
+      "spread": 10.438413361168676,
       "quote": false,
-      "reason": "TAPE_PENDING"
+      "reason": "H_LE_EDGE",
+      "harvestBps": -0.3466,
+      "vpin": 0.6549,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "H_LE_EDGE"
     },
     {
-      "symbol": "SPK-USDT-SWAP",
-      "preH": -0.6362325804897031,
-      "spread": 9.610764055743706,
+      "symbol": "ICX-USDT-SWAP",
+      "preH": -0.3786859803415856,
+      "spread": 10.346611484738327,
       "quote": false,
-      "reason": "TAPE_PENDING"
+      "reason": "VPIN_HALT",
+      "harvestBps": null,
+      "vpin": 0.7827,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "VPIN_HALT"
     }
   ],
   "intersection": {
-    "liquid": 229,
-    "hGe": 5,
-    "band": 137,
+    "liquid": 223,
+    "hGe": 2,
+    "band": 138,
     "both": 0
   },
   "formula": "H=spread*0.35-4bps; width is a toxicity prior. Kalman+VPIN+GLFT. not a GO."
