@@ -1,20 +1,21 @@
 {
-  "ts": "2026-09-04T19:52:56.484Z",
+  "ts": "2026-09-04T22:11:27.846Z",
   "liveOff": true,
   "paper": true,
   "go": false,
   "hz": 1,
   "tickers": 455,
-  "preQuote": 7,
+  "preQuote": 8,
   "full": 4,
   "quoted": 0,
   "quotedNames": [],
   "filled": 0,
   "paperPnl": 0,
   "reasons": {
-    "TAPE_PENDING": 4
+    "TAPE_PENDING": 3,
+    "WOULD_CROSS": 1
   },
-  "ms": 764,
+  "ms": 1042,
   "scored": [
     {
       "symbol": "CXMT-USDT-SWAP",
@@ -24,31 +25,36 @@
       "reason": "TAPE_PENDING"
     },
     {
-      "symbol": "HPE-USDT-SWAP",
-      "preH": 0.053271569195289636,
-      "spread": 11.580775911986542,
-      "quote": false,
-      "reason": "TAPE_PENDING"
-    },
-    {
       "symbol": "USAR-USDT-SWAP",
-      "preH": -0.02724177071518108,
-      "spread": 11.350737797956626,
+      "preH": 0.020677771396377942,
+      "spread": 11.487650775418222,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
-      "symbol": "BERA-USDT-SWAP",
-      "preH": -0.09810479375685643,
-      "spread": 11.148272017837554,
+      "symbol": "SUSHI-USDT-SWAP",
+      "preH": -0.29040805511383105,
+      "spread": 10.598834128246198,
       "quote": false,
       "reason": "TAPE_PENDING"
+    },
+    {
+      "symbol": "EIGEN-USDT-SWAP",
+      "preH": -0.4065708418895131,
+      "spread": 10.266940451744249,
+      "quote": false,
+      "reason": "WOULD_CROSS",
+      "harvestBps": null,
+      "vpin": 0.8603,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "WOULD_CROSS"
     }
   ],
   "intersection": {
-    "liquid": 248,
-    "hGe": 7,
-    "band": 142,
+    "liquid": 244,
+    "hGe": 8,
+    "band": 137,
     "both": 0
   },
   "formula": "H=spread*0.35-4bps; width is a toxicity prior. Kalman+VPIN+GLFT. not a GO."
