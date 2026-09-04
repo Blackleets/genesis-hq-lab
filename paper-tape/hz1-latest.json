@@ -1,20 +1,21 @@
 {
-  "ts": "2026-09-04T14:07:54.472Z",
+  "ts": "2026-09-04T17:36:45.940Z",
   "liveOff": true,
   "paper": true,
   "go": false,
   "hz": 1,
   "tickers": 455,
-  "preQuote": 8,
+  "preQuote": 7,
   "full": 4,
   "quoted": 0,
   "quotedNames": [],
   "filled": 0,
   "paperPnl": 0,
   "reasons": {
-    "TAPE_PENDING": 4
+    "TAPE_PENDING": 2,
+    "WOULD_CROSS": 2
   },
-  "ms": 743,
+  "ms": 1056,
   "scored": [
     {
       "symbol": "CXMT-USDT-SWAP",
@@ -24,31 +25,41 @@
       "reason": "TAPE_PENDING"
     },
     {
+      "symbol": "SIGN-USDT-SWAP",
+      "preH": 0.17457305502868792,
+      "spread": 11.927351585796252,
+      "quote": false,
+      "reason": "TAPE_PENDING"
+    },
+    {
+      "symbol": "SNOW-USDT-SWAP",
+      "preH": 0.08091878971585231,
+      "spread": 11.659767970616722,
+      "quote": false,
+      "reason": "WOULD_CROSS",
+      "harvestBps": null,
+      "vpin": 0.8585,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "WOULD_CROSS"
+    },
+    {
       "symbol": "SKUU-USDT-SWAP",
-      "preH": 0.18910831837189512,
-      "spread": 11.968880909633986,
+      "preH": 0.04546330186829284,
+      "spread": 11.558466576766552,
       "quote": false,
-      "reason": "TAPE_PENDING"
-    },
-    {
-      "symbol": "AZTEC-USDT-SWAP",
-      "preH": -0.03399433427778176,
-      "spread": 11.331444759206338,
-      "quote": false,
-      "reason": "TAPE_PENDING"
-    },
-    {
-      "symbol": "XIAOMI-USDT-SWAP",
-      "preH": -0.10894941634240896,
-      "spread": 11.117287381878832,
-      "quote": false,
-      "reason": "TAPE_PENDING"
+      "reason": "WOULD_CROSS",
+      "harvestBps": null,
+      "vpin": 0.8519,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "WOULD_CROSS"
     }
   ],
   "intersection": {
-    "liquid": 252,
-    "hGe": 8,
-    "band": 163,
+    "liquid": 247,
+    "hGe": 7,
+    "band": 154,
     "both": 0
   },
   "formula": "H=spread*0.35-4bps; width is a toxicity prior. Kalman+VPIN+GLFT. not a GO."
