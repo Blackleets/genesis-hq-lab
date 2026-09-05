@@ -11,6 +11,7 @@ import {
 import { scoreTapeAndBook, LIVE_OFF } from '../../server/genesis/captureCore.mjs';
 import { loadDeny } from '../../server/genesis/captureDeny.mjs';
 import { pickUniverse as pickOkxUniverse, lastIntersection } from '../../server/genesis/captureUniverse.mjs';
+import { buildFundingScorecard } from '../../server/genesis/fundingScorecard.mjs';
 
 const OKX = 'https://www.okx.com';
 const MAKER = 0.0002; // OKX SWAP listed maker, not a fitted edge
@@ -64,15 +65,30 @@ async function loadFunding() {
       mtmUsdt: h.mtmUsdt,
       halt: !!h.halt,
     })) : [];
+    const settledCount = Number.isFinite(+j.settledCount) ? +j.settledCount : 0;
+    const realizedFundingUsdt = Number.isFinite(+j.realizedFundingUsdt) ? +j.realizedFundingUsdt : 0;
+    const mtmUsdt = Number.isFinite(+j.mtmUsdt) ? +j.mtmUsdt : 0;
+    const feesUsdt = Number.isFinite(+j.feesUsdt) ? +j.feesUsdt : 0;
+    const scorecard = buildFundingScorecard({
+      paper: true,
+      liveOff: true,
+      go: false,
+      realizedFundingUsdt,
+      feesUsdt,
+      mtmUsdt,
+      settledCount,
+      holds,
+    });
     return {
       ts: j.ts || null,
-      settledCount: Number.isFinite(+j.settledCount) ? +j.settledCount : 0,
-      realizedFundingUsdt: Number.isFinite(+j.realizedFundingUsdt) ? +j.realizedFundingUsdt : 0,
-      mtmUsdt: Number.isFinite(+j.mtmUsdt) ? +j.mtmUsdt : 0,
-      feesUsdt: Number.isFinite(+j.feesUsdt) ? +j.feesUsdt : 0,
+      settledCount,
+      realizedFundingUsdt,
+      mtmUsdt,
+      feesUsdt,
       holds,
       liveOff: true,
       go: false,
+      scorecard,
       note: typeof j.note === 'string' ? j.note : null,
     };
   } catch {

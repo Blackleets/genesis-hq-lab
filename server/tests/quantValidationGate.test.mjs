@@ -92,9 +92,10 @@ describe('validateStrategyProfile — check structure', () => {
 });
 
 describe('validateStrategyProfile — edge cases', () => {
-  test('Infinity profitFactor (no losses) is handled gracefully', () => {
+  test('Infinity profitFactor (no losses) is REJECTED — not edge evidence', () => {
     const result = validateStrategyProfile({ trades: 35, profitFactor: Infinity, avgPnl: 12, winRate: 1.0, paused: false });
-    // Should not throw; Infinity PF is technically fine (no losses)
-    assert.ok('approved' in result);
+    assert.equal(result.approved, false);
+    assert.ok(result.checks.some((c) => c.code === 'PROFIT_FACTOR_NO_LOSSES' && c.pass === false));
   });
 });
+
