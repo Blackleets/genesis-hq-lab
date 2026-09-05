@@ -3,9 +3,12 @@
 // Open MTM is reported separately and only enters total/equity, never realized P&L.
 // No execution code lives here. LIVE_OFF is unaffected.
 
+function hasFiniteValue(value) {
+  return value !== null && value !== undefined && Number.isFinite(Number(value));
+}
+
 function num(value, fallback = 0) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
+  return hasFiniteValue(value) ? Number(value) : fallback;
 }
 
 function sum(rows, pick) {
@@ -13,8 +16,9 @@ function sum(rows, pick) {
 }
 
 export function pricePnlForClosedTrade(trade = {}) {
-  const explicit = Number(trade.realizedPricePnlUsdt);
-  if (Number.isFinite(explicit)) return explicit;
+  if (hasFiniteValue(trade.realizedPricePnlUsdt)) {
+    return Number(trade.realizedPricePnlUsdt);
+  }
 
   const entry = num(trade.entryPx, NaN);
   const exit = num(trade.exitPx, NaN);
@@ -29,8 +33,7 @@ export function pricePnlForClosedTrade(trade = {}) {
   // Legacy capture snapshots sometimes closed a paper hold without persisting
   // exitPx, but did persist the final mark. Use that final mark as the best
   // auditable historical evidence instead of silently treating the loss as 0.
-  const legacyMtm = Number(trade.mtmUsdt);
-  return Number.isFinite(legacyMtm) ? legacyMtm : 0;
+  return num(trade.mtmUsdt, 0);
 }
 
 export function deriveClosedPricePnl(closed = []) {
@@ -44,7 +47,7 @@ export function buildFundingTruthLedger(state = {}) {
   const feesUsdt = num(state.feesUsdt);
   const holds = Array.isArray(state.holds) ? state.holds : [];
   const closed = Array.isArray(state.closed) ? state.closed : [];
-  const mtmUsdt = Number.isFinite(Number(state.mtmUsdt))
+  const mtmUsdt = hasFiniteValue(state.mtmUsdt)
     ? Number(state.mtmUsdt)
     : sum(holds, (h) => h.mtmUsdt);
 
@@ -52,8 +55,8 @@ export function buildFundingTruthLedger(state = {}) {
   // merely a reconciled cache and must never override a newly appended close.
   const closedPricePnlUsdt = deriveClosedPricePnl(closed);
   const realizedPricePnlUsdt = closedPricePnlUsdt;
-  const explicitPricePnl = Number(state.realizedPricePnlUsdt);
-  const hasExplicitPricePnl = Number.isFinite(explicitPricePnl);
+  const hasExplicitPricePnl = hasFiniteValue(state.realizedPricePnlUsdt);
+  const explicitPricePnl = hasExplicitPricePnl ? Number(state.realizedPricePnlUsdt) : null;
 
   const knownEntryFeesUsdt = sum(closed, (t) => t.entryFeeUsdt ?? t.feeUsdt)
     + sum(holds, (t) => t.entryFeeUsdt ?? t.feeUsdt);
@@ -89,7 +92,7 @@ export function buildFundingTruthLedger(state = {}) {
     reconciliation: {
       priceSource: 'DERIVED_FROM_CLOSED',
       closedPricePnlUsdt,
-      persistedPricePnlUsdt: hasExplicitPricePnl ? explicitPricePnl : null,
+      persistedPricePnlUsdt: explicitPricePnl,
       pricePnlReconciliationDeltaUsdt,
       legacyFeeAllocationIncomplete: Math.abs(unallocatedFeesUsdt) > 1e-9,
     },
