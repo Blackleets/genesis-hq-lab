@@ -1,6 +1,6 @@
 // validationGate.mjs — single validation checkpoint for the Quant Lab.
 //
-// Answers: "Does this strategy / system have enough validated edge to receive capital?"
+// Answers: "Does this strategy / system have enough validated edge to receive capital?"\n// Missing/stale walk-forward FAILS (never silent-pass). Infinite PF FAILS.
 //
 // Rules (institutional minimums, stricter than futuresGovernor defaults):
 //   totalTrades     ≥ 30    (MIN_TRADES_FOR_EDGE from alphaValidationEngine)
@@ -19,6 +19,8 @@ import { isGlobalSafeMode, refreshGlobalRiskScore, getGlobalRiskDiagnostics } fr
 import { isSafeMode } from '../../memory/reconciliationEngine.mjs';
 import { getFuturesGovernorSnapshot } from '../../crypto/futuresGovernor.mjs';
 import { PROMOTION_CRITERIA } from '../alpha/strategyRegistry.mjs';
+import { evaluateWalkForwardEvidence, evaluateProfitFactorEvidence } from './gateEvidence.mjs';
+export { evaluateWalkForwardEvidence, evaluateProfitFactorEvidence } from './gateEvidence.mjs';
 
 // ── Thresholds (explicit — no magic numbers scattered) ────────────────────────
 
@@ -43,16 +45,7 @@ function checkTradeCount(n) {
 }
 
 function checkProfitFactor(pf) {
-  if (pf == null) {
-    return { pass: false, code: 'PROFIT_FACTOR_UNKNOWN', detail: 'No profit factor available (no winning or losing trades)' };
-  }
-  if (pf === Infinity) {
-    return { pass: true, code: 'PROFIT_FACTOR_INFINITE', detail: 'No losing trades — PF infinite (check for small sample)' };
-  }
-  if (pf < GATE_RULES.minProfitFactor) {
-    return { pass: false, code: 'PROFIT_FACTOR_LOW', detail: `PF ${pf.toFixed(3)} < ${GATE_RULES.minProfitFactor} threshold` };
-  }
-  return { pass: true, code: 'PROFIT_FACTOR_OK', detail: `PF ${pf.toFixed(3)} ≥ ${GATE_RULES.minProfitFactor}` };
+  return evaluateProfitFactorEvidence(pf, { minProfitFactor: GATE_RULES.minProfitFactor });
 }
 
 function checkExpectancy(ev) {
@@ -78,46 +71,7 @@ function checkDrawdown(dd) {
 }
 
 function checkWalkForward() {
-  const cache = getWfCache();
-
-  if (!cache) {
-    return {
-      pass: true,
-      code: 'WF_NOT_RUN',
-      detail: 'Walk-forward not yet run — call GET /api/quant/wf/run to generate OOS evidence',
-    };
-  }
-
-  const stale = isWfCacheStale(24);
-  const { summary } = cache;
-  const robustShort    = summary?.robustShort    ?? false;
-  const robustCombined = summary?.robustCombined ?? false;
-  const judged         = summary?.combinedJudgedWindows ?? 0;
-  const positive       = summary?.combinedPositiveWindows ?? 0;
-  const completedAt    = cache.completedAt ?? cache.cachedAt ?? 'unknown';
-
-  if (stale) {
-    return {
-      pass: true,
-      code: 'WF_STALE',
-      detail: `Walk-forward cache is >24h old (ran ${completedAt}). Re-run for fresh OOS evidence.`,
-    };
-  }
-
-  if (!robustCombined && !robustShort) {
-    return {
-      pass: false,
-      code: 'WF_NOT_ROBUST',
-      detail: `Walk-forward: combined edge positive in ${positive}/${judged} windows — not robust. Need positive in ALL judged windows.`,
-    };
-  }
-
-  const which = robustCombined ? 'COMBINED' : 'SHORT';
-  return {
-    pass: true,
-    code: 'WF_ROBUST',
-    detail: `Walk-forward ${which} edge robust (${positive}/${judged} windows positive, ran ${completedAt})`,
-  };
+  return evaluateWalkForwardEvidence(getWfCache(), { stale: isWfCacheStale(24) });
 }
 
 

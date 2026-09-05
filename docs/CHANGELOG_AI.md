@@ -1,5 +1,16 @@
 # CHANGELOG_AI
 
+## 2026-09-05 — New Bot (WF fail-closed + funding scorecard)
+
+- Branch: `feat/wf-fail-closed`
+- Summary: Walk-forward missing (`WF_NOT_RUN`) or stale (`WF_STALE`) now **FAIL** the quant validation gate (previously silent-pass → possible APPROVED without OOS). Infinite PF fails as `PROFIT_FACTOR_NO_LOSSES`. Pure `gateEvidence.mjs` + `fundingScorecard.mjs` separate PAPER / EDGE / PRODUCTION and never set `go: true`. LIVE_OFF untouched. 6-gate thresholds untouched.
+- Files created: `server/quant/validation/gateEvidence.mjs`, `server/tests/gateEvidence.test.mjs`, `server/genesis/fundingScorecard.mjs`, `server/genesis/__tests__/fundingScorecard.smoke.mjs`
+- Files modified: `server/quant/validation/validationGate.mjs`, `server/tests/quantValidationGate.test.mjs`, `api/genesis/capture.js`, `docs/CHANGELOG_AI.md`
+- Verification: `node --test server/tests/gateEvidence.test.mjs`; `node server/genesis/__tests__/fundingScorecard.smoke.mjs`
+- Honesty: closing a silent pass is not an edge. It makes Genesis harder to fool.
+
+
+
 ## 2026-08-31 — New Bot (Spanish why-codes, Kelly cap, Kalman fair on Capture)
 
 - Branch: `feat/capture-readable-kelly` (stacked on `feat/kalman-micro-fair`, PR #45)
