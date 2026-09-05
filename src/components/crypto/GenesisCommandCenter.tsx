@@ -30,54 +30,12 @@ interface AgentSeat {
 }
 
 const AGENTS: AgentSeat[] = [
-  {
-    name: 'HERMES',
-    role: 'Connector Ops',
-    mission: 'Activa APIs, enruta datos y reporta fallos sin tocar capital.',
-    state: 'armed / read-only',
-    connector: 'GitHub · Vercel · OKX public',
-    tone: 'info',
-  },
-  {
-    name: 'ATLAS',
-    role: 'Quant Research',
-    mission: 'Busca oportunidades y crea hipótesis con walk-forward obligatorio.',
-    state: 'research',
-    connector: 'Crypto · macro · sessions',
-    tone: 'warn',
-  },
-  {
-    name: 'SENTINEL',
-    role: 'Risk Governor',
-    mission: 'Bloquea sobreajuste, drawdown, falta de muestra y live no autorizado.',
-    state: 'blocking live',
-    connector: 'Truth Ledger v2',
-    tone: 'bad',
-  },
-  {
-    name: 'ORACLE',
-    role: 'Market Intelligence',
-    mission: 'Clasifica regímenes: Asia, Londres, NY, rollover, funding y volatilidad.',
-    state: 'needs feeds',
-    connector: 'Forex/indices pending',
-    tone: 'muted',
-  },
-  {
-    name: 'FORGE',
-    role: 'Strategy Factory',
-    mission: 'Genera challengers; solo sobreviven si vencen al champion fuera de muestra.',
-    state: 'paper lab',
-    connector: 'Backtest · evolution',
-    tone: 'warn',
-  },
-  {
-    name: 'AUDITOR',
-    role: 'Truth & PnL',
-    mission: 'Recompensa únicamente P&L económico: precio + funding − fees + MTM.',
-    state: 'online',
-    connector: 'Ledger · scorecard',
-    tone: 'good',
-  },
+  { name: 'HERMES', role: 'Connector Ops', mission: 'Activa APIs, enruta datos y reporta fallos sin tocar capital.', state: 'armed / read-only', connector: 'GitHub · Vercel · OKX public', tone: 'info' },
+  { name: 'ATLAS', role: 'Quant Research', mission: 'Busca oportunidades y crea hipótesis con walk-forward obligatorio.', state: 'research', connector: 'Crypto · macro · sessions', tone: 'warn' },
+  { name: 'SENTINEL', role: 'Risk Governor', mission: 'Bloquea sobreajuste, drawdown, falta de muestra y live no autorizado.', state: 'blocking live', connector: 'Truth Ledger v2', tone: 'bad' },
+  { name: 'ORACLE', role: 'Market Intelligence', mission: 'Clasifica regímenes: Asia, Londres, NY, rollover, funding y volatilidad.', state: 'needs feeds', connector: 'Forex/indices pending', tone: 'muted' },
+  { name: 'FORGE', role: 'Strategy Factory', mission: 'Genera challengers; solo sobreviven si vencen al champion fuera de muestra.', state: 'paper lab', connector: 'Backtest · evolution', tone: 'warn' },
+  { name: 'AUDITOR', role: 'Truth & PnL', mission: 'Recompensa únicamente P&L económico: precio + funding − fees + MTM.', state: 'online', connector: 'Ledger · scorecard', tone: 'good' },
 ];
 
 const CONNECTORS = [
@@ -125,14 +83,6 @@ function sessionLabel(now = new Date()) {
   if (utc >= 7 && utc < 13) return 'London / FX impulse';
   if (utc >= 13 && utc < 21) return 'New York / risk transfer';
   return 'Rollover / reduce size';
-}
-
-function rowTone(row: CaptureRow): Tone {
-  if (row.fillCount > 0 && row.netPnl > 0) return 'good';
-  if (row.fillCount > 0 && row.netPnl < 0) return 'bad';
-  if (row.quote) return 'warn';
-  if (row.reason === 'VPIN_HALT' || row.captureReason === 'MARKOUT_HALT') return 'bad';
-  return 'muted';
 }
 
 function MiniBars({ report }: { report: CaptureReport | null }) {
@@ -263,51 +213,11 @@ export function GenesisCommandCenter({ es = true }: { es?: boolean }) {
   ];
 
   const opportunities: Opportunity[] = [
-    {
-      desk: 'Funding Carry',
-      market: 'OKX USDT-SWAP',
-      signal: funding?.scorecard?.verdict ?? 'NO_TAPE',
-      state: report?.paper ? 'PAPER' : 'UNKNOWN',
-      edge: fmtUsd(realizedNet),
-      blocker: realizedNet > 0 ? 'sample / live locked' : 'economic P&L negative',
-      tone: realizedNet > 0 ? 'warn' : 'bad',
-    },
-    {
-      desk: 'Market Making',
-      market: 'OKX microstructure',
-      signal: `${report?.quoted ?? 0} quotes`,
-      state: 'STAND DOWN',
-      edge: `${report?.filled ?? 0} fills`,
-      blocker: 'VPIN / spread / adverse selection',
-      tone: 'muted',
-    },
-    {
-      desk: 'Crypto Momentum',
-      market: 'BTC · ETH · majors',
-      signal: 'research queue',
-      state: 'ASTRA-ready',
-      edge: 'not promoted',
-      blocker: 'needs OOS + 6 gates',
-      tone: 'warn',
-    },
-    {
-      desk: 'Forex Sessions',
-      market: sessionLabel(),
-      signal: 'calendar design',
-      state: 'connector pending',
-      edge: 'no P&L yet',
-      blocker: 'needs broker/feed + costs',
-      tone: 'muted',
-    },
-    {
-      desk: 'Prediction Markets',
-      market: 'Kalshi / Polymarket',
-      signal: 'read-only scout',
-      state: 'gated',
-      edge: 'no live edge',
-      blocker: 'liquidity + settlement risk',
-      tone: 'info',
-    },
+    { desk: 'Funding Carry', market: 'OKX USDT-SWAP', signal: funding?.scorecard?.verdict ?? 'NO_TAPE', state: report?.paper ? 'PAPER' : 'UNKNOWN', edge: fmtUsd(realizedNet), blocker: realizedNet > 0 ? 'sample / live locked' : 'economic P&L negative', tone: realizedNet > 0 ? 'warn' : 'bad' },
+    { desk: 'Market Making', market: 'OKX microstructure', signal: `${report?.quoted ?? 0} quotes`, state: 'STAND DOWN', edge: `${report?.filled ?? 0} fills`, blocker: 'VPIN / spread / adverse selection', tone: 'muted' },
+    { desk: 'Crypto Momentum', market: 'BTC · ETH · majors', signal: 'research queue', state: 'ASTRA-ready', edge: 'not promoted', blocker: 'needs OOS + 6 gates', tone: 'warn' },
+    { desk: 'Forex Sessions', market: sessionLabel(), signal: 'calendar design', state: 'connector pending', edge: 'no P&L yet', blocker: 'needs broker/feed + costs', tone: 'muted' },
+    { desk: 'Prediction Markets', market: 'Kalshi / Polymarket', signal: 'read-only scout', state: 'gated', edge: 'no live edge', blocker: 'liquidity + settlement risk', tone: 'info' },
   ];
 
   return (
