@@ -58,12 +58,34 @@ export interface CaptureReport {
     ts: string | null;
     settledCount: number;
     realizedFundingUsdt: number;
+    realizedPricePnlUsdt: number;
+    realizedNetPnlUsdt: number;
+    economicPnlUsdt: number;
+    equityUsdt: number;
     mtmUsdt: number;
     feesUsdt: number;
+    closedCount: number;
+    ledgerVersion: number;
     holds: { instId: string; side: string; predictedBps?: number; lastRealizedBps?: number; nextFundingTime?: number; realizedFundingUsdt?: number; mtmUsdt?: number; halt?: boolean }[];
     liveOff: boolean;
     go: boolean;
     note?: string | null;
+    scorecard?: {
+      verdict: string;
+      go: boolean;
+      liveOff: boolean;
+      paperPerformance?: {
+        realizedPricePnlUsdt: number;
+        realizedNetPnlUsdt: number;
+        economicPnlUsdt: number;
+        equityUsdt: number;
+      };
+      edgeEvidence?: {
+        status: string;
+        sampleOk: boolean;
+        realizedEconomicPositive: boolean;
+      };
+    };
   } | null;
   hz1?: {
     ts: string | null;
