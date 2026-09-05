@@ -8,11 +8,13 @@ import { dirname } from 'node:path';
 
 export const OKX = 'https://www.okx.com';
 export const TAKER = 0.0005; // listed VIP0 SWAP taker 5bps
-export const NOTIONAL = 500;
-export const MAX_HOLDS = 2;
+export const NOTIONAL = 2500; // paper size-up; fees scale too
+export const MAX_HOLDS = 1; // one ticket — no fee churn
 export const HALT_BPS = 25;
-export const MIN_LIQ = 1_000_000;
-export const MIN_PRED_BPS = 4;
+export const MIN_LIQ = 20_000_000; // size-up floor
+export const MIN_PRED_BPS = 5;
+export const MAX_PRED_BPS = 12; // above: toxic junk (PONS-class)
+export const MAX_SPREAD_BPS = 8;
 export const LIVE_OFF = true;
 
 function nowIso() {
@@ -98,7 +100,8 @@ export async function runHold({ statePath, once = false } = {}) {
     if (!mid) continue;
     const vol = +t.volCcy24h;
     const notional = (vol > 0 ? vol : 0) * mid;
-    const row = { instId, bid: +t.bidPx, ask: +t.askPx, mid, notional };
+    const spread = mid > 0 ? ((+t.askPx - +t.bidPx) / mid) * 1e4 : 0;
+    const row = { instId, bid: +t.bidPx, ask: +t.askPx, mid, notional, spread };
     byId.set(instId, row);
     if (notional >= MIN_LIQ) liquid.push(row);
   }
@@ -153,14 +156,17 @@ export async function runHold({ statePath, once = false } = {}) {
   const denyUntil = 24 * 3600 * 1000;
   const denied = new Set(
     (state.closed || [])
-      .filter((c) => c.haltReason === 'MARKOUT_HALT' && Date.now() - (Date.parse(c.closedTs) || 0) < denyUntil)
+      .filter((c) => {
+      const age = Date.now() - (Date.parse(c.closedTs) || 0);
+      if (c.haltReason === 'THIN_TOXIC' && age < 7 * 24 * 3600 * 1000) return true;
+      return c.haltReason === 'MARKOUT_HALT' && age < denyUntil;
+    })
       .map((c) => c.instId),
   );
   const openIds = new Set(state.holds.map((h) => h.instId));
-  const behind = state.feesUsdt > state.realizedFundingUsdt;
-  // Don't buy more tickets while fees > cobrado. Let current holds collect.
-  if (state.holds.length < MAX_HOLDS && !behind) {
-    const cand = liquid.filter((s) => !openIds.has(s.instId) && !denied.has(s.instId)).slice(0, 20);
+  // Size-up paper: may reopen when flat. Never stack tickets (MAX_HOLDS=1).
+  if (state.holds.length < MAX_HOLDS) {
+    const cand = liquid.filter((s) => !openIds.has(s.instId) && !denied.has(s.instId)).slice(0, 30);
     const scored = [];
     await pool(cand, 4, async (s) => {
       try {
@@ -169,26 +175,38 @@ export async function runHold({ statePath, once = false } = {}) {
         const rate = +d.fundingRate;
         const next = Number(d.nextFundingTime) || 0;
         if (!Number.isFinite(rate) || !(Math.abs(rate) * 1e4 >= MIN_PRED_BPS)) return;
+        if (Math.abs(rate) * 1e4 > MAX_PRED_BPS) return; // toxic wide funding
         const hist = await getJson(
           `${OKX}/api/v5/public/funding-rate-history?instId=${s.instId}&limit=8`,
         );
-        const last = (hist.data || [])[0];
+        const rows = Array.isArray(hist.data) ? hist.data : [];
+        const last = rows[0];
         const lastRate = last ? +last.fundingRate : 0;
         if (last && Number.isFinite(lastRate) && lastRate !== 0 && Math.sign(lastRate) !== Math.sign(rate)) {
           return; // predicted flipped vs last print
         }
+        const bps = rows.map((x) => +x.fundingRate * 1e4).filter((b) => Number.isFinite(b));
+        if (bps.length < 4) return;
+        const sign = Math.sign(rate);
+        const persist = bps.filter((b) => Math.sign(b) === sign).length;
+        if (persist < 4) return; // sticky funding
+        const mean8 = bps.reduce((a, b) => a + b, 0) / bps.length;
+        if (Math.abs(mean8) < 2.5) return;
+        if (s.spread > MAX_SPREAD_BPS) return;
         scored.push({
           ...s,
           rate,
           next,
           predBps: rate * 1e4,
           lastBps: lastRate * 1e4,
+          mean8,
+          persist,
         });
       } catch {
         /* skip name */
       }
     });
-    scored.sort((a, b) => Math.abs(b.predBps) - Math.abs(a.predBps));
+    scored.sort((a, b) => Math.abs(b.mean8 || b.predBps) - Math.abs(a.mean8 || a.predBps));
     for (const s of scored) {
       if (state.holds.length >= MAX_HOLDS) break;
       const side = s.rate > 0 ? 'short' : 'long';
