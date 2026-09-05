@@ -1,5 +1,15 @@
 # CHANGELOG_AI
 
+## 2026-09-05 — New Bot (promotion ≥ 6-gate floor)
+
+- Branch: `feat/promotion-align-gates`
+- Summary: `PROMOTION_CRITERIA.minTrades` raised **30→50**; promotion now requires WR≥45%, DD≤25%, t-stat≥2 (missing metrics fail closed). Pure `promotionGate.mjs`. EdgeScorecard no longer instructs `REAL_TRADING=1`. LIVE_OFF untouched. 6-gate thresholds not weakened.
+- Files created: `server/quant/alpha/promotionGate.mjs`, `server/tests/promotionGate.test.mjs`
+- Files modified: `server/quant/alpha/strategyRegistry.mjs`, `server/tests/quantStrategyRegistry.test.mjs`, `src/workflows/EdgeScorecardView.tsx`, `docs/CHANGELOG_AI.md`
+- Verification: `node --test server/tests/promotionGate.test.mjs`
+- Honesty: closing a weaker promotion path is not an edge.
+
+
 ## 2026-09-05 — New Bot (WF fail-closed + funding scorecard)
 
 - Branch: `feat/wf-fail-closed`
