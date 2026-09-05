@@ -134,8 +134,8 @@ export default function EdgeScorecardView() {
           </h1>
           <p className="text-[11px] text-zinc-500 mt-1 max-w-xl">
             {lang === 'es'
-              ? 'Todos los checks deben pasar (y 50+ trades resueltos) para que el veredicto sea GO. Solo entonces activa REAL_TRADING=1.'
-              : 'All checks must pass (and 50+ trades resolved) for the verdict to be GO. Only then flip REAL_TRADING=1.'}
+              ? 'Todos los checks deben pasar (y 50+ trades). Un GO de UI no es capital real: LIVE_OFF sigue; hace falta GO humano por archivo, no REAL_TRADING desde esta pantalla.'
+              : 'All checks must pass (and 50+ trades). A UI GO is not live capital: LIVE_OFF stays; human GO file required — never flip REAL_TRADING from this screen.'}
           </p>
         </div>
         {lastSync && <span className="text-[10px] text-zinc-600 shrink-0">sync {lastSync}</span>}
@@ -235,8 +235,8 @@ export default function EdgeScorecardView() {
           {data.verdict === 'GO' && (
             <div className="border border-green-400/40 bg-green-400/5 px-4 py-3 text-green-300 text-[12px]">
               ✓ {lang === 'es'
-                ? 'Todos los checks pasan. Activa REAL_TRADING=1 en .env y reinicia el servidor. Empieza con capital mínimo.'
-                : 'All checks pass. Set REAL_TRADING=1 in .env and restart the server. Start with minimum capital.'}
+                ? 'Checks de UI en verde ≠ dinero real. LIVE_OFF / paper siguen. Capital real solo con GO humano explícito (archivo), nunca desde este scorecard.'
+                : 'UI checks green ≠ real money. LIVE_OFF / paper stay. Real capital only with explicit human GO file — never from this scorecard.'}
             </div>
           )}
         </>
