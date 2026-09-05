@@ -31,11 +31,13 @@ export function buildFundingScorecard(state = {}) {
   const feeCovered = ledger.feesUsdt > 0
     ? ledger.realizedFundingUsdt / ledger.feesUsdt
     : null;
+  const feesCovered = ledger.realizedFundingUsdt - ledger.feesUsdt > 0;
   const realizedPositive = ledger.realizedNetPnlUsdt > 0;
 
   const edgeEvidence = {
     feeCoveredRatio: feeCovered,
-    feesCoveredByFunding: ledger.realizedFundingUsdt - ledger.feesUsdt > 0,
+    feesCovered, // compatibility: funding-only fee coverage, NOT full profitability
+    feesCoveredByFunding: feesCovered,
     realizedEconomicPositive: realizedPositive,
     minSettlesOk: settles >= 10,
     sampleOk: settles >= 10 && realizedPositive,
