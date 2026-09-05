@@ -1,15 +1,15 @@
-// HQView — public root. Serious capture desk. No pixel office.
+// HQView — public root. Exchange-grade command center, not visual theater.
 
 import { useLanguage } from '@core/i18n/languageStore';
-import { CaptureDeskPanel } from '@components/crypto/CaptureDeskPanel';
+import { GenesisCommandCenter } from '@components/crypto/GenesisCommandCenter';
 
 export default function HQView() {
   const lang = useLanguage();
   const es = lang === 'es';
 
   return (
-    <main className="flex-1 min-w-0 min-h-0 flex flex-col bg-[#0a0c12] overflow-hidden">
-      <CaptureDeskPanel es={es} />
+    <main className="flex-1 min-w-0 min-h-0 flex flex-col bg-[#03050a] overflow-hidden">
+      <GenesisCommandCenter es={es} />
     </main>
   );
 }
