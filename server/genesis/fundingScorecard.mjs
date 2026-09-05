@@ -1,38 +1,48 @@
 // fundingScorecard.mjs — honest separation of PAPER vs EDGE vs PRODUCTION.
 // Never invents fills. Never flips LIVE_OFF. Never claims GO.
 
+import { buildFundingTruthLedger } from './fundingTruthLedger.mjs';
+
 export const LIVE_OFF = true;
 
 export function buildFundingScorecard(state = {}) {
   const paper = state.paper === true;
   const liveOff = state.liveOff !== false;
-  const cobrado = Number(state.realizedFundingUsdt) || 0;
-  const fees = Number(state.feesUsdt) || 0;
-  const mtm = Number(state.mtmUsdt) || 0;
   const settles = Number(state.settledCount) || 0;
-  const holds = Array.isArray(state.holds) ? state.holds.length : 0;
-  const netAfterFees = cobrado - fees;
-  const feeCovered = fees > 0 ? cobrado / fees : null;
+  const ledger = buildFundingTruthLedger(state);
 
   const paperPerformance = {
-    cobradoUsdt: cobrado,
-    feesUsdt: fees,
-    netAfterFeesUsdt: netAfterFees,
-    mtmUsdt: mtm,
+    cobradoUsdt: ledger.realizedFundingUsdt,
+    realizedPricePnlUsdt: ledger.realizedPricePnlUsdt,
+    feesUsdt: ledger.feesUsdt,
+    realizedNetPnlUsdt: ledger.realizedNetPnlUsdt,
+    mtmUsdt: ledger.mtmUsdt,
+    economicPnlUsdt: ledger.economicPnlUsdt,
+    equityUsdt: ledger.equityUsdt,
     settledCount: settles,
-    openHolds: holds,
-    note: 'MTM is not cobrado. Only realizedFundingUsdt is collected.',
+    openHolds: ledger.openHolds,
+    closedCount: ledger.closedCount,
+    ledgerVersion: ledger.ledgerVersion,
+    reconciliation: ledger.reconciliation,
+    feeBreakdown: ledger.feeBreakdown,
+    note: 'Economic PnL = realized price PnL + collected funding - fees + open MTM. MTM is never treated as collected.',
   };
+
+  const feeCovered = ledger.feesUsdt > 0
+    ? ledger.realizedFundingUsdt / ledger.feesUsdt
+    : null;
+  const realizedPositive = ledger.realizedNetPnlUsdt > 0;
 
   const edgeEvidence = {
     feeCoveredRatio: feeCovered,
-    feesCovered: netAfterFees > 0,
+    feesCoveredByFunding: ledger.realizedFundingUsdt - ledger.feesUsdt > 0,
+    realizedEconomicPositive: realizedPositive,
     minSettlesOk: settles >= 10,
-    sampleOk: settles >= 10 && netAfterFees > 0,
+    sampleOk: settles >= 10 && realizedPositive,
     status: settles < 10
       ? 'INSUFFICIENT_SAMPLE'
-      : netAfterFees <= 0
-        ? 'FEES_DOMINATE'
+      : !realizedPositive
+        ? 'ECONOMIC_LOSS'
         : 'CANDIDATE_ONLY',
   };
 
@@ -48,7 +58,7 @@ export function buildFundingScorecard(state = {}) {
   let verdict = 'NO_EDGE_EVIDENCE';
   if (!paper || !liveOff) verdict = 'INVALID_STATE';
   else if (edgeEvidence.status === 'INSUFFICIENT_SAMPLE') verdict = 'INSUFFICIENT_SAMPLE';
-  else if (edgeEvidence.status === 'FEES_DOMINATE') verdict = 'FEES_DOMINATE';
+  else if (edgeEvidence.status === 'ECONOMIC_LOSS') verdict = 'ECONOMIC_LOSS';
   else verdict = 'PAPER_CANDIDATE_NOT_GO';
 
   return {
