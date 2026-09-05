@@ -20,11 +20,9 @@ const MAX_LIMIT = 40;
 const TRADE_LIMIT = 80;
 const CONC = 8;
 
-
 const TAPE_URL = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/capture-tape/paper-tape/capture-latest.json';
 const HZ1_URL = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/capture-tape/paper-tape/hz1-latest.json';
 const FUNDING_URL = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/capture-tape/paper-tape/funding-latest.json';
-
 
 async function loadHz1() {
   try {
@@ -65,26 +63,55 @@ async function loadFunding() {
       mtmUsdt: h.mtmUsdt,
       halt: !!h.halt,
     })) : [];
+    // closed[] is required for Truth Ledger v2. Legacy snapshots did not expose
+    // realizedPricePnlUsdt at top level, so the API reconstructs it from closes.
+    const closed = Array.isArray(j.closed) ? j.closed.map((h) => ({
+      instId: h.instId,
+      side: h.side,
+      entryPx: h.entryPx,
+      exitPx: h.exitPx,
+      notional: h.notional,
+      feeUsdt: h.feeUsdt,
+      entryFeeUsdt: h.entryFeeUsdt,
+      exitFeeUsdt: h.exitFeeUsdt,
+      realizedPricePnlUsdt: h.realizedPricePnlUsdt,
+      realizedFundingUsdt: h.realizedFundingUsdt,
+      mtmUsdt: h.mtmUsdt,
+      haltReason: h.haltReason,
+      closedTs: h.closedTs,
+    })) : [];
     const settledCount = Number.isFinite(+j.settledCount) ? +j.settledCount : 0;
     const realizedFundingUsdt = Number.isFinite(+j.realizedFundingUsdt) ? +j.realizedFundingUsdt : 0;
     const mtmUsdt = Number.isFinite(+j.mtmUsdt) ? +j.mtmUsdt : 0;
     const feesUsdt = Number.isFinite(+j.feesUsdt) ? +j.feesUsdt : 0;
+    const capital = Number.isFinite(+j.capital) ? +j.capital : 10000;
     const scorecard = buildFundingScorecard({
       paper: true,
       liveOff: true,
       go: false,
+      capital,
+      ledgerVersion: j.ledgerVersion,
       realizedFundingUsdt,
+      realizedPricePnlUsdt: j.realizedPricePnlUsdt,
       feesUsdt,
       mtmUsdt,
       settledCount,
       holds,
+      closed,
     });
+    const perf = scorecard.paperPerformance;
     return {
       ts: j.ts || null,
       settledCount,
       realizedFundingUsdt,
+      realizedPricePnlUsdt: perf.realizedPricePnlUsdt,
+      realizedNetPnlUsdt: perf.realizedNetPnlUsdt,
+      economicPnlUsdt: perf.economicPnlUsdt,
+      equityUsdt: perf.equityUsdt,
       mtmUsdt,
       feesUsdt,
+      closedCount: perf.closedCount,
+      ledgerVersion: perf.ledgerVersion,
       holds,
       liveOff: true,
       go: false,
@@ -300,7 +327,7 @@ export default async function handler(req, res) {
       hz1,
       funding,
       intersection: lastIntersection(),
-      note: 'En cristiano: el spread no paga. Paper funding hold (cobro del exchange). Live off. No es un GO.',
+      note: 'En cristiano: el spread no paga. Funding paper reconciliado con precio + funding - fees. Live off. No es un GO.',
       updatedAt: new Date().toISOString(),
     });
   } catch (e) {

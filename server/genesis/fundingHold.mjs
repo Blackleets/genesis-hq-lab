@@ -1,10 +1,14 @@
 // Paper funding hold on OKX SWAP. Never sends an order. LIVE_OFF frozen.
 // Positive funding => longs pay shorts. We paper-short to collect.
 // Credit ONLY realized history prints, never the predicted rate.
-// MTM is mark, not a win.
+// MTM is mark, not a win. Closed price losses/gains are persisted in Truth Ledger v2.
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
+import {
+  pricePnlForClosedTrade,
+  reconcileFundingState,
+} from './fundingTruthLedger.mjs';
 
 export const OKX = 'https://www.okx.com';
 export const TAKER = 0.0005; // listed VIP0 SWAP taker 5bps
@@ -28,7 +32,7 @@ async function getJson(url, ms = 9000) {
 }
 
 function emptyState() {
-  return {
+  return reconcileFundingState({
     paper: true,
     liveOff: true,
     go: false,
@@ -41,7 +45,7 @@ function emptyState() {
     holds: [],
     closed: [],
     note: 'paper funding. live off. no es un GO.',
-  };
+  });
 }
 
 function loadState(path) {
@@ -50,7 +54,9 @@ function loadState(path) {
     if (!j || j.paper !== true) return emptyState();
     j.holds = Array.isArray(j.holds) ? j.holds : [];
     j.closed = Array.isArray(j.closed) ? j.closed : [];
-    return j;
+    // Migrates legacy snapshots in memory: any loss trapped only in closed[].mtmUsdt
+    // becomes visible immediately in realizedPricePnlUsdt/equity.
+    return reconcileFundingState(j);
   } catch {
     return emptyState();
   }
@@ -88,7 +94,7 @@ async function pool(items, n, fn) {
 }
 
 export async function runHold({ statePath, once = false } = {}) {
-  const state = loadState(statePath);
+  let state = loadState(statePath);
   const tickersJ = await getJson(`${OKX}/api/v5/market/tickers?instType=SWAP`);
   const tickers = Array.isArray(tickersJ.data) ? tickersJ.data : [];
   const byId = new Map();
@@ -107,23 +113,26 @@ export async function runHold({ statePath, once = false } = {}) {
   }
   liquid.sort((a, b) => b.notional - a.notional);
 
-  // settle + mark existing
+  // Settle + mark existing. If a markout halt is triggered, funding history is
+  // reconciled first and only then is the final closed snapshot persisted.
   for (const h of state.holds) {
+    let pendingClose = null;
     const mkt = byId.get(h.instId);
     if (mkt) {
       h.mid = mkt.mid;
       h.mtmUsdt = mtmUsdt(h, mkt.mid);
       const mtmBps = (h.mtmUsdt / h.notional) * 1e4;
       if (!h.halt && mtmBps <= -HALT_BPS) {
-        const exitFee = TAKER * h.notional;
-        state.feesUsdt += exitFee;
-        h.halt = true;
-        h.haltReason = 'MARKOUT_HALT';
-        h.closedTs = nowIso();
-        h.exitPx = mkt.mid;
-        state.closed.push({ ...h });
+        // A taker close cannot fill at mid: short buys the ask, long sells the bid.
+        const exitPx = h.side === 'short' ? mkt.ask : mkt.bid;
+        pendingClose = {
+          exitPx,
+          exitFeeUsdt: TAKER * h.notional,
+          haltReason: 'MARKOUT_HALT',
+        };
       }
     }
+
     try {
       const hist = await getJson(
         `${OKX}/api/v5/public/funding-rate-history?instId=${h.instId}&limit=5`,
@@ -135,7 +144,6 @@ export async function runHold({ statePath, once = false } = {}) {
         if (!Number.isFinite(ts) || !Number.isFinite(rate)) continue;
         if (ts <= (h.lastSettledTime || 0)) continue;
         if (ts > Date.now()) continue;
-        // opened after this settle → skip
         const opened = Date.parse(h.entryTs) || 0;
         if (ts < opened) continue;
         const signed = h.side === 'short' ? rate : -rate;
@@ -149,21 +157,35 @@ export async function runHold({ statePath, once = false } = {}) {
     } catch {
       /* public hist miss — do not invent a settle */
     }
+
+    if (pendingClose) {
+      state.feesUsdt += pendingClose.exitFeeUsdt;
+      h.halt = true;
+      h.haltReason = pendingClose.haltReason;
+      h.closedTs = nowIso();
+      h.exitPx = pendingClose.exitPx;
+      h.entryFeeUsdt = h.entryFeeUsdt != null && Number.isFinite(+h.entryFeeUsdt)
+        ? +h.entryFeeUsdt
+        : (+h.feeUsdt || 0);
+      h.exitFeeUsdt = pendingClose.exitFeeUsdt;
+      h.realizedPricePnlUsdt = pricePnlForClosedTrade(h);
+      state.closed.push({ ...h });
+    }
   }
   state.holds = state.holds.filter((h) => !h.halt);
 
-  // open slots: predicted |bps| >= 4, last realized same sign, liquid
   const denyUntil = 24 * 3600 * 1000;
   const denied = new Set(
     (state.closed || [])
       .filter((c) => {
-      const age = Date.now() - (Date.parse(c.closedTs) || 0);
-      if (c.haltReason === 'THIN_TOXIC' && age < 7 * 24 * 3600 * 1000) return true;
-      return c.haltReason === 'MARKOUT_HALT' && age < denyUntil;
-    })
+        const age = Date.now() - (Date.parse(c.closedTs) || 0);
+        if (c.haltReason === 'THIN_TOXIC' && age < 7 * 24 * 3600 * 1000) return true;
+        return c.haltReason === 'MARKOUT_HALT' && age < denyUntil;
+      })
       .map((c) => c.instId),
   );
   const openIds = new Set(state.holds.map((h) => h.instId));
+
   // Size-up paper: may reopen when flat. Never stack tickets (MAX_HOLDS=1).
   if (state.holds.length < MAX_HOLDS) {
     const cand = liquid.filter((s) => !openIds.has(s.instId) && !denied.has(s.instId)).slice(0, 30);
@@ -175,7 +197,7 @@ export async function runHold({ statePath, once = false } = {}) {
         const rate = +d.fundingRate;
         const next = Number(d.nextFundingTime) || 0;
         if (!Number.isFinite(rate) || !(Math.abs(rate) * 1e4 >= MIN_PRED_BPS)) return;
-        if (Math.abs(rate) * 1e4 > MAX_PRED_BPS) return; // toxic wide funding
+        if (Math.abs(rate) * 1e4 > MAX_PRED_BPS) return;
         const hist = await getJson(
           `${OKX}/api/v5/public/funding-rate-history?instId=${s.instId}&limit=8`,
         );
@@ -183,13 +205,13 @@ export async function runHold({ statePath, once = false } = {}) {
         const last = rows[0];
         const lastRate = last ? +last.fundingRate : 0;
         if (last && Number.isFinite(lastRate) && lastRate !== 0 && Math.sign(lastRate) !== Math.sign(rate)) {
-          return; // predicted flipped vs last print
+          return;
         }
         const bps = rows.map((x) => +x.fundingRate * 1e4).filter((b) => Number.isFinite(b));
         if (bps.length < 4) return;
         const sign = Math.sign(rate);
         const persist = bps.filter((b) => Math.sign(b) === sign).length;
-        if (persist < 4) return; // sticky funding
+        if (persist < 4) return;
         const mean8 = bps.reduce((a, b) => a + b, 0) / bps.length;
         if (Math.abs(mean8) < 2.5) return;
         if (s.spread > MAX_SPREAD_BPS) return;
@@ -222,7 +244,9 @@ export async function runHold({ statePath, once = false } = {}) {
         entryPx: px,
         entryTs: nowIso(),
         notional: NOTIONAL,
-        feeUsdt: fee,
+        feeUsdt: fee, // legacy compatibility
+        entryFeeUsdt: fee,
+        exitFeeUsdt: 0,
         predictedBps: s.predBps,
         lastRealizedBps: s.lastBps,
         nextFundingTime: s.next,
@@ -243,10 +267,15 @@ export async function runHold({ statePath, once = false } = {}) {
   state.paper = true;
   state.liveOff = true;
   state.go = false;
+
+  // Recompute from auditable closed rows every tick. This is intentionally
+  // fail-honest: a closed price loss can no longer disappear from top-line P&L.
+  state = reconcileFundingState(state);
+
   const names = state.holds.map((h) => `${h.instId.replace('-USDT-SWAP', '')} ${h.side}`).join(', ');
   state.note = names
-    ? `paper hold ${names}. cobrado ${state.realizedFundingUsdt.toFixed(2)} USDT en ${state.settledCount} settles. a mercado ${state.mtmUsdt.toFixed(2)}. fees ${state.feesUsdt.toFixed(2)}. live off. no es un GO.`
-    : 'sin hold paper. live off. no se inventa un cobro.';
+    ? `paper hold ${names}. funding ${state.realizedFundingUsdt.toFixed(2)}. precio realizado ${state.realizedPricePnlUsdt.toFixed(2)}. fees ${state.feesUsdt.toFixed(2)}. MTM ${state.mtmUsdt.toFixed(2)}. neto económico ${state.economicPnlUsdt.toFixed(2)}. live off. no es un GO.`
+    : `sin hold paper. funding ${state.realizedFundingUsdt.toFixed(2)}. precio realizado ${state.realizedPricePnlUsdt.toFixed(2)}. fees ${state.feesUsdt.toFixed(2)}. neto realizado ${state.realizedNetPnlUsdt.toFixed(2)}. live off. no es un GO.`;
   saveState(statePath, state);
   return state;
 }
@@ -272,10 +301,15 @@ if (isMain) {
           ts: s.ts,
           holds: s.holds.length,
           settled: s.settledCount,
-          realized: s.realizedFundingUsdt,
+          funding: s.realizedFundingUsdt,
+          realizedPrice: s.realizedPricePnlUsdt,
+          realizedNet: s.realizedNetPnlUsdt,
           mtm: s.mtmUsdt,
+          economicPnl: s.economicPnlUsdt,
+          equity: s.equityUsdt,
           fees: s.feesUsdt,
           names: s.holds.map((h) => h.instId),
+          ledgerVersion: s.ledgerVersion,
           liveOff: true,
           go: false,
         }),

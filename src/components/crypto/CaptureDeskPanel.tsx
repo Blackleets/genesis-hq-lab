@@ -67,9 +67,12 @@ export function CaptureDeskPanel({ es = true }: { es?: boolean }) {
 
   const f = report?.funding;
   const cobrado = f?.realizedFundingUsdt ?? 0;
+  const precioRealizado = f?.realizedPricePnlUsdt ?? 0;
   const mercado = f?.mtmUsdt ?? 0;
   const fees = f?.feesUsdt ?? 0;
-  const neto = cobrado + mercado - fees;
+  const netoRealizado = f?.realizedNetPnlUsdt ?? (cobrado + precioRealizado - fees);
+  const neto = f?.economicPnlUsdt ?? (netoRealizado + mercado);
+  const equity = f?.equityUsdt ?? ((report?.capital ?? 10000) + neto);
   const holds = f?.holds ?? [];
   const paper = report?.paper ?? true;
   const liveOff = report?.liveOff ?? true;
@@ -109,16 +112,17 @@ export function CaptureDeskPanel({ es = true }: { es?: boolean }) {
           <div className="gx-overline">{es ? 'Qué está pasando' : 'Now'}</div>
           <p className="text-[15px] text-zinc-100 mt-1.5 leading-snug max-w-2xl">
             {es
-              ? 'Enfoque: cobro del exchange por aguantar. El spread no se cotiza. Paper. Live apagado. No es un GO.'
-              : 'Approach: collect funding. Spread desk quotes 0. Paper. Live off.'}
+              ? 'Truth Ledger v2: neto = P&L de precio realizado + funding cobrado - fees + MTM abierto. Paper. Live apagado. No es un GO.'
+              : 'Truth Ledger v2: net = realized price P&L + collected funding - fees + open MTM. Paper. Live off.'}
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 mb-4">
           {[
-            { label: es ? 'Cobrado' : 'Collected', value: cobrado, hint: es ? 'solo settles reales' : 'realized only' },
-            { label: es ? 'A mercado' : 'Mark', value: mercado, hint: es ? 'aún no es cobro' : 'unrealized' },
-            { label: es ? 'Fees' : 'Fees', value: -Math.abs(fees), hint: es ? 'ya pagados' : 'paid' },
+            { label: es ? 'Funding cobrado' : 'Funding collected', value: cobrado, hint: es ? 'solo settles reales' : 'realized settles only' },
+            { label: es ? 'Precio realizado' : 'Realized price', value: precioRealizado, hint: es ? `${f?.closedCount ?? 0} cierres` : `${f?.closedCount ?? 0} closes` },
+            { label: es ? 'Fees' : 'Fees', value: -Math.abs(fees), hint: es ? 'entrada + salida conocidas' : 'known entry + exit' },
+            { label: es ? 'A mercado' : 'Open MTM', value: mercado, hint: es ? 'aún no realizado' : 'not realized' },
           ].map((c) => (
             <div key={c.label} className="gx-tile px-4 py-3">
               <div className="gx-label">{c.label}</div>
@@ -130,11 +134,13 @@ export function CaptureDeskPanel({ es = true }: { es?: boolean }) {
           ))}
         </div>
 
-        <div className="flex items-baseline gap-3 mb-6">
-          <span className="gx-label">{es ? 'Neto paper' : 'Paper net'}</span>
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 mb-6">
+          <span className="gx-label">{es ? 'Neto realizado' : 'Realized net'}</span>
+          <span className="gx-value text-[18px]" style={{ color: moneyColor(netoRealizado) }}>{fmtUsd(netoRealizado)}</span>
+          <span className="gx-label ml-2">{es ? 'Neto económico' : 'Economic net'}</span>
           <span className="gx-value text-[18px]" style={{ color: moneyColor(neto) }}>{fmtUsd(neto)}</span>
           <span className="font-mono text-[9px] text-zinc-600">
-            {es ? 'PAPER · live apagado · no es un GO' : 'PAPER · live off'}
+            {es ? `equity ${fmtUsd(equity, false)} · ledger v${f?.ledgerVersion ?? 2} · LIVE OFF` : `equity ${fmtUsd(equity, false)} · ledger v${f?.ledgerVersion ?? 2} · LIVE OFF`}
           </span>
         </div>
 
@@ -167,7 +173,7 @@ export function CaptureDeskPanel({ es = true }: { es?: boolean }) {
                   {es ? 'a mercado' : 'mark'} {fmtUsd(h.mtmUsdt || 0)}
                 </div>
                 <div className="font-mono text-[11px] text-zinc-400 mt-0.5">
-                  {es ? 'cobrado' : 'collected'} {fmtUsd(h.realizedFundingUsdt || 0)}
+                  {es ? 'funding cobrado' : 'funding collected'} {fmtUsd(h.realizedFundingUsdt || 0)}
                 </div>
               </article>
             ))}
