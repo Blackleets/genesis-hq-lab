@@ -11,6 +11,16 @@ test('price PnL is exact for long and short closes', () => {
   assert.equal(pricePnlForClosedTrade({ side: 'short', entryPx: 100, exitPx: 105, notional: 1000 }), -50);
 });
 
+test('null explicit PnL does not erase reconstructable close economics', () => {
+  assert.equal(pricePnlForClosedTrade({
+    side: 'short',
+    entryPx: 100,
+    exitPx: 102,
+    notional: 1000,
+    realizedPricePnlUsdt: null,
+  }), -20);
+});
+
 test('legacy closed MTM is recovered when exitPx was not persisted', () => {
   assert.equal(pricePnlForClosedTrade({ side: 'short', entryPx: 100, notional: 1000, mtmUsdt: -12.5 }), -12.5);
 });
