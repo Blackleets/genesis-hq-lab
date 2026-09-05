@@ -1,54 +1,60 @@
 {
-  "ts": "2026-09-05T15:14:55.432Z",
+  "ts": "2026-09-05T17:23:28.615Z",
   "liveOff": true,
   "paper": true,
   "go": false,
   "hz": 1,
   "tickers": 457,
-  "preQuote": 5,
+  "preQuote": 3,
   "full": 4,
   "quoted": 0,
   "quotedNames": [],
   "filled": 0,
   "paperPnl": 0,
   "reasons": {
-    "TAPE_PENDING": 4
+    "TAPE_PENDING": 3,
+    "VPIN_HALT": 1
   },
-  "ms": 815,
+  "ms": 1198,
   "scored": [
     {
-      "symbol": "SPK-USDT-SWAP",
-      "preH": -0.6167230546158944,
-      "spread": 9.666505558240303,
+      "symbol": "ACU-USDT-SWAP",
+      "preH": 0.1472265422504213,
+      "spread": 11.849218692144062,
+      "quote": false,
+      "reason": "TAPE_PENDING"
+    },
+    {
+      "symbol": "CASHCAT-USDT-SWAP",
+      "preH": -0.03249574910302533,
+      "spread": 11.335726431134214,
+      "quote": false,
+      "reason": "TAPE_PENDING"
+    },
+    {
+      "symbol": "SIGN-USDT-SWAP",
+      "preH": -0.2557743739360978,
+      "spread": 10.697787503039722,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
       "symbol": "NIGHT-USDT-SWAP",
-      "preH": -1.1680302076776825,
-      "spread": 8.091342263778051,
+      "preH": -0.8361581920905241,
+      "spread": 9.039548022598503,
       "quote": false,
-      "reason": "TAPE_PENDING"
-    },
-    {
-      "symbol": "KITE-USDT-SWAP",
-      "preH": -1.2499410701660922,
-      "spread": 7.85731122809688,
-      "quote": false,
-      "reason": "TAPE_PENDING"
-    },
-    {
-      "symbol": "MERL-USDT-SWAP",
-      "preH": -0.9203695556534468,
-      "spread": 8.798944126704438,
-      "quote": false,
-      "reason": "TAPE_PENDING"
+      "reason": "VPIN_HALT",
+      "harvestBps": null,
+      "vpin": 0.7037,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "VPIN_HALT"
     }
   ],
   "intersection": {
-    "liquid": 202,
-    "hGe": 5,
-    "band": 102,
+    "liquid": 196,
+    "hGe": 3,
+    "band": 108,
     "both": 0
   },
   "formula": "H=spread*0.35-4bps; width is a toxicity prior. Kalman+VPIN+GLFT. not a GO."
