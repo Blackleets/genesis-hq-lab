@@ -48,15 +48,12 @@ export function buildFundingTruthLedger(state = {}) {
     ? Number(state.mtmUsdt)
     : sum(holds, (h) => h.mtmUsdt);
 
+  // closed[] is the accounting source of truth. The top-level persisted total is
+  // merely a reconciled cache and must never override a newly appended close.
   const closedPricePnlUsdt = deriveClosedPricePnl(closed);
+  const realizedPricePnlUsdt = closedPricePnlUsdt;
   const explicitPricePnl = Number(state.realizedPricePnlUsdt);
   const hasExplicitPricePnl = Number.isFinite(explicitPricePnl);
-
-  // v2 writers persist the reconciled total explicitly. Legacy snapshots do not,
-  // so derive it from closed[] and expose the source for auditability.
-  const realizedPricePnlUsdt = state.ledgerVersion >= 2 && hasExplicitPricePnl
-    ? explicitPricePnl
-    : closedPricePnlUsdt;
 
   const knownEntryFeesUsdt = sum(closed, (t) => t.entryFeeUsdt ?? t.feeUsdt)
     + sum(holds, (t) => t.entryFeeUsdt ?? t.feeUsdt);
@@ -90,8 +87,9 @@ export function buildFundingTruthLedger(state = {}) {
       unallocatedFeesUsdt,
     },
     reconciliation: {
-      priceSource: state.ledgerVersion >= 2 && hasExplicitPricePnl ? 'PERSISTED_V2' : 'DERIVED_FROM_CLOSED',
+      priceSource: 'DERIVED_FROM_CLOSED',
       closedPricePnlUsdt,
+      persistedPricePnlUsdt: hasExplicitPricePnl ? explicitPricePnl : null,
       pricePnlReconciliationDeltaUsdt,
       legacyFeeAllocationIncomplete: Math.abs(unallocatedFeesUsdt) > 1e-9,
     },
