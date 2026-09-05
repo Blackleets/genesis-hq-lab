@@ -123,8 +123,10 @@ export async function runHold({ statePath, once = false } = {}) {
       h.mtmUsdt = mtmUsdt(h, mkt.mid);
       const mtmBps = (h.mtmUsdt / h.notional) * 1e4;
       if (!h.halt && mtmBps <= -HALT_BPS) {
+        // A taker close cannot fill at mid: short buys the ask, long sells the bid.
+        const exitPx = h.side === 'short' ? mkt.ask : mkt.bid;
         pendingClose = {
-          exitPx: mkt.mid,
+          exitPx,
           exitFeeUsdt: TAKER * h.notional,
           haltReason: 'MARKOUT_HALT',
         };
@@ -162,7 +164,9 @@ export async function runHold({ statePath, once = false } = {}) {
       h.haltReason = pendingClose.haltReason;
       h.closedTs = nowIso();
       h.exitPx = pendingClose.exitPx;
-      h.entryFeeUsdt = Number.isFinite(+h.entryFeeUsdt) ? +h.entryFeeUsdt : (+h.feeUsdt || 0);
+      h.entryFeeUsdt = h.entryFeeUsdt != null && Number.isFinite(+h.entryFeeUsdt)
+        ? +h.entryFeeUsdt
+        : (+h.feeUsdt || 0);
       h.exitFeeUsdt = pendingClose.exitFeeUsdt;
       h.realizedPricePnlUsdt = pricePnlForClosedTrade(h);
       state.closed.push({ ...h });
