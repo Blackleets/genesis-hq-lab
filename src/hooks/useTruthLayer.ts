@@ -10,6 +10,25 @@ export interface TruthIssue {
   message: string;
 }
 
+export interface RunnerTrade {
+  id: string;
+  pair: string;
+  side: 'LONG' | 'SHORT';
+  status: 'open' | 'closed';
+  mode: 'paper';
+  entryPrice: number | null;
+  exitPrice: number | null;
+  targetPrice: number | null;
+  stopPrice: number | null;
+  pnl: number | null;
+  openedAt: string | null;
+  closedAt: string | null;
+  exitReason: string | null;
+  tradeType: string | null;
+  leverage: number | null;
+  capitalUsed: number | null;
+}
+
 export interface SystemTruth {
   ok: boolean;
   timestamp: string;
@@ -35,6 +54,32 @@ export interface SystemTruth {
     claudeEnabled?: boolean;
     llmProvider?: 'groq' | 'gemini' | 'claude' | 'none';
     neverStarted?: boolean;
+    source?: string;
+    paperOnly?: boolean;
+    liveOrders?: boolean;
+    lastResult?: {
+      ok?: boolean;
+      paperOnly?: boolean;
+      liveOrders?: boolean;
+      scanned?: number;
+      qualified?: number;
+      executed?: number;
+      skipped?: number;
+      closed?: number;
+      cyclePnl?: number;
+      openPositions?: number;
+      closedPositions?: Array<{ id: string; pair: string; side: string; reason: string; pnl: number; mark: number }>;
+      decisions?: Array<{ profile?: string; pair?: string; status?: string; reason?: string; side?: string; [key: string]: unknown }>;
+    } | null;
+    openPositions?: RunnerTrade[];
+    recentTrades?: RunnerTrade[];
+    stats?: {
+      sampleTrades?: number;
+      sampleClosed?: number;
+      openPositions?: number;
+      sampleRealizedPnl?: number;
+      sampleWinRate?: number | null;
+    } | null;
     error?: string;
   };
   kalshi: { ok: boolean; hasApiKey?: boolean; wsConnected?: boolean; mode?: string; inUse?: boolean; error?: string };
