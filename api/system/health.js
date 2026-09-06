@@ -108,6 +108,7 @@ function mergeRunner(base, runner, quantEvidence) {
       futuresNativeMarket: quantEvidence?.futuresNativeMarket ?? null,
       economicFeasibility: quantEvidence?.economicFeasibility ?? null,
       hypothesisGate: quantEvidence?.hypothesisGate ?? null,
+      researchPipeline: quantEvidence?.researchPipeline ?? null,
     },
     execution: {
       ...normalized.execution,
