@@ -3,6 +3,7 @@ import { getSystemHealthFallback } from '../_lib/cryptoFallback.js';
 import { fetchRemoteFallback } from '../_lib/remoteFallback.js';
 
 const RUNNER_STATUS_URL = 'https://swgixcbwyhxttnmrglbk.supabase.co/functions/v1/genesis-runner-status';
+const QUANT_EVIDENCE_URL = 'https://swgixcbwyhxttnmrglbk.supabase.co/functions/v1/genesis-quant-evidence-status';
 
 function normalizeHealth(input) {
   const data = input && typeof input === 'object' ? input : {};
@@ -68,34 +69,50 @@ async function readRunnerStatus() {
   }
 }
 
-function mergeRunner(base, runner) {
+async function readQuantEvidence() {
+  try {
+    const response = await fetch(QUANT_EVIDENCE_URL, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(5_000) });
+    if (!response.ok) return null;
+    const status = await response.json();
+    return status?.ok === true ? status : null;
+  } catch {
+    return null;
+  }
+}
+
+function mergeRunner(base, runner, quantEvidence) {
   const normalized = normalizeHealth(base);
-  if (!runner) return normalized;
-  const openPositions = Array.isArray(runner.openPositions) ? runner.openPositions : [];
-  const recentTrades = Array.isArray(runner.recentTrades) ? runner.recentTrades : [];
+  if (!runner && !quantEvidence) return normalized;
+  const openPositions = Array.isArray(runner?.openPositions) ? runner.openPositions : [];
+  const recentTrades = Array.isArray(runner?.recentTrades) ? runner.recentTrades : [];
   return {
     ...normalized,
     agentRunner: {
       ...normalized.agentRunner,
-      ok: true,
-      agentAlive: runner.agentAlive === true,
-      neverStarted: !runner.lastTickAt,
-      lastTickAt: runner.lastTickAt ?? null,
-      msSinceLastTick: Number.isFinite(runner.msSinceLastTick) ? runner.msSinceLastTick : null,
-      totalCycles: Number.isFinite(runner.totalCycles) ? runner.totalCycles : 0,
-      source: runner.source ?? 'supabase_futures_runner',
-      paperOnly: runner.paperOnly === true,
-      liveOrders: runner.liveOrders === true,
-      lastResult: runner.lastResult ?? null,
+      ...(runner && typeof runner === 'object' ? runner : {}),
+      ok: runner?.ok === true,
+      agentAlive: runner?.agentAlive === true,
+      neverStarted: !runner?.lastTickAt,
+      lastTickAt: runner?.lastTickAt ?? null,
+      msSinceLastTick: Number.isFinite(runner?.msSinceLastTick) ? runner.msSinceLastTick : null,
+      totalCycles: Number.isFinite(runner?.totalCycles) ? runner.totalCycles : 0,
+      source: runner?.source ?? 'supabase_futures_runner',
+      paperOnly: runner?.paperOnly === true,
+      liveOrders: runner?.liveOrders === true,
+      lastResult: runner?.lastResult ?? null,
       openTrades: openPositions.length,
       openPositions,
       recentTrades,
-      stats: runner.stats && typeof runner.stats === 'object' ? runner.stats : null,
+      stats: runner?.stats && typeof runner.stats === 'object' ? runner.stats : null,
+      quantEvidence: quantEvidence ?? null,
+      futuresNativeMarket: quantEvidence?.futuresNativeMarket ?? null,
+      economicFeasibility: quantEvidence?.economicFeasibility ?? null,
+      hypothesisGate: quantEvidence?.hypothesisGate ?? null,
     },
     execution: {
       ...normalized.execution,
-      agentAlive: runner.agentAlive === true,
-      lastTickAt: runner.lastTickAt ?? normalized.execution.lastTickAt,
+      agentAlive: runner?.agentAlive === true,
+      lastTickAt: runner?.lastTickAt ?? normalized.execution.lastTickAt,
       openTrades: openPositions.length,
     },
   };
@@ -103,14 +120,14 @@ function mergeRunner(base, runner) {
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return sendMethodNotAllowed(res);
-  const runner = await readRunnerStatus();
+  const [runner, quantEvidence] = await Promise.all([readRunnerStatus(), readQuantEvidence()]);
   try {
     const remote = await fetchRemoteFallback('system-health');
-    return sendJson(res, 200, mergeRunner(remote, runner));
+    return sendJson(res, 200, mergeRunner(remote, runner, quantEvidence));
   } catch (remoteError) {
     try {
       const local = await getSystemHealthFallback();
-      return sendJson(res, 200, mergeRunner(local, runner));
+      return sendJson(res, 200, mergeRunner(local, runner, quantEvidence));
     } catch (localError) {
       return sendJson(res, 200, mergeRunner({
         ok: false,
@@ -118,7 +135,7 @@ export default async function handler(req, res) {
         agentRunner: { ok: false, agentAlive: false, neverStarted: true },
         execution: { agentAlive: false, isPaused: true },
         issues: [{ severity: 'warn', system: 'backend', message: 'System health unavailable' }],
-      }, runner));
+      }, runner, quantEvidence));
     }
   }
 }
