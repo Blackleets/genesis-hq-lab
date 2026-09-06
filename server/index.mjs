@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { handleFounderRequest } from './genesis/founderHttp.mjs';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -209,6 +210,12 @@ function latestIso(...values) {
 
 const server = createServer(async (req, res) => {
   applyCors(res);
+
+  // Deliberately before the global OPTIONS/GET guards: this read-only route
+  // rejects EVERY method except GET, consistently with the Vercel adapter.
+  if (req.url?.split('?')[0] === '/api/genesis/founder') {
+    return handleFounderRequest(req, res);
+  }
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);

@@ -32,7 +32,8 @@ import BotCreatorView from '@workflows/BotCreatorView';
 import WalletAuthProvider from '@core/auth/WalletAuthProvider';
 import { actions, useSelectedModule } from '@core/store/genesisStore';
 import { useLearningSync } from '@hooks/useLearningSync';
-import type { ModuleId } from '@core/data/moduleRegistry';
+import { MODULES, type ModuleId } from '@core/data/moduleRegistry';
+import { useT } from '@core/i18n/languageStore';
 
 const TICK_MS = 5000;
 
@@ -57,6 +58,7 @@ function ModuleRenderer({ module, setModule }: { module: ModuleId; setModule: (m
 }
 
 function AppShell() {
+  const t = useT();
   const currentModule = useSelectedModule();
   const { open: openCommandBar } = useCommandBar();
 
@@ -76,9 +78,16 @@ function AppShell() {
         onNavigate={actions.setSelectedModule}
         onOpenCommandBar={openCommandBar}
       />
+      <nav className="md:hidden border-b border-zinc-800 px-4 py-2" aria-label="Mobile workspace navigation">
+        <label className="text-xs text-zinc-400 flex items-center gap-3">Workspace
+          <select aria-label="Workspace module" value={currentModule} onChange={event => actions.setSelectedModule(event.target.value as ModuleId)} className="flex-1 min-w-0 bg-[#10131a] text-zinc-200 border border-zinc-700 p-2">
+            {MODULES.map(module => <option key={module.id} value={module.id}>{t(module.navKey)}</option>)}
+          </select>
+        </label>
+      </nav>
       {currentModule !== 'hq' && <TopBar />}
       <div className="flex-1 flex min-h-0">
-        <GenesisSidebar currentModule={currentModule} onSelect={actions.setSelectedModule} />
+        <div className="hidden md:flex"><GenesisSidebar currentModule={currentModule} onSelect={actions.setSelectedModule} /></div>
         <ModuleRenderer module={currentModule} setModule={actions.setSelectedModule} />
       </div>
       <ToastContainer />

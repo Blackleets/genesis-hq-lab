@@ -166,7 +166,7 @@ export default function QuantBotView() {
   const lang = useLanguage();
   const es = lang === 'es';
   const { session, logout } = useWalletAuth();
-  const token = session?.token ?? null;
+  const authenticated = !!session;
   const isOperator = session?.role === 'operator';
   const [data, setData] = useState<LiveResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -180,7 +180,7 @@ export default function QuantBotView() {
     async function load() {
       try {
         const r = await fetch('/api/genesis/live', {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          credentials: 'same-origin',
         });
         if (r.status === 401) {
           // Session expired/revoked → clean auto-logout back to the gate.
@@ -197,14 +197,14 @@ export default function QuantBotView() {
     load();
     const id = setInterval(load, 30_000); // poll every 30s
     return () => { alive = false; clearInterval(id); };
-  }, [es, token, logout]);
+  }, [es, authenticated, logout]);
 
   // "Mis Bots" chips: GET /api/genesis/bots returns MY bots (incl. archived).
   useEffect(() => {
-    if (!token) { setMyBots([]); setMyBotsError(false); return; }
+    if (!authenticated) { setMyBots([]); setMyBotsError(false); return; }
     let alive = true;
     fetch('/api/genesis/bots', {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      credentials: 'same-origin',
     })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((j: MyBotsResponse) => {
@@ -214,7 +214,7 @@ export default function QuantBotView() {
         if (alive) setMyBotsError(true);
       });
     return () => { alive = false; };
-  }, [token, data]); // refetch when the live poll updates, so new bots appear
+  }, [authenticated, data]); // refetch when the live poll updates, so new bots appear
 
   // Candles for the selected bot's pair (real Binance klines).
   useEffect(() => {
@@ -222,7 +222,7 @@ export default function QuantBotView() {
     if (!pair) return;
     let alive = true;
     fetch(`/api/genesis/candles?pair=${encodeURIComponent(pair)}&tf=1h&limit=300`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      credentials: 'same-origin',
     })
       .then((r) => {
         if (r.status === 401 && alive) { logout(); }
@@ -231,7 +231,7 @@ export default function QuantBotView() {
       .then((j: { candles: ChartCandle[] }) => { if (alive) setCandles(j.candles ?? []); })
       .catch(() => { if (alive) setCandles([]); });
     return () => { alive = false; };
-  }, [botIdx, data?.bots, token, logout]);
+  }, [botIdx, data?.bots, authenticated, logout]);
 
   const bots = data?.bots ?? [];
 

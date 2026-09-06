@@ -21,7 +21,7 @@ let ipCounter = 0;
 function mockReq(body) {
   return {
     method: 'POST',
-    headers: {},
+    headers: { origin: 'https://genesis.test', host: 'genesis.test' },
     socket: { remoteAddress: `10.0.${++ipCounter}.1` }, // fresh IP per request -> no rate-limit interference
     body,
   };
@@ -107,7 +107,8 @@ describe('POST /api/auth/verify', () => {
     expect(res.statusCode).toBe(200);
     expect(json.ok).toBe(true);
     expect(json.session.role).toBe('user');
-    expect(json.session.token.split('.')).toHaveLength(3); // HS256 JWT shape
+    expect(json.session.token).toBeUndefined();
+    expect(res.headers['Set-Cookie']).toContain('HttpOnly; Secure; SameSite=Strict');
     expect(json.session.expiresAt - json.session.issuedAt).toBe(24 * 60 * 60);
     expect(nonceStore.has(n.nonce)).toBe(false); // consumed
   });
@@ -159,9 +160,9 @@ describe('POST /api/auth/verify', () => {
 describe('JWT session token', () => {
   it('decodes and validates with jose (sub, role, iat, exp)', async () => {
     const { json: n } = await requestNonce();
-    const { json } = await doVerify({ nonce: n.nonce, message: n.message });
+    const { res } = await doVerify({ nonce: n.nonce, message: n.message });
     const secret = new TextEncoder().encode(process.env.AUTH_JWT_SECRET);
-    const { payload, protectedHeader } = await jwtVerify(json.session.token, secret, { algorithms: ['HS256'] });
+    const { payload, protectedHeader } = await jwtVerify(res.headers['Set-Cookie'].split(';')[0].split('=')[1], secret, { algorithms: ['HS256'] });
     expect(protectedHeader.alg).toBe('HS256');
     expect(payload.sub).toBe(TEST_ADDR); // lowercase
     expect(payload.role).toBe('user');
@@ -171,9 +172,9 @@ describe('JWT session token', () => {
 
   it('fails validation when signed with a different secret', async () => {
     const { json: n } = await requestNonce();
-    const { json } = await doVerify({ nonce: n.nonce, message: n.message });
+    const { res } = await doVerify({ nonce: n.nonce, message: n.message });
     const badSecret = new TextEncoder().encode('wrong-secret-wrong-secret-wrong');
-    await expect(jwtVerify(json.session.token, badSecret)).rejects.toThrow();
+    await expect(jwtVerify(res.headers['Set-Cookie'].split(';')[0].split('=')[1], badSecret)).rejects.toThrow();
   });
 });
 
@@ -189,7 +190,7 @@ describe('role assignment (OPERATOR_ADDRESSES)', () => {
   it("assigns 'user' when the address is not whitelisted", async () => {
     process.env.OPERATOR_ADDRESSES = '0x0000000000000000000000000000000000000001';
     const { json: n } = await requestNonce();
-    const { json } = await doVerify({ nonce: n.nonce, message: n.message });
-    expect(json.session.role).toBe('user');
+    const { res } = await doVerify({ nonce: n.nonce, message: n.message });
+    expect(res.json().session.role).toBe('user');
   });
 });

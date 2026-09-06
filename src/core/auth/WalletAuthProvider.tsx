@@ -5,8 +5,8 @@
 //   by POST /api/auth/nonce (EIP-191 personal_sign). We NEVER sign a message
 //   that did not come verbatim from the backend. No approvals, no transfers,
 //   nothing that moves funds.
-// - The session lives in sessionStorage (NOT localStorage): it dies with the
-//   tab, which keeps the stolen-token surface minimal.
+// - Authentication lives in a Secure HttpOnly cookie; JavaScript only sees
+//   public identity metadata, never a bearer token.
 // - A user-rejected signature surfaces a clean error — it never crashes.
 
 import {
@@ -67,18 +67,6 @@ interface WalletAuthContextValue {
 
 const WalletAuthContext = createContext<WalletAuthContextValue | null>(null);
 
-function readStoredSession(): WalletSession | null {
-  try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as WalletSession;
-    // Expired/tampered sessions are dropped, never honored.
-    return isSessionValid(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
 function isUserRejection(err: unknown): boolean {
   const e = err as { code?: number; name?: string; message?: string } | undefined;
   if (!e) return false;
@@ -99,10 +87,9 @@ function errMessage(err: unknown): string {
   return msg || 'Error desconocido durante la autenticación.';
 }
 
-async function postJson<T>(url: string, body: unknown, token?: string): Promise<T> {
+async function postJson<T>(url: string, body: unknown): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token) headers.Authorization = `Bearer ${token}`;
-  const r = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+  const r = await fetch(url, { method: 'POST', credentials: 'same-origin', headers, body: JSON.stringify(body) });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return (await r.json()) as T;
 }
@@ -121,7 +108,6 @@ interface VerifyResponse {
 function isValidVerifySession(s: VerifyResponse['session'] | undefined): s is WalletSession {
   return Boolean(
     s &&
-      typeof s.token === 'string' &&
       typeof s.address === 'string' &&
       (s.role === 'user' || s.role === 'operator') &&
       typeof s.expiresAt === 'number',
@@ -129,23 +115,28 @@ function isValidVerifySession(s: VerifyResponse['session'] | undefined): s is Wa
 }
 
 function WalletAuthContextProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<WalletSession | null>(() => readStoredSession());
-  const [status, setStatus] = useState<AuthStatus>(() =>
-    readStoredSession() ? 'authenticated' : 'idle',
-  );
+  const [session, setSession] = useState<WalletSession | null>(null);
+  const [status, setStatus] = useState<AuthStatus>('idle');
   const [error, setError] = useState<string | null>(null);
 
-  // Drop an expired persisted session on mount (tab slept past TTL).
   useEffect(() => {
-    if (session && !isSessionValid(session)) {
-      sessionStorage.removeItem(SESSION_KEY);
-      setSession(null);
-      setStatus('idle');
-    }
-  }, [session]);
+    // Remove the legacy token without reading it into a component.
+    sessionStorage.removeItem(SESSION_KEY);
+    let alive = true;
+    fetch('/api/auth/session', { credentials: 'same-origin', cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (alive && isValidVerifySession(data?.session) && isSessionValid(data.session)) {
+          const next = data.session;
+          setSession({ address: next.address, role: next.role, issuedAt: next.issuedAt, expiresAt: next.expiresAt });
+          setStatus('authenticated');
+        }
+      }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   const logout = useCallback(() => {
-    sessionStorage.removeItem(SESSION_KEY);
+    void postJson('/api/auth/logout', {}).catch(() => setError('Server logout unavailable. Close the session on the server before sharing this browser.'));
     setSession(null);
     setError(null);
     setStatus('idle');
@@ -184,10 +175,9 @@ function WalletAuthContextProvider({ children }: { children: ReactNode }) {
       if (!res?.ok || !isValidVerifySession(res.session)) {
         throw new Error('Verificación de firma fallida.');
       }
-      const next = res.session;
+      const next: WalletSession = { address: res.session.address, role: res.session.role, issuedAt: res.session.issuedAt, expiresAt: res.session.expiresAt };
       if (!isSessionValid(next)) throw new Error('Sesión emitida inválida o expirada.');
 
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(next));
       setSession(next);
       setStatus('authenticated');
     } catch (err) {

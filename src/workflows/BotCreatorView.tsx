@@ -144,9 +144,9 @@ export default function BotCreatorView() {
     try {
       const r = await fetch('/api/genesis/bots', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.token}`,
         },
         body: JSON.stringify({ pair, kind, params: { slMult, tpMult } }),
       });

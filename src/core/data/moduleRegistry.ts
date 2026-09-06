@@ -122,8 +122,8 @@ export const MODULES: ModuleEntry[] = [
       { es: 'Historial de progreso hacia GO.', en: 'Progress history toward GO.' },
     ],
     relation: {
-      es: 'Cuando el veredicto sea GO, activar REAL_TRADING=1.',
-      en: "When verdict is GO, flip REAL_TRADING=1.",
+      es: 'GO exige revisión externa del fundador, gates y evidencia; nunca activa capital automáticamente.',
+      en: "GO requires external founder review, gates and evidence; it never activates capital automatically.",
     },
   },
   {

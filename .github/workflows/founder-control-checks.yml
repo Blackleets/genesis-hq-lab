@@ -1,0 +1,32 @@
+name: Founder control checks
+on:
+  pull_request:
+    branches: [feat/genesis-life-os]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Readiness, HTTP and economic ledger regressions
+        run: node --test server/genesis/__tests__/founderReadiness.test.mjs server/genesis/__tests__/fundingTruthLedger.test.mjs
+      - name: Cookie authentication and CSRF regressions
+        run: npx vitest run api/auth/__tests__
+      - name: TypeScript and production build
+        run: npm run build
+      - name: Browser acceptance (isolated fixtures, no trading)
+        run: |
+          npx playwright install --with-deps chromium
+          node scripts/verifyFounderUi.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: founder-control-screenshots
+          path: docs/evidence/founder-*.png

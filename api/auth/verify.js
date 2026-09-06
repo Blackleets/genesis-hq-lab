@@ -14,6 +14,7 @@ import { sendJson, sendMethodNotAllowed } from '../_lib/http.js';
 import { buildSiwesMessage, signSessionJwt, SESSION_TTL_SECONDS } from '../_lib/sessions.js';
 import { nonceStore } from './nonce.js';
 import { makeRateLimit } from '../_lib/rateLimit.js';
+import { sameOriginRequest, setSessionCookie } from '../_lib/sessionCookie.js';
 
 const rateLimit = makeRateLimit({ windowMs: 60_000, max: 10, blockMs: 15 * 60_000 });
 
@@ -26,6 +27,7 @@ function operatorAddresses() {
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return sendMethodNotAllowed(res, 'POST');
+  if (!sameOriginRequest(req)) return sendJson(res, 403, { ok: false, error: 'cross_origin_request' });
   if (!(await rateLimit(req, res))) return; // 429 already sent
 
   const body = typeof req.body === 'string' ? safeParse(req.body) : (req.body || {});
@@ -66,13 +68,13 @@ export default async function handler(req, res) {
 
   const nowSeconds = Math.floor(Date.now() / 1000);
   const token = await signSessionJwt(addressLower, role, nowSeconds);
+  setSessionCookie(res, token, SESSION_TTL_SECONDS);
 
   return sendJson(res, 200, {
     ok: true,
     session: {
       address: getAddress(addressLower), // checksummed
       role,
-      token,
       issuedAt: nowSeconds,
       expiresAt: nowSeconds + SESSION_TTL_SECONDS,
     },

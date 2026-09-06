@@ -11,8 +11,6 @@ export interface WalletSession {
   issuedAt: number;
   /** issuedAt + 24h. After this the session is dead and re-login is required. */
   expiresAt: number;
-  /** HS256 JWT signed by the backend; sent as `Authorization: Bearer <token>`. */
-  token: string;
 }
 
 /** Server nonce challenge payload (pre-signature). */
@@ -24,7 +22,7 @@ export interface AuthChallenge {
 export const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
 export function isSessionValid(s: WalletSession | null | undefined): boolean {
-  return Boolean(s && s.token && s.expiresAt > Date.now());
+  return Boolean(s && s.address && s.expiresAt > Date.now());
 }
 
 export function shortAddress(addr: string): string {

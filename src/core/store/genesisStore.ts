@@ -87,17 +87,7 @@ export interface ConnectorConfig {
   id: string;
   name: string;
   platform: PlatformId;
-  config: {
-    webhookUrl?: string;
-    apiKey?: string;
-    token?: string;
-    url?: string;
-    channelId?: string;
-    repoOwner?: string;
-    repoName?: string;
-    databaseId?: string;
-    [key: string]: string | undefined;
-  };
+  config: Record<string, never>;
   status: 'connected' | 'disconnected' | 'error' | 'pending';
   capabilities: string[];
   lastUsed?: string;
@@ -209,7 +199,7 @@ function hydrateState(saved: Partial<GenesisStateShape>): GenesisStateShape {
     walletAddress: saved.walletAddress ?? base.walletAddress,
     walletConnected: saved.walletConnected ?? base.walletConnected,
     commandHistory: saved.commandHistory ?? base.commandHistory,
-    connectors: saved.connectors ?? base.connectors,
+    connectors: (saved.connectors ?? base.connectors).map(c => ({ ...c, config: {}, status: 'disconnected' })),
   };
 }
 
@@ -1158,7 +1148,7 @@ export const actions = {
   // ---------- connector actions ----------
 
   addConnector(connector: ConnectorConfig): void {
-    const connectors = [...state.connectors.filter((c) => c.id !== connector.id), connector];
+    const connectors = [...state.connectors.filter((c) => c.id !== connector.id), { ...connector, config: {}, status: 'disconnected' as const }];
     commit({ ...state, connectors });
   },
 
@@ -1167,7 +1157,7 @@ export const actions = {
   },
 
   updateConnector(id: string, patch: Partial<ConnectorConfig>): void {
-    const connectors = state.connectors.map((c) => c.id === id ? { ...c, ...patch } : c);
+    const connectors = state.connectors.map((c) => c.id === id ? { ...c, ...patch, config: {}, status: 'disconnected' as const } : c);
     commit({ ...state, connectors });
   },
 

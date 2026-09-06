@@ -169,7 +169,15 @@ export function useTruthLayer(): UseTruthLayerReturn {
     async function fetchTruth() {
       try {
         const res = await fetchApi('/api/system/health');
+        if (!res.ok) throw new Error('System health unavailable');
         const data: SystemTruth = await res.json();
+        // Error envelopes (including 200 responses from a proxy) are not health
+        // snapshots. Never let the global header dereference missing execution.
+        if (!data || typeof data.ok !== 'boolean' || !Array.isArray(data.issues)
+          || !['execution', 'agentRunner', 'database', 'treasury', 'websocket', 'kalshi', 'optimizer', 'learning', 'founderMode']
+            .every(key => data[key as keyof SystemTruth] && typeof data[key as keyof SystemTruth] === 'object')) {
+          throw new Error('Invalid system health payload');
+        }
         if (!cancelled) {
           setTruth(data);
           setLastFetchedAt(new Date());
@@ -178,11 +186,7 @@ export function useTruthLayer(): UseTruthLayerReturn {
       } catch {
         if (!cancelled) {
           setLoading(false);
-          setTruth((prev) =>
-            prev
-              ? { ...prev, ok: false, error: 'fetch failed' }
-              : null
-          );
+          setTruth(null);
         }
       }
     }

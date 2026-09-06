@@ -11,6 +11,7 @@
 import { createHash } from 'node:crypto';
 import { sendJson } from './http.js';
 import { verifySessionJwt } from './sessions.js';
+import { readSessionCookie, sameOriginRequest } from './sessionCookie.js';
 
 // Extracts and verifies Authorization: Bearer <jwt>. On success attaches
 // req.session = { address (lowercase), role } and returns it. On failure
@@ -18,7 +19,14 @@ import { verifySessionJwt } from './sessions.js';
 export async function requireSession(req, res) {
   const header = req.headers?.authorization || '';
   const m = /^Bearer\s+(.+)$/i.exec(header.trim());
-  const token = m ? m[1].trim() : null;
+  // Bearer remains supported for existing server clients; the browser uses
+  // HttpOnly cookies and never receives or stores a bearer token.
+  const cookieToken = readSessionCookie(req);
+  const token = cookieToken ?? (m ? m[1].trim() : null);
+  if (cookieToken && !['GET', 'HEAD'].includes(req.method) && !sameOriginRequest(req)) {
+    sendJson(res, 403, { ok: false, error: 'cross_origin_request' });
+    return null;
+  }
   if (!token) {
     sendJson(res, 401, { ok: false, error: 'unauthorized' });
     return null;

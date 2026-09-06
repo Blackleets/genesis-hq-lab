@@ -145,7 +145,7 @@ export default function GenesisHeader({ currentModule, onNavigate, onOpenCommand
       <div className="flex items-center gap-3 shrink-0">
         <div className="hidden sm:flex items-center gap-2 font-mono text-[10px] text-zinc-400 uppercase tracking-wider">
           <span className="inline-block w-2 h-2 bg-emerald-400" />
-          {t('header.officeStatus')}
+          {lang === 'es' ? 'Consola de control' : 'Control console'}
         </div>
         <div
           className="hidden md:flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider"
