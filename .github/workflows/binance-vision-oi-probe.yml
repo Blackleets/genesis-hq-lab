@@ -1,0 +1,109 @@
+name: Binance Vision OI Probe
+
+on:
+  push:
+    branches:
+      - research/binance-vision-oi
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Probe official Binance Vision metrics archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          python - <<'PY' | tee evidence/binance_vision_oi_probe.log
+          import csv, hashlib, io, json, sys, urllib.request, zipfile
+          from datetime import datetime, timezone
+
+          BASE = 'https://data.binance.vision/data/futures/um/daily/metrics'
+          SYMBOLS = ['BTCUSDT','ETHUSDT','SOLUSDT']
+          DATES = ['2021-01-01','2022-01-01','2023-01-01','2024-01-01','2025-01-01']
+          results = []
+
+          print('EVIDENCE_UTC', datetime.now(timezone.utc).isoformat())
+          print('SOURCE', 'BINANCE_VISION_OFFICIAL')
+          print('POLICY', 'ZIP_SHA256_MUST_MATCH_PUBLISHED_CHECKSUM')
+
+          for symbol in SYMBOLS:
+              for date in DATES:
+                  fn = f'{symbol}-metrics-{date}.zip'
+                  zip_url = f'{BASE}/{symbol}/{fn}'
+                  checksum_url = zip_url + '.CHECKSUM'
+                  row = {'symbol': symbol, 'date': date, 'zip_url': zip_url, 'checksum_url': checksum_url}
+                  try:
+                      with urllib.request.urlopen(checksum_url, timeout=20) as r:
+                          checksum_text = r.read().decode('utf-8').strip()
+                      expected = checksum_text.split()[0].lower()
+                      with urllib.request.urlopen(zip_url, timeout=30) as r:
+                          payload = r.read()
+                      actual = hashlib.sha256(payload).hexdigest()
+                      checksum_ok = actual == expected
+                      with zipfile.ZipFile(io.BytesIO(payload)) as zf:
+                          names = zf.namelist()
+                          if not names:
+                              raise RuntimeError('empty_zip')
+                          text = zf.read(names[0]).decode('utf-8-sig')
+                      reader = csv.DictReader(io.StringIO(text))
+                      sample = []
+                      count = 0
+                      headers = reader.fieldnames or []
+                      for rec in reader:
+                          count += 1
+                          if len(sample) < 2:
+                              sample.append(rec)
+                      row.update({
+                          'ok': checksum_ok,
+                          'http_bytes': len(payload),
+                          'expected_sha256': expected,
+                          'actual_sha256': actual,
+                          'checksum_ok': checksum_ok,
+                          'inner_file': names[0],
+                          'headers': headers,
+                          'rows': count,
+                          'sample': sample,
+                      })
+                      print('ARCHIVE_OK' if checksum_ok else 'ARCHIVE_HASH_FAIL', symbol, date, 'rows='+str(count), 'sha256='+actual)
+                      print('HEADERS', symbol, date, headers)
+                  except Exception as exc:
+                      row.update({'ok': False, 'error': f'{type(exc).__name__}:{exc}'})
+                      print('ARCHIVE_FAIL', symbol, date, row['error'])
+                  results.append(row)
+
+          summary = {
+              'checked': len(results),
+              'ok': sum(1 for r in results if r.get('ok')),
+              'failed': sum(1 for r in results if not r.get('ok')),
+              'symbols': SYMBOLS,
+              'dates': DATES,
+              'source': 'https://data.binance.vision',
+              'results': results,
+          }
+          with open('evidence/binance_vision_oi_probe.json','w',encoding='utf-8') as f:
+              json.dump(summary,f,indent=2,sort_keys=True)
+          print('SUMMARY', json.dumps({k:summary[k] for k in ['checked','ok','failed']}, sort_keys=True))
+          if summary['ok'] == 0:
+              sys.exit(2)
+          PY
+      - name: Hash evidence files
+        shell: bash
+        run: |
+          sha256sum evidence/* | tee evidence/SHA256SUMS
+      - name: Upload evidence packet
+        uses: actions/upload-artifact@v4
+        with:
+          name: binance-vision-oi-probe
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 30
