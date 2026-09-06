@@ -2,17 +2,18 @@
 // The browser is a control/read surface, not a quant runner.
 // Legacy lab modules remain in the repository for migration work but are not mounted here.
 
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import GenesisHeader from '@ui/GenesisHeader';
 import GenesisSidebar from '@ui/GenesisSidebar';
 import ToastContainer from '@ui/ToastContainer';
-import HQView from '@ui/views/HQView';
-import MarketsView from '@workflows/MarketsView';
-import EdgeScorecardView from '@workflows/EdgeScorecardView';
-import SystemHealthView from '@ui/views/SystemHealthView';
 import { actions, useSelectedModule } from '@core/store/genesisStore';
 import type { ModuleId } from '@core/data/moduleRegistry';
 import { useLanguage } from '@core/i18n/languageStore';
+
+const HQView = lazy(() => import('@ui/views/HQView'));
+const MarketsView = lazy(() => import('@workflows/MarketsView'));
+const EdgeScorecardView = lazy(() => import('@workflows/EdgeScorecardView'));
+const SystemHealthView = lazy(() => import('@ui/views/SystemHealthView'));
 
 const PUBLIC_MODULES: ModuleId[] = ['hq', 'markets', 'edge', 'system'];
 
@@ -22,13 +23,11 @@ const MOBILE_LABELS: Record<'es' | 'en', Record<string, string>> = {
 };
 
 function ModuleRenderer({ module }: { module: ModuleId }) {
-  switch (module) {
-    case 'markets': return <MarketsView />;
-    case 'edge': return <EdgeScorecardView />;
-    case 'system': return <SystemHealthView />;
-    case 'hq':
-    default: return <HQView />;
-  }
+  const content = module === 'markets' ? <MarketsView />
+    : module === 'edge' ? <EdgeScorecardView />
+      : module === 'system' ? <SystemHealthView />
+        : <HQView />;
+  return <Suspense fallback={<main className="flex-1 grid place-items-center bg-[#07090e] font-mono text-[11px] text-zinc-500">LOADING VERIFIED MODULE</main>}>{content}</Suspense>;
 }
 
 export default function App() {
@@ -40,6 +39,15 @@ export default function App() {
   useEffect(() => {
     if (selected !== currentModule) actions.setSelectedModule(currentModule);
   }, [selected, currentModule]);
+
+  if (currentModule === 'hq') {
+    return (
+      <div className="h-dvh w-full max-w-full overflow-hidden bg-[#05070a] text-zinc-100">
+        <Suspense fallback={<main className="h-full grid place-items-center bg-[#05070a] font-mono text-[11px] text-zinc-500">INITIALIZING GENESIS DESK</main>}><HQView /></Suspense>
+        <ToastContainer />
+      </div>
+    );
+  }
 
   return (
     <div className="h-dvh w-full max-w-full overflow-hidden flex flex-col bg-[#07090e] text-zinc-100">

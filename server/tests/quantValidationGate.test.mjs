@@ -1,15 +1,16 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { validateStrategyProfile } from '../quant/validation/validationGate.mjs';
+import { PROMOTION_CRITERIA } from '../quant/alpha/strategyRegistry.mjs';
 
 // validateStrategyProfile is pure (no DB): unit-testable directly.
 // runSystemValidation requires DB — tested via integration check only.
 
 describe('validateStrategyProfile — rejects bad strategies', () => {
-  test('rejects strategy with fewer than 30 trades', () => {
+  test('rejects strategy below the configured institutional sample', () => {
     const result = validateStrategyProfile({ trades: 15, profitFactor: 1.5, avgPnl: 5, winRate: 0.6, paused: false });
     assert.equal(result.approved, false);
-    assert.ok(result.reasons.some((r) => r.includes('30') || r.includes('trades')));
+    assert.ok(result.reasons.some((r) => r.includes(String(PROMOTION_CRITERIA.minTrades)) || r.includes('trades')));
   });
 
   test('rejects strategy with profit factor < 1.3', () => {
@@ -44,7 +45,7 @@ describe('validateStrategyProfile — rejects bad strategies', () => {
 describe('validateStrategyProfile — approves valid strategies', () => {
   test('approves strategy meeting all criteria', () => {
     const result = validateStrategyProfile({
-      trades:       45,
+      trades:       PROMOTION_CRITERIA.minTrades + 15,
       profitFactor: 1.6,
       avgPnl:       8,
       winRate:      0.65,
@@ -56,7 +57,7 @@ describe('validateStrategyProfile — approves valid strategies', () => {
 
   test('approves strategy exactly at minimums (boundary)', () => {
     const result = validateStrategyProfile({
-      trades:       30,
+      trades:       PROMOTION_CRITERIA.minTrades,
       profitFactor: 1.3,
       avgPnl:       0.01, // just above 0
       winRate:      0.5,
@@ -98,4 +99,3 @@ describe('validateStrategyProfile — edge cases', () => {
     assert.ok(result.checks.some((c) => c.code === 'PROFIT_FACTOR_NO_LOSSES' && c.pass === false));
   });
 });
-

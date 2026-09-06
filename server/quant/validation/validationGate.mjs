@@ -3,17 +3,17 @@
 // Answers: "Does this strategy / system have enough validated edge to receive capital?"\n// Missing/stale walk-forward FAILS (never silent-pass). Infinite PF FAILS.
 //
 // Rules (institutional minimums, stricter than futuresGovernor defaults):
-//   totalTrades     ≥ 30    (MIN_TRADES_FOR_EDGE from alphaValidationEngine)
+//   totalTrades     ≥ configured institutional minimum (PROMOTION_CRITERIA)
 //   profitFactor    ≥ 1.3
 //   expectancy      > 0     (positive EV per trade)
-//   maxDrawdownPct  ≤ 0.15  (15%)
+//   maxDrawdownPct  ≤ configured promotion ceiling
 //   winRate must exist (at least 1 trade)
 //   data must NOT be fixture or mixed with prediction markets
 //
 // Returns:
 //   { approved, status, reasons, metrics, dataMode, nextAction }
 
-import { getAlphaReport, MIN_TRADES_FOR_EDGE } from '../../research/alphaValidationEngine.mjs';
+import { getAlphaReport } from '../../research/alphaValidationEngine.mjs';
 import { getWfCache, isWfCacheStale } from '../wfCache.mjs';
 import { isGlobalSafeMode, refreshGlobalRiskScore, getGlobalRiskDiagnostics } from '../../risk/globalRiskEngine.mjs';
 import { isSafeMode } from '../../memory/reconciliationEngine.mjs';
@@ -312,7 +312,7 @@ function buildResult(approved, status, checks, reasons, metrics, promoted, nextA
 
 function buildNextAction(status, trades, pf, ev, promoted) {
   if (status === 'SAFE_MODE')         return 'Clear global safe mode before any capital allocation.';
-  if (status === 'INSUFFICIENT_DATA') return `Accumulate ${Math.max(0, 30 - trades)} more closed trades with the futures breakout engine.`;
+  if (status === 'INSUFFICIENT_DATA') return `Accumulate ${Math.max(0, GATE_RULES.minTrades - trades)} more closed trades with the futures breakout engine.`;
   if (status === 'REJECTED') {
     if (pf != null && pf < 1.3) return `Improve profit factor from ${pf?.toFixed(3)} to ≥1.3. Run edgeSearch to find better params.`;
     if (ev != null && ev <= 0)  return 'Expectancy is zero or negative. Run walk-forward validation. Check if scalp trades are polluting the aggregate.';

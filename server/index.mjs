@@ -715,18 +715,16 @@ const server = createServer(async (req, res) => {
   }
 
   if (url.pathname === '/api/genesis/candles') {
-    // Real candles for the Quant Lab chart (public Binance data via existing fetcher).
+    // Keep local/runtime behavior identical to the canonical Vercel read route.
     try {
-      const pair = (url.searchParams.get('pair') || 'COTIUSDT').toUpperCase();
-      const tf = url.searchParams.get('tf') || '1h';
-      const limit = Math.min(parseInt(url.searchParams.get('limit') || '300', 10) || 300, 1000);
-      const { fetchKlines } = await import('./crypto/backtest/historicalData.mjs');
-      const klines = await fetchKlines(pair, { days: Math.ceil(limit / 24) + 2, interval: tf });
-      const candles = klines.slice(-limit).map(k => ({
-        time: Math.floor(k[0] / 1000),
-        open: +k[1], high: +k[2], low: +k[3], close: +k[4],
-      }));
-      sendJson(res, 200, { ok: true, pair, tf, candles });
+      const { default: handleCandles } = await import('../api/genesis/candles.js');
+      let responseStatus = 200;
+      const adapter = {
+        status(code) { responseStatus = code; return this; },
+        setHeader(name, value) { res.setHeader(name, value); return this; },
+        send(body) { res.writeHead(responseStatus); res.end(body); return this; },
+      };
+      await handleCandles(req, adapter);
     } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
     return;
   }

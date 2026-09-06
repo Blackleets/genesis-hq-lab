@@ -203,6 +203,23 @@ interface UseTruthLayerReturn {
 
 const POLL_INTERVAL_MS = 15_000;
 
+export function isSystemTruth(data: unknown): data is SystemTruth {
+  if (!data || typeof data !== 'object') return false;
+  const candidate = data as Partial<SystemTruth>;
+  return typeof candidate.ok === 'boolean'
+    && Array.isArray(candidate.issues)
+    && ['execution', 'agentRunner', 'database', 'treasury', 'websocket', 'kalshi', 'optimizer', 'learning', 'founderMode']
+      .every((key) => candidate[key as keyof SystemTruth] && typeof candidate[key as keyof SystemTruth] === 'object');
+}
+
+export async function fetchSystemTruth(signal?: AbortSignal): Promise<SystemTruth> {
+  const res = await fetchApi('/api/system/health', { cache: 'no-store', signal });
+  if (!res.ok) throw new Error('System health unavailable');
+  const data: unknown = await res.json();
+  if (!isSystemTruth(data)) throw new Error('Invalid system health payload');
+  return data;
+}
+
 export function useTruthLayer(): UseTruthLayerReturn {
   const [truth, setTruth] = useState<SystemTruth | null>(null);
   const [loading, setLoading] = useState(true);
@@ -213,16 +230,7 @@ export function useTruthLayer(): UseTruthLayerReturn {
 
     async function fetchTruth() {
       try {
-        const res = await fetchApi('/api/system/health');
-        if (!res.ok) throw new Error('System health unavailable');
-        const data: SystemTruth = await res.json();
-        // Error envelopes (including 200 responses from a proxy) are not health
-        // snapshots. Never let the global header dereference missing execution.
-        if (!data || typeof data.ok !== 'boolean' || !Array.isArray(data.issues)
-          || !['execution', 'agentRunner', 'database', 'treasury', 'websocket', 'kalshi', 'optimizer', 'learning', 'founderMode']
-            .every(key => data[key as keyof SystemTruth] && typeof data[key as keyof SystemTruth] === 'object')) {
-          throw new Error('Invalid system health payload');
-        }
+        const data = await fetchSystemTruth();
         if (!cancelled) {
           setTruth(data);
           setLastFetchedAt(new Date());
