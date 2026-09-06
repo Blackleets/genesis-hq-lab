@@ -137,7 +137,7 @@ export function TradingDeskProvider({ children }: { children: ReactNode }) {
       controller = new AbortController();
       const [healthResult, founderResult, captureResult] = await Promise.allSettled([
         fetchSystemTruth(controller.signal),
-        fetchFounderSnapshot(controller.signal),
+        fetchFounderSnapshot(controller.signal, true),
         fetchCaptureReport(40),
       ]);
       if (!disposed) {
