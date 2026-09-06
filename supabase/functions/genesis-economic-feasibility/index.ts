@@ -3,9 +3,9 @@ declare const Deno: any;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY') || '';
 const RUNNER_TOKEN_SHA256 = 'e9f02987e836a6eaf8ef8d7afaed805580cd31264aef5ed86fc3ebb756c59d91';
-const ENGINE_VERSION = 'efg_v1.2';
+const ENGINE_VERSION = 'efg_v1.3';
 const FUTURES_STATE_KEY = 'quant_futures_native_market_v1';
-const SUPPORTED_FAMILIES = new Set(['CRYPTO_BASIS_MEAN_REVERSION', 'CRYPTO_CROSS_ASSET_FUNDING_SPREAD']);
+const SUPPORTED_FAMILIES = new Set(['CRYPTO_BASIS_MEAN_REVERSION', 'CRYPTO_CROSS_ASSET_FUNDING_SPREAD', 'CTA_MULTI_HORIZON_TREND']);
 const REST_HEADERS = { apikey: SERVICE_KEY, authorization: `Bearer ${SERVICE_KEY}`, 'content-type': 'application/json' };
 
 function json(body: unknown, status = 200) {
@@ -67,6 +67,47 @@ function fundingSpreadAssessment(spec: any, state: any, modeledCostBps: number) 
   return { mode: 'CROSS_ASSET_FUNDING_SPREAD_SNAPSHOT', verdict: pass ? 'PASS_PREFILTER' : 'FAIL_ECONOMICS', reason: pass ? 'Haircut funding spread clears round-trip cost, safety buffer, and current two-leg basis adverse buffer. Research compute is permitted; capital remains locked.' : 'Haircut funding spread does not clear round-trip cost, safety buffer, and basis adverse buffer; reject before backtest.', selected, rows, modeledCostBps, safetyBufferBps, requiredGrossBps, details: { assets: rows, minOiUsd, holdDays, persistenceHaircut: haircut, pairFrozen: params.pairFrozen === true } };
 }
 
+function trendCapacityAssessment(spec: any, state: any, modeledCostBps: number) {
+  const assets: string[] = Array.isArray(spec?.universe?.assets) ? spec.universe.assets.map((v: unknown) => String(v).toUpperCase()) : [];
+  const params = spec?.params || {};
+  const horizons = Array.isArray(params.trendHorizons) ? params.trendHorizons.map(Number).filter((v: number) => Number.isFinite(v) && v > 0) : [];
+  const horizonHours = horizons.length ? Math.min(...horizons) : 24;
+  const captureHaircut = Math.max(0, Math.min(1, Number(params.signalCaptureHaircut ?? 0)));
+  const minOiUsd = Number(params.minOiUsd ?? 0);
+  const minViableAssets = Math.max(1, Number(params.minEconomicallyViableAssets ?? 1));
+  const safetyBufferBps = Math.max(5, modeledCostBps * 0.5);
+  const fundingIntervals = Math.max(1, Math.ceil(horizonHours / 8));
+  const fundingAdverseBuffer = spec?.costModel?.fundingAdverseBuffer === true;
+
+  const rows = assets.map((symbol) => {
+    const ev = state.evidence?.[symbol]; const market = ev?.market || {};
+    const realizedVolAnnualized = Number(market.realizedVolAnnualized);
+    const openInterestUsd = Number(market.openInterestUsd);
+    const fundingRate = Number(market.lastFundingRate);
+    const basisBps = Number(market.basisBps);
+    const fresh = ev?.freshness?.fresh === true;
+    const liquid = Number.isFinite(openInterestUsd) && openInterestUsd >= minOiUsd;
+    const sigmaMoveBps = Number.isFinite(realizedVolAnnualized) ? realizedVolAnnualized * Math.sqrt(horizonHours / (365 * 24)) * 10000 : null;
+    const grossCapacityBps = sigmaMoveBps == null ? null : sigmaMoveBps * captureHaircut;
+    const fundingAdverseBps = fundingAdverseBuffer && Number.isFinite(fundingRate) ? Math.abs(fundingRate) * 10000 * fundingIntervals : 0;
+    const requiredGrossBps = modeledCostBps + safetyBufferBps + fundingAdverseBps;
+    const economicallyViable = fresh && liquid && grossCapacityBps != null && grossCapacityBps >= requiredGrossBps;
+    return {
+      symbol, fresh, liquid, horizonHours, realizedVolAnnualized: Number.isFinite(realizedVolAnnualized) ? round(realizedVolAnnualized, 6) : null,
+      sigmaMoveBps: sigmaMoveBps == null ? null : round(sigmaMoveBps), captureHaircut, grossCapacityBps: grossCapacityBps == null ? null : round(grossCapacityBps),
+      fundingRate: Number.isFinite(fundingRate) ? fundingRate : null, fundingIntervals, fundingAdverseBps: round(fundingAdverseBps), basisBps: Number.isFinite(basisBps) ? round(basisBps) : null,
+      openInterestUsd: Number.isFinite(openInterestUsd) ? round(openInterestUsd, 2) : null, requiredGrossBps: round(requiredGrossBps), economicallyViable,
+      edgeCostRatio: grossCapacityBps == null ? null : round(grossCapacityBps / modeledCostBps), sourceEvidenceHash: ev?.evidenceHashSha256 ?? null,
+    };
+  });
+  const usable = rows.filter((r) => r.fresh && r.liquid && r.grossCapacityBps != null);
+  if (!usable.length) return { mode: 'CTA_TREND_CAPACITY_SNAPSHOT', verdict: 'DATA_BLOCKED', reason: 'No liquid assets have fresh realized-volatility futures evidence for the frozen trend horizon.', selected: null, rows, modeledCostBps, safetyBufferBps, requiredGrossBps: null, details: { assets: rows, horizonHours, captureHaircut, minOiUsd, minViableAssets, fundingIntervals } };
+  const viable = usable.filter((r) => r.economicallyViable);
+  const selected = { viableAssets: viable.map((r) => r.symbol), viableCount: viable.length, requiredViableAssets: minViableAssets, horizonHours, captureHaircut, bestGrossCapacityBps: viable.length ? Math.max(...viable.map((r) => Number(r.grossCapacityBps))) : Math.max(...usable.map((r) => Number(r.grossCapacityBps))), interpretation: 'capacity_only_not_alpha' };
+  const pass = viable.length >= minViableAssets;
+  return { mode: 'CTA_TREND_CAPACITY_SNAPSHOT', verdict: pass ? 'PASS_PREFILTER' : 'FAIL_ECONOMICS', reason: pass ? 'Enough liquid futures markets have conservative movement capacity above costs. This permits backtesting only; it does not establish directional alpha.' : 'Too few liquid futures markets have conservative movement capacity above costs for the frozen trend horizon.', selected, rows, modeledCostBps, safetyBufferBps, requiredGrossBps: null, details: { assets: rows, horizonHours, captureHaircut, minOiUsd, minViableAssets, fundingIntervals, capacityMetric: '10pct-or-frozen-haircut of one-sigma mark-price move' } };
+}
+
 function blockedAssessment(mode: string, reason: string, modeledCostBps: number | null = null) {
   return { mode, verdict: 'DATA_BLOCKED', reason, selected: null, rows: [], modeledCostBps, safetyBufferBps: null, requiredGrossBps: null, details: {} };
 }
@@ -97,7 +138,7 @@ Deno.serve(async (req: Request) => {
     } else if (!Number.isFinite(modeledCostBps) || Number(modeledCostBps) <= 0) {
       assessment = blockedAssessment('COST_MODEL_GATE', 'explicit_positive_roundTripBps_required', modeledCostBps);
     } else if (!dataClass.includes('binance_usdm')) {
-      assessment = blockedAssessment('DATA_CLASS_GATE', 'efg_v1.2 currently supports trusted Binance USD-M futures evidence only.', modeledCostBps);
+      assessment = blockedAssessment('DATA_CLASS_GATE', 'efg_v1.3 currently supports trusted Binance USD-M futures evidence only.', modeledCostBps);
     } else {
       const stateRows = await rest(`org_state?key=eq.${FUTURES_STATE_KEY}&select=value,updated_at&limit=1`);
       stateRow = stateRows?.[0];
@@ -108,13 +149,16 @@ Deno.serve(async (req: Request) => {
         assessment = fundingSpreadAssessment(spec, state, Number(modeledCostBps));
       } else if (family === 'CRYPTO_BASIS_MEAN_REVERSION') {
         assessment = basisAssessment(spec, state, Number(modeledCostBps));
+      } else if (family === 'CTA_MULTI_HORIZON_TREND') {
+        assessment = trendCapacityAssessment(spec, state, Number(modeledCostBps));
       } else {
         assessment = blockedAssessment('MODEL_REGISTRY_GATE', `economic_model_not_implemented_for_family:${family}`, modeledCostBps);
       }
     }
 
     const sourceHash = assessment.rows?.length ? await sha256(JSON.stringify(assessment.rows.map((r: any) => ({ symbol: r.symbol, sourceEvidenceHash: r.sourceEvidenceHash })))) : null;
-    const grossEdge = assessment.selected?.grossEdgeBps ?? assessment.selected?.grossFundingBps ?? null;
+    const grossEdge = assessment.selected?.grossEdgeBps ?? assessment.selected?.grossFundingBps ?? assessment.selected?.bestGrossCapacityBps ?? null;
+    const requiredGross = Number.isFinite(assessment.requiredGrossBps) ? assessment.requiredGrossBps : null;
     const insert = {
       proposal_id: proposal.proposal_id,
       hypothesis_fingerprint: proposal.hypothesis_fingerprint,
@@ -127,17 +171,17 @@ Deno.serve(async (req: Request) => {
       gross_edge_bps: grossEdge,
       modeled_cost_bps: Number.isFinite(assessment.modeledCostBps) ? assessment.modeledCostBps : null,
       safety_buffer_bps: Number.isFinite(assessment.safetyBufferBps) ? assessment.safetyBufferBps : null,
-      required_gross_bps: Number.isFinite(assessment.requiredGrossBps) ? assessment.requiredGrossBps : null,
+      required_gross_bps: requiredGross,
       edge_cost_ratio: assessment.selected?.edgeCostRatio ?? null,
-      margin_bps: grossEdge == null || !Number.isFinite(assessment.requiredGrossBps) ? null : Number(grossEdge) - Number(assessment.requiredGrossBps),
+      margin_bps: grossEdge == null || requiredGross == null ? null : Number(grossEdge) - Number(requiredGross),
       verdict: assessment.verdict,
       reason: assessment.reason,
-      details: { ...assessment.details, selectedOpportunity: assessment.selected, proposalDecision: proposal.decision, dataClass, supportedFamilies: [...SUPPORTED_FAMILIES], policy: 'fail-closed economic prefilter; unsupported family or incomplete costs can never PASS' },
+      details: { ...assessment.details, selectedOpportunity: assessment.selected, proposalDecision: proposal.decision, dataClass, supportedFamilies: [...SUPPORTED_FAMILIES], policy: 'fail-closed economic prefilter; PASS authorizes research compute only and never implies alpha or execution authority' },
       execution_authority: false,
       capital_eligible: false,
       live_orders: false,
     };
     const created = await rest('quant_economic_feasibility_checks?select=check_id,created_at', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(insert) });
-    return json({ ok: true, engineVersion: ENGINE_VERSION, checkId: created?.[0]?.check_id ?? null, createdAt: created?.[0]?.created_at ?? null, proposalId, hypothesisFingerprint: proposal.hypothesis_fingerprint, family, verdict: assessment.verdict, reason: assessment.reason, modeledCostBps: Number.isFinite(assessment.modeledCostBps) ? round(assessment.modeledCostBps) : null, safetyBufferBps: Number.isFinite(assessment.safetyBufferBps) ? round(assessment.safetyBufferBps) : null, requiredGrossBps: Number.isFinite(assessment.requiredGrossBps) ? round(assessment.requiredGrossBps) : null, selectedOpportunity: assessment.selected, assets: assessment.rows, executionAuthority: false, capitalEligible: false, liveOrders: false });
+    return json({ ok: true, engineVersion: ENGINE_VERSION, checkId: created?.[0]?.check_id ?? null, createdAt: created?.[0]?.created_at ?? null, proposalId, hypothesisFingerprint: proposal.hypothesis_fingerprint, family, verdict: assessment.verdict, reason: assessment.reason, modeledCostBps: Number.isFinite(assessment.modeledCostBps) ? round(assessment.modeledCostBps) : null, safetyBufferBps: Number.isFinite(assessment.safetyBufferBps) ? round(assessment.safetyBufferBps) : null, requiredGrossBps: requiredGross == null ? null : round(requiredGross), selectedOpportunity: assessment.selected, assets: assessment.rows, executionAuthority: false, capitalEligible: false, liveOrders: false });
   } catch (error) { return json({ ok: false, engineVersion: ENGINE_VERSION, error: error instanceof Error ? error.message : 'economic_gate_failed', executionAuthority: false, capitalEligible: false, liveOrders: false }, 500); }
 });
