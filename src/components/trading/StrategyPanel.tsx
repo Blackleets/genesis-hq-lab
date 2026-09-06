@@ -1,4 +1,4 @@
-import { FlaskConical, ShieldCheck, Swords } from 'lucide-react';
+import { BookOpenCheck, FlaskConical, ShieldCheck, Swords } from 'lucide-react';
 import { useRunnerTelemetry } from './useTradingDesk';
 import { formatMoney, stateLabel } from './formatters';
 
@@ -70,6 +70,61 @@ type ChallengerProfile = {
   searchSpace?: { candidateCount?: number; holdoutUsedForRanking?: boolean };
 };
 
+type ResearchMetricBlock = {
+  n?: number;
+  pf?: number;
+  tstat?: number;
+  ev_pct?: number;
+  win_rate?: number;
+  max_dd_pct?: number;
+  mc_p5_pct?: number;
+  combined?: ResearchMetricBlock;
+};
+
+type ResearchExperiment = {
+  experimentKey?: string;
+  family?: string;
+  strategyName?: string;
+  strategyVersion?: string;
+  stage?: string;
+  verdict?: string;
+  branch?: string | null;
+  commitSha?: string | null;
+  engineSha256?: string | null;
+  workflowRunId?: number | null;
+  artifactId?: number | null;
+  artifactSha256?: string | null;
+  dataSource?: string | null;
+  dataStart?: string | null;
+  dataEnd?: string | null;
+  nAssets?: number | null;
+  nDays?: number | null;
+  validation?: ResearchMetricBlock | null;
+  forwardEvidence?: ResearchMetricBlock | null;
+  holdoutState?: string | null;
+  capitalEligible?: boolean;
+  liveOrders?: boolean;
+  createdAt?: string | null;
+};
+
+type ResearchLedger = {
+  ok?: boolean;
+  ledgerVersion?: string;
+  appendOnly?: boolean;
+  executionAuthority?: boolean;
+  summary?: {
+    experiments?: number;
+    families?: number;
+    noGo?: number;
+    researchGo?: number;
+    sealedHoldouts?: number;
+    capitalEligible?: number;
+    liveOrders?: number;
+    latestAt?: string | null;
+  };
+  experiments?: ResearchExperiment[];
+};
+
 type ExtendedRunner = {
   validationEngine?: {
     ok?: boolean;
@@ -90,6 +145,7 @@ type ExtendedRunner = {
     profiles?: Record<string, ChallengerProfile>;
     completedAt?: string | null;
   } | null;
+  researchLedger?: ResearchLedger | null;
   stats?: {
     sampleClosed?: number;
     sampleWinRate?: number | null;
@@ -111,6 +167,10 @@ function percent(value: number | null | undefined) {
   return value == null ? 'UNAVAILABLE' : `${(value * 100).toFixed(1)}%`;
 }
 
+function pctPoints(value: number | null | undefined) {
+  return value == null ? 'UNAVAILABLE' : `${value >= 0 ? '+' : ''}${value.toFixed(3)}%`;
+}
+
 function bestSegment(groups: Record<string, CohortStats> | undefined) {
   if (!groups) return 'NO CLEAN SAMPLE';
   const ranked = Object.entries(groups)
@@ -122,8 +182,8 @@ function bestSegment(groups: Record<string, CohortStats> | undefined) {
 }
 
 function statusTone(status: string | undefined) {
-  if (status === 'QUARANTINED' || status === 'NO_ROBUST_FINALIST' || status === 'FINALISTS_FAILED_HOLDOUT') return 'is-negative';
-  if (status === 'VALIDATED' || status === 'VALIDATING' || status === 'SHADOW_CHALLENGER_FOUND') return 'is-positive';
+  if (status === 'QUARANTINED' || status === 'NO_ROBUST_FINALIST' || status === 'FINALISTS_FAILED_HOLDOUT' || status === 'NO_GO') return 'is-negative';
+  if (status === 'VALIDATED' || status === 'VALIDATING' || status === 'SHADOW_CHALLENGER_FOUND' || status === 'RESEARCH_GO') return 'is-positive';
   return '';
 }
 
@@ -135,30 +195,78 @@ function challengerParams(winner: ChallengerWinner | null | undefined) {
   return `D${params.period ?? '?'} · TP ${tp} · SL ${sl} · ${params.timeoutHours ?? '?'}H`;
 }
 
+function evidenceMetrics(experiment: ResearchExperiment) {
+  const block = experiment.forwardEvidence ?? experiment.validation;
+  return block?.combined ?? block ?? null;
+}
+
+function shortHash(value: string | null | undefined, length = 8) {
+  return value ? value.slice(0, length) : 'UNAVAILABLE';
+}
+
+function dateRange(experiment: ResearchExperiment) {
+  if (!experiment.dataStart && !experiment.dataEnd) return 'UNAVAILABLE';
+  return `${experiment.dataStart ?? '?'} → ${experiment.dataEnd ?? '?'}`;
+}
+
 export function StrategyPanel() {
   const { resource, runner } = useRunnerTelemetry();
   const extended = runner as (typeof runner & ExtendedRunner) | null | undefined;
   const stats = extended?.stats;
   const validation = extended?.validationEngine;
   const challengerLab = extended?.challengerLab;
+  const researchLedger = extended?.researchLedger;
   const sourceReady = resource.state === 'ready' && runner?.paperOnly === true && runner.liveOrders === false;
+  const experiments = researchLedger?.experiments ?? [];
+  const researchSummary = researchLedger?.summary;
 
   return (
-    <section className="strategy-panel" data-source="QVE + QCL · SUPABASE QUANT EVIDENCE" aria-label="Strategy validation and challenger engine">
-      <div className="strategy-panel__notice">
-        <FlaskConical size={13} />
-        <span>
-          <strong>QUANT VALIDATION ENGINE · {sourceReady ? validation?.engineVersion?.toUpperCase() ?? 'QVE V1' : stateLabel(resource.state)}</strong>
-          Family history protects against repeated bad ideas. Clean version cohorts must independently earn validation. Capital eligibility remains founder-controlled and LIVE LOCKED.
-        </span>
-      </div>
+    <section
+      className="strategy-panel"
+      style={{ gridTemplateColumns: 'minmax(0, 1fr)', alignContent: 'start' }}
+      data-source="QVE + QCL + RESEARCH LEDGER · SUPABASE QUANT EVIDENCE"
+      aria-label="Strategy validation, challenger engine, and research ledger"
+    >
+      <div className="strategy-panel__grid">
+        <div className="strategy-panel__notice">
+          <FlaskConical size={13} />
+          <span>
+            <strong>QUANT VALIDATION ENGINE · {sourceReady ? validation?.engineVersion?.toUpperCase() ?? 'QVE V1' : stateLabel(resource.state)}</strong>
+            Family history protects against repeated bad ideas. Clean version cohorts must independently earn validation. Capital eligibility remains founder-controlled and LIVE LOCKED.
+          </span>
+        </div>
 
-      <div className="strategy-panel__notice">
-        <Swords size={13} />
-        <span>
-          <strong>CHALLENGER LAB · {challengerLab?.engineVersion?.toUpperCase() ?? 'QCL PENDING'} · {challengerLab?.mode ?? 'RESEARCH ONLY'}</strong>
-          Train ranks candidates, validation and walk-forward filter them, and the final holdout never tunes parameters. Survivors are shadow challengers only; execution authority is {challengerLab?.executionAuthority ? 'ENABLED' : 'DISABLED'}.
-        </span>
+        <div className="strategy-panel__notice">
+          <Swords size={13} />
+          <span>
+            <strong>CHALLENGER LAB · {challengerLab?.engineVersion?.toUpperCase() ?? 'QCL PENDING'} · {challengerLab?.mode ?? 'RESEARCH ONLY'}</strong>
+            Train ranks candidates, validation and walk-forward filter them, and the final holdout never tunes parameters. Survivors are shadow challengers only; execution authority is {challengerLab?.executionAuthority ? 'ENABLED' : 'DISABLED'}.
+          </span>
+        </div>
+
+        <div className="strategy-panel__notice">
+          <BookOpenCheck size={13} />
+          <span>
+            <strong>RESEARCH LEDGER · {researchLedger?.ledgerVersion?.toUpperCase() ?? 'PENDING'} · {researchLedger?.appendOnly ? 'APPEND ONLY' : 'UNVERIFIED'}</strong>
+            Negative evidence is institutional memory. Rejected families remain visible with provenance so ATLAS/FORGE cannot silently recycle falsified hypotheses.
+          </span>
+        </div>
+
+        <article className="strategy-panel__card">
+          <div>
+            <strong>RESEARCH MEMORY</strong>
+            <span>{researchLedger?.executionAuthority ? 'AUTHORITY ENABLED' : 'RESEARCH ONLY'}</span>
+          </div>
+          <dl>
+            <div><dt>EXPERIMENTS</dt><dd>{researchSummary?.experiments ?? 'UNAVAILABLE'}</dd></div>
+            <div><dt>FAMILIES</dt><dd>{researchSummary?.families ?? 'UNAVAILABLE'}</dd></div>
+            <div><dt>NO GO</dt><dd className="is-negative">{researchSummary?.noGo ?? 'UNAVAILABLE'}</dd></div>
+            <div><dt>RESEARCH GO</dt><dd className={researchSummary?.researchGo ? 'is-positive' : ''}>{researchSummary?.researchGo ?? 'UNAVAILABLE'}</dd></div>
+            <div><dt>SEALED HOLDOUTS</dt><dd>{researchSummary?.sealedHoldouts ?? 'UNAVAILABLE'}</dd></div>
+            <div><dt>CAPITAL ELIGIBLE</dt><dd className="is-negative">{researchSummary?.capitalEligible ?? 'UNAVAILABLE'}</dd></div>
+            <div><dt>LIVE ORDERS</dt><dd className="is-negative">{researchSummary?.liveOrders ?? 'UNAVAILABLE'}</dd></div>
+          </dl>
+        </article>
       </div>
 
       <div className="strategy-panel__grid">
@@ -216,6 +324,43 @@ export function StrategyPanel() {
             </article>
           );
         })}
+      </div>
+
+      <div className="strategy-panel__grid" aria-label="Research ledger experiments">
+        {experiments.length ? experiments.map((experiment) => {
+          const evidence = evidenceMetrics(experiment);
+          const pf = evidence?.pf;
+          const ev = evidence?.ev_pct;
+          const tStat = evidence?.tstat;
+          const verdict = experiment.verdict ?? 'UNAVAILABLE';
+          return (
+            <article key={experiment.experimentKey} className="strategy-panel__card">
+              <div>
+                <strong>{experiment.strategyName?.toUpperCase() ?? experiment.family?.replaceAll('_', ' ') ?? 'EXPERIMENT'}</strong>
+                <span className={statusTone(verdict)}>{experiment.strategyVersion ?? '?'} · {verdict}</span>
+              </div>
+              <dl>
+                <div><dt>FAMILY</dt><dd>{experiment.family?.replaceAll('_', ' ') ?? 'UNAVAILABLE'}</dd></div>
+                <div><dt>STAGE</dt><dd>{experiment.stage?.replaceAll('_', ' ') ?? 'UNAVAILABLE'}</dd></div>
+                <div><dt>HOLDOUT</dt><dd>{experiment.holdoutState?.replaceAll('_', ' ') ?? 'UNAVAILABLE'}</dd></div>
+                <div><dt>PF</dt><dd className={pf == null ? '' : pf >= 1.3 ? 'is-positive' : 'is-negative'}>{ratio(pf)}</dd></div>
+                <div><dt>T-STAT</dt><dd className={tStat == null ? '' : tStat >= 2 ? 'is-positive' : 'is-negative'}>{ratio(tStat)}</dd></div>
+                <div><dt>EV</dt><dd className={ev == null ? '' : ev > 0 ? 'is-positive' : 'is-negative'}>{pctPoints(ev)}</dd></div>
+                <div><dt>DATA</dt><dd>{dateRange(experiment)}</dd></div>
+                <div><dt>ASSETS / DAYS</dt><dd>{experiment.nAssets ?? '?'} / {experiment.nDays ?? '?'}</dd></div>
+                <div><dt>COMMIT</dt><dd>{shortHash(experiment.commitSha)}</dd></div>
+                <div><dt>ENGINE HASH</dt><dd>{shortHash(experiment.engineSha256, 10)}</dd></div>
+                <div><dt>ARTIFACT</dt><dd>{experiment.artifactId ?? 'UNAVAILABLE'}</dd></div>
+                <div><dt>CAPITAL / LIVE</dt><dd className="is-negative">{experiment.capitalEligible ? 'ELIGIBLE' : 'LOCKED'} / {experiment.liveOrders ? 'ON' : 'OFF'}</dd></div>
+              </dl>
+            </article>
+          );
+        }) : (
+          <article className="strategy-panel__card">
+            <div><strong>RESEARCH LEDGER</strong><span>NO EVIDENCE LOADED</span></div>
+            <dl><div><dt>STATE</dt><dd>UNAVAILABLE</dd></div></dl>
+          </article>
+        )}
       </div>
     </section>
   );

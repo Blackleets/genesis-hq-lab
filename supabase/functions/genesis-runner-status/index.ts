@@ -2,7 +2,7 @@ declare const Deno: any;
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY') || '';
-const STATUS_VERSION = 'v4';
+const STATUS_VERSION = 'v5';
 const RUNTIME_KEY = 'quant_validation_runtime_v1';
 const CHALLENGER_KEY = 'quant_challenger_lab_v1';
 const FUTURES_TYPES = [
@@ -82,13 +82,14 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return json({ ok: true });
   if (req.method !== 'GET') return json({ ok: false, error: 'method_not_allowed' }, 405);
   try {
-    const [stateRows, runtimeRows, challengerRows, tradeRows, strategyRows, snapshotRows] = await Promise.all([
+    const [stateRows, runtimeRows, challengerRows, tradeRows, strategyRows, snapshotRows, researchRows] = await Promise.all([
       rest('org_state?key=eq.external_runner_heartbeat&select=value,updated_at&limit=1'),
       rest(`org_state?key=eq.${RUNTIME_KEY}&select=value,updated_at&limit=1`),
       rest(`org_state?key=eq.${CHALLENGER_KEY}&select=value,updated_at&limit=1`),
       rest(`trades?trade_type=in.(${FUTURES_TYPES.join(',')})&select=id,asset_pair,outcome,status,mode,entry_price,exit_price,target_price,stop_price,pnl,opened_at,closed_at,exit_reason,trade_type,leverage,capital_used,strategy_version_id,entry_regime,entry_session,runner_version,validation_status&order=opened_at.desc&limit=160`),
       rest('strategy_versions?select=id,strategy_id,profile_id,version,trade_type,status,parent_version_id,params,created_at,activated_at,retired_at,updated_at&order=created_at.desc&limit=40'),
       rest('strategy_validation_snapshots?select=strategy_version_id,evaluated_at,sample_closed,wins,losses,win_rate,realized_pnl,profit_factor,expectancy,payoff_ratio,max_drawdown_usd,max_drawdown_pct,sharpe_proxy,sortino_proxy,t_stat,max_loss_streak,regime_breakdown,session_breakdown,gates,verdict,reason,policy_version,runner_version&order=evaluated_at.desc&limit=40'),
+      rest('quant_research_experiments?select=experiment_key,family,strategy_name,strategy_version,stage,verdict,branch,commit_sha,engine_sha256,workflow_run_id,artifact_id,artifact_sha256,data_source,data_start,data_end,n_assets,n_days,params,gates,development,validation,holdout,forward_evidence,holdout_state,evidence_policy,notes,capital_eligible,live_orders,created_at&order=created_at.desc,experiment_key.asc&limit=30'),
     ]);
     const row = stateRows?.[0], heartbeat: any = parseJson(row?.value, null), runtimeRow = runtimeRows?.[0], validationRuntime: any = parseJson(runtimeRow?.value, null);
     const challengerRow = challengerRows?.[0], challengerLab: any = parseJson(challengerRow?.value, null);
@@ -109,6 +110,50 @@ Deno.serve(async (req: Request) => {
     }));
     const latestSnapshotByVersion: Record<string, any> = {};
     for (const snapshot of Array.isArray(snapshotRows) ? snapshotRows : []) if (!latestSnapshotByVersion[snapshot.strategy_version_id]) latestSnapshotByVersion[snapshot.strategy_version_id] = snapshot;
+
+    const experiments = (Array.isArray(researchRows) ? researchRows : []).map((experiment: any) => ({
+      experimentKey: experiment.experiment_key,
+      family: experiment.family,
+      strategyName: experiment.strategy_name,
+      strategyVersion: experiment.strategy_version,
+      stage: experiment.stage,
+      verdict: experiment.verdict,
+      branch: experiment.branch,
+      commitSha: experiment.commit_sha,
+      engineSha256: experiment.engine_sha256,
+      workflowRunId: experiment.workflow_run_id,
+      artifactId: experiment.artifact_id,
+      artifactSha256: experiment.artifact_sha256,
+      dataSource: experiment.data_source,
+      dataStart: experiment.data_start,
+      dataEnd: experiment.data_end,
+      nAssets: experiment.n_assets,
+      nDays: experiment.n_days,
+      params: experiment.params ?? {},
+      gates: experiment.gates ?? {},
+      development: experiment.development ?? null,
+      validation: experiment.validation ?? null,
+      holdout: experiment.holdout ?? null,
+      forwardEvidence: experiment.forward_evidence ?? null,
+      holdoutState: experiment.holdout_state,
+      evidencePolicy: experiment.evidence_policy ?? {},
+      notes: experiment.notes ?? {},
+      capitalEligible: experiment.capital_eligible === true,
+      liveOrders: experiment.live_orders === true,
+      createdAt: experiment.created_at,
+    }));
+    const researchFamilies = [...new Set(experiments.map((experiment: any) => experiment.family).filter(Boolean))];
+    const researchSummary = {
+      experiments: experiments.length,
+      families: researchFamilies.length,
+      noGo: experiments.filter((experiment: any) => experiment.verdict === 'NO_GO').length,
+      researchGo: experiments.filter((experiment: any) => experiment.verdict === 'RESEARCH_GO').length,
+      sealedHoldouts: experiments.filter((experiment: any) => String(experiment.holdoutState || '').includes('SEALED')).length,
+      capitalEligible: experiments.filter((experiment: any) => experiment.capitalEligible).length,
+      liveOrders: experiments.filter((experiment: any) => experiment.liveOrders).length,
+      latestAt: experiments.map((experiment: any) => experiment.createdAt).filter(Boolean).sort().at(-1) ?? null,
+    };
+
     return json({
       ok: true, statusVersion: STATUS_VERSION, source: heartbeat?.source ?? 'unknown', runnerVersion: heartbeat?.runnerVersion ?? heartbeat?.lastResult?.runnerVersion ?? null,
       validationEngineVersion: heartbeat?.validationEngineVersion ?? heartbeat?.lastResult?.validationEngineVersion ?? null, lastTickAt, totalCycles: Number(heartbeat?.totalCycles ?? 0),
@@ -137,6 +182,14 @@ Deno.serve(async (req: Request) => {
         antiOverfitPolicy: challengerLab?.antiOverfitPolicy ?? null,
         completedAt: challengerLab?.completedAt ?? challengerRow?.updated_at ?? null,
       } : null,
+      researchLedger: {
+        ok: true,
+        ledgerVersion: 'v1',
+        appendOnly: true,
+        executionAuthority: false,
+        summary: researchSummary,
+        experiments,
+      },
       updatedAt: row?.updated_at ?? null,
     });
   } catch (error) {
