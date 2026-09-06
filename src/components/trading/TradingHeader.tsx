@@ -62,7 +62,7 @@ export function TradingHeader({ onControl }: { onControl: () => void }) {
         <Status label="RUNNER" value={runnerReady ? 'ACTIVE' : runner ? 'NOT VERIFIED' : stateLabel(truth.state)} tone={runnerReady ? 'good' : 'bad'} />
         <Status label="MARKET" value={stateLabel(market.state)} tone={market.state === 'ready' ? 'good' : market.state === 'stale' ? 'warn' : 'bad'} />
         <Status label="SENTINEL" value={riskBand} tone={riskBand === 'HEALTHY' ? 'good' : riskBand === 'WATCH' ? 'warn' : 'bad'} />
-        <div className="trading-header__equity"><span>LEDGER EQ</span><strong>{capture.state === 'ready' ? formatMoney(equity) : stateLabel(capture.state)}</strong></div>
+        <div className="trading-header__equity"><span>FUNDING EQ</span><strong>{capture.state === 'ready' ? formatMoney(equity) : stateLabel(capture.state)}</strong></div>
       </div>
 
       <div className="trading-header__controls">
