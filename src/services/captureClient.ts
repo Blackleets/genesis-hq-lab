@@ -1,4 +1,4 @@
-import { apiUrl, fetchApi } from '@services/apiBase';
+import { fetchApi } from '@services/apiBase';
 
 export interface CaptureRow {
   symbol: string;
@@ -101,7 +101,10 @@ export interface CaptureReport {
 }
 
 export async function fetchCaptureReport(limit = 40): Promise<CaptureReport> {
-  const res = await fetchApi(apiUrl(`/api/genesis/capture?limit=${limit}`));
+  // fetchApi owns base-URL resolution and same-origin fallback. Passing an
+  // already-resolved apiUrl here caused VITE_API_BASE to be applied twice in
+  // production, making an otherwise healthy serverless endpoint look offline.
+  const res = await fetchApi(`/api/genesis/capture?limit=${limit}`);
   if (!res.ok) throw new Error(`genesis/capture ${res.status}`);
   return res.json() as Promise<CaptureReport>;
 }
