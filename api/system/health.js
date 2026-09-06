@@ -71,6 +71,8 @@ async function readRunnerStatus() {
 function mergeRunner(base, runner) {
   const normalized = normalizeHealth(base);
   if (!runner) return normalized;
+  const openPositions = Array.isArray(runner.openPositions) ? runner.openPositions : [];
+  const recentTrades = Array.isArray(runner.recentTrades) ? runner.recentTrades : [];
   return {
     ...normalized,
     agentRunner: {
@@ -85,11 +87,15 @@ function mergeRunner(base, runner) {
       paperOnly: runner.paperOnly === true,
       liveOrders: runner.liveOrders === true,
       lastResult: runner.lastResult ?? null,
+      openPositions,
+      recentTrades,
+      stats: runner.stats && typeof runner.stats === 'object' ? runner.stats : null,
     },
     execution: {
       ...normalized.execution,
       agentAlive: runner.agentAlive === true,
       lastTickAt: runner.lastTickAt ?? normalized.execution.lastTickAt,
+      openTrades: openPositions.length,
     },
   };
 }
