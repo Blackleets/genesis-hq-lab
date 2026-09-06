@@ -1,141 +1,59 @@
-// GenesisSidebar — left-rail nav with division groups.
-// Modules are organized into 5 themed sections to reflect the company structure.
-
-import { Building2, Settings, Wallet, Terminal, Rocket, TrendingUp, Bitcoin, HeartPulse, Radio, Dna, Activity } from 'lucide-react';
+import { Activity, Building2, HeartPulse, ShieldCheck } from 'lucide-react';
 import GenesisLockup from '@ui/GenesisLogo';
-import { useT, useLanguage } from '@core/i18n/languageStore';
-import { MODULES, type ModuleId } from '@core/data/moduleRegistry';
-import type { TKey } from '@core/i18n/translations';
+import { useLanguage } from '@core/i18n/languageStore';
+import type { ModuleId } from '@core/data/moduleRegistry';
 
 interface Props {
   currentModule: ModuleId;
   onSelect: (id: ModuleId) => void;
 }
 
-const ICONS: Record<ModuleId, typeof Building2> = {
-  hq:           Building2,
-  markets:      Activity,
-  factory:      Rocket,
-  settings:     Settings,
-  wallet:       Wallet,
-  console:      Terminal,
-  edge:           TrendingUp,
-  crypto:         Bitcoin,
-  system:         HeartPulse,
-  'live-exec':     Radio,
-  'funding-bot':   Radio,
-  'quant-bot':     Dna,
-  'terminal':      Bitcoin,
-};
-
-interface SidebarGroup {
-  labelEs: string;
-  labelEn: string;
-  color: string;        // accent color for the group header
-  modules: ModuleId[];
-}
-
-const SIDEBAR_GROUPS: SidebarGroup[] = [
-  {
-    labelEs: 'Workspace',
-    labelEn: 'Workspace',
-    color: '#e4e4e7',
-    modules: ['hq', 'terminal', 'console', 'factory'],
-  },
-  {
-    labelEs: 'Trading & Riesgo',
-    labelEn: 'Trading & Risk',
-    color: '#00ff9c',
-    modules: ['markets', 'quant-bot', 'edge', 'crypto', 'funding-bot'],
-  },
-  {
-    labelEs: 'Plataforma',
-    labelEn: 'Platform',
-    color: '#6b7280',
-    modules: ['system', 'settings', 'wallet'],
-  },
+const NAV: Array<{ id: ModuleId; icon: typeof Building2; es: string; en: string; metaEs: string; metaEn: string }> = [
+  { id: 'hq', icon: Building2, es: 'Command Center', en: 'Command Center', metaEs: 'Capital · desks · founder', metaEn: 'Capital · desks · founder' },
+  { id: 'markets', icon: Activity, es: 'Market Intelligence', en: 'Market Intelligence', metaEs: 'Feeds · oportunidades', metaEn: 'Feeds · opportunities' },
+  { id: 'edge', icon: ShieldCheck, es: 'Riesgo & Edge', en: 'Risk & Edge', metaEs: 'Gates · validación · NO-GO', metaEn: 'Gates · validation · NO-GO' },
+  { id: 'system', icon: HeartPulse, es: 'Infraestructura', en: 'Infrastructure', metaEs: 'Salud · datos · servicios', metaEn: 'Health · data · services' },
 ];
 
-
-const MODULE_MAP = Object.fromEntries(MODULES.map((m) => [m.id, m]));
-
 export default function GenesisSidebar({ currentModule, onSelect }: Props) {
-  const t = useT();
   const lang = useLanguage();
-
   return (
-    <aside className="w-[clamp(168px,14vw,196px)] shrink-0 bg-[#0b0e14] border-r border-[#242b3a] flex flex-col">
-      {/* Company identity */}
-      <div className="px-3.5 py-3 border-b border-[#242b3a] bg-[#0f131c]">
-        <GenesisLockup size="sm" markSize={26} showTagline />
+    <aside className="w-[232px] shrink-0 bg-[#090c12] border-r border-zinc-800 flex flex-col">
+      <div className="px-4 py-4 border-b border-zinc-800 bg-[#0c1017]">
+        <GenesisLockup size="sm" markSize={28} showTagline={false} />
+        <div className="mt-3 flex items-center gap-2 text-[9px] font-mono uppercase tracking-[0.16em]">
+          <span className="border border-amber-400/40 bg-amber-400/5 px-2 py-1 text-amber-300">PAPER</span>
+          <span className="border border-red-400/40 bg-red-400/5 px-2 py-1 text-red-300">LIVE LOCKED</span>
+        </div>
       </div>
 
-      {/* Grouped nav */}
-      <nav className="gx-scroll flex-1 overflow-y-auto px-2 py-2.5 space-y-3.5">
-        {SIDEBAR_GROUPS.map((group) => {
-          const groupModules = group.modules.map((id) => MODULE_MAP[id]).filter(Boolean);
-          if (groupModules.length === 0) return null;
-
+      <div className="px-4 pt-5 pb-2 text-[9px] uppercase tracking-[0.2em] text-zinc-600 font-semibold">
+        {lang === 'es' ? 'Operación institucional' : 'Institutional operations'}
+      </div>
+      <nav className="px-2 flex-1 space-y-1" aria-label="Genesis institutional navigation">
+        {NAV.map((item) => {
+          const Icon = item.icon;
+          const active = item.id === currentModule;
           return (
-            <div key={group.labelEn}>
-              {/* Section label */}
-              <div
-                className="px-2.5 pb-1.5 text-[9px] font-bold uppercase tracking-[0.18em] select-none"
-                style={{ color: group.color, opacity: 0.82 }}
-              >
-                {lang === 'es' ? group.labelEs : group.labelEn}
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onSelect(item.id)}
+              className={`w-full text-left border px-3 py-3 transition-colors ${active ? 'border-cyan-400/35 bg-cyan-400/8' : 'border-transparent hover:border-zinc-800 hover:bg-white/[0.02]'}`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Icon className={`w-4 h-4 ${active ? 'text-cyan-300' : 'text-zinc-600'}`} />
+                <span className={`text-[12px] font-semibold ${active ? 'text-zinc-100' : 'text-zinc-400'}`}>{lang === 'es' ? item.es : item.en}</span>
               </div>
-
-              {/* Items */}
-              <div className="space-y-0.5">
-                {groupModules.map((m) => {
-                  const Icon = ICONS[m.id];
-                  const active = m.id === currentModule;
-                  return (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => onSelect(m.id)}
-                      className="group relative w-full flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[12px] text-left transition-all duration-150"
-                      style={{
-                        color: active ? '#f4f4f5' : '#7b8190',
-                        background: active
-                          ? `linear-gradient(90deg, ${group.color}24, rgba(255,255,255,0.035))`
-                          : 'transparent',
-                        boxShadow: active ? `inset 0 0 0 1px ${group.color}2e` : undefined,
-                      }}
-                      onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLElement).style.color = '#c8ced8'; }}
-                      onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLElement).style.color = '#7b8190'; }}
-                    >
-                      {active && (
-                        <span
-                          className="absolute left-0 top-1/2 h-4 w-px -translate-y-1/2 rounded-full"
-                          style={{ background: group.color }}
-                        />
-                      )}
-                      <Icon
-                        className="shrink-0 transition-colors"
-                        style={{
-                          width: 14,
-                          height: 14,
-                          color: active ? group.color : 'currentColor',
-                          opacity: active ? 1 : 0.58,
-                        }}
-                      />
-                      <span className="flex-1 truncate font-semibold leading-none tracking-[-0.01em]">
-                        {t(m.navKey as TKey)}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+              <div className="pl-[26px] mt-1 text-[9px] font-mono text-zinc-600">{lang === 'es' ? item.metaEs : item.metaEn}</div>
+            </button>
           );
         })}
       </nav>
 
-      <footer className="px-3.5 py-2.5 border-t border-[#242b3a] text-[9px] text-zinc-700 leading-snug bg-[#0f131c]">
-        {t('sidebar.footer')}
+      <footer className="px-4 py-4 border-t border-zinc-800 text-[9px] font-mono leading-relaxed text-zinc-600">
+        <div>TRUTH LEDGER v2</div>
+        <div>{lang === 'es' ? 'Sin P&L inventado · sin ejecución live desde UI' : 'No invented P&L · no live execution from UI'}</div>
       </footer>
     </aside>
   );
