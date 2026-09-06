@@ -1,0 +1,79 @@
+name: Cross Asset TSMOM Raw Evidence
+
+on:
+  push:
+    branches:
+      - research/cross-asset-tsmom
+    paths:
+      - 'research/cross-asset/**'
+      - '.github/workflows/cross-asset-tsmom.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact research commit
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install research dependencies
+        run: python -m pip install --disable-pip-version-check yfinance pandas numpy
+
+      - name: Execute cross-asset raw-evidence run
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p research-output/cross-asset
+          cp research/fx-tsmom/forex_trend_system.py research/cross-asset/forex_trend_system.py
+          {
+            echo "EVIDENCE_UTC $(date -u +%FT%TZ)"
+            echo "EVIDENCE_COMMIT $(git rev-parse HEAD)"
+            echo "EVIDENCE_BRANCH ${GITHUB_REF_NAME}"
+            python --version
+            python - <<'PY'
+          import numpy, pandas, yfinance
+          print('EVIDENCE_VERSIONS', {'numpy': numpy.__version__, 'pandas': pandas.__version__, 'yfinance': yfinance.__version__})
+          from pathlib import Path
+          import hashlib
+          for p in ['research/cross-asset/forex_portfolio_system.py','research/cross-asset/forex_trend_system.py','research/cross-asset/prepare_cross_asset_data.py']:
+              print('EVIDENCE_SHA256', p, hashlib.sha256(Path(p).read_bytes()).hexdigest())
+          PY
+            python -m py_compile research/cross-asset/forex_portfolio_system.py research/cross-asset/forex_trend_system.py research/cross-asset/prepare_cross_asset_data.py
+            python - <<'PY'
+          import sys
+          sys.path.insert(0, 'research/cross-asset')
+          from forex_trend_system import GATES
+          print('EVIDENCE_GATES', GATES)
+          PY
+            python research/cross-asset/prepare_cross_asset_data.py
+            cd research/cross-asset
+            python forex_portfolio_system.py \
+              --csv data/EURUSD.csv data/GBPUSD.csv data/USDJPY.csv data/AUDUSD.csv data/USDCAD.csv data/USDCHF.csv data/XAUUSD.csv data/SP500.csv data/WTI.csv data/UST10Y.csv \
+              --names EURUSD GBPUSD USDJPY AUDUSD USDCAD USDCHF XAUUSD SP500 WTI UST10Y \
+              --jpy-index 2 --lookback 252 --rebalance 21
+            cd ../..
+          } 2>&1 | tee research-output/cross-asset/workflow_raw.log
+          cp research/cross-asset/portfolio_report.json research-output/cross-asset/portfolio_report.json
+          cp research/cross-asset/data/*.csv research-output/cross-asset/
+
+      - name: Upload immutable cross-asset evidence packet
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cross-asset-tsmom-evidence-${{ github.sha }}
+          path: |
+            research-output/cross-asset/**
+            research/cross-asset/forex_portfolio_system.py
+            research/cross-asset/forex_trend_system.py
+            research/cross-asset/prepare_cross_asset_data.py
+          if-no-files-found: warn
+          retention-days: 30
