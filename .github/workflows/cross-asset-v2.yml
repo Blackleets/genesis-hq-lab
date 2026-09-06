@@ -1,0 +1,66 @@
+name: Cross Asset TSMOM V2 Raw Evidence
+
+on:
+  push:
+    branches:
+      - research/cross-asset-v2
+    paths:
+      - 'research/cross-asset/**'
+      - '.github/workflows/cross-asset-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact research commit
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install research dependencies
+        run: python -m pip install --disable-pip-version-check yfinance pandas numpy
+
+      - name: Execute deep cross-asset raw-evidence run
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p research-output/cross-asset-v2
+          {
+            echo "EVIDENCE_UTC $(date -u +%FT%TZ)"
+            echo "EVIDENCE_COMMIT $(git rev-parse HEAD)"
+            echo "EVIDENCE_BRANCH ${GITHUB_REF_NAME}"
+            python --version
+            python - <<'PY'
+          import hashlib
+          from pathlib import Path
+          import numpy, pandas, yfinance
+          print('EVIDENCE_VERSIONS', {'numpy':numpy.__version__, 'pandas':pandas.__version__, 'yfinance':yfinance.__version__})
+          for p in ['research/cross-asset/deep_cross_asset_v2.py','research/cross-asset/forex_trend_system.py']:
+              print('EVIDENCE_SHA256', p, hashlib.sha256(Path(p).read_bytes()).hexdigest())
+          PY
+            python -m py_compile research/cross-asset/deep_cross_asset_v2.py research/cross-asset/forex_trend_system.py
+            cd research/cross-asset
+            python deep_cross_asset_v2.py
+            cd ../..
+          } 2>&1 | tee research-output/cross-asset-v2/workflow_raw.log
+          cp research/cross-asset/deep-v2-output/* research-output/cross-asset-v2/
+
+      - name: Upload immutable v2 evidence packet
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cross-asset-v2-evidence-${{ github.sha }}
+          path: |
+            research-output/cross-asset-v2/**
+            research/cross-asset/deep_cross_asset_v2.py
+            research/cross-asset/forex_trend_system.py
+          if-no-files-found: warn
+          retention-days: 30
