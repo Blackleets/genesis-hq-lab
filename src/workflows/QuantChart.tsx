@@ -37,9 +37,8 @@ const CARBON_BG = '#0a0c12';
 const GRID = '#1a1d24';
 const TEXT = '#cbd5e1';
 
-function toTimestamp(iso: string, fallback: number): UTCTimestamp {
-  const value = Math.floor(Date.parse(iso) / 1000);
-  return (Number.isFinite(value) && value > 0 ? value : fallback) as UTCTimestamp;
+function toSeconds(iso: string) {
+  return Math.floor(Date.parse(iso) / 1000);
 }
 
 function snapToCandle(time: number, times: number[], direction: 'down' | 'up'): UTCTimestamp {
@@ -65,7 +64,9 @@ export default function QuantChart({ candles, trades = [], height = 360 }: Props
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
-  const markersRef = useRef<ReturnType<typeof createSeriesMarkers> | null>(null);
+  // lightweight-charts exposes this plugin with a generic Time type; keeping the
+  // instance opaque avoids coupling this component to the library's internal generic.
+  const markersRef = useRef<any>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -115,6 +116,8 @@ export default function QuantChart({ candles, trades = [], height = 360 }: Props
     chartRef.current?.timeScale().fitContent();
 
     const times = candles.map((candle) => candle.time).sort((a, b) => a - b);
+    const windowStart = times[0];
+    const windowEnd = times[times.length - 1];
     const markers: Array<{
       time: UTCTimestamp;
       position: 'aboveBar' | 'belowBar';
@@ -126,27 +129,31 @@ export default function QuantChart({ candles, trades = [], height = 360 }: Props
     for (const trade of trades) {
       if (!trade.openedAt || !Number.isFinite(trade.entry)) continue;
       const isLong = String(trade.side).toUpperCase() === 'LONG';
-      const entryTime = snapToCandle(toTimestamp(trade.openedAt, times[0]), times, 'down');
-      markers.push({
-        time: entryTime,
-        position: isLong ? 'belowBar' : 'aboveBar',
-        color: isLong ? '#34d399' : '#fb7185',
-        shape: isLong ? 'arrowUp' : 'arrowDown',
-        text: `${isLong ? 'LONG' : 'SHORT'} ${priceLabel(trade.entry)}`,
-      });
+      const openedAt = toSeconds(trade.openedAt);
+      if (Number.isFinite(openedAt) && openedAt >= windowStart && openedAt <= windowEnd) {
+        markers.push({
+          time: snapToCandle(openedAt, times, 'down'),
+          position: isLong ? 'belowBar' : 'aboveBar',
+          color: isLong ? '#34d399' : '#fb7185',
+          shape: isLong ? 'arrowUp' : 'arrowDown',
+          text: `${isLong ? 'LONG' : 'SHORT'} ${priceLabel(trade.entry)}`,
+        });
+      }
 
       if (trade.status !== 'open' && trade.closedAt && trade.exit != null && Number.isFinite(trade.exit)) {
-        const exitTime = snapToCandle(toTimestamp(trade.closedAt, times[times.length - 1]), times, 'up');
-        const pnl = trade.pnlUsd;
-        const positive = typeof pnl === 'number' && pnl > 0;
-        const negative = typeof pnl === 'number' && pnl < 0;
-        markers.push({
-          time: exitTime,
-          position: isLong ? 'aboveBar' : 'belowBar',
-          color: positive ? '#22d3ee' : negative ? '#f87171' : '#94a3b8',
-          shape: 'circle',
-          text: `${(trade.reason || 'EXIT').toUpperCase()}${typeof pnl === 'number' ? ` ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}` : ''}`,
-        });
+        const closedAt = toSeconds(trade.closedAt);
+        if (Number.isFinite(closedAt) && closedAt >= windowStart && closedAt <= windowEnd) {
+          const pnl = trade.pnlUsd;
+          const positive = typeof pnl === 'number' && pnl > 0;
+          const negative = typeof pnl === 'number' && pnl < 0;
+          markers.push({
+            time: snapToCandle(closedAt, times, 'up'),
+            position: isLong ? 'aboveBar' : 'belowBar',
+            color: positive ? '#22d3ee' : negative ? '#f87171' : '#94a3b8',
+            shape: 'circle',
+            text: `${(trade.reason || 'EXIT').toUpperCase()}${typeof pnl === 'number' ? ` ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}` : ''}`,
+          });
+        }
       }
     }
 
@@ -154,7 +161,7 @@ export default function QuantChart({ candles, trades = [], height = 360 }: Props
     markersRef.current?.setMarkers(markers);
 
     const active = trades.find((trade) => trade.status === 'open');
-    const priceLines = [];
+    const priceLines: Array<ReturnType<typeof series.createPriceLine>> = [];
     if (active && Number.isFinite(active.entry)) {
       priceLines.push(series.createPriceLine({
         price: active.entry,
@@ -165,24 +172,10 @@ export default function QuantChart({ candles, trades = [], height = 360 }: Props
         title: `ENTRY${active.leverage ? ` ${active.leverage}x` : ''}`,
       }));
       if (active.target != null && Number.isFinite(active.target)) {
-        priceLines.push(series.createPriceLine({
-          price: active.target,
-          color: '#34d399',
-          lineWidth: 1,
-          lineStyle: 2,
-          axisLabelVisible: true,
-          title: 'TP',
-        }));
+        priceLines.push(series.createPriceLine({ price: active.target, color: '#34d399', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'TP' }));
       }
       if (active.stop != null && Number.isFinite(active.stop)) {
-        priceLines.push(series.createPriceLine({
-          price: active.stop,
-          color: '#f87171',
-          lineWidth: 1,
-          lineStyle: 2,
-          axisLabelVisible: true,
-          title: 'SL',
-        }));
+        priceLines.push(series.createPriceLine({ price: active.stop, color: '#f87171', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'SL' }));
       }
     }
 
