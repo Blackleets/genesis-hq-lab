@@ -1,0 +1,87 @@
+name: Binance Vision Market Probe
+
+on:
+  push:
+    branches:
+      - research/binance-vision-oi
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Probe checksum-verified historical futures datasets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence-market
+          python - <<'PY' | tee evidence-market/binance_vision_market_probe.log
+          import csv, hashlib, io, json, sys, urllib.request, zipfile
+          from datetime import datetime, timezone
+
+          ROOT='https://data.binance.vision/data/futures/um/monthly'
+          SYMBOLS=['BTCUSDT','ETHUSDT','SOLUSDT']
+          MONTHS=['2022-01','2024-01','2026-08']
+          specs=[
+            ('markPriceKlines', lambda s,m: f'{ROOT}/markPriceKlines/{s}/1h/{s}-1h-{m}.zip'),
+            ('premiumIndexKlines', lambda s,m: f'{ROOT}/premiumIndexKlines/{s}/1h/{s}-1h-{m}.zip'),
+            ('fundingRate', lambda s,m: f'{ROOT}/fundingRate/{s}/{s}-fundingRate-{m}.zip'),
+          ]
+          results=[]
+          print('EVIDENCE_UTC', datetime.now(timezone.utc).isoformat())
+          print('SOURCE','BINANCE_VISION_OFFICIAL')
+          print('POLICY','ZIP_SHA256_MUST_MATCH_PUBLISHED_CHECKSUM')
+
+          def read_zip(url):
+              with urllib.request.urlopen(url+'.CHECKSUM',timeout=20) as r:
+                  expected=r.read().decode().strip().split()[0].lower()
+              with urllib.request.urlopen(url,timeout=30) as r:
+                  payload=r.read()
+              actual=hashlib.sha256(payload).hexdigest()
+              if actual != expected:
+                  raise RuntimeError(f'checksum_mismatch expected={expected} actual={actual}')
+              with zipfile.ZipFile(io.BytesIO(payload)) as zf:
+                  names=zf.namelist()
+                  if not names: raise RuntimeError('empty_zip')
+                  raw=zf.read(names[0]).decode('utf-8-sig')
+              rows=list(csv.reader(io.StringIO(raw)))
+              return {'sha256':actual,'bytes':len(payload),'innerFile':names[0],'rows':max(0,len(rows)-1),'header':rows[0] if rows else [],'sample':rows[1:3]}
+
+          for kind,builder in specs:
+              for symbol in SYMBOLS:
+                  for month in MONTHS:
+                      url=builder(symbol,month)
+                      row={'kind':kind,'symbol':symbol,'month':month,'url':url}
+                      try:
+                          row.update(read_zip(url)); row['ok']=True
+                          print('ARCHIVE_OK',kind,symbol,month,'rows='+str(row['rows']),'sha256='+row['sha256'])
+                          print('HEADER',kind,symbol,month,row['header'])
+                      except Exception as exc:
+                          row.update({'ok':False,'error':f'{type(exc).__name__}:{exc}'})
+                          print('ARCHIVE_FAIL',kind,symbol,month,row['error'])
+                      results.append(row)
+
+          summary={'checked':len(results),'ok':sum(r['ok'] for r in results),'failed':sum(not r['ok'] for r in results),'results':results}
+          with open('evidence-market/binance_vision_market_probe.json','w') as f: json.dump(summary,f,indent=2,sort_keys=True)
+          print('SUMMARY',json.dumps({k:summary[k] for k in ('checked','ok','failed')},sort_keys=True))
+          by_kind={k:sum(1 for r in results if r['kind']==k and r['ok']) for k,_ in specs}
+          print('BY_KIND',json.dumps(by_kind,sort_keys=True))
+          if any(by_kind[k]==0 for k,_ in specs): sys.exit(2)
+          PY
+      - name: Hash evidence
+        run: sha256sum evidence-market/* | tee evidence-market/SHA256SUMS
+      - name: Upload evidence packet
+        uses: actions/upload-artifact@v4
+        with:
+          name: binance-vision-market-probe
+          path: evidence-market/
+          if-no-files-found: error
+          retention-days: 30
