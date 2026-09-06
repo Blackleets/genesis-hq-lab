@@ -2,9 +2,10 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY') || '';
 const BINANCE_BASE = Deno.env.get('BINANCE_BASE') || 'https://data-api.binance.vision/api/v3';
 const RUNNER_TOKEN_SHA256 = 'e9f02987e836a6eaf8ef8d7afaed805580cd31264aef5ed86fc3ebb756c59d91';
-const RUNNER_VERSION = 'v8';
+const RUNNER_VERSION = 'v8.1';
 const POLICY_KEY = 'quant_validation_policy_v1';
 const RUNTIME_KEY = 'quant_validation_runtime_v1';
+const RESEARCH_KEY = 'quant_research_evidence_v1';
 const MIN_INTERVAL_MS = 4 * 60 * 1000;
 const MAX_OPEN_POSITIONS = 6;
 const MIN_EXPECTED_NET_USD = 18;
@@ -273,31 +274,75 @@ async function evidenceSnapshot(policy: any) {
   const rows = await rest(`trades?trade_type=in.(${FUTURES_TYPES.join(',')})&status=eq.closed&select=trade_type,pnl,opened_at,closed_at,strategy_version_id,entry_regime,entry_session,runner_version,status&order=closed_at.desc&limit=240`) || [];
   const familyProfiles: Record<string, any> = {};
   const versionProfiles: Record<string, any> = {};
+
   for (const profile of PROFILES) {
     const familyRows = rows.filter((row: any) => row.trade_type === profile.type);
     const versionRows = familyRows.filter((row: any) => row.strategy_version_id === profile.versionId);
     const family = summarize(familyRows);
     const version = summarize(versionRows);
+    const allocationBaselineUsd = profile.margin * profile.pairs.length;
+    family.maxDrawdownPct = allocationBaselineUsd > 0 ? round(family.maxDrawdown / allocationBaselineUsd, 4) : null;
+    version.maxDrawdownPct = allocationBaselineUsd > 0 ? round(version.maxDrawdown / allocationBaselineUsd, 4) : null;
+    family.allocationBaselineUsd = allocationBaselineUsd;
+    version.allocationBaselineUsd = allocationBaselineUsd;
     const familyBlocked = family.closed >= Number(policy?.quarantine?.minClosed ?? 10)
-      && family.profitFactor != null && family.profitFactor < Number(policy?.quarantine?.maxProfitFactor ?? 0.8)
+      && family.profitFactor != null
+      && family.profitFactor < Number(policy?.quarantine?.maxProfitFactor ?? 0.8)
       && (!policy?.quarantine?.requireNegativeExpectancy || (family.expectancy != null && family.expectancy < 0));
+
     familyProfiles[profile.id] = { ...family, blocked: familyBlocked };
-    versionProfiles[profile.id] = { ...version, strategyVersionId: profile.versionId, regimeBreakdown: breakdown(versionRows, 'entry_regime'), sessionBreakdown: breakdown(versionRows, 'entry_session') };
+    versionProfiles[profile.id] = {
+      ...version,
+      strategyVersionId: profile.versionId,
+      regimeBreakdown: breakdown(versionRows, 'entry_regime'),
+      sessionBreakdown: breakdown(versionRows, 'entry_session'),
+    };
   }
-  return { version: 2, source: 'family_protection_plus_version_clean_cohorts', familyProfiles, versionProfiles, blockedProfiles: Object.entries(familyProfiles).filter(([, value]: any) => value.blocked).map(([id]) => id) };
+
+  return {
+    version: 2,
+    source: 'family_protection_plus_version_clean_cohorts',
+    familyProfiles,
+    versionProfiles,
+    blockedProfiles: Object.entries(familyProfiles).filter(([, value]: any) => value.blocked).map(([id]) => id),
+  };
 }
 
-function evaluateLifecycle(profile: typeof PROFILES[number], family: any, version: any, policy: any) {
+function evaluateLifecycle(profile: typeof PROFILES[number], family: any, version: any, policy: any, research: any) {
   const q = policy?.quarantine ?? DEFAULT_POLICY.quarantine;
   const validating = policy?.validating ?? DEFAULT_POLICY.validating;
   const validated = policy?.validated ?? DEFAULT_POLICY.validated;
   const gates: any[] = [];
+
   const familyRiskPass = family?.blocked !== true;
   gates.push({ code: 'FAMILY_RISK', pass: familyRiskPass, detail: familyRiskPass ? 'family evidence not quarantined' : `family PF=${family?.profitFactor ?? 'NA'} EV=${family?.expectancy ?? 'NA'}` });
-  if (!familyRiskPass) return { status: 'QUARANTINED', capitalEligible: false, gates, reason: 'Inherited family evidence is materially negative; new entries blocked.' };
 
-  const closed = Number(version?.closed ?? 0), pf = version?.profitFactor, ev = version?.expectancy, wr = version?.winRate, tStat = version?.tStat, ddPct = version?.maxDrawdownPct;
+  if (!familyRiskPass) {
+    return { status: 'QUARANTINED', capitalEligible: false, gates, reason: 'Inherited family evidence is materially negative; new entries blocked.' };
+  }
+
+  const researchMatches = research?.strategyVersionId === profile.versionId;
+  const researchOosTrades = Number(research?.oos?.trades ?? 0);
+  const researchForwardTrades = Number(research?.walkForward?.forwardTrades ?? 0);
+  const researchSufficient = researchMatches && researchOosTrades >= 8 && researchForwardTrades >= 12;
+  const researchHardFail = researchSufficient && research?.status === 'FAIL';
+  gates.push({
+    code: 'RESEARCH_VETO',
+    pass: !researchHardFail,
+    detail: !researchMatches ? 'no matching research evidence' : `${research?.status ?? 'UNKNOWN'} · OOS N=${researchOosTrades} · FWD N=${researchForwardTrades}`,
+  });
+  if (researchHardFail) {
+    return { status: 'QUARANTINED', capitalEligible: false, gates, reason: 'Historical OOS / rolling-forward research rejected this exact version; new paper entries blocked.' };
+  }
+
+  const closed = Number(version?.closed ?? 0);
+  const pf = version?.profitFactor;
+  const ev = version?.expectancy;
+  const wr = version?.winRate;
+  const tStat = version?.tStat;
+  const ddPct = version?.maxDrawdownPct;
   const positiveRegimes = positiveRegimeCount(version?.regimeBreakdown ?? {});
+
   const validationGates = [
     { code: 'SAMPLE', pass: closed >= Number(validated.minClosed), detail: `${closed}/${validated.minClosed}` },
     { code: 'PROFIT_FACTOR', pass: pf != null && pf >= Number(validated.minProfitFactor), detail: `PF=${pf ?? 'NA'} need>=${validated.minProfitFactor}` },
@@ -306,46 +351,139 @@ function evaluateLifecycle(profile: typeof PROFILES[number], family: any, versio
     { code: 'TSTAT', pass: tStat != null && tStat >= Number(validated.minTStat), detail: `t=${tStat ?? 'NA'} need>=${validated.minTStat}` },
     { code: 'DRAWDOWN_PCT', pass: ddPct != null && ddPct <= Number(validated.maxDrawdownPct), detail: ddPct == null ? 'allocation baseline not reconciled' : `DD=${ddPct}` },
     { code: 'REGIME_BREADTH', pass: positiveRegimes >= Number(validated.minPositiveRegimes), detail: `${positiveRegimes}/${validated.minPositiveRegimes} positive regimes` },
-    { code: 'WALK_FORWARD', pass: validated.requireWalkForward !== true, detail: validated.requireWalkForward ? 'walk-forward evidence not attached to v8 cohort' : 'not required' },
-    { code: 'OOS', pass: validated.requireOos !== true, detail: validated.requireOos ? 'out-of-sample evidence not attached to v8 cohort' : 'not required' },
+    {
+      code: 'WALK_FORWARD',
+      pass: validated.requireWalkForward !== true || (researchMatches && research?.walkForward?.pass === true),
+      detail: validated.requireWalkForward
+        ? (researchMatches ? `${research?.walkForward?.positiveFolds ?? 0}/${research?.walkForward?.requiredPositiveFolds ?? 2} positive forward folds` : 'matching research evidence unavailable')
+        : 'not required',
+    },
+    {
+      code: 'OOS',
+      pass: validated.requireOos !== true || (researchMatches && research?.oos?.pass === true),
+      detail: validated.requireOos
+        ? (researchMatches ? `OOS N=${researchOosTrades} PF=${research?.oos?.profitFactor ?? 'NA'} EV=${research?.oos?.expectancy ?? 'NA'}` : 'matching research evidence unavailable')
+        : 'not required',
+    },
   ];
   gates.push(...validationGates);
-  if (validationGates.every((gate) => gate.pass)) return { status: 'VALIDATED', capitalEligible: false, gates, reason: 'Quant gates passed, but capital eligibility remains founder-controlled and LIVE_LOCKED.' };
-  const validatingPass = closed >= Number(validating.minClosed) && pf != null && pf >= Number(validating.minProfitFactor) && ev != null && ev > Number(validating.minExpectancy);
-  if (validatingPass) return { status: 'VALIDATING', capitalEligible: false, gates, reason: 'Positive clean cohort; accumulating institutional OOS/walk-forward evidence.' };
-  if (closed < Number(q.minClosed)) return { status: 'EXPERIMENT', capitalEligible: false, gates, reason: `Clean v8 sample ${closed}/${q.minClosed}.` };
-  const versionBad = pf != null && pf < Number(q.maxProfitFactor) && (!q.requireNegativeExpectancy || (ev != null && ev < 0));
-  if (versionBad) return { status: 'QUARANTINED', capitalEligible: false, gates, reason: `v8 cohort negative: PF=${pf}, EV=${ev}.` };
+
+  const canValidate = validationGates.every((gate) => gate.pass);
+  if (canValidate) {
+    return {
+      status: 'VALIDATED',
+      capitalEligible: false,
+      gates,
+      reason: 'Quant gates passed, but capital eligibility remains founder-controlled and LIVE_LOCKED.',
+    };
+  }
+
+  const validatingPass = closed >= Number(validating.minClosed)
+    && pf != null && pf >= Number(validating.minProfitFactor)
+    && ev != null && ev > Number(validating.minExpectancy);
+
+  if (validatingPass) {
+    return { status: 'VALIDATING', capitalEligible: false, gates, reason: 'Positive clean cohort; accumulating institutional OOS/walk-forward evidence.' };
+  }
+
+  if (closed < Number(q.minClosed)) {
+    return { status: 'EXPERIMENT', capitalEligible: false, gates, reason: `Clean v8 sample ${closed}/${q.minClosed}.` };
+  }
+
+  const versionBad = pf != null && pf < Number(q.maxProfitFactor)
+    && (!q.requireNegativeExpectancy || (ev != null && ev < 0));
+  if (versionBad) {
+    return { status: 'QUARANTINED', capitalEligible: false, gates, reason: `v8 cohort negative: PF=${pf}, EV=${ev}.` };
+  }
+
   return { status: 'PAPER', capitalEligible: false, gates, reason: 'Paper cohort accumulating evidence.' };
 }
 
-async function persistValidation(evidence: any, policy: any) {
+async function persistValidation(evidence: any, policy: any, researchEvidence: any) {
   const ids = PROFILES.map((profile) => profile.versionId);
   const latestRows = await rest(`strategy_validation_snapshots?strategy_version_id=in.(${ids.map(encodeURIComponent).join(',')})&select=strategy_version_id,sample_closed,verdict,evaluated_at&order=evaluated_at.desc&limit=24`) || [];
   const latestByVersion = new Map<string, any>();
-  for (const row of latestRows) if (!latestByVersion.has(row.strategy_version_id)) latestByVersion.set(row.strategy_version_id, row);
+  for (const row of latestRows) {
+    if (!latestByVersion.has(row.strategy_version_id)) latestByVersion.set(row.strategy_version_id, row);
+  }
+
   const validations: Record<string, any> = {};
   const snapshots: any[] = [];
+
   for (const profile of PROFILES) {
-    const family = evidence.familyProfiles[profile.id], version = evidence.versionProfiles[profile.id];
-    const verdict = evaluateLifecycle(profile, family, version, policy);
-    validations[profile.id] = { profileId: profile.id, strategyId: profile.strategyId, strategyVersionId: profile.versionId, runnerVersion: RUNNER_VERSION, ...verdict, metrics: version };
-    await rest(`strategy_versions?id=eq.${encodeURIComponent(profile.versionId)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ status: verdict.status, updated_at: nowIso() }) });
+    const family = evidence.familyProfiles[profile.id];
+    const version = evidence.versionProfiles[profile.id];
+    const research = researchEvidence?.profiles?.[profile.id] ?? null;
+    const verdict = evaluateLifecycle(profile, family, version, policy, research);
+    validations[profile.id] = {
+      profileId: profile.id,
+      strategyId: profile.strategyId,
+      strategyVersionId: profile.versionId,
+      runnerVersion: RUNNER_VERSION,
+      ...verdict,
+      metrics: version,
+    };
+
+    await rest(`strategy_versions?id=eq.${encodeURIComponent(profile.versionId)}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({ status: verdict.status, updated_at: nowIso() }),
+    });
+
     const latest = latestByVersion.get(profile.versionId);
     if (!latest || Number(latest.sample_closed) !== Number(version.closed) || latest.verdict !== verdict.status) {
       snapshots.push({
-        strategy_version_id: profile.versionId, sample_closed: version.closed, wins: version.wins, losses: version.losses,
-        win_rate: version.winRate, realized_pnl: version.realizedPnl, gross_profit: version.grossProfit, gross_loss: version.grossLoss,
-        profit_factor: version.profitFactor, expectancy: version.expectancy, avg_win: version.avgWin, avg_loss: version.avgLoss,
-        payoff_ratio: version.payoffRatio, max_drawdown_usd: version.maxDrawdown, max_drawdown_pct: version.maxDrawdownPct,
-        sharpe_proxy: version.sharpeProxy, sortino_proxy: version.sortinoProxy, t_stat: version.tStat, max_loss_streak: version.maxLossStreak,
-        regime_breakdown: version.regimeBreakdown, session_breakdown: version.sessionBreakdown, walk_forward: null, oos_evidence: null,
-        gates: verdict.gates, verdict: verdict.status, reason: verdict.reason, policy_version: policy.version ?? DEFAULT_POLICY.version, runner_version: RUNNER_VERSION,
+        strategy_version_id: profile.versionId,
+        sample_closed: version.closed,
+        wins: version.wins,
+        losses: version.losses,
+        win_rate: version.winRate,
+        realized_pnl: version.realizedPnl,
+        gross_profit: version.grossProfit,
+        gross_loss: version.grossLoss,
+        profit_factor: version.profitFactor,
+        expectancy: version.expectancy,
+        avg_win: version.avgWin,
+        avg_loss: version.avgLoss,
+        payoff_ratio: version.payoffRatio,
+        max_drawdown_usd: version.maxDrawdown,
+        max_drawdown_pct: version.maxDrawdownPct,
+        sharpe_proxy: version.sharpeProxy,
+        sortino_proxy: version.sortinoProxy,
+        t_stat: version.tStat,
+        max_loss_streak: version.maxLossStreak,
+        regime_breakdown: version.regimeBreakdown,
+        session_breakdown: version.sessionBreakdown,
+        walk_forward: research?.walkForward ?? null,
+        oos_evidence: research?.oos ?? null,
+        gates: verdict.gates,
+        verdict: verdict.status,
+        reason: verdict.reason,
+        policy_version: policy.version ?? DEFAULT_POLICY.version,
+        runner_version: RUNNER_VERSION,
       });
     }
   }
-  if (snapshots.length) await rest('strategy_validation_snapshots', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(snapshots) });
-  const runtime = { ok: true, engineVersion: 'qve_v1', runnerVersion: RUNNER_VERSION, policy, validations, familyEvidence: evidence.familyProfiles, blockedProfiles: evidence.blockedProfiles, evaluatedAt: nowIso() };
+
+  if (snapshots.length) {
+    await rest('strategy_validation_snapshots', {
+      method: 'POST',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify(snapshots),
+    });
+  }
+
+  const runtime = {
+    ok: true,
+    engineVersion: 'qve_v1.1',
+    runnerVersion: RUNNER_VERSION,
+    policy,
+    validations,
+    familyEvidence: evidence.familyProfiles,
+    blockedProfiles: evidence.blockedProfiles,
+    researchEvidence: researchEvidence ?? null,
+    evaluatedAt: nowIso(),
+  };
   await writeState(RUNTIME_KEY, runtime);
   return runtime;
 }
@@ -413,7 +551,9 @@ async function tick() {
   const openKeys = new Set(currentOpen.map((row: any) => `${row.trade_type}:${row.asset_pair}`));
   const policy = await loadPolicy();
   const evidence = await evidenceSnapshot(policy);
-  const validationEngine = await persistValidation(evidence, policy);
+  const researchState = await readState(RESEARCH_KEY);
+  const researchEvidence: any = researchState.value && typeof researchState.value === 'object' ? researchState.value : null;
+  const validationEngine = await persistValidation(evidence, policy, researchEvidence);
   let openCount = currentOpen.length, scanned = 0, qualified = 0, executed = 0, skipped = 0;
   const decisions: any[] = [];
   for (const profile of PROFILES) {
@@ -439,16 +579,16 @@ async function tick() {
   }
   const completedAt = nowIso(), cyclePnl = round(closedPositions.reduce((sum, item) => sum + Number(item.pnl || 0), 0));
   const result = {
-    ok: true, runnerVersion: RUNNER_VERSION, validationEngineVersion: 'qve_v1', paperOnly: true, liveOrders: false,
+    ok: true, runnerVersion: RUNNER_VERSION, validationEngineVersion: 'qve_v1.1', paperOnly: true, liveOrders: false,
     scanned, qualified, executed, skipped, closed: closedPositions.length, cyclePnl, openPositions: openCount, closedPositions,
     evidenceGuard: { version: evidence.version, source: evidence.source, blockedProfiles: evidence.blockedProfiles, familyProfiles: evidence.familyProfiles },
     validationEngine, decisions: decisions.slice(-24),
   };
-  await writeState('external_runner_heartbeat', { source: 'supabase_futures_runner', runnerVersion: RUNNER_VERSION, validationEngineVersion: 'qve_v1', lastTickAt: completedAt, totalCycles: Number(previous?.totalCycles || 0) + 1, claudeEnabled: false, paperOnly: true, liveOrders: false, lastResult: result });
+  await writeState('external_runner_heartbeat', { source: 'supabase_futures_runner', runnerVersion: RUNNER_VERSION, validationEngineVersion: 'qve_v1.1', lastTickAt: completedAt, totalCycles: Number(previous?.totalCycles || 0) + 1, claudeEnabled: false, paperOnly: true, liveOrders: false, lastResult: result });
   const historyState = await readState('futures_cycle_history');
   const history = Array.isArray(historyState.value) ? historyState.value : [];
   await writeState('futures_cycle_history', [...history, { ...result, startedAt, completedAt }].slice(-80));
-  await logCycle({ runnerVersion: RUNNER_VERSION, validationEngineVersion: 'qve_v1', scanned, qualified, executed, skipped, closed: closedPositions.length, cyclePnl, openPositions: openCount, blockedProfiles: evidence.blockedProfiles, lifecycle: Object.fromEntries(Object.entries(validationEngine.validations).map(([id, value]: any) => [id, value.status])) });
+  await logCycle({ runnerVersion: RUNNER_VERSION, validationEngineVersion: 'qve_v1.1', scanned, qualified, executed, skipped, closed: closedPositions.length, cyclePnl, openPositions: openCount, blockedProfiles: evidence.blockedProfiles, lifecycle: Object.fromEntries(Object.entries(validationEngine.validations).map(([id, value]: any) => [id, value.status])) });
   return { ...result, mode: 'executed', lastTickAt: completedAt };
 }
 
@@ -457,5 +597,5 @@ Deno.serve(async (req: Request) => {
   if (!['GET', 'POST'].includes(req.method)) return json({ ok: false, error: 'method_not_allowed' }, 405);
   if (!await authorized(req)) return json({ ok: false, error: 'runner_auth_invalid' }, 403);
   try { return json(await tick()); }
-  catch (error) { return json({ ok: false, error: error instanceof Error ? error.message : 'runner_failed', paperOnly: true, liveOrders: false, runnerVersion: RUNNER_VERSION, validationEngineVersion: 'qve_v1' }, 500); }
+  catch (error) { return json({ ok: false, error: error instanceof Error ? error.message : 'runner_failed', paperOnly: true, liveOrders: false, runnerVersion: RUNNER_VERSION, validationEngineVersion: 'qve_v1.1' }, 500); }
 });
