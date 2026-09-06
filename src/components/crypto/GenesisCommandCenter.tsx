@@ -4,7 +4,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import {
-  Activity, Bot, CircleDollarSign, Crosshair, DatabaseZap, Gauge,
+  Activity, CircleDollarSign, Crosshair, DatabaseZap, Gauge,
   Layers3, Radar, RefreshCw, ShieldAlert, TrendingDown, TrendingUp, Zap,
 } from 'lucide-react';
 import { fetchCaptureReport, type CaptureReport, type CaptureRow } from '@services/captureClient';
@@ -61,17 +61,13 @@ function CaptureFunnel({ report }: { report: CaptureReport | null }) {
   const scored = report?.scored ?? scanned;
   const quoted = report?.quoted ?? 0;
   const filled = report?.filled ?? 0;
-  const stages = [
-    ['SCANNED', scanned], ['SCORED', scored], ['QUOTED', quoted], ['FILLED', filled],
-  ] as const;
+  const stages = [['SCANNED', scanned], ['SCORED', scored], ['QUOTED', quoted], ['FILLED', filled]] as const;
   const base = Math.max(1, scanned);
   return (
     <div className="space-y-3">
       {stages.map(([label, count], index) => (
         <div key={label}>
-          <div className="mb-1.5 flex items-center justify-between text-[9px] font-mono">
-            <span className="text-zinc-500">{label}</span><span className="text-zinc-300">{count}</span>
-          </div>
+          <div className="mb-1.5 flex items-center justify-between text-[9px] font-mono"><span className="text-zinc-500">{label}</span><span className="text-zinc-300">{count}</span></div>
           <div className="h-2 overflow-hidden bg-[#070a0f] border border-[#202736]">
             <div className={`h-full ${index < 2 ? 'bg-cyan-400/60' : index === 2 ? 'bg-amber-400/60' : 'bg-emerald-400/70'}`} style={{ width: `${Math.max(count > 0 ? 4 : 0, Math.min(100, count / base * 100))}%` }} />
           </div>
@@ -182,9 +178,7 @@ export function GenesisCommandCenter({ es = true }: { es?: boolean }) {
       </div>
 
       <div className="space-y-3 p-3 md:p-5">
-        {error ? (
-          <div className="flex items-center gap-2 border border-red-400/20 bg-red-400/[.035] px-3 py-2 text-[10px] text-red-200/80"><ShieldAlert className="h-3.5 w-3.5" /> Capture feed failed. Genesis is not estimating P&L.</div>
-        ) : null}
+        {error ? <div className="flex items-center gap-2 border border-red-400/20 bg-red-400/[.035] px-3 py-2 text-[10px] text-red-200/80"><ShieldAlert className="h-3.5 w-3.5" /> Capture feed failed. Genesis is not estimating P&L.</div> : null}
 
         <section className="grid grid-cols-2 xl:grid-cols-4 gap-2" aria-label="Economic truth metrics">
           <MetricCard label="PAPER EQUITY" value={usd(f?.equityUsdt)} hint={equityPct == null ? 'Awaiting reconciled ledger' : `${(equityPct * 100).toFixed(2)}% of starting paper capital`} icon={<CircleDollarSign className="h-3.5 w-3.5" />} valueTone={tone(paperDelta)} accent={paperDelta != null && paperDelta < 0 ? 'red' : 'green'} />
@@ -209,7 +203,7 @@ export function GenesisCommandCenter({ es = true }: { es?: boolean }) {
                       <CartesianGrid stroke="#202736" vertical={false} />
                       <XAxis dataKey="name" tick={{ fill: '#697386', fontSize: 9 }} axisLine={false} tickLine={false} />
                       <YAxis tick={{ fill: '#566071', fontSize: 9 }} axisLine={false} tickLine={false} width={58} />
-                      <Tooltip cursor={{ fill: 'rgba(255,255,255,.025)' }} contentStyle={{ background: '#080b11', border: '1px solid #2b3445', fontSize: 10 }} formatter={(value: number) => [usd(value), 'USDT']} />
+                      <Tooltip cursor={{ fill: 'rgba(255,255,255,.025)' }} contentStyle={{ background: '#080b11', border: '1px solid #2b3445', fontSize: 10 }} formatter={(value) => [usd(value), 'USDT']} />
                       <ReferenceLine y={0} stroke="#465064" />
                       <Bar dataKey="value" maxBarSize={58} radius={[2, 2, 0, 0]} isAnimationActive={false}>
                         {pnlBridge.map(item => <Cell key={item.name} fill={item.value >= 0 ? '#34d399' : '#ff4757'} fillOpacity={.72} />)}
@@ -248,7 +242,7 @@ export function GenesisCommandCenter({ es = true }: { es?: boolean }) {
                     <CartesianGrid stroke="#202736" vertical={false} />
                     <XAxis dataKey="symbol" tick={{ fill: '#657083', fontSize: 8 }} axisLine={false} tickLine={false} interval={1} />
                     <YAxis tick={{ fill: '#566071', fontSize: 8 }} axisLine={false} tickLine={false} width={44} />
-                    <Tooltip contentStyle={{ background: '#080b11', border: '1px solid #2b3445', fontSize: 10 }} formatter={(value: number, name: string) => [name === 'vpin' ? value.toFixed(2) : `${value.toFixed(2)} bps`, name]} />
+                    <Tooltip contentStyle={{ background: '#080b11', border: '1px solid #2b3445', fontSize: 10 }} formatter={(value, name) => [finite(value) ? `${value.toFixed(2)}${String(name) === 'vpin' ? '' : ' bps'}` : '—', String(name)]} />
                     <Area type="monotone" dataKey="spread" stroke="#22d3ee" fill="url(#spreadFade)" strokeWidth={1.5} isAnimationActive={false} />
                     <Area type="monotone" dataKey="harvest" stroke="#34d399" fill="transparent" strokeWidth={1} isAnimationActive={false} />
                   </AreaChart>
