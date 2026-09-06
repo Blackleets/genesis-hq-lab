@@ -33,6 +33,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p research-output/cross-asset-v2
+          cp research/fx-tsmom/forex_trend_system.py research/cross-asset/forex_trend_system.py
           {
             echo "EVIDENCE_UTC $(date -u +%FT%TZ)"
             echo "EVIDENCE_COMMIT $(git rev-parse HEAD)"
