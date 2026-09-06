@@ -2,7 +2,7 @@ import { Bot, RadioTower } from 'lucide-react';
 import { useFounderState, usePaperPositions, useRunnerTelemetry } from './useTradingDesk';
 
 const AGENTS = [
-  { id: 'ASTRA', role: 'SYSTEM ARCHITECT' },
+  { id: 'ATLAS', role: 'QUANT RESEARCH' },
   { id: 'ORACLE', role: 'MARKET REGIME' },
   { id: 'SENTINEL', role: 'RISK GOVERNOR' },
   { id: 'FORGE', role: 'STRATEGY CHALLENGER' },
