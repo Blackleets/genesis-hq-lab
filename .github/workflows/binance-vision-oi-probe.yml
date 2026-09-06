@@ -27,73 +27,96 @@ jobs:
           import csv, hashlib, io, json, sys, urllib.request, zipfile
           from datetime import datetime, timezone
 
-          BASE = 'https://data.binance.vision/data/futures/um/daily/metrics'
+          DAILY_BASE = 'https://data.binance.vision/data/futures/um/daily/metrics'
+          MONTHLY_BASE = 'https://data.binance.vision/data/futures/um/monthly/metrics'
           SYMBOLS = ['BTCUSDT','ETHUSDT','SOLUSDT']
           DATES = ['2021-01-01','2022-01-01','2023-01-01','2024-01-01','2025-01-01']
+          MONTHS = ['2022-01','2023-01','2024-01','2025-01']
           results = []
+          monthly_results = []
 
           print('EVIDENCE_UTC', datetime.now(timezone.utc).isoformat())
           print('SOURCE', 'BINANCE_VISION_OFFICIAL')
           print('POLICY', 'ZIP_SHA256_MUST_MATCH_PUBLISHED_CHECKSUM')
 
+          def read_archive(zip_url, checksum_url):
+              with urllib.request.urlopen(checksum_url, timeout=20) as r:
+                  checksum_text = r.read().decode('utf-8').strip()
+              expected = checksum_text.split()[0].lower()
+              with urllib.request.urlopen(zip_url, timeout=30) as r:
+                  payload = r.read()
+              actual = hashlib.sha256(payload).hexdigest()
+              checksum_ok = actual == expected
+              with zipfile.ZipFile(io.BytesIO(payload)) as zf:
+                  names = zf.namelist()
+                  if not names:
+                      raise RuntimeError('empty_zip')
+                  text = zf.read(names[0]).decode('utf-8-sig')
+              reader = csv.DictReader(io.StringIO(text))
+              sample, count = [], 0
+              headers = reader.fieldnames or []
+              for rec in reader:
+                  count += 1
+                  if len(sample) < 2:
+                      sample.append(rec)
+              return {
+                  'ok': checksum_ok,
+                  'http_bytes': len(payload),
+                  'expected_sha256': expected,
+                  'actual_sha256': actual,
+                  'checksum_ok': checksum_ok,
+                  'inner_file': names[0],
+                  'headers': headers,
+                  'rows': count,
+                  'sample': sample,
+              }
+
           for symbol in SYMBOLS:
               for date in DATES:
                   fn = f'{symbol}-metrics-{date}.zip'
-                  zip_url = f'{BASE}/{symbol}/{fn}'
+                  zip_url = f'{DAILY_BASE}/{symbol}/{fn}'
                   checksum_url = zip_url + '.CHECKSUM'
-                  row = {'symbol': symbol, 'date': date, 'zip_url': zip_url, 'checksum_url': checksum_url}
+                  row = {'kind':'daily','symbol':symbol,'date':date,'zip_url':zip_url,'checksum_url':checksum_url}
                   try:
-                      with urllib.request.urlopen(checksum_url, timeout=20) as r:
-                          checksum_text = r.read().decode('utf-8').strip()
-                      expected = checksum_text.split()[0].lower()
-                      with urllib.request.urlopen(zip_url, timeout=30) as r:
-                          payload = r.read()
-                      actual = hashlib.sha256(payload).hexdigest()
-                      checksum_ok = actual == expected
-                      with zipfile.ZipFile(io.BytesIO(payload)) as zf:
-                          names = zf.namelist()
-                          if not names:
-                              raise RuntimeError('empty_zip')
-                          text = zf.read(names[0]).decode('utf-8-sig')
-                      reader = csv.DictReader(io.StringIO(text))
-                      sample = []
-                      count = 0
-                      headers = reader.fieldnames or []
-                      for rec in reader:
-                          count += 1
-                          if len(sample) < 2:
-                              sample.append(rec)
-                      row.update({
-                          'ok': checksum_ok,
-                          'http_bytes': len(payload),
-                          'expected_sha256': expected,
-                          'actual_sha256': actual,
-                          'checksum_ok': checksum_ok,
-                          'inner_file': names[0],
-                          'headers': headers,
-                          'rows': count,
-                          'sample': sample,
-                      })
-                      print('ARCHIVE_OK' if checksum_ok else 'ARCHIVE_HASH_FAIL', symbol, date, 'rows='+str(count), 'sha256='+actual)
-                      print('HEADERS', symbol, date, headers)
+                      row.update(read_archive(zip_url, checksum_url))
+                      print('DAILY_OK' if row['ok'] else 'DAILY_HASH_FAIL', symbol, date, 'rows='+str(row['rows']), 'sha256='+row['actual_sha256'])
                   except Exception as exc:
-                      row.update({'ok': False, 'error': f'{type(exc).__name__}:{exc}'})
-                      print('ARCHIVE_FAIL', symbol, date, row['error'])
+                      row.update({'ok':False,'error':f'{type(exc).__name__}:{exc}'})
+                      print('DAILY_FAIL', symbol, date, row['error'])
                   results.append(row)
 
+          for symbol in SYMBOLS:
+              for month in MONTHS:
+                  fn = f'{symbol}-metrics-{month}.zip'
+                  zip_url = f'{MONTHLY_BASE}/{symbol}/{fn}'
+                  checksum_url = zip_url + '.CHECKSUM'
+                  row = {'kind':'monthly','symbol':symbol,'month':month,'zip_url':zip_url,'checksum_url':checksum_url}
+                  try:
+                      row.update(read_archive(zip_url, checksum_url))
+                      print('MONTHLY_OK' if row['ok'] else 'MONTHLY_HASH_FAIL', symbol, month, 'rows='+str(row['rows']), 'sha256='+row['actual_sha256'])
+                  except Exception as exc:
+                      row.update({'ok':False,'error':f'{type(exc).__name__}:{exc}'})
+                      print('MONTHLY_FAIL', symbol, month, row['error'])
+                  monthly_results.append(row)
+
           summary = {
-              'checked': len(results),
-              'ok': sum(1 for r in results if r.get('ok')),
-              'failed': sum(1 for r in results if not r.get('ok')),
-              'symbols': SYMBOLS,
-              'dates': DATES,
-              'source': 'https://data.binance.vision',
-              'results': results,
+              'daily_checked':len(results),
+              'daily_ok':sum(1 for r in results if r.get('ok')),
+              'daily_failed':sum(1 for r in results if not r.get('ok')),
+              'monthly_checked':len(monthly_results),
+              'monthly_ok':sum(1 for r in monthly_results if r.get('ok')),
+              'monthly_failed':sum(1 for r in monthly_results if not r.get('ok')),
+              'symbols':SYMBOLS,
+              'dates':DATES,
+              'months':MONTHS,
+              'source':'https://data.binance.vision',
+              'daily_results':results,
+              'monthly_results':monthly_results,
           }
           with open('evidence/binance_vision_oi_probe.json','w',encoding='utf-8') as f:
               json.dump(summary,f,indent=2,sort_keys=True)
-          print('SUMMARY', json.dumps({k:summary[k] for k in ['checked','ok','failed']}, sort_keys=True))
-          if summary['ok'] == 0:
+          print('SUMMARY', json.dumps({k:summary[k] for k in ['daily_checked','daily_ok','daily_failed','monthly_checked','monthly_ok','monthly_failed']}, sort_keys=True))
+          if summary['daily_ok'] == 0:
               sys.exit(2)
           PY
       - name: Hash evidence files
