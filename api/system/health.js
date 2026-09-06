@@ -87,6 +87,7 @@ function mergeRunner(base, runner) {
       paperOnly: runner.paperOnly === true,
       liveOrders: runner.liveOrders === true,
       lastResult: runner.lastResult ?? null,
+      openTrades: openPositions.length,
       openPositions,
       recentTrades,
       stats: runner.stats && typeof runner.stats === 'object' ? runner.stats : null,
