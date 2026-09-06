@@ -1,0 +1,60 @@
+name: FX TSMOM Raw Evidence
+
+on:
+  push:
+    branches:
+      - research/fx-tsmom-validation
+    paths:
+      - 'research/fx-tsmom/**'
+      - '.github/workflows/fx-tsmom-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact research commit
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install research dependencies
+        run: python -m pip install --disable-pip-version-check yfinance pandas numpy
+
+      - name: Execute raw-evidence run
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p research-output
+          {
+            echo "EVIDENCE_UTC $(date -u +%FT%TZ)"
+            echo "EVIDENCE_COMMIT $(git rev-parse HEAD)"
+            echo "EVIDENCE_BRANCH ${GITHUB_REF_NAME}"
+            python --version
+            python - <<'PY'
+          import numpy, pandas, yfinance
+          print('EVIDENCE_VERSIONS', {'numpy': numpy.__version__, 'pandas': pandas.__version__, 'yfinance': yfinance.__version__})
+          PY
+            sha256sum research/fx-tsmom/forex_trend_system.py
+            python -m py_compile research/fx-tsmom/forex_trend_system.py research/fx-tsmom/download_yfinance.py research/fx-tsmom/run_validation.py
+            python research/fx-tsmom/download_yfinance.py
+            python research/fx-tsmom/run_validation.py
+          } 2>&1 | tee research-output/workflow_raw.log
+
+      - name: Upload immutable evidence packet
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fx-tsmom-raw-evidence-${{ github.sha }}
+          path: |
+            research-output/**
+            research/fx-tsmom/forex_trend_system.py
+          if-no-files-found: warn
+          retention-days: 30
