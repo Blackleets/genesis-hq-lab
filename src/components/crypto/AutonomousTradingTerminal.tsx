@@ -43,7 +43,7 @@ export function AutonomousTradingTerminal({ es = true }: { es?: boolean }) {
 
   const loadMarket = useCallback(async () => {
     try {
-      const response = await fetch(`/api/genesis/market-candles?pair=${encodeURIComponent(pair)}&tf=${encodeURIComponent(tf)}&limit=320`, { cache: 'no-store' });
+      const response = await fetch(`/api/genesis/candles?pair=${encodeURIComponent(pair)}&tf=${encodeURIComponent(tf)}&limit=320`, { cache: 'no-store' });
       if (!response.ok) throw new Error('market feed unavailable');
       const payload = await response.json() as MarketPayload;
       if (!payload.ok || !Array.isArray(payload.candles) || payload.candles.length < 20) throw new Error('invalid market payload');
