@@ -5,7 +5,7 @@ import { shortSymbol } from './formatters';
 function decisionTone(status: unknown, reason: unknown) {
   if (status === 'paper_open') return 'open';
   const text = `${String(status ?? '')} ${String(reason ?? '')}`.toLowerCase();
-  if (/risk|veto|block|max_open|halt|pause/.test(text)) return 'blocked';
+  if (/risk|veto|block|evidence_guard|max_open|halt|pause/.test(text)) return 'blocked';
   if (status === 'skip') return 'skip';
   return 'evaluation';
 }
