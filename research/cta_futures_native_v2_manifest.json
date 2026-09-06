@@ -1,0 +1,96 @@
+{
+  "manifestVersion": "cta_futures_native_v2_manifest_v1",
+  "family": "CTA_MULTI_HORIZON_TREND",
+  "strategyName": "CTA Futures Native Multi-Horizon Trend",
+  "strategyVersion": "v2-vision-oi-frozen",
+  "proposalId": "8461e67c-783a-46e5-a0ee-93cd6380ebad",
+  "hypothesisFingerprint": "13308ee022a34bcefbccbc6ef543482e0070c1a973d8cdf1d2095624541c518e",
+  "noveltyDecision": "ALLOW_RESEARCH_CHALLENGE",
+  "economicCheckId": "027eb819-ac36-4455-8083-7c90cb3f2a97",
+  "economicEngine": "efg_v1.3-evidence-reuse-v1",
+  "economicSourceEvidenceHash": "66e60fda5fffd7acb0995831522fb4271c280a20f9f804a3cb0263de987a0783",
+  "economicObservedAt": "2026-09-06T21:33:01.611Z",
+  "economicInterpretation": "capacity_only_not_alpha",
+  "freshSnapshotClaim": false,
+  "backtestAllowed": true,
+  "researchComputeAuthority": true,
+  "executionAuthority": false,
+  "capitalEligible": false,
+  "liveOrders": false,
+  "dataPolicy": {
+    "source": "BINANCE_VISION_OFFICIAL",
+    "market": "USD-M FUTURES",
+    "start": "2022-01-01T00:00:00Z",
+    "end": "2026-09-01T00:00:00Z",
+    "symbols": ["BTCUSDT", "ETHUSDT", "SOLUSDT"],
+    "markInterval": "1h",
+    "indexInterval": "1h",
+    "premiumInterval": "1h",
+    "openInterestArchive": "daily/metrics",
+    "fundingArchive": "monthly/fundingRate",
+    "checksumRequired": true,
+    "maxOiGapHours": 2,
+    "minOiDailyArchiveCoverage": 0.99,
+    "monthlyMarketCoverageRequired": 1.0,
+    "noSyntheticOi": true,
+    "noSpotReference": true
+  },
+  "signal": {
+    "trendHorizonsHours": [24, 72, 168],
+    "agreementMin": 2,
+    "oiLookbackHours": 24,
+    "requireOiGrowth": true,
+    "maxLongBasisBps": 5,
+    "minShortBasisBps": -5,
+    "rebalanceHours": 6,
+    "volLookbackHours": 168,
+    "minOiUsd": 250000000,
+    "grossExposure": 1.0,
+    "weighting": "inverse_prior_168h_realized_vol",
+    "decisionTiming": "closed_bar_only_then_trade_next_interval"
+  },
+  "costs": {
+    "oneWayBpsPerUnitTurnover": 7,
+    "roundTripBpsReference": 14,
+    "fundingRealized": true,
+    "fundingConvention": "long_pays_positive_short_receives_positive",
+    "slippageBufferIncludedInOneWayBps": true
+  },
+  "validation": {
+    "split": {
+      "development": 0.50,
+      "validation": 0.25,
+      "holdout": 0.25
+    },
+    "forceFlatAtSplitBoundaries": true,
+    "holdoutEvaluatedOnlyIfValidationPasses": true,
+    "episodeDefinition": "per-symbol continuous nonzero position sign; weight changes within same sign remain one episode",
+    "gates": {
+      "minTrades": 50,
+      "minWinRate": 0.40,
+      "minProfitFactor": 1.30,
+      "minExpectancyPct": 0.05,
+      "minTStat": 2.0,
+      "maxDrawdownPct": 25.0,
+      "requirePositiveTemporalHalves": true,
+      "requireMcP5Positive": true,
+      "validationFolds": 3,
+      "minPositiveValidationFolds": 2
+    },
+    "monteCarlo": {
+      "iterations": 2000,
+      "seed": 20260907,
+      "statistic": "bootstrap_sum_episode_returns_p5"
+    }
+  },
+  "provenance": {
+    "priorNoGoExperiments": [
+      "trend_ensemble_v1_20260906",
+      "trend_ensemble_forward_v1_20260906"
+    ],
+    "binanceVisionOiProbeRunId": 34064581874,
+    "binanceVisionOiProbeArtifactId": 9998528284,
+    "binanceVisionMarketProbeRunId": 34064901848,
+    "notes": "This manifest freezes the exact research interpretation before the deep historical backtest. PASS/GO cannot change executionAuthority, capitalEligible, or liveOrders."
+  }
+}
