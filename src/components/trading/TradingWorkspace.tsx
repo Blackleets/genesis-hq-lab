@@ -13,16 +13,18 @@ import { ExecutionTable } from './ExecutionTable';
 import './tradingWorkspace.css';
 
 const StrategyPanel = lazy(() => import('./StrategyPanel').then((module) => ({ default: module.StrategyPanel })));
+const EconomicTruthPanel = lazy(() => import('./EconomicTruthPanel').then((module) => ({ default: module.EconomicTruthPanel })));
 const AgentBar = lazy(() => import('./AgentBar').then((module) => ({ default: module.AgentBar })));
 const ControlDrawer = lazy(() => import('./ControlDrawer').then((module) => ({ default: module.ControlDrawer })));
 
-type TerminalTab = 'positions' | 'executions' | 'decisions' | 'strategies' | 'agents';
+type TerminalTab = 'positions' | 'executions' | 'decisions' | 'strategies' | 'truth' | 'agents';
 
 const TABS: Array<{ id: TerminalTab; label: string }> = [
   { id: 'positions', label: 'POSITIONS' },
   { id: 'executions', label: 'EXECUTIONS' },
   { id: 'decisions', label: 'DECISIONS' },
   { id: 'strategies', label: 'STRATEGIES' },
+  { id: 'truth', label: 'TRUTH' },
   { id: 'agents', label: 'AGENTS' },
 ];
 
@@ -63,6 +65,7 @@ function TradingWorkspaceContent() {
           {tab === 'executions' ? <ExecutionTable /> : null}
           {tab === 'decisions' ? <DecisionTape limit={8} /> : null}
           {tab === 'strategies' ? <Suspense fallback={<LoadingPanel />}><StrategyPanel /></Suspense> : null}
+          {tab === 'truth' ? <Suspense fallback={<LoadingPanel />}><EconomicTruthPanel /></Suspense> : null}
           {tab === 'agents' ? <Suspense fallback={<LoadingPanel />}><AgentBar /></Suspense> : null}
         </div>
       </section>
