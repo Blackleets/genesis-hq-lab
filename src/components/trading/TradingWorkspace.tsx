@@ -18,6 +18,7 @@ import './tradingWorkspace.css';
 import './workstationV2.css';
 import './workstationV2Refinement.css';
 import './nativeQuality.css';
+import './nativeTouchOverride.css';
 
 const StrategyPanel = lazy(() => import('./StrategyPanel').then((module) => ({ default: module.StrategyPanel })));
 const EconomicTruthPanel = lazy(() => import('./EconomicTruthPanel').then((module) => ({ default: module.EconomicTruthPanel })));
