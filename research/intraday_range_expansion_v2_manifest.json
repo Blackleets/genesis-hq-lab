@@ -1,0 +1,74 @@
+{
+  "engineVersion": "ire_econ_v1",
+  "proposalId": "76878183-4846-42b2-a389-bd07ac55882d",
+  "hypothesisFingerprint": "f5d8f59667399a8554d2325559abe59bbd9d81ff83a0626ba3ff79c3e43829ae",
+  "family": "INTRADAY_RANGE_EXPANSION",
+  "strategyName": "Intraday Futures Range Expansion",
+  "strategyVersion": "v2-frozen",
+  "economicsScreenAllowed": true,
+  "backtestAllowed": false,
+  "researchComputeAuthority": false,
+  "executionAuthority": false,
+  "capitalEligible": false,
+  "liveOrders": false,
+  "universe": ["BTCUSDT", "ETHUSDT", "SOLUSDT"],
+  "dataClass": "binance_usdm_vision_mark_index_funding_5m",
+  "dataPolicy": {
+    "source": "BINANCE_VISION_OFFICIAL",
+    "market": "USD-M FUTURES",
+    "checksumRequired": true,
+    "spotReferenceUsed": false,
+    "syntheticDataAllowed": false
+  },
+  "signal": {
+    "intervalMinutes": 5,
+    "rangeMinutes": 60,
+    "volLookbackMinutes": 1440,
+    "volShockZ": 2.0,
+    "maxLongBasisBps": 5.0,
+    "minShortBasisBps": -5.0,
+    "holdMinutes": 60,
+    "nonOverlappingPerSymbol": true,
+    "portfolioGrossExposure": 1.0,
+    "decisionTiming": "closed_bar_only_then_trade_next_interval"
+  },
+  "costModel": {
+    "takerBpsPerSide": 5.0,
+    "slippageBpsPerRoundTrip": 4.0,
+    "roundTripBps": 14.0,
+    "fundingRealizedInDeepBacktest": true
+  },
+  "chronology": {
+    "economicsStart": "2022-01-01T00:00:00Z",
+    "economicsEndExclusive": "2022-07-01T00:00:00Z",
+    "developmentStart": "2022-07-01T00:00:00Z",
+    "developmentEndExclusive": "2024-07-01T00:00:00Z",
+    "validationStart": "2024-07-01T00:00:00Z",
+    "validationEndExclusive": "2025-10-01T00:00:00Z",
+    "holdoutStart": "2025-10-01T00:00:00Z",
+    "holdoutEndExclusive": "2026-09-01T00:00:00Z",
+    "holdoutPolicy": "SEALED_UNLESS_VALIDATION_PASSES_ALL_GATES"
+  },
+  "economicGates": {
+    "minEvents": 50,
+    "requiredGrossMeanBps": 21.0,
+    "minMedianGrossBpsExclusive": 0.0,
+    "minPositiveAssets": 2,
+    "positiveAssetGrossMeanBps": 21.0,
+    "requiredArchiveCoverage": 1.0,
+    "safetyBufferBps": 7.0,
+    "interpretation": "capacity_and_directional_prefilter_only_not_proven_alpha"
+  },
+  "deepValidationGates": {
+    "minTrades": 50,
+    "minWinRate": 0.40,
+    "minProfitFactor": 1.30,
+    "minExpectancyPct": 0.05,
+    "minTStat": 2.0,
+    "maxDrawdownPct": 25.0,
+    "requirePositiveTemporalHalves": true,
+    "requireMcP5Positive": true,
+    "validationFolds": 3,
+    "minPositiveValidationFolds": 2
+  }
+}
