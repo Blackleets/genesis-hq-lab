@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useState } from 'react';
-import { Activity, Bot, CandlestickChart, ListChecks, Shield, Target } from 'lucide-react';
+import { Activity } from 'lucide-react';
 import { TradingDeskProvider } from './TradingDeskProvider';
 import { TradingHeader } from './TradingHeader';
 import { MarketWatchlist } from './MarketWatchlist';
@@ -13,9 +13,11 @@ import { ExecutionTable } from './ExecutionTable';
 import { DeskStatusRail } from './DeskStatusRail';
 import { ResearchOpportunitySurface } from './ResearchOpportunitySurface';
 import { ConnectorRack } from './ConnectorRack';
+import { NativeMobileApp } from './NativeMobileApp';
 import './tradingWorkspace.css';
 import './workstationV2.css';
 import './workstationV2Refinement.css';
+import './nativeQuality.css';
 
 const StrategyPanel = lazy(() => import('./StrategyPanel').then((module) => ({ default: module.StrategyPanel })));
 const EconomicTruthPanel = lazy(() => import('./EconomicTruthPanel').then((module) => ({ default: module.EconomicTruthPanel })));
@@ -37,18 +39,16 @@ function LoadingPanel() {
   return <div className="terminal-empty"><Activity size={13} className="animate-pulse" /> LOADING VERIFIED SURFACE</div>;
 }
 
-function TradingWorkspaceContent() {
+function DesktopTradingWorkspace({ onControl }: { onControl: () => void }) {
   const [tab, setTab] = useState<TerminalTab>('positions');
-  const [controlOpen, setControlOpen] = useState(false);
-  const closeControl = useCallback(() => setControlOpen(false), []);
   const showTab = (next: TerminalTab) => {
     setTab(next);
     window.requestAnimationFrame(() => document.getElementById('desk-terminal')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   };
 
   return (
-    <main className="trading-workspace genesis-workstation-v2" data-ui="genesis-workstation-v2">
-      <TradingHeader onControl={() => setControlOpen(true)} />
+    <main className="trading-workspace genesis-workstation-v2 genesis-desktop-app" data-ui="genesis-workstation-v2">
+      <TradingHeader onControl={onControl} />
       <MarketWatchlist mobile />
       <div className="trading-workspace__body">
         <MarketWatchlist />
@@ -91,15 +91,21 @@ function TradingWorkspaceContent() {
           {tab === 'agents' ? <Suspense fallback={<LoadingPanel />}><AgentBar /></Suspense> : null}
         </div>
       </section>
-      <nav className="trading-mobile-nav" aria-label="Mobile trading navigation">
-        <button type="button" onClick={() => document.getElementById('desk-chart')?.scrollIntoView({ behavior: 'smooth' })}><CandlestickChart size={15} />CHART</button>
-        <button type="button" onClick={() => showTab('positions')}><Target size={15} />POSITIONS</button>
-        <button type="button" onClick={() => showTab('executions')}><ListChecks size={15} />TRADES</button>
-        <button type="button" onClick={() => document.getElementById('desk-agent-floor')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}><Bot size={15} />AGENTS</button>
-        <button type="button" onClick={() => setControlOpen(true)}><Shield size={15} />CONTROL</button>
-      </nav>
-      <Suspense fallback={null}><ControlDrawer open={controlOpen} onClose={closeControl} /></Suspense>
     </main>
+  );
+}
+
+function TradingWorkspaceContent() {
+  const [controlOpen, setControlOpen] = useState(false);
+  const closeControl = useCallback(() => setControlOpen(false), []);
+  const openControl = useCallback(() => setControlOpen(true), []);
+
+  return (
+    <>
+      <DesktopTradingWorkspace onControl={openControl} />
+      <NativeMobileApp onControl={openControl} />
+      <Suspense fallback={null}><ControlDrawer open={controlOpen} onClose={closeControl} /></Suspense>
+    </>
   );
 }
 
