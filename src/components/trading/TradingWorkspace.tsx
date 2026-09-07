@@ -11,6 +11,7 @@ import { RiskPanel } from './RiskPanel';
 import { PositionsTable } from './PositionsTable';
 import { ExecutionTable } from './ExecutionTable';
 import './tradingWorkspace.css';
+import './workstationV2.css';
 
 const StrategyPanel = lazy(() => import('./StrategyPanel').then((module) => ({ default: module.StrategyPanel })));
 const EconomicTruthPanel = lazy(() => import('./EconomicTruthPanel').then((module) => ({ default: module.EconomicTruthPanel })));
@@ -42,7 +43,7 @@ function TradingWorkspaceContent() {
   };
 
   return (
-    <main className="trading-workspace">
+    <main className="trading-workspace genesis-workstation-v2" data-ui="genesis-workstation-v2">
       <TradingHeader onControl={() => setControlOpen(true)} />
       <MarketWatchlist mobile />
       <div className="trading-workspace__body">
@@ -55,6 +56,17 @@ function TradingWorkspaceContent() {
         </div>
         <div className="trading-workspace__mobile-position"><ActivePosition /></div>
       </div>
+
+      <section id="desk-agent-floor" className="genesis-agent-dock" aria-label="Genesis agent floor">
+        <div className="genesis-agent-dock__label">
+          <span>AGENT FLOOR</span>
+          <small>FOUNDER-CONTRACT STATES · NO SIMULATED ACTIVITY</small>
+        </div>
+        <div className="genesis-agent-dock__surface">
+          <Suspense fallback={<LoadingPanel />}><AgentBar /></Suspense>
+        </div>
+      </section>
+
       <section id="desk-terminal" className="desk-terminal" aria-label="Trading desk terminal">
         <nav className="desk-terminal__tabs">
           {TABS.map((item) => <button key={item.id} type="button" onClick={() => setTab(item.id)} className={tab === item.id ? 'is-active' : ''} aria-selected={tab === item.id}>{item.label}</button>)}
@@ -73,7 +85,7 @@ function TradingWorkspaceContent() {
         <button type="button" onClick={() => document.getElementById('desk-chart')?.scrollIntoView({ behavior: 'smooth' })}><CandlestickChart size={15} />CHART</button>
         <button type="button" onClick={() => showTab('positions')}><Target size={15} />POSITIONS</button>
         <button type="button" onClick={() => showTab('executions')}><ListChecks size={15} />TRADES</button>
-        <button type="button" onClick={() => showTab('agents')}><Bot size={15} />AGENTS</button>
+        <button type="button" onClick={() => document.getElementById('desk-agent-floor')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}><Bot size={15} />AGENTS</button>
         <button type="button" onClick={() => setControlOpen(true)}><Shield size={15} />CONTROL</button>
       </nav>
       <Suspense fallback={null}><ControlDrawer open={controlOpen} onClose={closeControl} /></Suspense>
