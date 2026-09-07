@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import {
   Activity,
   BarChart3,
@@ -13,7 +13,6 @@ import {
   Shield,
   SlidersHorizontal,
   Sparkles,
-  WalletCards,
 } from 'lucide-react';
 import { MarketChart } from './MarketChart';
 import { ActivePosition } from './ActivePosition';
