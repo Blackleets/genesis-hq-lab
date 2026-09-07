@@ -243,7 +243,7 @@ export function NativeMobileApp({ onControl }: { onControl: () => void }) {
                   <div><span>Mode</span><strong>PAPER</strong></div>
                   <div><span>Live execution</span><strong className="is-danger">{founderLocked ? 'LOCKED' : 'UNVERIFIED'}</strong></div>
                   <div><span>Founder readiness</span><strong>{founder.data?.readiness ?? 'UNAVAILABLE'}</strong></div>
-                  <div><span>Can execute</span><strong className="is-danger">{founder.data?.cutover?.canExecute === true ? 'YES' : 'NO'}</strong></div>
+                  <div><span>Can execute</span><strong className="is-danger">NO</strong></div>
                   <div><span>Runner</span><strong>{runnerReady ? 'VERIFIED PAPER' : 'UNVERIFIED'}</strong></div>
                 </div>
               </div>
