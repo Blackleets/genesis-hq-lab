@@ -1,0 +1,25 @@
+name: Workstation v2 CI
+
+on:
+  push:
+    branches:
+      - feat/genesis-workstation-v2
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: TypeScript + production build
+        run: npm run build
