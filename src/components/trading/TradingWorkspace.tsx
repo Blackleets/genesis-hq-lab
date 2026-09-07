@@ -10,8 +10,10 @@ import { DecisionTape } from './DecisionTape';
 import { RiskPanel } from './RiskPanel';
 import { PositionsTable } from './PositionsTable';
 import { ExecutionTable } from './ExecutionTable';
+import { DeskStatusRail } from './DeskStatusRail';
 import './tradingWorkspace.css';
 import './workstationV2.css';
+import './workstationV2Refinement.css';
 
 const StrategyPanel = lazy(() => import('./StrategyPanel').then((module) => ({ default: module.StrategyPanel })));
 const EconomicTruthPanel = lazy(() => import('./EconomicTruthPanel').then((module) => ({ default: module.EconomicTruthPanel })));
@@ -56,6 +58,8 @@ function TradingWorkspaceContent() {
         </div>
         <div className="trading-workspace__mobile-position"><ActivePosition /></div>
       </div>
+
+      <DeskStatusRail />
 
       <section id="desk-agent-floor" className="genesis-agent-dock" aria-label="Genesis agent floor">
         <div className="genesis-agent-dock__label">
