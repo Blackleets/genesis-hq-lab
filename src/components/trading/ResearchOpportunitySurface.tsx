@@ -71,15 +71,16 @@ export function ResearchOpportunitySurface({ onOpenResearch }: { onOpenResearch:
   const summary = pipeline?.summary;
   const ledger = extended?.researchLedger?.summary;
   const events = Array.isArray(pipeline?.latest) ? pipeline.latest.slice(0, 3) : [];
-  const ready = resource.state === 'ready' && runner?.paperOnly === true && runner.liveOrders === false;
+  const evidenceReady = resource.state === 'ready' && pipeline != null;
+  const executionStateVerified = runner?.paperOnly === true && runner.liveOrders === false;
   const compute = summary?.computeAuthorities ?? 0;
 
   return (
     <section className="research-opportunity" data-source="QUANT RESEARCH PIPELINE · READ ONLY" aria-label="Research and opportunity surface">
       <div className="research-opportunity__identity">
         <div><FlaskConical size={13} /><span>RESEARCH / OPPORTUNITY</span></div>
-        <strong>{ready ? pipeline?.engineVersion?.toUpperCase() ?? 'QRP UNAVAILABLE' : stateLabel(resource.state)}</strong>
-        <small>{runner?.liveOrders === false ? 'LIVE ORDERS OFF' : 'LIVE STATE UNAVAILABLE'}</small>
+        <strong>{evidenceReady ? pipeline?.engineVersion?.toUpperCase() ?? 'QRP UNAVAILABLE' : stateLabel(resource.state)}</strong>
+        <small>{executionStateVerified ? 'PAPER ONLY · LIVE ORDERS OFF' : 'EXECUTION STATE UNAVAILABLE'}</small>
       </div>
 
       <div className="research-opportunity__metrics">
