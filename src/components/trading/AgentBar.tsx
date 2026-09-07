@@ -1,14 +1,14 @@
-import { Bot, RadioTower } from 'lucide-react';
+import { RadioTower } from 'lucide-react';
 import { useFounderState, usePaperPositions, useRunnerTelemetry } from './useTradingDesk';
 
 const AGENTS = [
-  { id: 'ATLAS', role: 'QUANT RESEARCH' },
-  { id: 'ORACLE', role: 'MARKET REGIME' },
-  { id: 'SENTINEL', role: 'RISK GOVERNOR' },
-  { id: 'FORGE', role: 'STRATEGY CHALLENGER' },
-  { id: 'EXECUTION', role: 'PAPER BOUNDARY' },
-  { id: 'AUDITOR', role: 'ECONOMIC TRUTH' },
-  { id: 'HERMES', role: 'CONNECTOR MESH' },
+  { id: 'ATLAS', role: 'QUANT RESEARCH', sigil: '∆' },
+  { id: 'ORACLE', role: 'MARKET REGIME', sigil: 'Ω' },
+  { id: 'SENTINEL', role: 'RISK GOVERNOR', sigil: 'S' },
+  { id: 'FORGE', role: 'STRATEGY CHALLENGER', sigil: 'F' },
+  { id: 'EXECUTION', role: 'PAPER BOUNDARY', sigil: 'X' },
+  { id: 'AUDITOR', role: 'ECONOMIC TRUTH', sigil: 'Σ' },
+  { id: 'HERMES', role: 'CONNECTOR MESH', sigil: 'H' },
 ] as const;
 
 function visibleStatus(status: string | undefined, fresh: boolean) {
@@ -26,7 +26,7 @@ export function AgentBar() {
     <section className="agent-bar" data-source="REAL AGENT / SYSTEM STATE" aria-label="Genesis agent states">
       <div className="agent-bar__source"><RadioTower size={12} /><span>FOUNDER READINESS</span><strong>{fresh ? 'VERIFIED FEED' : founder.state.toUpperCase()}</strong></div>
       <div className="agent-bar__grid">
-        {AGENTS.map(({ id, role }) => {
+        {AGENTS.map(({ id, role, sigil }) => {
           const agent = founder.data?.agents.find((candidate) => candidate.id === id);
           const status = visibleStatus(agent?.status, fresh);
           const tone = status === 'LOCKED' || status === 'BLOCKING' ? 'blocked' : status === 'STATUS UNAVAILABLE' ? 'unknown' : 'idle';
@@ -35,8 +35,8 @@ export function AgentBar() {
             : agent?.currentTask ?? (agent?.metrics.evaluatedGates != null ? `${agent.metrics.evaluatedGates} GATES EVALUATED` : 'NO VERIFIED ACTIVITY');
           return (
             <article key={id} className={`agent-card agent-card--${tone}`}>
-              <Bot size={14} />
-              <div><strong>◈ {id}</strong><span>{role}</span></div>
+              <span className="agent-card__sigil" aria-hidden="true">{sigil}</span>
+              <div><strong>{id}</strong><span>{role}</span></div>
               <div className="agent-card__state"><i />{status}</div>
               <p>{fresh && agent ? detail : 'STATUS UNAVAILABLE'}</p>
             </article>
