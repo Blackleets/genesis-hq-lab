@@ -1,0 +1,26 @@
+name: Quant Evidence REST Fallback CI
+
+on:
+  push:
+    branches:
+      - tmp/quant-evidence-rest-fallback
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Syntax check serverless fallback
+        run: node --check api/system/health.js
+      - name: Install locked dependencies
+        run: npm ci
+      - name: TypeScript + production build
+        run: npm run build
