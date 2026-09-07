@@ -6,7 +6,7 @@ import { formatPercent, formatPrice, stateLabel } from './formatters';
 import { TRADING_TIMEFRAMES } from './tradingTypes';
 import { ActivePosition } from './ActivePosition';
 
-export function MarketChart({ positionOverlay = true }: { positionOverlay?: boolean }) {
+export function MarketChart({ positionOverlay = true, chrome = 'full' }: { positionOverlay?: boolean; chrome?: 'full' | 'canvas' }) {
   const { symbol, timeframe, setTimeframe, market } = useMarketData();
   const executions = useExecutions();
   const positions = usePaperPositions();
@@ -28,24 +28,27 @@ export function MarketChart({ positionOverlay = true }: { positionOverlay?: bool
     }));
   }, [executions.data, positions.data, symbol]);
   const change = market.data?.changePct;
+  const canvasOnly = chrome === 'canvas';
 
   return (
-    <section className="market-chart" aria-label="Main trading chart" data-source="MARKET DATA">
-      <div className="market-chart__toolbar">
-        <div className="market-chart__instrument">
-          <strong>{symbol.replace('USDT', '/USDT')}</strong>
-          <span>BINANCE SPOT REFERENCE</span>
-          <i>PAPER FUTURES OVERLAY</i>
+    <section className={`market-chart ${canvasOnly ? 'market-chart--canvas-only' : ''}`} aria-label="Main trading chart" data-source="MARKET DATA">
+      {!canvasOnly ? (
+        <div className="market-chart__toolbar">
+          <div className="market-chart__instrument">
+            <strong>{symbol.replace('USDT', '/USDT')}</strong>
+            <span>BINANCE SPOT REFERENCE</span>
+            <i>PAPER FUTURES OVERLAY</i>
+          </div>
+          <div className="market-chart__timeframes" aria-label="Chart timeframe">
+            {TRADING_TIMEFRAMES.map((item) => <button key={item} type="button" onClick={() => setTimeframe(item)} className={timeframe === item ? 'is-active' : ''} aria-pressed={timeframe === item}>{item}</button>)}
+          </div>
+          <div className="market-chart__quote">
+            <strong>{formatPrice(market.data?.lastPrice)}</strong>
+            <span className={change == null ? 'text-zinc-600' : change >= 0 ? 'text-emerald-300' : 'text-red-300'}>{formatPercent(change)} <small>{timeframe} WINDOW</small></span>
+          </div>
+          <span className={`market-chart__state market-chart__state--${market.state}`}><i />{stateLabel(market.state)}</span>
         </div>
-        <div className="market-chart__timeframes" aria-label="Chart timeframe">
-          {TRADING_TIMEFRAMES.map((item) => <button key={item} type="button" onClick={() => setTimeframe(item)} className={timeframe === item ? 'is-active' : ''} aria-pressed={timeframe === item}>{item}</button>)}
-        </div>
-        <div className="market-chart__quote">
-          <strong>{formatPrice(market.data?.lastPrice)}</strong>
-          <span className={change == null ? 'text-zinc-600' : change >= 0 ? 'text-emerald-300' : 'text-red-300'}>{formatPercent(change)} <small>{timeframe} WINDOW</small></span>
-        </div>
-        <span className={`market-chart__state market-chart__state--${market.state}`}><i />{stateLabel(market.state)}</span>
-      </div>
+      ) : null}
       <div className="market-chart__canvas">
         {market.data?.candles.length ? <QuantChart candles={market.data.candles} trades={trades} seriesKey={`${symbol}:${timeframe}`} /> : (
           <div className="market-chart__empty">
@@ -55,9 +58,9 @@ export function MarketChart({ positionOverlay = true }: { positionOverlay?: bool
           </div>
         )}
         {positionOverlay ? <ActivePosition overlay /> : null}
-        <div className="market-chart__legend"><span className="entry">ENTRY</span><span className="tp">TP</span><span className="sl">SL</span><span className="timeout">TIMEOUT</span><b>VOLUME · REAL CANDLES</b></div>
+        {!canvasOnly ? <div className="market-chart__legend"><span className="entry">ENTRY</span><span className="tp">TP</span><span className="sl">SL</span><span className="timeout">TIMEOUT</span><b>VOLUME · REAL CANDLES</b></div> : null}
       </div>
-      <div className="market-chart__provenance"><span>MARKET DATA</span><strong>{market.data?.market?.replaceAll('_', ' ').toUpperCase() ?? 'UNAVAILABLE'}</strong><span>UPDATED</span><strong>{market.data?.updatedAt ? new Date(market.data.updatedAt).toLocaleTimeString() : 'UNAVAILABLE'}</strong><span>FUTURES MARK</span><strong>UNAVAILABLE</strong></div>
+      {!canvasOnly ? <div className="market-chart__provenance"><span>MARKET DATA</span><strong>{market.data?.market?.replaceAll('_', ' ').toUpperCase() ?? 'UNAVAILABLE'}</strong><span>UPDATED</span><strong>{market.data?.updatedAt ? new Date(market.data.updatedAt).toLocaleTimeString() : 'UNAVAILABLE'}</strong><span>FUTURES MARK</span><strong>UNAVAILABLE</strong></div> : null}
     </section>
   );
 }
