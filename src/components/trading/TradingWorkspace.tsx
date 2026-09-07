@@ -11,6 +11,8 @@ import { RiskPanel } from './RiskPanel';
 import { PositionsTable } from './PositionsTable';
 import { ExecutionTable } from './ExecutionTable';
 import { DeskStatusRail } from './DeskStatusRail';
+import { ResearchOpportunitySurface } from './ResearchOpportunitySurface';
+import { ConnectorRack } from './ConnectorRack';
 import './tradingWorkspace.css';
 import './workstationV2.css';
 import './workstationV2Refinement.css';
@@ -60,16 +62,20 @@ function TradingWorkspaceContent() {
       </div>
 
       <DeskStatusRail />
+      <ResearchOpportunitySurface onOpenResearch={() => showTab('strategies')} />
 
-      <section id="desk-agent-floor" className="genesis-agent-dock" aria-label="Genesis agent floor">
-        <div className="genesis-agent-dock__label">
-          <span>AGENT FLOOR</span>
-          <small>FOUNDER-CONTRACT STATES · NO SIMULATED ACTIVITY</small>
-        </div>
-        <div className="genesis-agent-dock__surface">
-          <Suspense fallback={<LoadingPanel />}><AgentBar /></Suspense>
-        </div>
-      </section>
+      <div className="genesis-operations-floor" id="desk-agent-floor">
+        <section className="genesis-agent-dock" aria-label="Genesis agent floor">
+          <div className="genesis-agent-dock__label">
+            <span>AGENT FLOOR</span>
+            <small>FOUNDER-CONTRACT STATES · NO SIMULATED ACTIVITY</small>
+          </div>
+          <div className="genesis-agent-dock__surface">
+            <Suspense fallback={<LoadingPanel />}><AgentBar /></Suspense>
+          </div>
+        </section>
+        <ConnectorRack />
+      </div>
 
       <section id="desk-terminal" className="desk-terminal" aria-label="Trading desk terminal">
         <nav className="desk-terminal__tabs">
