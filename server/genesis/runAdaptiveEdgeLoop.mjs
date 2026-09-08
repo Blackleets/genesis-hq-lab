@@ -61,7 +61,7 @@ function signal(spec,rows,p,i){
     if(c>hi&&c>m55)return'LONG';if(c<lo&&c<m55)return'SHORT';
   }
   if(spec.family==='failed_breakout'){
-    if(vr<1.15)return null;let hi=-Infinity,lo=Infinity;for(let j=i-spec.period;j<i-1;j++){hi=Math.max(hi,p.c[j]);lo=Math.min(lo,p.c[j]);}
+    if(vr<1.15)return null;let hi=-Infinity,lo=-Infinity;lo=Infinity;for(let j=i-spec.period;j<i-1;j++){hi=Math.max(hi,p.c[j]);lo=Math.min(lo,p.c[j]);}
     if(prev>hi&&c<hi)return'SHORT';if(prev<lo&&c>lo)return'LONG';
   }
   return null;
@@ -94,16 +94,20 @@ async function main(){
   const queuePath=arg('--queue','quant-evidence/edge-hypotheses-latest.json'),out=arg('--out','quant-evidence/edge-adaptive-latest.json'),history=arg('--history','quant-evidence/edge-adaptive-history.jsonl');
   const q=JSON.parse(await readFile(queuePath,'utf8'));
   if(q.paperOnly!==true||q.liveOrders!==false||q.executionAuthority!==false||q.capitalEligible!==false)throw new Error('queue_boundary_unverified');
-  const queue=(q.queue??[]).filter(x=>['P0','P1'].includes(x.priority)).slice(0,24);if(!queue.length)throw new Error('adaptive_queue_empty');
+  const all=q.queue??[];
+  const high=all.filter(x=>['P0','P1'].includes(x.priority));
+  const queue=(high.length?high.slice(0,24):all.filter(x=>x.priority==='P2').slice(0,10));
+  const queueMode=high.length?'HIGH_PRIORITY':'P2_DEEPENING';
+  if(!queue.length)throw new Error('adaptive_queue_empty');
   const keys=[...new Set(queue.map(x=>`${x.market.pair}:${x.market.tf}`))],datasets=new Map();
   for(const key of keys){const [pair,tf]=key.split(':');const items=queue.filter(x=>x.market.pair===pair&&x.market.tf===tf),periods=items.map(x=>x.spec.period),rows=await fetchHistory(pair,tf);datasets.set(key,{rows,prep:prepare(rows,periods),market:{pair,tf}});}
   const results=[];
-  for(const item of queue){const d=datasets.get(`${item.market.pair}:${item.market.tf}`),tr=simulate(d.rows,d.prep,d.market,item.spec),train=metrics(tr.filter(x=>x.relativeIndex<TRAIN)),validation=metrics(tr.filter(x=>x.relativeIndex>=TRAIN&&x.relativeIndex<VALID)),wf=walk(tr),pass=researchGate(train,validation,wf),score=selectionScore(train,validation,wf);results.push({id:item.id,role:item.role??'MUTATION',parentVariant:item.parentVariant,priority:item.priority,market:item.market,spec:item.spec,researchStatus:pass?'PROMOTABLE_TO_ONE_SHOT_AUDIT':'REJECT',selectionScore:score,train,validation,walkForward:wf});}
+  for(const item of queue){const d=datasets.get(`${item.market.pair}:${item.market.tf}`),tr=simulate(d.rows,d.prep,d.market,item.spec),train=metrics(tr.filter(x=>x.relativeIndex<TRAIN)),validation=metrics(tr.filter(x=>x.relativeIndex>=TRAIN&&x.relativeIndex<VALID)),wf=walk(tr),pass=researchGate(train,validation,wf),score=selectionScore(train,validation,wf);results.push({id:item.id,role:item.role??'MUTATION',hypothesisKey:item.hypothesisKey??null,parentVariant:item.parentVariant,priority:item.priority,market:item.market,spec:item.spec,researchStatus:pass?'PROMOTABLE_TO_ONE_SHOT_AUDIT':'REJECT',selectionScore:score,train,validation,walkForward:wf});}
   results.sort((a,b)=>b.selectionScore-a.selectionScore);
   const promotable=results.filter(x=>x.role==='MUTATION'&&x.researchStatus==='PROMOTABLE_TO_ONE_SHOT_AUDIT');
   const controls=results.filter(x=>x.role==='CONTROL');
-  const snapshot={ok:true,version:'adaptive_edge_loop_v2_controls',mode:'RESEARCH_ONLY',paperOnly:true,liveOrders:false,executionAuthority:false,capitalEligible:false,completedAt:new Date().toISOString(),methodology:{selectionUsesHoldout:false,selectionInputs:['train','validation','walkForward'],holdoutPolicy:'ONE_SHOT_AUDIT_ONLY',parentControls:true,barsPerMarket:MAX_BARS},sourceQueueCompletedAt:q.completedAt??null,tested:results.length,controls:controls.length,promotableToAudit:promotable.length,verdict:promotable.length?'AUDIT_CANDIDATE_FOUND':'NO_ADAPTIVE_EDGE_FOUND',bestMutation:results.find(x=>x.role==='MUTATION')??null,control:controls[0]??null,auditQueue:promotable.slice(0,12).map(x=>({id:x.id,market:x.market,spec:x.spec,parentVariant:x.parentVariant,selectionScore:x.selectionScore,reason:'Passed train+validation+walk-forward without consulting holdout.'})),top:results.slice(0,12)};
+  const snapshot={ok:true,version:'adaptive_edge_loop_v3_p2_fallback',mode:'RESEARCH_ONLY',paperOnly:true,liveOrders:false,executionAuthority:false,capitalEligible:false,completedAt:new Date().toISOString(),methodology:{selectionUsesHoldout:false,selectionInputs:['train','validation','walkForward'],holdoutPolicy:'ONE_SHOT_AUDIT_ONLY',parentControls:true,p2Fallback:true,barsPerMarket:MAX_BARS},queueMode,sourceQueueCompletedAt:q.completedAt??null,tested:results.length,controls:controls.length,promotableToAudit:promotable.length,verdict:promotable.length?'AUDIT_CANDIDATE_FOUND':'NO_ADAPTIVE_EDGE_FOUND',bestMutation:results.find(x=>x.role==='MUTATION')??null,control:controls[0]??null,auditQueue:promotable.slice(0,12).map(x=>({id:x.id,hypothesisKey:x.hypothesisKey,market:x.market,spec:x.spec,parentVariant:x.parentVariant,selectionScore:x.selectionScore,reason:'Passed train+validation+walk-forward without consulting holdout.'})),top:results.slice(0,12)};
   await mkdir(dirname(out),{recursive:true});await writeFile(out,JSON.stringify(snapshot,null,2)+'\n');await appendFile(history,JSON.stringify(snapshot)+'\n');
-  console.log(JSON.stringify({ok:true,tested:snapshot.tested,controls:snapshot.controls,promotableToAudit:snapshot.promotableToAudit,verdict:snapshot.verdict,best:snapshot.bestMutation?.id??null}));
+  console.log(JSON.stringify({ok:true,queueMode,tested:snapshot.tested,controls:snapshot.controls,promotableToAudit:snapshot.promotableToAudit,verdict:snapshot.verdict,best:snapshot.bestMutation?.id??null}));
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});
