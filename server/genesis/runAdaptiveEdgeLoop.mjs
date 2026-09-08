@@ -4,7 +4,7 @@ import { dirname } from 'node:path';
 const BASE=process.env.BINANCE_BASE||'https://data-api.binance.vision/api/v3';
 const MAX_BARS=Number(process.env.GENESIS_EDGE_BARS||5000);
 const FEE=.0004,SLIP=.00015,FUNDING=.0001,TRAIN=.6,VALID=.8;
-const SESSIONS={ALL:h=>true,LONDON:h=>h>=7&&h<12,NY:h=>h>=13&&h<17,LONDON_NY:h=>h>=12&&h<16};
+const SESSIONS={ALL:h=>true,ASIA:h=>h>=0&&h<7,LONDON:h=>h>=7&&h<12,NY:h=>h>=13&&h<17,LONDON_NY:h=>h>=12&&h<16};
 const arg=(n,f=null)=>{const i=process.argv.indexOf(n);return i>=0?(process.argv[i+1]??f):f;};
 const round=(v,d=4)=>Number.isFinite(v)?Number(v.toFixed(d)):null;
 const mean=a=>a.length?a.reduce((s,x)=>s+x,0)/a.length:0;
