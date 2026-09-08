@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useState } from 'react';
 import { Activity, Bot, CandlestickChart, ListChecks, Shield, Target } from 'lucide-react';
 import { TradingDeskProvider } from './TradingDeskProvider';
 import { TradingHeader } from './TradingHeader';
+import { FounderCommandBar } from './FounderCommandBar';
 import { MarketWatchlist } from './MarketWatchlist';
 import { MarketChart } from './MarketChart';
 import { ActivePosition } from './ActivePosition';
@@ -18,6 +19,7 @@ import './tradingWorkspace.css';
 import './workstationV2.css';
 import './workstationV2Refinement.css';
 import './exchangeLayout.css';
+import './founderCommandBar.css';
 
 const StrategyPanel = lazy(() => import('./StrategyPanel').then((module) => ({ default: module.StrategyPanel })));
 const EconomicTruthPanel = lazy(() => import('./EconomicTruthPanel').then((module) => ({ default: module.EconomicTruthPanel })));
@@ -55,6 +57,7 @@ function TradingWorkspaceContent() {
   return (
     <main className="trading-workspace genesis-workstation-v2 genesis-exchange" data-ui="genesis-workstation-v2">
       <TradingHeader onControl={() => setControlOpen(true)} />
+      <FounderCommandBar onOpen={showTab} />
       <MarketWatchlist mobile />
       <div className="trading-workspace__body">
         <MarketWatchlist />
