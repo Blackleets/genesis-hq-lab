@@ -1,13 +1,13 @@
 {
   "version": "paper_agent_swarm_v1",
-  "ts": "2026-09-08T22:16:20.478Z",
+  "ts": "2026-09-08T22:20:13.397Z",
   "paperOnly": true,
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
   "source": "github_capture_tape",
   "llmProvider": "custom",
-  "llmActive": false,
+  "llmActive": true,
   "providerConfigured": true,
   "evidence": {
     "safety": {
@@ -175,35 +175,35 @@
       "id": "atlas",
       "name": "Atlas",
       "role": "Market Intelligence Analyst",
-      "status": "fallback_complete",
-      "engine": "deterministic_guardrail",
+      "status": "completed",
+      "engine": "llm",
       "provider": "custom",
-      "model": null,
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
       "tokens": {
-        "in": 0,
-        "out": 0
+        "in": 1614,
+        "out": 700
       },
-      "startedAt": "2026-09-08T22:15:20.040Z",
-      "completedAt": "2026-09-08T22:15:50.043Z",
-      "output": "VERDICT: SKIP / NO QUOTABLE PAPER EDGE\nEVIDENCE: 40 names scored, 0 quoted. Blockers: VPIN_HALT=20, WOULD_CROSS=18, H_LE_EDGE=2. Funding economic P&L $-16.89.\nNEXT PAPER ACTION: Keep observing verified tape; do not infer an entry where the capture engine emitted none.\nBLOCKERS: Fee lock active (FEES_DOMINATE).",
-      "error": "This operation was aborted"
+      "startedAt": "2026-09-08T22:18:21.521Z",
+      "completedAt": "2026-09-08T22:18:39.733Z",
+      "output": "We need to review the verified Genesis PAPER evidence below. The user asks: \"Review the verified Genesis PAPER evidence below in your assigned role. Return compact sections with an explicit verdict, the evidence you used, the next PAPER action, and blockers.\"\n\nWe have the JSON evidence. The role is Atlas, Market Intelligence Analyst at Genesis. The paper swarm hard boundary applies: we have zero execution authority, cannot place orders. Recommendations must be framed as PAPER observation, PAPER experiment, WAIT, SKIP, WARN, or VETO.\n\nWe need to output compact sections with explicit verdict, evidence used, next PAPER action, blockers.\n\nWe need to interpret the data. The JSON includes safety, capture, funding, hz1.\n\nSafety: paperOnly true, liveOrders false, executionAuthority false, capitalEligible false, liveOff true.\n\nCapture: timestamps, venue OKX, universe 40, scored 40, quoted 0, go false. Reasons: VPIN_HALT (count 20), WOULD_CROSS (count 18), H_LE_EDGE (count 2). Candidates list of symbols with reasons, harvestBps negative for many, spreadBps, vpin, fair, mid.\n\nFunding: capitalUsdt 10000, realizedFundingUsdt 0.8668, realizedPricePnlUsdt -11.5085, feesUsdt 6.25, economicPnlUsdt -16.8917, equityUsdt 9983.1083, settledCount 3, openHolds 0, closedCount 7, feeLock true, feeLockReason FEES_DOMINATE, note: \"candado fees: cobrado 0.87 < fees 6.25. sin ticket nuevo hasta que el cobro gane. live off. no es un GO.\"\n\nhz1: preQuote 9, quoted 0, filled 0, paperPnl 0, reasons TAPE_PENDING count 4.\n\nThus we have evidence: many candidates have reasons VPIN_HALT, WOULD_CROSS, H_LE_EDGE. HarvestBps negative for most (i.e., cost). Funding shows fees dominate, no new ticket until fees covered. Live off. TAPE_PENDING.\n\nWe need to produce a verdict: likely SKIP or WAIT, maybe WARN. Since no clear mispricing opportunity; all harvestBps negative, many halted due to VPIN or would cross. Funding indicates fees dominate, can't open new positions.\n\nThus explicit verdict: SKIP (or WAIT). Provide evidence used: capture reasons, funding fee dominance, negative harvestBps, etc.\n\nNext PAPER action: maybe WAIT for fee lock to resolve, or monitor for new candidates. Could suggest WAIT until fees reduce or new conditions.\n\nBlockers: feeLockReason FEES_DOMINATE, live off, no GO, VPIN_HALT and WOULD_CROSS reasons prevent trading.\n\nThus output compact sections: verdict, evidence, next action, …",
+      "error": null
     },
     {
       "id": "nova",
       "name": "Nova",
       "role": "Strategy & Signal Architect",
-      "status": "fallback_complete",
-      "engine": "deterministic_guardrail",
+      "status": "completed",
+      "engine": "llm",
       "provider": "custom",
-      "model": null,
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
       "tokens": {
-        "in": 0,
-        "out": 0
+        "in": 1944,
+        "out": 700
       },
-      "startedAt": "2026-09-08T22:15:50.043Z",
-      "completedAt": "2026-09-08T22:16:20.043Z",
-      "output": "STRATEGY STRENGTH: NO-TRADE\nTHESIS: The current verified tape does not justify fabricating a setup. 0 quotable candidates are present and the economic ledger is $-16.89.\nENTRY CRITERIA: Only re-evaluate a PAPER thesis when the capture engine itself emits a candidate and current economic guardrails do not veto it.\nEXIT / INVALIDATION: Any fee-lock, toxic-flow, would-cross, or evidence-quality veto keeps the desk stood down.",
-      "error": "This operation was aborted"
+      "startedAt": "2026-09-08T22:18:39.733Z",
+      "completedAt": "2026-09-08T22:18:51.570Z",
+      "output": "Here's a thinking process:\n\n1.  **Analyze User Input:**\n   - User wants me to review \"verified Genesis PAPER evidence\" in my assigned role (Atlas, Market Intelligence Analyst at Genesis).\n   - Output format: compact sections with explicit verdict, evidence used, next PAPER action, blockers.\n   - Hard boundary: PAPER evidence only, zero execution authority, no live orders, recommendations framed as PAPER observation, PAPER experiment, WAIT, SKIP, WARN, or VETO.\n   - Must not infer missing market facts. Use only supplied evidence JSON and prior agent notes.\n   - Capital eligibility is false. LIVE remains locked.\n\n2.  **Examine the Evidence JSON:**\n   - `safety`: paperOnly: true, liveOrders: false, executionAuthority: false, capitalEligible: false, liveOff: true\n   - `capture`: ts, venue: okx, universe: 40, scored: 40, quoted: 0, go: false\n     - reasons: VPIN_HALT (20), WOULD_CROSS (18), H_LE_EDGE (2)\n     - candidates: 10 symbols with reasons, harvestBps (mostly negative), spreadBps, vpin, fair, mid\n   - `funding`: ts, capitalUsdt: 10000, realizedFundingUsdt: 0.8668, realizedPricePnlUsdt: -11.5085, feesUsdt: 6.25, economicPnlUsdt: -16.8917, equityUsdt: 9983.11, settledCount: 3, openHolds: 0, closedCount: 7, feeLock: true, feeLockReason: \"FEES_DOMINATE\", note: \"candado fees: cobrado 0.87 < fees 6.25. sin ticket nuevo hasta que el cobro gane. live off. no es un GO.\"\n   - `hz1`: ts, preQuote: 9, quoted: 0, filled: 0, paperPnl: 0, reasons: TAPE_PENDING (count: 4)\n\n3.  **Interpret & Synthesize as Atlas, Market Intelligence Analyst:**\n   - Role: Strategy and Signal Architect at Genesis (user said \"You are Nova, a Strategy and Signal Architect at Genesis\" at top, but then \"Review... in your assigned role\" and prior notes say \"ATLAS: We need to review...\". The system prompt says \"You are Nova, a Strategy and Signal Architect at Genesis.\" I should stay as Nova but follow the output format requested which mentions Atlas? Actually user says: \"Return compact sections with an explicit verdict, the evidence you used, the next PAPER action, and blockers.\" and prior agent notes say \"ATLAS: We need to review...\". I'll play Nova as defined in the system prompt, but the output format is specified by user. I'll synthesize as Nova, Strategy & Signal Architect.\n   - Key observations:\n     - Safety: paperOnly, no live execution authority, capital not eligible, liveOff=true.\n     - …",
+      "error": null
     },
     {
       "id": "sentinel",
@@ -217,10 +217,10 @@
         "in": 0,
         "out": 0
       },
-      "startedAt": "2026-09-08T22:16:20.043Z",
-      "completedAt": "2026-09-08T22:16:20.172Z",
+      "startedAt": "2026-09-08T22:18:51.570Z",
+      "completedAt": "2026-09-08T22:19:21.572Z",
       "output": "VERDICT: VETO\nRISK: PAPER only; liveOrders=false; executionAuthority=false. Economic P&L $-16.89; fee lock ON; quoted candidates 0.\nACTION: Do not add new PAPER risk while fees dominate.\nTAIL CHECK: No live capital path is authorized by this swarm.",
-      "error": "custom 429: {\"status\":429,\"title\":\"Too Many Requests\"}"
+      "error": "This operation was aborted"
     },
     {
       "id": "curator",
@@ -234,36 +234,36 @@
         "in": 0,
         "out": 0
       },
-      "startedAt": "2026-09-08T22:16:20.172Z",
-      "completedAt": "2026-09-08T22:16:20.347Z",
+      "startedAt": "2026-09-08T22:19:21.573Z",
+      "completedAt": "2026-09-08T22:19:51.574Z",
       "output": "LESSON: When fees dominate realized capture, stop opening new PAPER tickets until the ledger proves the economics have improved.\nSEVERITY: WARNING\nEVIDENCE: Economic P&L $-16.89; 0 quoted; blockers VPIN_HALT=20, WOULD_CROSS=18, H_LE_EDGE=2.\nVETO PATTERN: Preserve the existing fee/toxicity guardrails; no new live rule is created here.",
-      "error": "custom 429: {\"status\":429,\"title\":\"Too Many Requests\"}"
+      "error": "This operation was aborted"
     },
     {
       "id": "arbiter",
       "name": "Arbiter",
       "role": "Decision Facilitator",
-      "status": "fallback_complete",
-      "engine": "deterministic_guardrail",
+      "status": "completed",
+      "engine": "llm",
       "provider": "custom",
-      "model": null,
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
       "tokens": {
-        "in": 0,
-        "out": 0
+        "in": 2533,
+        "out": 700
       },
-      "startedAt": "2026-09-08T22:16:20.347Z",
-      "completedAt": "2026-09-08T22:16:20.478Z",
-      "output": "RECOMMENDATION: STAND DOWN\nCONFIDENCE: Evidence-bound, not predictive.\nPIVOTAL FACTS: 0 quoted candidates; economic P&L $-16.89; fee lock ON; live authority OFF.\nNEXT STEP: Continue PAPER evidence collection and let Sentinel/Truth Ledger veto any setup that is not economically proven.",
-      "error": "custom 429: {\"status\":429,\"title\":\"Too Many Requests\"}"
+      "startedAt": "2026-09-08T22:19:51.574Z",
+      "completedAt": "2026-09-08T22:20:13.397Z",
+      "output": "Here's a thinking process:\n\n1.  **Analyze User Input:**\n   - User wants me to review verified Genesis PAPER evidence in my assigned role (Atlas, Market Intelligence Analyst at Genesis).\n   - Output format: compact sections with explicit verdict, evidence used, next PAPER action, blockers.\n   - Hard boundary: PAPER evidence only, zero execution authority, no live orders, recommendations framed as PAPER observation, PAPER experiment, WAIT, SKIP, WARN, or VETO.\n   - Must use only supplied evidence JSON and prior agent notes.\n   - Capital eligibility is false. LIVE remains locked.\n\n2.  **Examine the Evidence JSON:**\n   - `safety`: paperOnly: true, liveOrders: false, executionAuthority: false, capitalEligible: false, liveOff: true\n   - `capture`: ts, venue okx, universe 40, scored 40, quoted 0, go false\n     - reasons: VPIN_HALT (20), WOULD_CROSS (18), H_LE_EDGE (2)\n     - candidates: 10 symbols with reasons, all harvestBps negative or null, various spreadBps, vpin, fair, mid\n   - `funding`: capitalUsdt 10000, realizedFundingUsdt 0.8668, realizedPricePnlUsdt -11.5085, feesUsdt 6.25, economicPnlUsdt -16.8917, equityUsdt 9983.11, settledCount 3, openHolds 0, closedCount 7, feeLock: true, feeLockReason: FEES_DOMINATE, note: \"candado fees: cobrado 0.87 < fees 6.25. sin ticket nuevo hasta que el cobro gane. live off. no es un GO.\"\n   - `hz1`: ts, preQuote 9, quoted 0, filled 0, paperPnl 0, reasons: TAPE_PENDING (count 4)\n\n3.  **Interpret & Synthesize:**\n   - Key signals:\n     - safety: paperOnly, no live execution, capital not eligible, liveOff true\n     - capture: 0 quoted, go false, major reasons: VPIN_HALT (20), WOULD_CROSS (18), H_LE_EDGE (2) - these are halt/cross/edge risks\n     - funding: fees dominate (6.25 vs 0.87 funding), economicPnl -16.89, equity slightly down, feeLock active, note explicitly says \"no es un GO\", \"sin ticket nuevo hasta que el cobro gane\", live off\n     - hz1: quoted 0, paperPnl 0, TAPE_PENDING reasons\n   - Overall verdict: Strong indicators to NOT proceed with new PAPER tickets. The system is in a guardrail state. Fee dominance, VPIN halts, would-cross risks, no quoted candidates safe to act on.\n   - Recommendation framing must be one of: PAPER observation, PAPER experiment, WAIT, SK",
+      "error": null
     }
   ],
   "totals": {
     "agents": 5,
-    "completedLlm": 0,
-    "fallback": 5,
+    "completedLlm": 3,
+    "fallback": 2,
     "tokens": {
-      "in": 0,
-      "out": 0
+      "in": 6091,
+      "out": 2100
     }
   },
   "final": {
@@ -279,24 +279,12 @@
   },
   "errors": [
     {
-      "agentId": "atlas",
-      "error": "This operation was aborted"
-    },
-    {
-      "agentId": "nova",
-      "error": "This operation was aborted"
-    },
-    {
       "agentId": "sentinel",
-      "error": "custom 429: {\"status\":429,\"title\":\"Too Many Requests\"}"
+      "error": "This operation was aborted"
     },
     {
       "agentId": "curator",
-      "error": "custom 429: {\"status\":429,\"title\":\"Too Many Requests\"}"
-    },
-    {
-      "agentId": "arbiter",
-      "error": "custom 429: {\"status\":429,\"title\":\"Too Many Requests\"}"
+      "error": "This operation was aborted"
     }
   ]
 }
