@@ -1,0 +1,72 @@
+name: Profitability Sprint
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '43 */6 * * *'
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - 'server/genesis/runProfitabilitySprint.mjs'
+      - '.github/workflows/profitability-sprint.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: profitability-sprint-v1
+  cancel-in-progress: true
+
+env:
+  GENESIS_SPRINT_BARS: '6000'
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Genesis HQ
+        uses: actions/checkout@v4
+
+      - name: Checkout durable evidence tape
+        uses: actions/checkout@v4
+        with:
+          ref: capture-tape
+          path: tape
+
+      - name: Configure Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Run deep-history profitability sprint
+        run: |
+          node server/genesis/runProfitabilitySprint.mjs \
+            --out tape/quant-evidence/profitability-sprint-latest.json \
+            --history tape/quant-evidence/profitability-sprint-history.jsonl
+
+      - name: Verify capital boundary
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const s = JSON.parse(readFileSync('tape/quant-evidence/profitability-sprint-latest.json', 'utf8'));
+          if (s.paperOnly !== true || s.liveOrders !== false || s.executionAuthority !== false || s.capitalEligible !== false) {
+            throw new Error('profitability_sprint_boundary_violation');
+          }
+          if (!['NO_EDGE_FOUND', 'PAPER_CANDIDATE_FOUND'].includes(s.verdict)) throw new Error('invalid_sprint_verdict');
+          console.log(JSON.stringify({ verdict: s.verdict, survivors: s.survivorCount, candidates: s.candidateCount, boundary: 'PAPER_ONLY' }));
+          NODE
+
+      - name: Publish research evidence
+        working-directory: tape
+        run: |
+          git config user.name "genesis-profitability-sprint"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f quant-evidence/profitability-sprint-latest.json quant-evidence/profitability-sprint-history.jsonl
+          if git diff --staged --quiet; then
+            echo "no profitability evidence change"
+            exit 0
+          fi
+          git commit -m "profitability sprint $(date -u +%Y-%m-%dT%H:%MZ)"
+          git pull --rebase origin capture-tape
+          git push origin HEAD:capture-tape
