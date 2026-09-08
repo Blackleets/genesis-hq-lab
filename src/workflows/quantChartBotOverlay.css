@@ -1,0 +1,424 @@
+.quant-chart-shell {
+  isolation: isolate;
+}
+
+.quant-bot-overlay,
+.quant-bot-badges {
+  position: absolute;
+  inset: 0;
+}
+
+.quant-bot-overlay {
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.quant-bot-badges {
+  z-index: 4;
+  pointer-events: none;
+}
+
+.quant-bot-trace__line {
+  fill: none;
+  stroke-width: 1.65;
+  vector-effect: non-scaling-stroke;
+}
+
+.quant-bot-trace__entry,
+.quant-bot-trace__end {
+  vector-effect: non-scaling-stroke;
+  stroke-width: 1.4;
+}
+
+.quant-bot-trace--open .quant-bot-trace__line {
+  stroke: #22d3ee;
+  stroke-dasharray: 9 7;
+  filter: drop-shadow(0 0 4px rgb(34 211 238 / 55%));
+  animation: quant-bot-flow 1.05s linear infinite;
+}
+
+.quant-bot-trace--open .quant-bot-trace__entry,
+.quant-bot-trace--open .quant-bot-trace__end {
+  fill: #071117;
+  stroke: #67e8f9;
+  filter: drop-shadow(0 0 5px rgb(34 211 238 / 72%));
+}
+
+.quant-bot-trace--profit .quant-bot-trace__line {
+  stroke: #34d399;
+  filter: drop-shadow(0 0 3px rgb(52 211 153 / 35%));
+}
+
+.quant-bot-trace--profit .quant-bot-trace__entry,
+.quant-bot-trace--profit .quant-bot-trace__end {
+  fill: #08130f;
+  stroke: #6ee7b7;
+}
+
+.quant-bot-trace--loss .quant-bot-trace__line {
+  stroke: #fb7185;
+  filter: drop-shadow(0 0 3px rgb(251 113 133 / 35%));
+}
+
+.quant-bot-trace--loss .quant-bot-trace__entry,
+.quant-bot-trace--loss .quant-bot-trace__end {
+  fill: #16090d;
+  stroke: #fda4af;
+}
+
+.quant-bot-trace--neutral .quant-bot-trace__line {
+  stroke: #94a3b8;
+  stroke-dasharray: 4 5;
+  opacity: .72;
+}
+
+.quant-bot-trace--neutral .quant-bot-trace__entry,
+.quant-bot-trace--neutral .quant-bot-trace__end {
+  fill: #0b0f15;
+  stroke: #94a3b8;
+}
+
+.quant-bot-trace__pulse {
+  fill: none;
+  stroke: #22d3ee;
+  stroke-width: 1.15;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: quant-bot-entry-pulse 1.8s cubic-bezier(.2,.65,.3,1) infinite;
+}
+
+.quant-bot-badge {
+  position: absolute;
+  min-width: 126px;
+  max-width: 220px;
+  transform: translate(-50%, -50%);
+  border: 1px solid #2f4256;
+  background: rgb(7 11 16 / 93%);
+  box-shadow: 0 8px 22px rgb(0 0 0 / 38%);
+  padding: 5px 7px 6px;
+  color: #d7e2ee;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  text-align: left;
+  pointer-events: auto;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: border-color 120ms ease, transform 120ms ease, background 120ms ease;
+}
+
+.quant-bot-badge:hover,
+.quant-bot-badge:focus-visible {
+  transform: translate(-50%, -50%) scale(1.025);
+  outline: none;
+  background: rgb(10 16 23 / 98%);
+}
+
+.quant-bot-badge strong,
+.quant-bot-badge span {
+  display: block;
+}
+
+.quant-bot-badge strong {
+  font-size: 9px;
+  line-height: 1.2;
+  letter-spacing: .08em;
+}
+
+.quant-bot-badge span {
+  margin-top: 3px;
+  color: #8292a5;
+  font-size: 7px;
+  line-height: 1.3;
+  letter-spacing: .035em;
+  white-space: normal;
+}
+
+.quant-bot-badge--open {
+  border-color: rgb(34 211 238 / 46%);
+  box-shadow: 0 8px 22px rgb(0 0 0 / 38%), 0 0 0 1px rgb(34 211 238 / 8%), 0 0 18px rgb(34 211 238 / 8%);
+  animation: quant-bot-badge-breathe 2.2s ease-in-out infinite;
+}
+
+.quant-bot-badge--open strong {
+  color: #67e8f9;
+}
+
+.quant-bot-badge--profit {
+  border-color: rgb(52 211 153 / 45%);
+}
+
+.quant-bot-badge--profit strong {
+  color: #6ee7b7;
+}
+
+.quant-bot-badge--loss {
+  border-color: rgb(251 113 133 / 48%);
+}
+
+.quant-bot-badge--loss strong {
+  color: #fda4af;
+}
+
+.quant-bot-badge--neutral strong {
+  color: #cbd5e1;
+}
+
+.quant-bot-inspector {
+  position: absolute;
+  z-index: 6;
+  top: 12px;
+  right: 62px;
+  width: min(380px, calc(100% - 84px));
+  border: 1px solid #283747;
+  border-top-color: #3b4c5f;
+  background: linear-gradient(180deg, rgb(7 11 16 / 96%), rgb(6 9 13 / 92%));
+  box-shadow: 0 18px 38px rgb(0 0 0 / 42%);
+  color: #b9c5d3;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  pointer-events: auto;
+  backdrop-filter: blur(10px);
+}
+
+.quant-bot-inspector--open {
+  border-top-color: rgb(34 211 238 / 72%);
+}
+
+.quant-bot-inspector--profit {
+  border-top-color: rgb(52 211 153 / 70%);
+}
+
+.quant-bot-inspector--closed {
+  border-top-color: rgb(148 163 184 / 55%);
+}
+
+.quant-bot-inspector__head,
+.quant-bot-inspector__prices,
+.quant-bot-inspector__logic,
+.quant-bot-inspector__reason,
+.quant-bot-inspector__meta {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.quant-bot-inspector__head {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid #18222d;
+}
+
+.quant-bot-inspector__head div span,
+.quant-bot-inspector__head div strong {
+  display: block;
+}
+
+.quant-bot-inspector__head div span {
+  color: #617286;
+  font-size: 7px;
+  letter-spacing: .16em;
+}
+
+.quant-bot-inspector__head div strong {
+  margin-top: 3px;
+  color: #e3edf7;
+  font-size: 10px;
+  letter-spacing: .05em;
+}
+
+.quant-bot-inspector__head > b {
+  color: #5eead4;
+  font-size: 7px;
+  letter-spacing: .08em;
+  white-space: nowrap;
+}
+
+.quant-bot-inspector__prices {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  min-height: 37px;
+  border-bottom: 1px solid #151f29;
+}
+
+.quant-bot-inspector__prices span {
+  color: #617286;
+  font-size: 7px;
+  letter-spacing: .08em;
+}
+
+.quant-bot-inspector__prices span strong {
+  display: block;
+  margin-top: 2px;
+  color: #dce7f2;
+  font-size: 9px;
+  letter-spacing: .02em;
+}
+
+.quant-bot-inspector__prices i {
+  color: #45576b;
+  font-size: 10px;
+  font-style: normal;
+}
+
+.quant-bot-inspector__prices em {
+  padding: 3px 5px;
+  border: 1px solid #344252;
+  color: #aab7c5;
+  font-size: 8px;
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.quant-bot-inspector__prices em.is-positive {
+  border-color: rgb(52 211 153 / 32%);
+  color: #6ee7b7;
+  background: rgb(16 185 129 / 6%);
+}
+
+.quant-bot-inspector__prices em.is-negative {
+  border-color: rgb(251 113 133 / 34%);
+  color: #fda4af;
+  background: rgb(244 63 94 / 6%);
+}
+
+.quant-bot-inspector__logic {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  padding-top: 7px;
+  padding-bottom: 7px;
+  background: #080c11;
+  border-bottom: 1px solid #151f29;
+}
+
+.quant-bot-inspector__logic span {
+  min-width: 0;
+  color: #56677a;
+  font-size: 6px;
+  letter-spacing: .08em;
+}
+
+.quant-bot-inspector__logic strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 2px;
+  color: #9fafc0;
+  font-size: 7px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quant-bot-inspector__reason {
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+
+.quant-bot-inspector__reason > span {
+  display: block;
+  color: #5d6e81;
+  font-size: 6px;
+  letter-spacing: .13em;
+}
+
+.quant-bot-inspector__reason > strong {
+  display: block;
+  margin-top: 3px;
+  color: #c8d5e2;
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.quant-bot-inspector__reason small {
+  display: inline-block;
+  margin-top: 5px;
+  margin-right: 8px;
+  color: #68798b;
+  font-size: 6px;
+  letter-spacing: .06em;
+}
+
+.quant-bot-inspector__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 10px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  border-top: 1px solid #151f29;
+  color: #536477;
+  font-size: 6px;
+  letter-spacing: .07em;
+}
+
+.quant-chart-crosshair-tooltip {
+  z-index: 7;
+  max-width: min(360px, calc(100% - 24px));
+}
+
+@keyframes quant-bot-flow {
+  to { stroke-dashoffset: -32; }
+}
+
+@keyframes quant-bot-entry-pulse {
+  0% { opacity: .95; transform: scale(.62); }
+  75%, 100% { opacity: 0; transform: scale(1.9); }
+}
+
+@keyframes quant-bot-badge-breathe {
+  0%, 100% { box-shadow: 0 8px 22px rgb(0 0 0 / 38%), 0 0 0 1px rgb(34 211 238 / 8%), 0 0 12px rgb(34 211 238 / 5%); }
+  50% { box-shadow: 0 8px 22px rgb(0 0 0 / 38%), 0 0 0 1px rgb(34 211 238 / 14%), 0 0 22px rgb(34 211 238 / 12%); }
+}
+
+@media (max-width: 980px) {
+  .quant-bot-inspector {
+    right: 52px;
+    width: min(330px, calc(100% - 70px));
+  }
+
+  .quant-bot-inspector__logic {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 6px;
+  }
+
+  .quant-bot-badge {
+    min-width: 108px;
+    max-width: 170px;
+  }
+}
+
+@media (max-width: 680px) {
+  .quant-bot-inspector {
+    top: 8px;
+    right: 44px;
+    width: min(292px, calc(100% - 54px));
+  }
+
+  .quant-bot-inspector__prices {
+    grid-template-columns: 1fr auto 1fr;
+  }
+
+  .quant-bot-inspector__prices em {
+    display: none;
+  }
+
+  .quant-bot-inspector__meta {
+    display: none;
+  }
+
+  .quant-bot-badge {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quant-bot-trace--open .quant-bot-trace__line,
+  .quant-bot-trace__pulse,
+  .quant-bot-badge--open {
+    animation: none;
+  }
+}
