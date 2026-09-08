@@ -37,20 +37,22 @@ jobs:
         run: |
           node server/genesis/runEdgeFactoryFast.mjs \
             --out tape/quant-evidence/edge-factory-latest.json \
-            --history tape/quant-evidence/edge-factory-history.jsonl
+            --history tape/quant-evidence/edge-factory-history.jsonl \
+            --learning tape/quant-evidence/edge-learning-latest.json \
+            --learning-history tape/quant-evidence/edge-learning-history.jsonl
       - name: Verify capital boundary
         run: |
-          node -e "const x=require('./tape/quant-evidence/edge-factory-latest.json'); if(x.paperOnly!==true||x.liveOrders!==false||x.executionAuthority!==false||x.capitalEligible!==false) process.exit(1)"
+          node -e "for (const p of ['./tape/quant-evidence/edge-factory-latest.json','./tape/quant-evidence/edge-learning-latest.json']) { const x=require(p); if(x.paperOnly!==true||x.liveOrders!==false||x.executionAuthority!==false||x.capitalEligible!==false) process.exit(1) }"
       - name: Publish edge evidence
         working-directory: tape
         run: |
           git config user.name "genesis-edge-factory"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f quant-evidence/edge-factory-latest.json quant-evidence/edge-factory-history.jsonl
+          git add -f quant-evidence/edge-factory-latest.json quant-evidence/edge-factory-history.jsonl quant-evidence/edge-learning-latest.json quant-evidence/edge-learning-history.jsonl
           if git diff --staged --quiet; then
             echo "no edge evidence change"
             exit 0
           fi
-          git commit -m "edge factory $(date -u +%Y-%m-%dT%H:%MZ)"
+          git commit -m "edge factory learning $(date -u +%Y-%m-%dT%H:%MZ)"
           git pull --rebase origin capture-tape
           git push origin HEAD:capture-tape
