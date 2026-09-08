@@ -6,7 +6,7 @@
   --genesis-ivory: #f4f5f7;
   --genesis-hairline: #25282e;
   --genesis-gold: #d8bc78;
-  grid-template-rows: 64px minmax(420px, 1fr) 260px 42px;
+  grid-template-rows: 64px minmax(420px, 1fr) auto 260px 42px;
   background: #08090b;
   overflow-y: auto;
 }
@@ -57,6 +57,21 @@
 .genesis-exchange .market-chart__provenance span,
 .genesis-exchange .market-chart__provenance strong { font-size: 9px; color: #979da8; }
 .genesis-exchange .desk-terminal { background: #0c0e11; min-height: 250px; grid-template-rows: 48px minmax(0, 1fr); }
+.profit-engine-rail { display: grid; grid-template-columns: 176px minmax(0, 1fr); min-height: 78px; border-top: 1px solid #25282e; border-bottom: 1px solid #25282e; background: #0c0e11; }
+.profit-engine-rail__title { display: grid; align-content: center; gap: 6px; padding: 12px 16px; border-right: 1px solid #25282e; }
+.profit-engine-rail__title span { font: 650 10px/1 Inter, sans-serif; letter-spacing: .08em; color: #d8bc78; }
+.profit-engine-rail__title strong { font: 700 11px/1.2 Inter, sans-serif; color: #f5a3a3; }
+.profit-engine-rail__flow { min-width: 0; display: grid; grid-template-columns: repeat(5, minmax(135px, 1fr)); overflow-x: auto; }
+.profit-engine-rail__gate { min-width: 135px; display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: center; gap: 7px; padding: 10px 12px; border: 0; border-right: 1px solid #25282e; background: transparent; text-align: left; color: #8f96a1; }
+.profit-engine-rail__gate:hover { background: #14161a; }
+.profit-engine-rail__gate > span:last-child { min-width: 0; display: grid; gap: 4px; }
+.profit-engine-rail__gate small { font: 600 8px/1 Inter, sans-serif; letter-spacing: .06em; color: #727985; }
+.profit-engine-rail__gate strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 11px/1 Inter, sans-serif; color: #e4e7eb; }
+.profit-engine-rail__gate i { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 8px/1 Inter, sans-serif; font-style: normal; color: #777f8b; }
+.profit-engine-rail__icon { width: 27px; height: 27px; display: grid; place-items: center; border: 1px solid #343941; border-radius: 50%; }
+.profit-engine-rail__gate.is-ready .profit-engine-rail__icon, .profit-engine-rail__gate.is-ready strong { color: #86efac; border-color: #28543a; }
+.profit-engine-rail__gate.is-watch .profit-engine-rail__icon, .profit-engine-rail__gate.is-watch strong { color: #f5d58a; border-color: #554724; }
+.profit-engine-rail__gate.is-blocked .profit-engine-rail__icon, .profit-engine-rail__gate.is-blocked strong { color: #f5a3a3; border-color: #593034; }
 .genesis-exchange .desk-terminal__tabs { overflow-x: auto; background: #0c0e11; }
 .genesis-exchange .desk-terminal__tabs::before { display: none; }
 .genesis-exchange .desk-terminal__tabs button { flex-shrink: 0; min-height: 48px; padding: 0 16px; font: 650 13px/1 Inter, sans-serif; color: #9ea4ae; border: 0; }
@@ -112,6 +127,9 @@
   .genesis-exchange .trading-workspace__right,
   .genesis-exchange .trading-workspace__mobile-position { display: none; }
   .genesis-exchange .desk-terminal { min-height: 290px; grid-template-rows: 52px minmax(238px, auto); }
+  .profit-engine-rail { grid-template-columns: 1fr; margin-top: 10px; }
+  .profit-engine-rail__title { grid-template-columns: 1fr auto; align-items: center; border-right: 0; border-bottom: 1px solid #25282e; }
+  .profit-engine-rail__flow { grid-template-columns: repeat(5, 152px); }
   .genesis-exchange .desk-terminal__tabs button { font-size: 14px; padding: 0 16px; }
   .genesis-exchange .desk-status-rail { margin-top: 16px; }
   .genesis-exchange .trading-mobile-nav { height: calc(70px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom); background: #101216; border-top: 1px solid #25282e; }

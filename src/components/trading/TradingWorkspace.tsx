@@ -13,6 +13,7 @@ import { ExecutionTable } from './ExecutionTable';
 import { DeskStatusRail } from './DeskStatusRail';
 import { ResearchOpportunitySurface } from './ResearchOpportunitySurface';
 import { ConnectorRack } from './ConnectorRack';
+import { ProfitEngineRail } from './ProfitEngineRail';
 import './tradingWorkspace.css';
 import './workstationV2.css';
 import './workstationV2Refinement.css';
@@ -66,6 +67,7 @@ function TradingWorkspaceContent() {
         <div className="trading-workspace__mobile-position"><ActivePosition /></div>
       </div>
 
+      <ProfitEngineRail onOpen={showTab} />
       <section id="desk-terminal" className="desk-terminal" aria-label="Trading desk terminal">
         <nav className="desk-terminal__tabs" aria-label="Vistas de operaciones">
           {TABS.map((item) => <button key={item.id} type="button" onClick={() => setTab(item.id)} className={tab === item.id ? 'is-active' : ''} aria-pressed={tab === item.id}>{item.label}</button>)}
