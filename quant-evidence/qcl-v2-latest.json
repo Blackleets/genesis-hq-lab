@@ -1,0 +1,988 @@
+{
+  "ok": true,
+  "engineVersion": "qcl_v2",
+  "runnerVersion": "qcl_v2_github_fallback_v1",
+  "source": "github_actions_binance_public",
+  "mode": "RESEARCH_ONLY",
+  "executionAuthority": false,
+  "paperOnly": true,
+  "liveOrders": false,
+  "dataPolicy": "binance_spot_public_signal_reference_only",
+  "searchPolicy": {
+    "exitModel": "atr14_adaptive_v1",
+    "atrPeriod": 14,
+    "economicsGate": "target_gross_move_gte_2x_conservative_friction",
+    "targetCostMultiple": 2
+  },
+  "antiOverfitPolicy": {
+    "train": "first_60pct",
+    "validation": "next_20pct",
+    "finalHoldout": "last_20pct",
+    "holdoutUsedForRanking": false
+  },
+  "startedAt": "2026-09-08T16:25:36.841Z",
+  "completedAt": "2026-09-08T16:25:39.449Z",
+  "survivorCount": 0,
+  "profiles": {
+    "short_micro": {
+      "profileId": "short_micro",
+      "strategyId": "futures_breakout_short_micro",
+      "parentVersionId": "futures_breakout_short_micro:v8",
+      "searchSpace": {
+        "candidateCount": 40,
+        "trainEnd": 0.6,
+        "validationEnd": 0.8,
+        "holdoutStart": 0.8,
+        "holdoutUsedForRanking": false,
+        "exitModel": "atr14_adaptive_v1",
+        "atrPeriod": 14,
+        "economicsGate": "target_gross_move_gte_2x_conservative_friction",
+        "targetCostMultiple": 2,
+        "fixedPercentTargets": false
+      },
+      "coverage": [
+        {
+          "pair": "BTCUSDT",
+          "bars": 1000,
+          "startAt": "2026-09-05T05:10:00.000Z",
+          "endAt": "2026-09-08T16:29:59.999Z"
+        },
+        {
+          "pair": "ETHUSDT",
+          "bars": 1000,
+          "startAt": "2026-09-05T05:10:00.000Z",
+          "endAt": "2026-09-08T16:29:59.999Z"
+        }
+      ],
+      "topTrain": [
+        {
+          "rank": 1,
+          "candidateId": "short_micro:p12:ta200:sa075:h1",
+          "params": {
+            "period": 12,
+            "targetAtr": 2,
+            "stopAtr": 0.75,
+            "timeoutHours": 1
+          },
+          "economics": {
+            "totalSignals": 235,
+            "evaluatedSignals": 146,
+            "simulatedTrades": 57,
+            "skippedOverlap": 89,
+            "skippedInvalidMarketData": 0,
+            "skippedInvalidAtr": 0,
+            "skippedByEconomics": 89,
+            "economicsAccepted": 57,
+            "economicsAcceptanceRate": 0.3904,
+            "signalSimulationRate": 0.2426,
+            "averageAtrPct": 0.000994,
+            "averageTargetPct": 0.001988,
+            "averageStopPct": 0.000781,
+            "averageConservativeCostPct": 0.001012,
+            "averageTargetCostRatio": 1.9634
+          },
+          "trainPass": false,
+          "trainScore": -0.143463,
+          "train": {
+            "trades": 20,
+            "wins": 7,
+            "losses": 13,
+            "winRate": 0.35,
+            "realizedPnl": -7.818,
+            "profitFactor": 0.3698,
+            "expectancy": -0.3909,
+            "maxDrawdownUsd": 8.635,
+            "tStat": -2.1248
+          }
+        },
+        {
+          "rank": 2,
+          "candidateId": "short_micro:p12:ta100:sa075:h1",
+          "params": {
+            "period": 12,
+            "targetAtr": 1,
+            "stopAtr": 0.75,
+            "timeoutHours": 1
+          },
+          "economics": {
+            "totalSignals": 235,
+            "evaluatedSignals": 222,
+            "simulatedTrades": 11,
+            "skippedOverlap": 13,
+            "skippedInvalidMarketData": 0,
+            "skippedInvalidAtr": 0,
+            "skippedByEconomics": 211,
+            "economicsAccepted": 11,
+            "economicsAcceptanceRate": 0.0495,
+            "signalSimulationRate": 0.0468,
+            "averageAtrPct": 0.00116,
+            "averageTargetPct": 0.00117,
+            "averageStopPct": 0.000894,
+            "averageConservativeCostPct": 0.001012,
+            "averageTargetCostRatio": 1.1558
+          },
+          "trainPass": false,
+          "trainScore": -0.269283,
+          "train": {
+            "trades": 6,
+            "wins": 2,
+            "losses": 4,
+            "winRate": 0.3333,
+            "realizedPnl": -3.441,
+            "profitFactor": 0.2891,
+            "expectancy": -0.5734,
+            "maxDrawdownUsd": 4.28,
+            "tStat": -1.417
+          }
+        },
+        {
+          "rank": 3,
+          "candidateId": "short_micro:p12:ta100:sa075:h2",
+          "params": {
+            "period": 12,
+            "targetAtr": 1,
+            "stopAtr": 0.75,
+            "timeoutHours": 2
+          },
+          "economics": {
+            "totalSignals": 235,
+            "evaluatedSignals": 224,
+            "simulatedTrades": 9,
+            "skippedOverlap": 11,
+            "skippedInvalidMarketData": 0,
+            "skippedInvalidAtr": 0,
+            "skippedByEconomics": 215,
+            "economicsAccepted": 9,
+            "economicsAcceptanceRate": 0.0402,
+            "signalSimulationRate": 0.0383,
+            "averageAtrPct": 0.001168,
+            "averageTargetPct": 0.001177,
+            "averageStopPct": 0.0009,
+            "averageConservativeCostPct": 0.001025,
+            "averageTargetCostRatio": 1.1488
+          },
+          "trainPass": false,
+          "trainScore": -0.269283,
+          "train": {
+            "trades": 6,
+            "wins": 2,
+            "losses": 4,
+            "winRate": 0.3333,
+            "realizedPnl": -3.441,
+            "profitFactor": 0.2891,
+            "expectancy": -0.5734,
+            "maxDrawdownUsd": 4.28,
+            "tStat": -1.417
+          }
+        },
+        {
+          "rank": 4,
+          "candidateId": "short_micro:p16:ta100:sa075:h1",
+          "params": {
+            "period": 16,
+            "targetAtr": 1,
+            "stopAtr": 0.75,
+            "timeoutHours": 1
+          },
+          "economics": {
+            "totalSignals": 208,
+            "evaluatedSignals": 194,
+            "simulatedTrades": 11,
+            "skippedOverlap": 14,
+            "skippedInvalidMarketData": 0,
+            "skippedInvalidAtr": 0,
+            "skippedByEconomics": 183,
+            "economicsAccepted": 11,
+            "economicsAcceptanceRate": 0.0567,
+            "signalSimulationRate": 0.0529,
+            "averageAtrPct": 0.001203,
+            "averageTargetPct": 0.00121,
+            "averageStopPct": 0.00092,
+            "averageConservativeCostPct": 0.001012,
+            "averageTargetCostRatio": 1.1949
+          },
+          "trainPass": false,
+          "trainScore": -0.281557,
+          "train": {
+            "trades": 6,
+            "wins": 2,
+            "losses": 4,
+            "winRate": 0.3333,
+            "realizedPnl": -3.456,
+            "profitFactor": 0.286,
+            "expectancy": -0.576,
+            "maxDrawdownUsd": 4.28,
+            "tStat": -1.4294
+          }
+        },
+        {
+          "rank": 5,
+          "candidateId": "short_micro:p16:ta100:sa075:h2",
+          "params": {
+            "period": 16,
+            "targetAtr": 1,
+            "stopAtr": 0.75,
+            "timeoutHours": 2
+          },
+          "economics": {
+            "totalSignals": 208,
+            "evaluatedSignals": 196,
+            "simulatedTrades": 9,
+            "skippedOverlap": 12,
+            "skippedInvalidMarketData": 0,
+            "skippedInvalidAtr": 0,
+            "skippedByEconomics": 187,
+            "economicsAccepted": 9,
+            "economicsAcceptanceRate": 0.0459,
+            "signalSimulationRate": 0.0433,
+            "averageAtrPct": 0.001211,
+            "averageTargetPct": 0.001218,
+            "averageStopPct": 0.000927,
+            "averageConservativeCostPct": 0.001025,
+            "averageTargetCostRatio": 1.1881
+          },
+          "trainPass": false,
+          "trainScore": -0.281557,
+          "train": {
+            "trades": 6,
+            "wins": 2,
+            "losses": 4,
+            "winRate": 0.3333,
+            "realizedPnl": -3.456,
+            "profitFactor": 0.286,
+            "expectancy": -0.576,
+            "maxDrawdownUsd": 4.28,
+            "tStat": -1.4294
+          }
+        }
+      ],
+      "finalists": [],
+      "survivorCount": 0,
+      "winner": null,
+      "status": "NO_ROBUST_FINALIST"
+    },
+    "short_core": {
+      "profileId": "short_core",
+      "strategyId": "futures_breakout_short_core",
+      "parentVersionId": "futures_breakout_short_core:v8",
+      "searchSpace": {
+        "candidateCount": 40,
+        "trainEnd": 0.6,
+        "validationEnd": 0.8,
+        "holdoutStart": 0.8,
+        "holdoutUsedForRanking": false,
+        "exitModel": "atr14_adaptive_v1",
+        "atrPeriod": 14,
+        "economicsGate": "target_gross_move_gte_2x_conservative_friction",
+        "targetCostMultiple": 2,
+        "fixedPercentTargets": false
+      },
+      "coverage": [
+        {
+          "pair": "BTCUSDT",
+          "bars": 1000,
+          "startAt": "2026-07-29T01:00:00.000Z",
+          "endAt": "2026-09-08T16:59:59.999Z"
+        },
+        {
+          "pair": "ETHUSDT",
+          "bars": 1000,
+          "startAt": "2026-07-29T01:00:00.000Z",
+          "endAt": "2026-09-08T16:59:59.999Z"
+        },
+        {
+          "pair": "SOLUSDT",
+          "bars": 1000,
+          "startAt": "2026-07-29T01:00:00.000Z",
+          "endAt": "2026-09-08T16:59:59.999Z"
+        },
+        {
+          "pair": "BNBUSDT",
+          "bars": 1000,
+          "startAt": "2026-07-29T01:00:00.000Z",
+          "endAt": "2026-09-08T16:59:59.999Z"
+        }
+      ],
+      "topTrain": [
+        {
+          "rank": 1,
+          "candidateId": "short_core:p20:ta200:sa075:h4",
+          "params": {
+            "period": 20,
+            "targetAtr": 2,
+            "stopAtr": 0.75,
+            "timeoutHours": 4
+          },
+          "economics": {
+            "totalSignals": 253,
+            "evaluatedSignals": 132,
+            "simulatedTrades": 131,
+            "skippedOverlap": 121,
+            "skippedInvalidMarketData": 0,
+            "skippedInvalidAtr": 0,
+            "skippedByEconomics": 1,
+            "economicsAccepted": 131,
+            "economicsAcceptanceRate": 0.9924,
+            "signalSimulationRate": 0.5178,
+            "averageAtrPct": 0.005754,
+            "averageTargetPct": 0.011508,
+            "averageStopPct": 0.004316,
+            "averageConservativeCostPct": 0.00105,
+            "averageTargetCostRatio": 10.9599
+          },
+          "trainPass": false,
+          "trainScore": 0.501227,
+          "train": {
+            "trades": 71,
+            "wins": 24,
+            "losses": 47,
+            "winRate": 0.338,
+            "realizedPnl": -75.178,
+            "profitFactor": 0.6511,
+            "expectancy": -1.0588,
+            "maxDrawdownUsd": 123.893,
+            "tStat": -1.5816
+          }
+        },
+        {
+          "rank": 2,
+          "candidateId": "short_core:p20:ta200:sa100:h4",
+          "params": {
+            "period": 20,
+            "targetAtr": 2,
+            "stopAtr": 1,
+            "timeoutHours": 4
+          },
+          "economics": {
+            "totalSignals": 253,
+            "evaluatedSignals": 121,
+            "simulatedTrades": 120,
+            "skippedOverlap": 132,
+            "skippedInvalidMarketData": 0,
+            "skippedInvalidAtr": 0,
+            "skippedByEconomics": 1,
+            "economicsAccepted": 120,
+            "economicsAcceptanceRate": 0.9917,
+            "signalSimulationRate": 0.4743,
+            "averageAtrPct": 0.005656,
+            "averageTargetPct": 0.011312,
+            "averageStopPct": 0.005656,
+            "averageConservativeCostPct": 0.00105,
+            "averageTargetCostRatio": 10.7731
+          },
+          "trainPass": false,
+          "trainScore": 0.486742,
+          "train": {
+            "trades": 65,
+            "wins": 24,
+            "losses": 41,
+            "winRate": 0.3692,
+            "realizedPnl": -74.38,
+            "profitFactor": 0.6486,
+            "expectancy": -1.1443,
+            "maxDrawdownUsd": 122.208,
+            "tStat": -1.5158
+          }
+        },
+        {
+          "rank": 3,
+          "candidateId": "short_core:p20:ta100:sa075:h4",
+          "params": {
+            "period": 20,
+            "targetAtr": 1,
+            "stopAtr": 0.75,
+            "timeoutHours": 4
+          },
+          "economics": {
+            "totalSignals": 253,
+            "evaluatedSignals": 153,
+            "simulatedTrades": 139,
+            "skippedOverlap": 100,
+            "skippedInvalidMarketData": 0,
+            "skippedInvalidAtr": 0,
+            "skippedByEconomics": 14,
+            "economicsAccepted": 139,
+            "economicsAcceptanceRate": 0.9085,
+            "signalSimulationRate": 0.5494,
+            "averageAtrPct": 0.00553,
+            "averageTargetPct": 0.00553,
+            "averageStopPct": 0.004147,
+            "averageConservativeCostPct": 0.00105,
+            "averageTargetCostRatio": 5.2664
+          },
+          "trainPass": false,
+          "trainScore": -0.068131,
+          "train": {
+            "trades": 75,
+            "wins": 32,
+            "losses": 43,
+            "winRate": 0.4267,
+            "realizedPnl": -95.557,
+            "profitFactor": 0.5503,
+            "expectancy": -1.2741,
+            "maxDrawdownUsd": 109.326,
+            "tStat": -2.4279
+          }
+        },
+        {
+          "rank": 4,
+          "candidateId": "short_core:p20:ta150:sa075:h4",
+          "params": {
+            "period": 20,
+            "targetAtr": 1.5,
+            "stopAtr": 0.75,
+            "timeoutHours": 4
+          },
+          "economics": {
+            "totalSignals": 253,
+            "evaluatedSignals": 139,
+            "simulatedTrades": 135,
+            "skippedOverlap": 114,
+            "skippedInvalidMarketData": 0,
+            "skippedInvalidAtr": 0,
+            "skippedByEconomics": 4,
+            "economicsAccepted": 135,
+            "economicsAcceptanceRate": 0.9712,
+            "signalSimulationRate": 0.5336,
+            "averageAtrPct": 0.00573,
+            "averageTargetPct": 0.008594,
+            "averageStopPct": 0.004297,
+            "averageConservativeCostPct": 0.00105,
+            "averageTargetCostRatio": 8.1851
+          },
+          "trainPass": false,
+          "trainScore": -0.080918,
+          "train": {
+            "trades": 73,
+            "wins": 26,
+            "losses": 47,
+            "winRate": 0.3562,
+            "realizedPnl": -100.012,
+            "profitFactor": 0.5546,
+            "expectancy": -1.37,
+            "maxDrawdownUsd": 140.023,
+            "tStat": -2.2917
+          }
+        },
+        {
+          "rank": 5,
+          "candidateId": "short_core:p27:ta100:sa075:h4",
+          "params": {
+            "period": 27,
+            "targetAtr": 1,
+            "stopAtr": 0.75,
+            "timeoutHours": 4
+          },
+          "economics": {
+            "totalSignals": 224,
+            "evaluatedSignals": 133,
+            "simulatedTrades": 122,
+            "skippedOverlap": 91,
+            "skippedInvalidMarketData": 0,
+            "skippedInvalidAtr": 0,
+            "skippedByEconomics": 11,
+            "economicsAccepted": 122,
+            "economicsAcceptanceRate": 0.9173,
+            "signalSimulationRate": 0.5446,
+            "averageAtrPct": 0.005453,
+            "averageTargetPct": 0.005453,
+            "averageStopPct": 0.004091,
+            "averageConservativeCostPct": 0.00105,
+            "averageTargetCostRatio": 5.194
+          },
+          "trainPass": false,
+          "trainScore": -0.199847,
+          "train": {
+            "trades": 66,
+            "wins": 27,
+            "losses": 39,
+            "winRate": 0.4091,
+            "realizedPnl": -92.973,
+            "profitFactor": 0.5205,
+            "expectancy": -1.4087,
+            "maxDrawdownUsd": 99.532,
+            "tStat": -2.5081
+          }
+        }
+      ],
+      "finalists": [],
+      "survivorCount": 0,
+      "winner": null,
+      "status": "NO_ROBUST_FINALIST"
+    },
+    "short_alt": {
+      "profileId": "short_alt",
+      "strategyId": "futures_breakout_short_alt",
+      "parentVersionId": "futures_breakout_short_alt:v8",
+      "searchSpace": {
+        "candidateCount": 40,
+        "trainEnd": 0.6,
+        "validationEnd": 0.8,
+        "holdoutStart": 0.8,
+        "holdoutUsedForRanking": false,
+        "exitModel": "atr14_adaptive_v1",
+        "atrPeriod": 14,
+        "economicsGate": "target_gross_move_gte_2x_conservative_friction",
+        "targetCostMultiple": 2,
+        "fixedPercentTargets": false
+      },
+      "coverage": [
+        {
+          "pair": "XRPUSDT",
+          "bars": 1000,
+          "startAt": "2026-08-29T06:30:00.000Z",
+          "endAt": "2026-09-08T16:29:59.999Z"
+        },
+        {
+          "pair": "DOGEUSDT",
+          "bars": 1000,
+          "startAt": "2026-08-29T06:30:00.000Z",
+          "endAt": "2026-09-08T16:29:59.999Z"
+        }
+      ],
+      "topTrain": [
+        {
+          "rank": 1,
+          "candidateId": "short_alt:p10:ta200:sa100:h3",
+          "params": {
+            "period": 10,
+            "targetAtr": 2,
+            "stopAtr": 1,
+            "timeoutHours": 3
+          },
+          "economics": {
+            "totalSignals": 192,
+            "evaluatedSignals": 91,
+            "simulatedTrades": 91,
+            "skippedOverlap": 101,
+            "skippedInvalidMarketData": 0,
+            "skippedInvalidAtr": 0,
+            "skippedByEconomics": 0,
+            "economicsAccepted": 91,
+            "economicsAcceptanceRate": 1,
+            "signalSimulationRate": 0.474,
+            "averageAtrPct": 0.004629,
+            "averageTargetPct": 0.009259,
+            "averageStopPct": 0.004629,
+            "averageConservativeCostPct": 0.001046,
+            "averageTargetCostRatio": 8.8905
+          },
+          "trainPass": false,
+          "trainScore": 0.694045,
+          "train": {
+            "trades": 51,
+            "wins": 16,
+            "losses": 35,
+            "winRate": 0.3137,
+            "realizedPnl": -37.599,
+            "profitFactor": 0.6675,
+            "expectancy": -0.7372,
+            "maxDrawdownUsd": 42.35,
+            "tStat": -1.3328
+          }
+        },
+        {
+          "rank": 2,
+          "candidateId": "short_alt:p10:ta200:sa100:h1_5",
+          "params": {
+            "period": 10,
+            "targetAtr": 2,
+            "stopAtr": 1,
+            "timeoutHours": 1.5
+          },
+          "economics": {
+            "totalSignals": 192,
+            "evaluatedSignals": 94,
+            "simulatedTrades": 94,
+            "skippedOverlap": 98,
+            "skippedInvalidMarketData": 0,
+            "skippedInvalidAtr": 0,
+            "skippedByEconomics": 0,
+            "economicsAccepted": 94,
+            "economicsAcceptanceRate": 1,
+            "signalSimulationRate": 0.4896,
+            "averageAtrPct": 0.004635,
+            "averageTargetPct": 0.009269,
+            "averageStopPct": 0.004635,
+            "averageConservativeCostPct": 0.001028,
+            "averageTargetCostRatio": 9.0649
+          },
+          "trainPass": false,
+          "trainScore": 0.637955,
+          "train": {
+            "trades": 52,
+            "wins": 18,
+            "losses": 34,
+            "winRate": 0.3462,
+            "realizedPnl": -37.9,
+            "profitFactor": 0.6467,
+            "expectancy": -0.7289,
+            "maxDrawdownUsd": 38.606,
+            "tStat": -1.4128
+          }
+        },
+        {
+          "rank": 3,
+          "candidateId": "short_alt:p7:ta200:sa100:h1_5",
+          "params": {
+            "period": 7,
+            "targetAtr": 2,
+            "stopAtr": 1,
+            "timeoutHours": 1.5
+          },
+          "economics": {
+            "totalSignals": 230,
+            "evaluatedSignals": 111,
+            "simulatedTrades": 111,
+            "skippedOverlap": 119,
+            "skippedInvalidMarketData": 0,
+            "skippedInvalidAtr": 0,
+            "skippedByEconomics": 0,
+            "economicsAccepted": 111,
+            "economicsAcceptanceRate": 1,
+            "signalSimulationRate": 0.4826,
+            "averageAtrPct": 0.004641,
+            "averageTargetPct": 0.009282,
+            "averageStopPct": 0.004641,
+            "averageConservativeCostPct": 0.001026,
+            "averageTargetCostRatio": 9.0824
+          },
+          "trainPass": false,
+          "trainScore": 0.564975,
+          "train": {
+            "trades": 61,
+            "wins": 20,
+            "losses": 41,
+            "winRate": 0.3279,
+            "realizedPnl": -44.466,
+            "profitFactor": 0.646,
+            "expectancy": -0.7289,
+            "maxDrawdownUsd": 46.994,
+            "tStat": -1.5574
+          }
+        },
+        {
+          "rank": 4,
+          "candidateId": "short_alt:p14:ta200:sa100:h1_5",
+          "params": {
+            "period": 14,
+            "targetAtr": 2,
+            "stopAtr": 1,
+            "timeoutHours": 1.5
+          },
+          "economics": {
+            "totalSignals": 168,
+            "evaluatedSignals": 85,
+            "simulatedTrades": 85,
+            "skippedOverlap": 83,
+            "skippedInvalidMarketData": 0,
+            "skippedInvalidAtr": 0,
+            "skippedByEconomics": 0,
+            "economicsAccepted": 85,
+            "economicsAcceptanceRate": 1,
+            "signalSimulationRate": 0.506,
+            "averageAtrPct": 0.004852,
+            "averageTargetPct": 0.009705,
+            "averageStopPct": 0.004852,
+            "averageConservativeCostPct": 0.001028,
+            "averageTargetCostRatio": 9.489
+          },
+          "trainPass": false,
+          "trainScore": 0.384173,
+          "train": {
+            "trades": 49,
+            "wins": 16,
+            "losses": 33,
+            "winRate": 0.3265,
+            "realizedPnl": -43.081,
+            "profitFactor": 0.6034,
+            "expectancy": -0.8792,
+            "maxDrawdownUsd": 48.665,
+            "tStat": -1.6039
+          }
+        },
+        {
+          "rank": 5,
+          "candidateId": "short_alt:p10:ta200:sa075:h3",
+          "params": {
+            "period": 10,
+            "targetAtr": 2,
+            "stopAtr": 0.75,
+            "timeoutHours": 3
+          },
+          "economics": {
+            "totalSignals": 192,
+            "evaluatedSignals": 99,
+            "simulatedTrades": 99,
+            "skippedOverlap": 93,
+            "skippedInvalidMarketData": 0,
+            "skippedInvalidAtr": 0,
+            "skippedByEconomics": 0,
+            "economicsAccepted": 99,
+            "economicsAcceptanceRate": 1,
+            "signalSimulationRate": 0.5156,
+            "averageAtrPct": 0.004631,
+            "averageTargetPct": 0.009262,
+            "averageStopPct": 0.003473,
+            "averageConservativeCostPct": 0.001045,
+            "averageTargetCostRatio": 8.8959
+          },
+          "trainPass": false,
+          "trainScore": 0.14653,
+          "train": {
+            "trades": 57,
+            "wins": 14,
+            "losses": 43,
+            "winRate": 0.2456,
+            "realizedPnl": -50.609,
+            "profitFactor": 0.5635,
+            "expectancy": -0.8879,
+            "maxDrawdownUsd": 56.274,
+            "tStat": -1.9881
+          }
+        }
+      ],
+      "finalists": [],
+      "survivorCount": 0,
+      "winner": null,
+      "status": "NO_ROBUST_FINALIST"
+    },
+    "long_probe": {
+      "profileId": "long_probe",
+      "strategyId": "futures_breakout_long_probe",
+      "parentVersionId": "futures_breakout_long_probe:v8",
+      "searchSpace": {
+        "candidateCount": 40,
+        "trainEnd": 0.6,
+        "validationEnd": 0.8,
+        "holdoutStart": 0.8,
+        "holdoutUsedForRanking": false,
+        "exitModel": "atr14_adaptive_v1",
+        "atrPeriod": 14,
+        "economicsGate": "target_gross_move_gte_2x_conservative_friction",
+        "targetCostMultiple": 2,
+        "fixedPercentTargets": false
+      },
+      "coverage": [
+        {
+          "pair": "BTCUSDT",
+          "bars": 1000,
+          "startAt": "2026-03-26T04:00:00.000Z",
+          "endAt": "2026-09-08T19:59:59.999Z"
+        },
+        {
+          "pair": "ETHUSDT",
+          "bars": 1000,
+          "startAt": "2026-03-26T04:00:00.000Z",
+          "endAt": "2026-09-08T19:59:59.999Z"
+        }
+      ],
+      "topTrain": [
+        {
+          "rank": 1,
+          "candidateId": "long_probe:p44:ta200:sa075:h3",
+          "params": {
+            "period": 44,
+            "targetAtr": 2,
+            "stopAtr": 0.75,
+            "timeoutHours": 3
+          },
+          "economics": {
+            "totalSignals": 136,
+            "evaluatedSignals": 79,
+            "simulatedTrades": 79,
+            "skippedOverlap": 57,
+            "skippedInvalidMarketData": 0,
+            "skippedInvalidAtr": 0,
+            "skippedByEconomics": 0,
+            "economicsAccepted": 79,
+            "economicsAcceptanceRate": 1,
+            "signalSimulationRate": 0.5809,
+            "averageAtrPct": 0.013276,
+            "averageTargetPct": 0.026552,
+            "averageStopPct": 0.009957,
+            "averageConservativeCostPct": 0.001037,
+            "averageTargetCostRatio": 25.5929
+          },
+          "trainPass": false,
+          "trainScore": 1.813636,
+          "train": {
+            "trades": 33,
+            "wins": 18,
+            "losses": 15,
+            "winRate": 0.5455,
+            "realizedPnl": -7.149,
+            "profitFactor": 0.9182,
+            "expectancy": -0.2166,
+            "maxDrawdownUsd": 46.367,
+            "tStat": -0.1898
+          }
+        },
+        {
+          "rank": 2,
+          "candidateId": "long_probe:p44:ta150:sa075:h3",
+          "params": {
+            "period": 44,
+            "targetAtr": 1.5,
+            "stopAtr": 0.75,
+            "timeoutHours": 3
+          },
+          "economics": {
+            "totalSignals": 136,
+            "evaluatedSignals": 80,
+            "simulatedTrades": 80,
+            "skippedOverlap": 56,
+            "skippedInvalidMarketData": 0,
+            "skippedInvalidAtr": 0,
+            "skippedByEconomics": 0,
+            "economicsAccepted": 80,
+            "economicsAcceptanceRate": 1,
+            "signalSimulationRate": 0.5882,
+            "averageAtrPct": 0.013302,
+            "averageTargetPct": 0.019954,
+            "averageStopPct": 0.009977,
+            "averageConservativeCostPct": 0.001037,
+            "averageTargetCostRatio": 19.2322
+          },
+          "trainPass": false,
+          "trainScore": 1.664745,
+          "train": {
+            "trades": 33,
+            "wins": 18,
+            "losses": 15,
+            "winRate": 0.5455,
+            "realizedPnl": -10.056,
+            "profitFactor": 0.8849,
+            "expectancy": -0.3047,
+            "maxDrawdownUsd": 50.51,
+            "tStat": -0.2836
+          }
+        },
+        {
+          "rank": 3,
+          "candidateId": "long_probe:p55:ta200:sa075:h3",
+          "params": {
+            "period": 55,
+            "targetAtr": 2,
+            "stopAtr": 0.75,
+            "timeoutHours": 3
+          },
+          "economics": {
+            "totalSignals": 123,
+            "evaluatedSignals": 71,
+            "simulatedTrades": 71,
+            "skippedOverlap": 52,
+            "skippedInvalidMarketData": 0,
+            "skippedInvalidAtr": 0,
+            "skippedByEconomics": 0,
+            "economicsAccepted": 71,
+            "economicsAcceptanceRate": 1,
+            "signalSimulationRate": 0.5772,
+            "averageAtrPct": 0.013671,
+            "averageTargetPct": 0.027343,
+            "averageStopPct": 0.010254,
+            "averageConservativeCostPct": 0.001037,
+            "averageTargetCostRatio": 26.3546
+          },
+          "trainPass": false,
+          "trainScore": 1.554051,
+          "train": {
+            "trades": 32,
+            "wins": 16,
+            "losses": 16,
+            "winRate": 0.5,
+            "realizedPnl": -12.369,
+            "profitFactor": 0.86,
+            "expectancy": -0.3865,
+            "maxDrawdownUsd": 50.482,
+            "tStat": -0.3301
+          }
+        },
+        {
+          "rank": 4,
+          "candidateId": "long_probe:p44:ta100:sa075:h3",
+          "params": {
+            "period": 44,
+            "targetAtr": 1,
+            "stopAtr": 0.75,
+            "timeoutHours": 3
+          },
+          "economics": {
+            "totalSignals": 136,
+            "evaluatedSignals": 80,
+            "simulatedTrades": 80,
+            "skippedOverlap": 56,
+            "skippedInvalidMarketData": 0,
+            "skippedInvalidAtr": 0,
+            "skippedByEconomics": 0,
+            "economicsAccepted": 80,
+            "economicsAcceptanceRate": 1,
+            "signalSimulationRate": 0.5882,
+            "averageAtrPct": 0.013302,
+            "averageTargetPct": 0.013302,
+            "averageStopPct": 0.009977,
+            "averageConservativeCostPct": 0.001037,
+            "averageTargetCostRatio": 12.8214
+          },
+          "trainPass": false,
+          "trainScore": 1.480053,
+          "train": {
+            "trades": 33,
+            "wins": 18,
+            "losses": 15,
+            "winRate": 0.5455,
+            "realizedPnl": -13.531,
+            "profitFactor": 0.8451,
+            "expectancy": -0.41,
+            "maxDrawdownUsd": 55.855,
+            "tStat": -0.4124
+          }
+        },
+        {
+          "rank": 5,
+          "candidateId": "long_probe:p55:ta150:sa075:h3",
+          "params": {
+            "period": 55,
+            "targetAtr": 1.5,
+            "stopAtr": 0.75,
+            "timeoutHours": 3
+          },
+          "economics": {
+            "totalSignals": 123,
+            "evaluatedSignals": 72,
+            "simulatedTrades": 72,
+            "skippedOverlap": 51,
+            "skippedInvalidMarketData": 0,
+            "skippedInvalidAtr": 0,
+            "skippedByEconomics": 0,
+            "economicsAccepted": 72,
+            "economicsAcceptanceRate": 1,
+            "signalSimulationRate": 0.5854,
+            "averageAtrPct": 0.013695,
+            "averageTargetPct": 0.020542,
+            "averageStopPct": 0.010271,
+            "averageConservativeCostPct": 0.001037,
+            "averageTargetCostRatio": 19.7997
+          },
+          "trainPass": false,
+          "trainScore": 1.401327,
+          "train": {
+            "trades": 32,
+            "wins": 16,
+            "losses": 16,
+            "winRate": 0.5,
+            "realizedPnl": -15.276,
+            "profitFactor": 0.8271,
+            "expectancy": -0.4774,
+            "maxDrawdownUsd": 54.625,
+            "tStat": -0.4335
+          }
+        }
+      ],
+      "finalists": [],
+      "survivorCount": 0,
+      "winner": null,
+      "status": "NO_ROBUST_FINALIST"
+    }
+  }
+}
