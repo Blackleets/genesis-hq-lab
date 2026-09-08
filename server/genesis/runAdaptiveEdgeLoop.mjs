@@ -61,7 +61,7 @@ function signal(spec,rows,p,i){
     if(c>hi&&c>m55)return'LONG';if(c<lo&&c<m55)return'SHORT';
   }
   if(spec.family==='failed_breakout'){
-    if(vr<1.15)return null;let hi=-Infinity,lo=-Infinity;lo=Infinity;for(let j=i-spec.period;j<i-1;j++){hi=Math.max(hi,p.c[j]);lo=Math.min(lo,p.c[j]);}
+    if(vr<1.15)return null;let hi=-Infinity,lo=Infinity;for(let j=i-spec.period;j<i-1;j++){hi=Math.max(hi,p.c[j]);lo=Math.min(lo,p.c[j]);}
     if(prev>hi&&c<hi)return'SHORT';if(prev<lo&&c>lo)return'LONG';
   }
   return null;
@@ -106,7 +106,7 @@ async function main(){
   results.sort((a,b)=>b.selectionScore-a.selectionScore);
   const promotable=results.filter(x=>x.role==='MUTATION'&&x.researchStatus==='PROMOTABLE_TO_ONE_SHOT_AUDIT');
   const controls=results.filter(x=>x.role==='CONTROL');
-  const snapshot={ok:true,version:'adaptive_edge_loop_v3_p2_fallback',mode:'RESEARCH_ONLY',paperOnly:true,liveOrders:false,executionAuthority:false,capitalEligible:false,completedAt:new Date().toISOString(),methodology:{selectionUsesHoldout:false,selectionInputs:['train','validation','walkForward'],holdoutPolicy:'ONE_SHOT_AUDIT_ONLY',parentControls:true,p2Fallback:true,barsPerMarket:MAX_BARS},queueMode,sourceQueueCompletedAt:q.completedAt??null,tested:results.length,controls:controls.length,promotableToAudit:promotable.length,verdict:promotable.length?'AUDIT_CANDIDATE_FOUND':'NO_ADAPTIVE_EDGE_FOUND',bestMutation:results.find(x=>x.role==='MUTATION')??null,control:controls[0]??null,auditQueue:promotable.slice(0,12).map(x=>({id:x.id,hypothesisKey:x.hypothesisKey,market:x.market,spec:x.spec,parentVariant:x.parentVariant,selectionScore:x.selectionScore,reason:'Passed train+validation+walk-forward without consulting holdout.'})),top:results.slice(0,12)};
+  const snapshot={ok:true,version:'adaptive_edge_loop_v4_multi_control',mode:'RESEARCH_ONLY',paperOnly:true,liveOrders:false,executionAuthority:false,capitalEligible:false,completedAt:new Date().toISOString(),methodology:{selectionUsesHoldout:false,selectionInputs:['train','validation','walkForward'],holdoutPolicy:'ONE_SHOT_AUDIT_ONLY',parentControls:true,multiControlDeepLearning:true,p2Fallback:true,barsPerMarket:MAX_BARS},queueMode,sourceQueueCompletedAt:q.completedAt??null,tested:results.length,controls:controls.length,promotableToAudit:promotable.length,verdict:promotable.length?'AUDIT_CANDIDATE_FOUND':'NO_ADAPTIVE_EDGE_FOUND',bestMutation:results.find(x=>x.role==='MUTATION')??null,control:controls[0]??null,controlSet:controls,auditQueue:promotable.slice(0,12).map(x=>({id:x.id,hypothesisKey:x.hypothesisKey,market:x.market,spec:x.spec,parentVariant:x.parentVariant,selectionScore:x.selectionScore,reason:'Passed train+validation+walk-forward without consulting holdout.'})),top:results.slice(0,12)};
   await mkdir(dirname(out),{recursive:true});await writeFile(out,JSON.stringify(snapshot,null,2)+'\n');await appendFile(history,JSON.stringify(snapshot)+'\n');
   console.log(JSON.stringify({ok:true,queueMode,tested:snapshot.tested,controls:snapshot.controls,promotableToAudit:snapshot.promotableToAudit,verdict:snapshot.verdict,best:snapshot.bestMutation?.id??null}));
 }
