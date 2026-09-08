@@ -1,14 +1,14 @@
 {
   "version": "paper_agent_swarm_v1",
-  "ts": "2026-09-08T22:13:32.112Z",
+  "ts": "2026-09-08T22:16:20.478Z",
   "paperOnly": true,
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
   "source": "github_capture_tape",
-  "llmProvider": null,
+  "llmProvider": "custom",
   "llmActive": false,
-  "providerConfigured": false,
+  "providerConfigured": true,
   "evidence": {
     "safety": {
       "paperOnly": true,
@@ -177,16 +177,16 @@
       "role": "Market Intelligence Analyst",
       "status": "fallback_complete",
       "engine": "deterministic_guardrail",
-      "provider": null,
+      "provider": "custom",
       "model": null,
       "tokens": {
         "in": 0,
         "out": 0
       },
-      "startedAt": "2026-09-08T22:13:32.112Z",
-      "completedAt": "2026-09-08T22:13:32.112Z",
+      "startedAt": "2026-09-08T22:15:20.040Z",
+      "completedAt": "2026-09-08T22:15:50.043Z",
       "output": "VERDICT: SKIP / NO QUOTABLE PAPER EDGE\nEVIDENCE: 40 names scored, 0 quoted. Blockers: VPIN_HALT=20, WOULD_CROSS=18, H_LE_EDGE=2. Funding economic P&L $-16.89.\nNEXT PAPER ACTION: Keep observing verified tape; do not infer an entry where the capture engine emitted none.\nBLOCKERS: Fee lock active (FEES_DOMINATE).",
-      "error": "Provider not configured"
+      "error": "This operation was aborted"
     },
     {
       "id": "nova",
@@ -194,16 +194,16 @@
       "role": "Strategy & Signal Architect",
       "status": "fallback_complete",
       "engine": "deterministic_guardrail",
-      "provider": null,
+      "provider": "custom",
       "model": null,
       "tokens": {
         "in": 0,
         "out": 0
       },
-      "startedAt": "2026-09-08T22:13:32.112Z",
-      "completedAt": "2026-09-08T22:13:32.112Z",
+      "startedAt": "2026-09-08T22:15:50.043Z",
+      "completedAt": "2026-09-08T22:16:20.043Z",
       "output": "STRATEGY STRENGTH: NO-TRADE\nTHESIS: The current verified tape does not justify fabricating a setup. 0 quotable candidates are present and the economic ledger is $-16.89.\nENTRY CRITERIA: Only re-evaluate a PAPER thesis when the capture engine itself emits a candidate and current economic guardrails do not veto it.\nEXIT / INVALIDATION: Any fee-lock, toxic-flow, would-cross, or evidence-quality veto keeps the desk stood down.",
-      "error": "Provider not configured"
+      "error": "This operation was aborted"
     },
     {
       "id": "sentinel",
@@ -211,16 +211,16 @@
       "role": "Risk Guardian",
       "status": "fallback_complete",
       "engine": "deterministic_guardrail",
-      "provider": null,
+      "provider": "custom",
       "model": null,
       "tokens": {
         "in": 0,
         "out": 0
       },
-      "startedAt": "2026-09-08T22:13:32.112Z",
-      "completedAt": "2026-09-08T22:13:32.112Z",
+      "startedAt": "2026-09-08T22:16:20.043Z",
+      "completedAt": "2026-09-08T22:16:20.172Z",
       "output": "VERDICT: VETO\nRISK: PAPER only; liveOrders=false; executionAuthority=false. Economic P&L $-16.89; fee lock ON; quoted candidates 0.\nACTION: Do not add new PAPER risk while fees dominate.\nTAIL CHECK: No live capital path is authorized by this swarm.",
-      "error": "Provider not configured"
+      "error": "custom 429: {\"status\":429,\"title\":\"Too Many Requests\"}"
     },
     {
       "id": "curator",
@@ -228,16 +228,16 @@
       "role": "Memory Architect",
       "status": "fallback_complete",
       "engine": "deterministic_guardrail",
-      "provider": null,
+      "provider": "custom",
       "model": null,
       "tokens": {
         "in": 0,
         "out": 0
       },
-      "startedAt": "2026-09-08T22:13:32.112Z",
-      "completedAt": "2026-09-08T22:13:32.112Z",
+      "startedAt": "2026-09-08T22:16:20.172Z",
+      "completedAt": "2026-09-08T22:16:20.347Z",
       "output": "LESSON: When fees dominate realized capture, stop opening new PAPER tickets until the ledger proves the economics have improved.\nSEVERITY: WARNING\nEVIDENCE: Economic P&L $-16.89; 0 quoted; blockers VPIN_HALT=20, WOULD_CROSS=18, H_LE_EDGE=2.\nVETO PATTERN: Preserve the existing fee/toxicity guardrails; no new live rule is created here.",
-      "error": "Provider not configured"
+      "error": "custom 429: {\"status\":429,\"title\":\"Too Many Requests\"}"
     },
     {
       "id": "arbiter",
@@ -245,16 +245,16 @@
       "role": "Decision Facilitator",
       "status": "fallback_complete",
       "engine": "deterministic_guardrail",
-      "provider": null,
+      "provider": "custom",
       "model": null,
       "tokens": {
         "in": 0,
         "out": 0
       },
-      "startedAt": "2026-09-08T22:13:32.112Z",
-      "completedAt": "2026-09-08T22:13:32.112Z",
+      "startedAt": "2026-09-08T22:16:20.347Z",
+      "completedAt": "2026-09-08T22:16:20.478Z",
       "output": "RECOMMENDATION: STAND DOWN\nCONFIDENCE: Evidence-bound, not predictive.\nPIVOTAL FACTS: 0 quoted candidates; economic P&L $-16.89; fee lock ON; live authority OFF.\nNEXT STEP: Continue PAPER evidence collection and let Sentinel/Truth Ledger veto any setup that is not economically proven.",
-      "error": "Provider not configured"
+      "error": "custom 429: {\"status\":429,\"title\":\"Too Many Requests\"}"
     }
   ],
   "totals": {
@@ -277,5 +277,26 @@
     "liveOrders": false,
     "capitalEligible": false
   },
-  "errors": []
+  "errors": [
+    {
+      "agentId": "atlas",
+      "error": "This operation was aborted"
+    },
+    {
+      "agentId": "nova",
+      "error": "This operation was aborted"
+    },
+    {
+      "agentId": "sentinel",
+      "error": "custom 429: {\"status\":429,\"title\":\"Too Many Requests\"}"
+    },
+    {
+      "agentId": "curator",
+      "error": "custom 429: {\"status\":429,\"title\":\"Too Many Requests\"}"
+    },
+    {
+      "agentId": "arbiter",
+      "error": "custom 429: {\"status\":429,\"title\":\"Too Many Requests\"}"
+    }
+  ]
 }
