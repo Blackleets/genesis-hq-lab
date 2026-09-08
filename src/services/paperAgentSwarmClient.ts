@@ -59,8 +59,8 @@ export interface PaperAgentSwarmSnapshot {
 }
 
 export async function fetchPaperAgentSwarm(signal?: AbortSignal): Promise<PaperAgentSwarmSnapshot> {
-  const response = await fetchApi('/api/genesis/agent-swarm', { cache: 'no-store', signal });
-  if (!response.ok) throw new Error(`genesis/agent-swarm ${response.status}`);
+  const response = await fetchApi('/api/genesis/capture?view=agent-swarm', { cache: 'no-store', signal });
+  if (!response.ok) throw new Error(`genesis/capture agent-swarm ${response.status}`);
   const payload = await response.json() as PaperAgentSwarmSnapshot;
   if (payload.paperOnly !== true || payload.liveOrders !== false || payload.executionAuthority !== false || payload.capitalEligible !== false) {
     throw new Error('paper_agent_swarm_boundary_unverified');
