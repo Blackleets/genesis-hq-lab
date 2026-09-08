@@ -37,12 +37,16 @@ jobs:
         with:
           node-version: 24
       - name: Test previous adaptive hypothesis queue
+        env:
+          GENESIS_EDGE_BARS: 12000
         run: |
           node server/genesis/runAdaptiveEdgeLoop.mjs \
             --queue tape/quant-evidence/edge-hypotheses-latest.json \
             --out tape/quant-evidence/edge-adaptive-latest.json \
             --history tape/quant-evidence/edge-adaptive-history.jsonl
       - name: One-shot audit new research candidates
+        env:
+          GENESIS_EDGE_BARS: 12000
         run: |
           node server/genesis/runEdgeOneShotAudit.mjs \
             --adaptive tape/quant-evidence/edge-adaptive-latest.json \
