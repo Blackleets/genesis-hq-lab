@@ -31,7 +31,7 @@ function prepare(rows,periods){
     if(i<14){atr[i]=null;volRatio[i]=null;continue;}
     let tr=0;for(let j=i-13;j<=i;j++)tr+=Math.max(h[j]-l[j],Math.abs(h[j]-c[j-1]),Math.abs(l[j]-c[j-1]));atr[i]=(tr/14)/c[i];
     if(i<62){volRatio[i]=null;continue;}
-    const recent=[],base=[];for(let j=i-23;j<=i;j++)recent.push(Math.log(c[j]/c[j-1]));for(let j=i-61;j<=i-24;j++)base.push(Math.log(c[j]/c[j-1]);
+    const recent=[],base=[];for(let j=i-23;j<=i;j++)recent.push(Math.log(c[j]/c[j-1]));for(let j=i-61;j<=i-24;j++)base.push(Math.log(c[j]/c[j-1]));
     const rv=std(recent),bv=std(base);volRatio[i]=bv>0?rv/bv:null;
   }
   return{c,ma,atr,volRatio};
