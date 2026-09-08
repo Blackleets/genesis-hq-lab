@@ -90,5 +90,13 @@ jobs:
             exit 0
           fi
           git commit -m "edge factory durable learning $(date -u +%Y-%m-%dT%H:%MZ)"
-          git pull --rebase origin capture-tape
-          git push origin HEAD:capture-tape
+          for attempt in 1 2 3; do
+            git pull --rebase origin capture-tape
+            if git push origin HEAD:capture-tape; then
+              exit 0
+            fi
+            echo "capture-tape advanced during publish; retry ${attempt}/3"
+            sleep $((attempt * 2))
+          done
+          echo "failed to publish edge evidence after retries"
+          exit 1
