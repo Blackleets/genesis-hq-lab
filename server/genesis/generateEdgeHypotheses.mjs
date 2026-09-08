@@ -1,0 +1,123 @@
+import { readFile, writeFile, mkdir, appendFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
+
+const arg=(n,f=null)=>{const i=process.argv.indexOf(n);return i>=0?(process.argv[i+1]??f):f;};
+const uniq=a=>[...new Set(a)];
+const clamp=(v,min,max)=>Math.min(max,Math.max(min,v));
+const round=(v,d=2)=>Number(Number(v).toFixed(d));
+
+function score(item){
+  const a=item.train??{},b=item.validation??{},c=item.holdout??{},w=item.walkForward??{};
+  let s=0;
+  if(item.status==='PAPER_CANDIDATE') s+=100;
+  else if(item.status==='INTERESTING') s+=60;
+  else if(item.status==='REGIME_DIVERGENCE') s+=25;
+  s+=Math.max(-20,Math.min(30,(a.expectancyBps??-20)/2));
+  s+=Math.max(-20,Math.min(35,(b.expectancyBps??-20)/2));
+  s+=Math.max(-20,Math.min(35,(c.expectancyBps??-20)/2));
+  s+=(w.positiveFolds??0)*4;
+  s+=Math.max(0,Math.min(12,((c.profitFactor??0)-1)*20));
+  return round(s,2);
+}
+
+function sentinelCritique(item){
+  const issues=[];
+  const a=item.train??{},b=item.validation??{},c=item.holdout??{},w=item.walkForward??{};
+  if((a.trades??0)<30) issues.push('TRAIN_SAMPLE_THIN');
+  if((b.trades??0)<12) issues.push('VALIDATION_SAMPLE_THIN');
+  if((c.trades??0)<15) issues.push('HOLDOUT_SAMPLE_THIN');
+  if((c.tStat??0)<0.75) issues.push('LOW_HOLDOUT_TSTAT');
+  if((c.profitFactor??0)<1.2) issues.push('WEAK_HOLDOUT_PROFIT_FACTOR');
+  if(!w.pass) issues.push('WALK_FORWARD_UNSTABLE');
+  if((a.expectancyBps??-1)<=0) issues.push('NEGATIVE_TRAIN_EXPECTANCY');
+  if((b.expectancyBps??-1)<=0) issues.push('NEGATIVE_VALIDATION_EXPECTANCY');
+  if((c.expectancyBps??-1)<=0) issues.push('NEGATIVE_HOLDOUT_EXPECTANCY');
+  return issues.length?issues:['NO_CRITICAL_STATISTICAL_OBJECTION'];
+}
+
+function mutations(item){
+  const c=item.candidate;
+  const periods=uniq([Math.max(8,c.period-4),c.period,Math.min(80,c.period+4)]);
+  const targets=uniq([clamp(c.targetAtr-.25,.75,3),c.targetAtr,clamp(c.targetAtr+.25,.75,3)]).map(x=>round(x,2));
+  const stops=uniq([clamp(c.stopAtr-.15,.45,1.5),c.stopAtr,clamp(c.stopAtr+.15,.45,1.5)]).map(x=>round(x,2));
+  const timeouts=uniq([Math.max(4,c.timeoutBars-2),c.timeoutBars,Math.min(16,c.timeoutBars+4)]);
+  const out=[];
+  for(const period of periods)for(const targetAtr of targets)for(const stopAtr of stops)for(const timeoutBars of timeouts){
+    if(period===c.period&&targetAtr===c.targetAtr&&stopAtr===c.stopAtr&&timeoutBars===c.timeoutBars) continue;
+    out.push({family:c.family,period,targetAtr,stopAtr,timeoutBars,session:c.session});
+  }
+  return out.slice(0,18);
+}
+
+function reasonFor(item,rule){
+  if(item.status==='PAPER_CANDIDATE') return 'Candidate survived current statistical gates; stress-test nearby parameters before any forward-paper promotion.';
+  if(item.status==='INTERESTING') return 'Train and validation are directionally consistent; test nearby parameters without relaxing costs or holdout.';
+  if(item.status==='REGIME_DIVERGENCE') return `Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis${rule?.dominantFailure?` (${rule.dominantFailure})`:''}.`;
+  return 'Low-priority research item.';
+}
+
+async function main(){
+  const edgePath=arg('--edge','quant-evidence/edge-factory-latest.json');
+  const learningPath=arg('--learning','quant-evidence/edge-learning-latest.json');
+  const out=arg('--out','quant-evidence/edge-hypotheses-latest.json');
+  const history=arg('--history','quant-evidence/edge-hypotheses-history.jsonl');
+  const edge=JSON.parse(await readFile(edgePath,'utf8'));
+  const learning=JSON.parse(await readFile(learningPath,'utf8'));
+  if(edge.paperOnly!==true||edge.liveOrders!==false||edge.executionAuthority!==false||edge.capitalEligible!==false) throw new Error('edge_boundary_unverified');
+  const rules=new Map((learning.rules??[]).map(r=>[r.hypothesisKey,r]));
+  const sources=(edge.top??[]).filter(x=>['PAPER_CANDIDATE','INTERESTING','REGIME_DIVERGENCE'].includes(x.status));
+  const ranked=sources.map(x=>({...x,researchScore:score(x)})).sort((a,b)=>b.researchScore-a.researchScore);
+  const queue=[];
+  for(const source of ranked.slice(0,6)){
+    const rule=rules.get(source.hypothesisKey);
+    const critique=sentinelCritique(source);
+    const priority=source.status==='PAPER_CANDIDATE'?'P0':source.status==='INTERESTING'?'P1':'P2';
+    for(const spec of mutations(source).slice(0,source.status==='REGIME_DIVERGENCE'?4:8)){
+      queue.push({
+        id:`${source.hypothesisKey}:p${spec.period}:ta${spec.targetAtr}:sa${spec.stopAtr}:tb${spec.timeoutBars}`,
+        priority,
+        parentVariant:source.variantKey??source.hypothesisKey,
+        hypothesisKey:source.hypothesisKey,
+        market:source.market,
+        spec,
+        rationale:reasonFor(source,rule),
+        sentinelCritique:critique,
+        expectedFalsification:`Reject if validation expectancy <= 0, validation PF < 1.05, or holdout deteriorates after sealed retest.`,
+        sourceEvidence:{
+          train:source.train,
+          validation:source.validation,
+          holdout:source.holdout,
+          walkForward:source.walkForward
+        }
+      });
+    }
+  }
+  const snapshot={
+    ok:true,
+    version:'edge_hypothesis_generator_v1',
+    mode:'RESEARCH_ONLY',
+    paperOnly:true,
+    liveOrders:false,
+    executionAuthority:false,
+    capitalEligible:false,
+    completedAt:new Date().toISOString(),
+    sourceVerdict:edge.verdict,
+    queueSize:queue.length,
+    focus:ranked[0]?{
+      hypothesisKey:ranked[0].hypothesisKey,
+      variantKey:ranked[0].variantKey??null,
+      market:ranked[0].market,
+      candidate:ranked[0].candidate,
+      status:ranked[0].status,
+      researchScore:ranked[0].researchScore,
+      sentinelCritique:sentinelCritique(ranked[0])
+    }:null,
+    queue:queue.slice(0,24)
+  };
+  await mkdir(dirname(out),{recursive:true});
+  await writeFile(out,JSON.stringify(snapshot,null,2)+'\n');
+  await appendFile(history,JSON.stringify(snapshot)+'\n');
+  console.log(JSON.stringify({ok:true,queueSize:snapshot.queueSize,focus:snapshot.focus?.hypothesisKey??null}));
+}
+
+main().catch(e=>{console.error(e);process.exitCode=1;});
