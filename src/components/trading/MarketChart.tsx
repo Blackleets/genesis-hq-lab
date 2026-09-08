@@ -1,3 +1,4 @@
+import { CoinLogo } from './CoinLogo';
 import { useMemo } from 'react';
 import { Activity, WifiOff } from 'lucide-react';
 import QuantChart, { type ChartTrade } from '@workflows/QuantChart';
@@ -33,7 +34,7 @@ export function MarketChart({ positionOverlay = true }: { positionOverlay?: bool
     <section className="market-chart" aria-label="Main trading chart" data-source="MARKET DATA">
       <div className="market-chart__toolbar">
         <div className="market-chart__instrument">
-          <strong>{symbol.replace('USDT', '/USDT')}</strong>
+          <strong className="coin-identity"><CoinLogo symbol={symbol} />{symbol.replace('USDT', '/USDT')}</strong>
           <span>BINANCE SPOT REFERENCE</span>
           <i>PAPER FUTURES OVERLAY</i>
         </div>

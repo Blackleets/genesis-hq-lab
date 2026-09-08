@@ -1646,3 +1646,10 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: First exchange layout iteration from owner-provided mobile Genesis/OKX references. Larger price and touch controls; positions immediately under chart; research, connectors, agents, risk and engine remain accessible through desk tabs. Preserves provider, execution logic, paper labels and founder controls.
 - Files touched: src/components/trading/TradingWorkspace.tsx, src/components/trading/exchangeLayout.css, docs/CHANGELOG_AI.md.
 - Verification: npm run build passed; scoped ESLint passed. Current production inspected at https://genesis-hq-lab.vercel.app/. New layout visual verification pending: cloud browser cannot access local development origin. Draft only; no production deployment or real-order activation.
+
+
+## 2026-09-08 — Codex — Coin marks and founder connection
+- Branch: feat/genesis-exchange-layout
+- Summary: Added locally served, unmodified BTC/ETH/SOL/BNB/XRP/DOGE SVG marks and consistent coin identity in watchlists and chart. Same-origin founder requests retain the deployment authentication cookie; remote backend requests still omit credentials.
+- Files touched: CoinLogo.tsx, MarketWatchlist.tsx, MarketChart.tsx, exchangeLayout.css, founderClient.ts, founderClient.test.ts, public/assets/coins, docs/CHANGELOG_AI.md.
+- Verification: npm run build and scoped ESLint passed; founder credential-boundary regression test passed. Live GET /api/system/health returned 200 with unverified runner; upstream genesis-runner-status returned HTTP 402 Payment Required. Runner operation remains externally blocked; no billing, secrets or live-order changes.

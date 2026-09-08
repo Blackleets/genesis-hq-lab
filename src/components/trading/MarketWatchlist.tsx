@@ -1,3 +1,4 @@
+import { CoinLogo } from './CoinLogo';
 import { useMemo } from 'react';
 import { Activity } from 'lucide-react';
 import { useMarketData, useRunnerTelemetry } from './useTradingDesk';
@@ -40,7 +41,7 @@ export function MarketWatchlist({ mobile = false }: { mobile?: boolean }) {
           return (
             <button key={row.symbol} type="button" onClick={() => setSymbol(row.symbol)} className={`${mobile ? 'market-selector-mobile__item' : 'market-watchlist__row'} ${active ? 'is-active' : ''}`} aria-pressed={active}>
               <div className="market-watchlist__primary">
-                <strong>{shortSymbol(row.symbol)}<span>USDT</span></strong>
+                <strong className="coin-identity"><CoinLogo symbol={row.symbol} /><span className="coin-identity__name">{shortSymbol(row.symbol)}<small>USDT</small></span></strong>
                 {!mobile && active ? <Sparkline values={selectedValues} positive={positive} /> : null}
                 <b>{formatPrice(row.lastPrice)}</b>
               </div>
