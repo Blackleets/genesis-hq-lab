@@ -5,6 +5,7 @@ const arg=(n,f=null)=>{const i=process.argv.indexOf(n);return i>=0?(process.argv
 const uniq=a=>[...new Set(a)];
 const clamp=(v,min,max)=>Math.min(max,Math.max(min,v));
 const round=(v,d=2)=>Number(Number(v).toFixed(d));
+async function readJson(path,fallback=null){try{return JSON.parse(await readFile(path,'utf8'));}catch{return fallback;}}
 
 // Evolution score intentionally excludes holdout. Holdout is audit evidence, never a mutation selector.
 function score(item){
@@ -48,7 +49,6 @@ function mutations(item){
     const distance=Math.abs(period-c.period)/4+Math.abs(targetAtr-c.targetAtr)/.25+Math.abs(stopAtr-c.stopAtr)/.15+Math.abs(timeoutBars-c.timeoutBars)/2;
     out.push({family:c.family,period,targetAtr,stopAtr,timeoutBars,session:c.session,_changed:changed,_distance:distance});
   }
-  // First test one-variable-at-a-time mutations nearest to the parent, then combinations.
   return out.sort((a,b)=>a._changed-b._changed||a._distance-b._distance||a.period-b.period||a.targetAtr-b.targetAtr||a.stopAtr-b.stopAtr||a.timeoutBars-b.timeoutBars)
     .map(({_changed,_distance,...spec})=>spec);
 }
@@ -60,23 +60,44 @@ function reasonFor(item,rule){
   return 'Low-priority research item.';
 }
 
+function deepOverride(adaptive,sources){
+  if(!adaptive||adaptive.paperOnly!==true||adaptive.liveOrders!==false)return null;
+  const bars=adaptive.methodology?.barsPerMarket??0,control=adaptive.control;
+  if(bars<10000||!control||control.researchStatus!=='REJECT'||(adaptive.promotableToAudit??0)>0)return null;
+  const train=control.train??{},validation=control.validation??{},wf=control.walkForward??{};
+  const deepFailure=(train.expectancyBps??1)<=0&&((validation.profitFactor??99)<1.05||!wf.pass);
+  if(!deepFailure)return null;
+  const source=sources.find(x=>x.variantKey===control.parentVariant);
+  if(!source)return null;
+  return {
+    hypothesisKey:source.hypothesisKey,
+    parentVariant:control.parentVariant,
+    action:'KILL_DEEP_VALIDATION',
+    reason:'Deep retest invalidated the short-window signal; suppress mutations until a materially different regime/context is proposed.',
+    evidence:{barsPerMarket:bars,train:control.train,validation:control.validation,walkForward:control.walkForward}
+  };
+}
+
 async function main(){
   const edgePath=arg('--edge','quant-evidence/edge-factory-latest.json');
   const learningPath=arg('--learning','quant-evidence/edge-learning-latest.json');
+  const adaptivePath=arg('--adaptive',null);
   const out=arg('--out','quant-evidence/edge-hypotheses-latest.json');
   const history=arg('--history','quant-evidence/edge-hypotheses-history.jsonl');
   const edge=JSON.parse(await readFile(edgePath,'utf8'));
   const learning=JSON.parse(await readFile(learningPath,'utf8'));
+  const adaptive=adaptivePath?await readJson(adaptivePath,null):null;
   if(edge.paperOnly!==true||edge.liveOrders!==false||edge.executionAuthority!==false||edge.capitalEligible!==false) throw new Error('edge_boundary_unverified');
   const rules=new Map((learning.rules??[]).map(r=>[r.hypothesisKey,r]));
   const sources=(edge.top??[]).filter(x=>['PAPER_CANDIDATE','INTERESTING','REGIME_DIVERGENCE'].includes(x.status));
-  const ranked=sources.map(x=>({...x,researchScore:score(x)})).sort((a,b)=>b.researchScore-a.researchScore);
+  const override=deepOverride(adaptive,sources);
+  const eligible=override?sources.filter(x=>x.hypothesisKey!==override.hypothesisKey):sources;
+  const ranked=eligible.map(x=>({...x,researchScore:score(x)})).sort((a,b)=>b.researchScore-a.researchScore);
   const queue=[];
   for(const source of ranked.slice(0,6)){
     const rule=rules.get(source.hypothesisKey);
     const critique=sentinelCritique(source);
     const priority=source.status==='PAPER_CANDIDATE'?'P0':source.status==='INTERESTING'?'P1':'P2';
-    // Always replay the parent as a control so data drift is visible generation to generation.
     queue.push({
       id:`${source.variantKey??source.hypothesisKey}:control`,role:'CONTROL',priority,parentVariant:source.variantKey??source.hypothesisKey,hypothesisKey:source.hypothesisKey,market:source.market,spec:source.candidate,
       rationale:'Control replay of the parent variant. It is not a new hypothesis and prevents us from confusing data drift with parameter improvement.',
@@ -95,12 +116,13 @@ async function main(){
     }
   }
   const snapshot={
-    ok:true,version:'edge_hypothesis_generator_v2_balanced',mode:'RESEARCH_ONLY',paperOnly:true,liveOrders:false,executionAuthority:false,capitalEligible:false,completedAt:new Date().toISOString(),
-    methodology:{selectionUsesHoldout:false,balancedNeighborhood:true,parentControl:true},sourceVerdict:edge.verdict,queueSize:queue.length,
+    ok:true,version:'edge_hypothesis_generator_v3_deep_override',mode:'RESEARCH_ONLY',paperOnly:true,liveOrders:false,executionAuthority:false,capitalEligible:false,completedAt:new Date().toISOString(),
+    methodology:{selectionUsesHoldout:false,balancedNeighborhood:true,parentControl:true,deepValidationOverridesShortWindow:true},sourceVerdict:edge.verdict,queueSize:queue.length,
+    deepOverrides:override?[override]:[],
     focus:ranked[0]?{hypothesisKey:ranked[0].hypothesisKey,variantKey:ranked[0].variantKey??null,market:ranked[0].market,candidate:ranked[0].candidate,status:ranked[0].status,researchScore:ranked[0].researchScore,sentinelCritique:sentinelCritique(ranked[0])}:null,
     queue:queue.slice(0,30)
   };
   await mkdir(dirname(out),{recursive:true});await writeFile(out,JSON.stringify(snapshot,null,2)+'\n');await appendFile(history,JSON.stringify(snapshot)+'\n');
-  console.log(JSON.stringify({ok:true,queueSize:snapshot.queueSize,focus:snapshot.focus?.hypothesisKey??null,selectionUsesHoldout:false}));
+  console.log(JSON.stringify({ok:true,queueSize:snapshot.queueSize,focus:snapshot.focus?.hypothesisKey??null,deepOverride:override?.hypothesisKey??null,selectionUsesHoldout:false}));
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});
