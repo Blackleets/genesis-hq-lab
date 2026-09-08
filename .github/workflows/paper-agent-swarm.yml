@@ -2,8 +2,8 @@ name: paper-agent-swarm
 
 # Autonomous PAPER-only agent review of the verified capture tape.
 # It never calls the trading runner, never sends an order, and never unlocks capital.
-# GPT is the preferred reasoning provider; NVIDIA is the first fallback.
-# If neither is configured, the run falls back to deterministic guardrails and labels it.
+# Set GENESIS_PAPER_AGENT_PROVIDER=openai to pin GPT. NVIDIA is available as provider=nvidia.
+# If no configured provider is available, deterministic guardrails are used and labeled.
 
 on:
   schedule:
@@ -24,7 +24,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GENESIS_PAPER_AGENT_PROVIDER: ${{ secrets.OPENAI_API_KEY != '' && 'openai' || secrets.NVIDIA_API_KEY != '' && 'nvidia' || '' }}
+  GENESIS_PAPER_AGENT_PROVIDER: ${{ vars.GENESIS_PAPER_AGENT_PROVIDER }}
   GENESIS_PAPER_AGENT_MODEL: ${{ vars.GENESIS_PAPER_AGENT_MODEL }}
   OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
   NVIDIA_MODEL: ${{ vars.NVIDIA_MODEL }}
