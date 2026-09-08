@@ -34,7 +34,7 @@ env:
 jobs:
   swarm:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     steps:
       - name: Checkout Genesis code
         uses: actions/checkout@v4
@@ -49,6 +49,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Gate on production build
+        run: npm run build
 
       - name: Run PAPER agent swarm
         run: |
