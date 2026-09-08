@@ -6,17 +6,17 @@ const uniq=a=>[...new Set(a)];
 const clamp=(v,min,max)=>Math.min(max,Math.max(min,v));
 const round=(v,d=2)=>Number(Number(v).toFixed(d));
 
+// Evolution score intentionally excludes holdout. Holdout is audit evidence, never a mutation selector.
 function score(item){
-  const a=item.train??{},b=item.validation??{},c=item.holdout??{},w=item.walkForward??{};
+  const a=item.train??{},b=item.validation??{},w=item.walkForward??{};
   let s=0;
   if(item.status==='PAPER_CANDIDATE') s+=100;
   else if(item.status==='INTERESTING') s+=60;
   else if(item.status==='REGIME_DIVERGENCE') s+=25;
   s+=Math.max(-20,Math.min(30,(a.expectancyBps??-20)/2));
-  s+=Math.max(-20,Math.min(35,(b.expectancyBps??-20)/2));
-  s+=Math.max(-20,Math.min(35,(c.expectancyBps??-20)/2));
+  s+=Math.max(-20,Math.min(40,(b.expectancyBps??-20)/2));
   s+=(w.positiveFolds??0)*4;
-  s+=Math.max(0,Math.min(12,((c.profitFactor??0)-1)*20));
+  s+=Math.max(0,Math.min(12,((b.profitFactor??0)-1)*20));
   return round(s,2);
 }
 
@@ -44,14 +44,18 @@ function mutations(item){
   const out=[];
   for(const period of periods)for(const targetAtr of targets)for(const stopAtr of stops)for(const timeoutBars of timeouts){
     if(period===c.period&&targetAtr===c.targetAtr&&stopAtr===c.stopAtr&&timeoutBars===c.timeoutBars) continue;
-    out.push({family:c.family,period,targetAtr,stopAtr,timeoutBars,session:c.session});
+    const changed=[period!==c.period,targetAtr!==c.targetAtr,stopAtr!==c.stopAtr,timeoutBars!==c.timeoutBars].filter(Boolean).length;
+    const distance=Math.abs(period-c.period)/4+Math.abs(targetAtr-c.targetAtr)/.25+Math.abs(stopAtr-c.stopAtr)/.15+Math.abs(timeoutBars-c.timeoutBars)/2;
+    out.push({family:c.family,period,targetAtr,stopAtr,timeoutBars,session:c.session,_changed:changed,_distance:distance});
   }
-  return out.slice(0,18);
+  // First test one-variable-at-a-time mutations nearest to the parent, then combinations.
+  return out.sort((a,b)=>a._changed-b._changed||a._distance-b._distance||a.period-b.period||a.targetAtr-b.targetAtr||a.stopAtr-b.stopAtr||a.timeoutBars-b.timeoutBars)
+    .map(({_changed,_distance,...spec})=>spec);
 }
 
 function reasonFor(item,rule){
-  if(item.status==='PAPER_CANDIDATE') return 'Candidate survived current statistical gates; stress-test nearby parameters before any forward-paper promotion.';
-  if(item.status==='INTERESTING') return 'Train and validation are directionally consistent; test nearby parameters without relaxing costs or holdout.';
+  if(item.status==='PAPER_CANDIDATE') return 'Candidate survived current gates; stress-test a balanced local neighborhood before one-shot audit or forward PAPER.';
+  if(item.status==='INTERESTING') return 'Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.';
   if(item.status==='REGIME_DIVERGENCE') return `Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis${rule?.dominantFailure?` (${rule.dominantFailure})`:''}.`;
   return 'Low-priority research item.';
 }
@@ -72,52 +76,31 @@ async function main(){
     const rule=rules.get(source.hypothesisKey);
     const critique=sentinelCritique(source);
     const priority=source.status==='PAPER_CANDIDATE'?'P0':source.status==='INTERESTING'?'P1':'P2';
-    for(const spec of mutations(source).slice(0,source.status==='REGIME_DIVERGENCE'?4:8)){
+    // Always replay the parent as a control so data drift is visible generation to generation.
+    queue.push({
+      id:`${source.variantKey??source.hypothesisKey}:control`,role:'CONTROL',priority,parentVariant:source.variantKey??source.hypothesisKey,hypothesisKey:source.hypothesisKey,market:source.market,spec:source.candidate,
+      rationale:'Control replay of the parent variant. It is not a new hypothesis and prevents us from confusing data drift with parameter improvement.',
+      sentinelCritique:critique,expectedFalsification:'Control must remain directionally consistent on train and validation; otherwise pause mutations and diagnose regime/data drift.',
+      sourceEvidence:{train:source.train,validation:source.validation,holdout:source.holdout,walkForward:source.walkForward}
+    });
+    const limit=source.status==='REGIME_DIVERGENCE'?4:10;
+    for(const spec of mutations(source).slice(0,limit)){
       queue.push({
         id:`${source.hypothesisKey}:p${spec.period}:ta${spec.targetAtr}:sa${spec.stopAtr}:tb${spec.timeoutBars}`,
-        priority,
-        parentVariant:source.variantKey??source.hypothesisKey,
-        hypothesisKey:source.hypothesisKey,
-        market:source.market,
-        spec,
-        rationale:reasonFor(source,rule),
-        sentinelCritique:critique,
-        expectedFalsification:`Reject if validation expectancy <= 0, validation PF < 1.05, or holdout deteriorates after sealed retest.`,
-        sourceEvidence:{
-          train:source.train,
-          validation:source.validation,
-          holdout:source.holdout,
-          walkForward:source.walkForward
-        }
+        role:'MUTATION',priority,parentVariant:source.variantKey??source.hypothesisKey,hypothesisKey:source.hypothesisKey,market:source.market,spec,
+        rationale:reasonFor(source,rule),sentinelCritique:critique,
+        expectedFalsification:'Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.',
+        sourceEvidence:{train:source.train,validation:source.validation,holdout:source.holdout,walkForward:source.walkForward}
       });
     }
   }
   const snapshot={
-    ok:true,
-    version:'edge_hypothesis_generator_v1',
-    mode:'RESEARCH_ONLY',
-    paperOnly:true,
-    liveOrders:false,
-    executionAuthority:false,
-    capitalEligible:false,
-    completedAt:new Date().toISOString(),
-    sourceVerdict:edge.verdict,
-    queueSize:queue.length,
-    focus:ranked[0]?{
-      hypothesisKey:ranked[0].hypothesisKey,
-      variantKey:ranked[0].variantKey??null,
-      market:ranked[0].market,
-      candidate:ranked[0].candidate,
-      status:ranked[0].status,
-      researchScore:ranked[0].researchScore,
-      sentinelCritique:sentinelCritique(ranked[0])
-    }:null,
-    queue:queue.slice(0,24)
+    ok:true,version:'edge_hypothesis_generator_v2_balanced',mode:'RESEARCH_ONLY',paperOnly:true,liveOrders:false,executionAuthority:false,capitalEligible:false,completedAt:new Date().toISOString(),
+    methodology:{selectionUsesHoldout:false,balancedNeighborhood:true,parentControl:true},sourceVerdict:edge.verdict,queueSize:queue.length,
+    focus:ranked[0]?{hypothesisKey:ranked[0].hypothesisKey,variantKey:ranked[0].variantKey??null,market:ranked[0].market,candidate:ranked[0].candidate,status:ranked[0].status,researchScore:ranked[0].researchScore,sentinelCritique:sentinelCritique(ranked[0])}:null,
+    queue:queue.slice(0,30)
   };
-  await mkdir(dirname(out),{recursive:true});
-  await writeFile(out,JSON.stringify(snapshot,null,2)+'\n');
-  await appendFile(history,JSON.stringify(snapshot)+'\n');
-  console.log(JSON.stringify({ok:true,queueSize:snapshot.queueSize,focus:snapshot.focus?.hypothesisKey??null}));
+  await mkdir(dirname(out),{recursive:true});await writeFile(out,JSON.stringify(snapshot,null,2)+'\n');await appendFile(history,JSON.stringify(snapshot)+'\n');
+  console.log(JSON.stringify({ok:true,queueSize:snapshot.queueSize,focus:snapshot.focus?.hypothesisKey??null,selectionUsesHoldout:false}));
 }
-
 main().catch(e=>{console.error(e);process.exitCode=1;});
