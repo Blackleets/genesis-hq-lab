@@ -13,6 +13,7 @@ import { PositionsTable } from './PositionsTable';
 import { ExecutionTable } from './ExecutionTable';
 import { DeskStatusRail } from './DeskStatusRail';
 import { ResearchOpportunitySurface } from './ResearchOpportunitySurface';
+import { ChallengerEvidencePanel } from './ChallengerEvidencePanel';
 import { ConnectorRack } from './ConnectorRack';
 import { ProfitEngineRail } from './ProfitEngineRail';
 import './tradingWorkspace.css';
@@ -20,6 +21,7 @@ import './workstationV2.css';
 import './workstationV2Refinement.css';
 import './exchangeLayout.css';
 import './founderCommandBar.css';
+import './challengerEvidence.css';
 
 const StrategyPanel = lazy(() => import('./StrategyPanel').then((module) => ({ default: module.StrategyPanel })));
 const EconomicTruthPanel = lazy(() => import('./EconomicTruthPanel').then((module) => ({ default: module.EconomicTruthPanel })));
@@ -77,7 +79,7 @@ function TradingWorkspaceContent() {
           <span>PAPER · CAPITAL REAL BLOQUEADO</span>
         </nav>
         <div className="desk-terminal__content">
-          {tab === 'research' ? <ResearchOpportunitySurface onOpenResearch={() => showTab('strategies')} /> : null}
+          {tab === 'research' ? <><ResearchOpportunitySurface onOpenResearch={() => showTab('strategies')} /><ChallengerEvidencePanel /></> : null}
           {tab === 'connections' ? <ConnectorRack /> : null}
           {tab === 'engine' ? <EngineTelemetry /> : null}
           {tab === 'risk' ? <RiskPanel /> : null}
