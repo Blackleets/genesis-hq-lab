@@ -85,10 +85,10 @@ export function FounderCommandBar({ onOpen }: { onOpen: (view: CommandView) => v
     || truth.data?.founderMode?.goal?.trim()
     || 'Prove repeatable paper edge before capital cutover';
   const priority = buildPriority({ runnerVerified, riskBand, activeFlags, edgeStatus, economicPnl });
-  const cutoverReady = founder.state === 'ready' && founder.data?.cutover.canExecute === true;
+  const externalCutoverReady = founder.state === 'ready' && founder.data?.readiness === 'READY_FOR_EXTERNAL_CUTOVER';
   const cutoverLocked = founder.state === 'ready' && founder.data?.cutover.canExecute === false;
-  const capitalLabel = cutoverLocked ? 'LOCKED' : cutoverReady ? 'CUTOVER READY' : 'NOT VERIFIED';
-  const capitalTone: CommandTone = cutoverLocked ? 'good' : cutoverReady ? 'watch' : 'bad';
+  const capitalLabel = externalCutoverReady ? 'EXTERNAL REVIEW READY' : cutoverLocked ? 'LOCKED' : 'NOT VERIFIED';
+  const capitalTone: CommandTone = externalCutoverReady ? 'watch' : cutoverLocked ? 'good' : 'bad';
 
   return (
     <section className="founder-command-bar" aria-label="Founder command layer">
