@@ -9,6 +9,7 @@ on:
     paths:
       - 'server/genesis/runEdgeFactoryFast.mjs'
       - 'server/genesis/generateEdgeHypotheses.mjs'
+      - 'server/genesis/runAdaptiveEdgeLoop.mjs'
       - '.github/workflows/edge-factory.yml'
 
 permissions:
@@ -34,6 +35,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
+      - name: Test previous adaptive hypothesis queue
+        run: |
+          node server/genesis/runAdaptiveEdgeLoop.mjs \
+            --queue tape/quant-evidence/edge-hypotheses-latest.json \
+            --out tape/quant-evidence/edge-adaptive-latest.json \
+            --history tape/quant-evidence/edge-adaptive-history.jsonl
       - name: Run fast selective edge factory
         run: |
           node server/genesis/runEdgeFactoryFast.mjs \
@@ -50,17 +57,17 @@ jobs:
             --history tape/quant-evidence/edge-hypotheses-history.jsonl
       - name: Verify capital boundary
         run: |
-          node -e "for (const p of ['./tape/quant-evidence/edge-factory-latest.json','./tape/quant-evidence/edge-learning-latest.json','./tape/quant-evidence/edge-hypotheses-latest.json']) { const x=require(p); if(x.paperOnly!==true||x.liveOrders!==false||x.executionAuthority!==false||x.capitalEligible!==false) process.exit(1) }"
+          node -e "for (const p of ['./tape/quant-evidence/edge-adaptive-latest.json','./tape/quant-evidence/edge-factory-latest.json','./tape/quant-evidence/edge-learning-latest.json','./tape/quant-evidence/edge-hypotheses-latest.json']) { const x=require(p); if(x.paperOnly!==true||x.liveOrders!==false||x.executionAuthority!==false||x.capitalEligible!==false) process.exit(1) }"
       - name: Publish edge evidence
         working-directory: tape
         run: |
           git config user.name "genesis-edge-factory"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f quant-evidence/edge-factory-latest.json quant-evidence/edge-factory-history.jsonl quant-evidence/edge-learning-latest.json quant-evidence/edge-learning-history.jsonl quant-evidence/edge-hypotheses-latest.json quant-evidence/edge-hypotheses-history.jsonl
+          git add -f quant-evidence/edge-adaptive-latest.json quant-evidence/edge-adaptive-history.jsonl quant-evidence/edge-factory-latest.json quant-evidence/edge-factory-history.jsonl quant-evidence/edge-learning-latest.json quant-evidence/edge-learning-history.jsonl quant-evidence/edge-hypotheses-latest.json quant-evidence/edge-hypotheses-history.jsonl
           if git diff --staged --quiet; then
             echo "no edge evidence change"
             exit 0
           fi
-          git commit -m "edge factory learning loop $(date -u +%Y-%m-%dT%H:%MZ)"
+          git commit -m "edge factory adaptive loop $(date -u +%Y-%m-%dT%H:%MZ)"
           git pull --rebase origin capture-tape
           git push origin HEAD:capture-tape
