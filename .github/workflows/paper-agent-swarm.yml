@@ -2,8 +2,8 @@ name: paper-agent-swarm
 
 # Autonomous PAPER-only agent review of the verified capture tape.
 # It never calls the trading runner, never sends an order, and never unlocks capital.
-# GPT is selected with GENESIS_PAPER_AGENT_PROVIDER=openai. NVIDIA remains available
-# as a separately configured provider without changing execution authority.
+# OpenAI remains configured but is currently quota-blocked; NVIDIA Kimi K3 is the
+# active free PAPER reasoning provider until GPT API credits are available.
 
 on:
   schedule:
@@ -24,7 +24,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GENESIS_PAPER_AGENT_PROVIDER: ${{ vars.GENESIS_PAPER_AGENT_PROVIDER }}
+  GENESIS_PAPER_AGENT_PROVIDER: nvidia
+  NVIDIA_MODEL: moonshotai/kimi-k3
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
   NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
   ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
