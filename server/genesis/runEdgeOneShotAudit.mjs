@@ -21,7 +21,9 @@ function auditPass(m){return m.trades>=8&&(m.expectancyBps??-999)>0&&(m.profitFa
 async function main(){
   const adaptivePath=arg('--adaptive','quant-evidence/edge-adaptive-latest.json'),ledgerPath=arg('--ledger','quant-evidence/edge-audit-ledger.json'),out=arg('--out','quant-evidence/edge-audit-latest.json'),history=arg('--history','quant-evidence/edge-audit-history.jsonl');
   const adaptive=JSON.parse(await readFile(adaptivePath,'utf8'));if(adaptive.paperOnly!==true||adaptive.liveOrders!==false||adaptive.executionAuthority!==false||adaptive.capitalEligible!==false)throw new Error('adaptive_boundary_unverified');
+  const priorSnapshot=await readJson(out,null);
   const ledger=await readJson(ledgerPath,{version:'edge_audit_ledger_v2',auditedIds:[],passedCandidates:{}});ledger.version='edge_audit_ledger_v2';ledger.auditedIds=ledger.auditedIds??[];ledger.passedCandidates=ledger.passedCandidates??{};
+  for(const r of priorSnapshot?.results??[]){if(r?.status==='PAPER_RESEARCH_CANDIDATE'&&r.id&&!ledger.passedCandidates[r.id])ledger.passedCandidates[r.id]={...r,migratedFromPriorSnapshot:true};}
   const audited=new Set(ledger.auditedIds),incoming=(adaptive.auditQueue??[]).filter(x=>!audited.has(x.id)).slice(0,3),results=[];
   if(incoming.length){
     const keys=[...new Set(incoming.map(x=>`${x.market.pair}:${x.market.tf}`))],datasets=new Map();
@@ -32,7 +34,7 @@ async function main(){
       results.push(result);audited.add(item.id);if(pass)ledger.passedCandidates[item.id]=result;
     }
   }
-  const passed=results.filter(x=>x.status==='PAPER_RESEARCH_CANDIDATE'),snapshot={ok:true,version:'edge_one_shot_audit_v2_registry',mode:'RESEARCH_ONLY',paperOnly:true,liveOrders:false,executionAuthority:false,capitalEligible:false,completedAt:new Date().toISOString(),methodology:{oneShot:true,holdoutStart:HOLDOUT,gate:{minTrades:8,minExpectancyBps:0,minProfitFactor:1.1,minTStat:.75,maxDrawdownPct:12},durablePassedRegistry:true},sourceAdaptiveCompletedAt:adaptive.completedAt??null,newAudits:results.length,passed:passed.length,totalPassedRegistered:Object.keys(ledger.passedCandidates).length,verdict:passed.length?'PAPER_RESEARCH_CANDIDATE_FOUND':results.length?'AUDIT_REJECTED':'NO_NEW_AUDIT_CANDIDATES',results};
+  const passed=results.filter(x=>x.status==='PAPER_RESEARCH_CANDIDATE'),snapshot={ok:true,version:'edge_one_shot_audit_v2_registry',mode:'RESEARCH_ONLY',paperOnly:true,liveOrders:false,executionAuthority:false,capitalEligible:false,completedAt:new Date().toISOString(),methodology:{oneShot:true,holdoutStart:HOLDOUT,gate:{minTrades:8,minExpectancyBps:0,minProfitFactor:1.1,minTStat:.75,maxDrawdownPct:12},durablePassedRegistry:true,migratePriorPassed:true},sourceAdaptiveCompletedAt:adaptive.completedAt??null,newAudits:results.length,passed:passed.length,totalPassedRegistered:Object.keys(ledger.passedCandidates).length,verdict:passed.length?'PAPER_RESEARCH_CANDIDATE_FOUND':results.length?'AUDIT_REJECTED':'NO_NEW_AUDIT_CANDIDATES',results};
   ledger.updatedAt=snapshot.completedAt;ledger.auditedIds=[...audited];await mkdir(dirname(out),{recursive:true});await writeFile(out,JSON.stringify(snapshot,null,2)+'\n');await appendFile(history,JSON.stringify(snapshot)+'\n');await writeFile(ledgerPath,JSON.stringify(ledger,null,2)+'\n');console.log(JSON.stringify({ok:true,verdict:snapshot.verdict,newAudits:snapshot.newAudits,passed:snapshot.passed,totalPassedRegistered:snapshot.totalPassedRegistered}));
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});
