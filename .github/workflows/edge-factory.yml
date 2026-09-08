@@ -1,0 +1,56 @@
+name: Edge Factory
+
+on:
+  schedule:
+    - cron: '43 */6 * * *'
+  workflow_dispatch:
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - 'server/genesis/runEdgeFactory.mjs'
+      - '.github/workflows/edge-factory.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: edge-factory-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Checkout Genesis HQ
+        uses: actions/checkout@v4
+      - name: Checkout durable evidence tape
+        uses: actions/checkout@v4
+        with:
+          ref: capture-tape
+          path: tape
+      - name: Configure Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Run selective edge factory
+        run: |
+          node server/genesis/runEdgeFactory.mjs \
+            --out tape/quant-evidence/edge-factory-latest.json \
+            --history tape/quant-evidence/edge-factory-history.jsonl
+      - name: Verify capital boundary
+        run: |
+          node -e "const x=require('./tape/quant-evidence/edge-factory-latest.json'); if(x.paperOnly!==true||x.liveOrders!==false||x.executionAuthority!==false||x.capitalEligible!==false) process.exit(1)"
+      - name: Publish edge evidence
+        working-directory: tape
+        run: |
+          git config user.name "genesis-edge-factory"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f quant-evidence/edge-factory-latest.json quant-evidence/edge-factory-history.jsonl
+          if git diff --staged --quiet; then
+            echo "no edge evidence change"
+            exit 0
+          fi
+          git commit -m "edge factory $(date -u +%Y-%m-%dT%H:%MZ)"
+          git pull --rebase origin capture-tape
+          git push origin HEAD:capture-tape
