@@ -1,0 +1,156 @@
+/* Exchange composition: same desk provider and trading contracts, readable surfaces. */
+.genesis-exchange {
+  --genesis-carbon: #08090b;
+  --genesis-carbon-2: #101216;
+  --genesis-carbon-3: #171a20;
+  --genesis-ivory: #f4f5f7;
+  --genesis-hairline: #25282e;
+  --genesis-gold: #d8bc78;
+  grid-template-rows: 64px minmax(420px, 1fr) auto 260px 42px;
+  background: #08090b;
+  overflow-y: auto;
+}
+.genesis-exchange::before { display: none; }
+.genesis-exchange button { cursor: pointer; }
+.genesis-exchange button:focus-visible { outline: 2px solid #d8bc78; outline-offset: -3px; }
+.genesis-exchange .trading-header { background: #0c0e11; box-shadow: none; border-color: #25282e; }
+.genesis-exchange .trading-header__name strong { font: 750 17px/1.2 Inter, sans-serif; letter-spacing: .01em; }
+.genesis-exchange .trading-header__name span { font-size: 10px; }
+.genesis-exchange .trading-header__desk-button,
+.genesis-exchange .trading-header__control,
+.genesis-exchange .trading-header__live { min-height: 40px; border-radius: 20px; font: 650 11px/1.2 Inter, sans-serif; }
+.genesis-exchange .trading-header__refresh { width: 40px; height: 40px; border-radius: 50%; }
+.genesis-exchange .trading-status strong { font-size: 11px; }
+.genesis-exchange .trading-status span:not(.trading-status__dot) { font-size: 9px; color: #a1a6b1; }
+.genesis-exchange .trading-workspace__body { grid-template-columns: 210px minmax(0, 1fr) 290px; background: #08090b; }
+.genesis-exchange .trading-workspace__right { display: block; overflow-y: auto; background: #101216; }
+.genesis-exchange .trading-workspace__right > * { background: transparent; }
+.genesis-exchange .terminal-panel-head { min-height: 44px; background: #101216; }
+.genesis-exchange .terminal-panel-head span { font: 650 13px/1.2 Inter, sans-serif; letter-spacing: 0; }
+.genesis-exchange .terminal-panel-head small { font-size: 10px; color: #979da8; }
+.genesis-exchange .telemetry-list dt,
+.genesis-exchange .telemetry-list dd { font-size: 12px; line-height: 1.5; }
+.genesis-exchange .telemetry-list div { min-height: 30px; }
+.genesis-exchange .engine-telemetry__cycle { gap: 8px; grid-template-columns: repeat(2, 1fr); }
+.genesis-exchange .engine-telemetry__cycle span { font-size: 10px; }
+.genesis-exchange .engine-telemetry__cycle strong { font-size: 13px; overflow-wrap: anywhere; }
+.genesis-exchange .market-watchlist { background: #0c0e11; }
+.genesis-exchange .market-watchlist__row { padding: 16px 12px; }
+.genesis-exchange .market-watchlist__primary strong,
+.genesis-exchange .market-watchlist__primary b { font-size: 13px; }
+.genesis-exchange .market-watchlist__secondary > span:first-child { font-size: 12px; }
+.genesis-exchange .market-watchlist__secondary > span:last-child { font-size: 9px; }
+.genesis-exchange .market-chart { background: #08090b; grid-template-rows: 84px minmax(0, 1fr) 30px; }
+.genesis-exchange .market-chart__toolbar { background: #0c0e11; gap: 10px; grid-template-columns: 1fr auto; grid-template-rows: auto auto; padding: 10px 16px; }
+.genesis-exchange .market-chart__instrument strong { font: 750 20px/1.2 Inter, sans-serif; }
+.genesis-exchange .market-chart__instrument span,
+.genesis-exchange .market-chart__instrument i { font-size: 9px; }
+.genesis-exchange .market-chart__instrument i.is-bot-active { color: #86efac; }
+.genesis-exchange .market-chart__quote { grid-column: 2; grid-row: 1 / 3; }
+.genesis-exchange .market-chart__quote strong { font: 750 27px/1.2 Inter, sans-serif; letter-spacing: -.03em; }
+.genesis-exchange .market-chart__quote span { font-size: 13px; }
+.genesis-exchange .market-chart__timeframes { grid-row: 2; width: max-content; border: 0; gap: 4px; }
+.genesis-exchange .market-chart__timeframes button { min-width: 44px; min-height: 32px; border: 0; border-radius: 20px; background: transparent; font: 600 12px/1 Inter, sans-serif; }
+.genesis-exchange .market-chart__timeframes button.is-active { background: #282b31; color: #fff; box-shadow: none; }
+.genesis-exchange .market-chart__state { display: none; }
+.genesis-exchange .market-chart__canvas::after { display: none; }
+.genesis-exchange .market-chart__provenance { background: #0c0e11; }
+.genesis-exchange .market-chart__provenance span,
+.genesis-exchange .market-chart__provenance strong { font-size: 9px; color: #979da8; }
+.genesis-exchange .desk-terminal { background: #0c0e11; min-height: 250px; grid-template-rows: 48px minmax(0, 1fr); }
+.profit-engine-rail { display: grid; grid-template-columns: 176px minmax(0, 1fr); min-height: 78px; border-top: 1px solid #25282e; border-bottom: 1px solid #25282e; background: #0c0e11; }
+.profit-engine-rail__title { display: grid; align-content: center; gap: 6px; padding: 12px 16px; border-right: 1px solid #25282e; }
+.profit-engine-rail__title span { font: 650 10px/1 Inter, sans-serif; letter-spacing: .08em; color: #d8bc78; }
+.profit-engine-rail__title strong { font: 700 11px/1.2 Inter, sans-serif; color: #f5a3a3; }
+.profit-engine-rail__flow { min-width: 0; display: grid; grid-template-columns: repeat(5, minmax(135px, 1fr)); overflow-x: auto; }
+.profit-engine-rail__gate { min-width: 135px; display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: center; gap: 7px; padding: 10px 12px; border: 0; border-right: 1px solid #25282e; background: transparent; text-align: left; color: #8f96a1; }
+.profit-engine-rail__gate:hover { background: #14161a; }
+.profit-engine-rail__gate > span:last-child { min-width: 0; display: grid; gap: 4px; }
+.profit-engine-rail__gate small { font: 600 8px/1 Inter, sans-serif; letter-spacing: .06em; color: #727985; }
+.profit-engine-rail__gate strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 11px/1 Inter, sans-serif; color: #e4e7eb; }
+.profit-engine-rail__gate i { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 8px/1 Inter, sans-serif; font-style: normal; color: #777f8b; }
+.profit-engine-rail__icon { width: 27px; height: 27px; display: grid; place-items: center; border: 1px solid #343941; border-radius: 50%; }
+.profit-engine-rail__gate.is-ready .profit-engine-rail__icon, .profit-engine-rail__gate.is-ready strong { color: #86efac; border-color: #28543a; }
+.profit-engine-rail__gate.is-watch .profit-engine-rail__icon, .profit-engine-rail__gate.is-watch strong { color: #f5d58a; border-color: #554724; }
+.profit-engine-rail__gate.is-blocked .profit-engine-rail__icon, .profit-engine-rail__gate.is-blocked strong { color: #f5a3a3; border-color: #593034; }
+.genesis-exchange .desk-terminal__tabs { overflow-x: auto; background: #0c0e11; }
+.genesis-exchange .desk-terminal__tabs::before { display: none; }
+.genesis-exchange .desk-terminal__tabs button { flex-shrink: 0; min-height: 48px; padding: 0 16px; font: 650 13px/1 Inter, sans-serif; color: #9ea4ae; border: 0; }
+.genesis-exchange .desk-terminal__tabs button.is-active { color: #f4f5f7; background: transparent; box-shadow: inset 0 -3px #d8bc78; }
+.genesis-exchange .desk-terminal__tabs > span { display: none; }
+.genesis-exchange .desk-terminal__content { overflow: auto; }
+.genesis-exchange .terminal-empty { min-height: 130px; font: 500 12px/1.5 Inter, sans-serif; color: #a1a6b1; }
+.genesis-exchange .trading-table { font-size: 12px; }
+.genesis-exchange .trading-table th { font-size: 11px; height: 40px; }
+.genesis-exchange .trading-table td { height: 42px; }
+.genesis-exchange .desk-status-rail { background: #0c0e11; }
+.genesis-exchange .desk-status-rail__metric span { font-size: 9px; color: #979da8; }
+.genesis-exchange .desk-status-rail__metric strong { font-size: 10px; }
+.genesis-exchange .agent-bar { height: auto; min-height: 190px; }
+.genesis-exchange .agent-card { min-width: 145px; padding: 12px; }
+.genesis-exchange .agent-card > div strong { font-size: 13px; }
+.genesis-exchange .agent-card > div span,
+.genesis-exchange .agent-card__state,
+.genesis-exchange .agent-card p { font-size: 11px; line-height: 1.5; }
+.genesis-exchange .agent-card--active { box-shadow: inset 0 2px #34d399; }
+.genesis-exchange .agent-card--active .agent-card__state { color: #86efac; }
+.genesis-exchange .agent-card--watch { box-shadow: inset 0 2px #d8bc78; }
+.genesis-exchange .agent-card--watch .agent-card__state { color: #f5d58a; }
+.genesis-exchange .connector-rack { min-height: 185px; }
+.genesis-exchange .connector-rack__identity strong { font-size: 12px; }
+.genesis-exchange .connector-rack__identity small,
+.genesis-exchange .connector-rack__meta span,
+.genesis-exchange .connector-rack__meta b,
+.genesis-exchange .connector-rack__foot { font-size: 10px; }
+@media (max-width: 1100px) and (min-width: 781px) {
+  .genesis-exchange .trading-workspace__body { grid-template-columns: 175px minmax(0, 1fr) 240px; }
+  .genesis-exchange .trading-header__telemetry { display: none; }
+  .genesis-exchange .trading-header { grid-template-columns: 1fr auto; }
+}
+@media (max-width: 780px) {
+  .genesis-exchange { display: block; background: #08090b; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .genesis-exchange .trading-header { height: 64px; background: #08090b; }
+  .genesis-exchange .trading-header__identity { padding-left: 16px; }
+  .genesis-exchange .trading-header__name strong { font-size: 16px; }
+  .genesis-exchange .trading-header__live { min-height: 36px; font-size: 10px; padding: 0 10px; }
+  .genesis-exchange .market-selector-mobile { position: static; background: #08090b; }
+  .genesis-exchange .market-selector-mobile__track { gap: 8px; padding: 12px 16px; }
+  .genesis-exchange .market-selector-mobile__item { width: 145px; padding: 12px; border: 1px solid #25282e; border-radius: 12px; background: #14161a; }
+  .genesis-exchange .market-selector-mobile__item.is-active { border-color: #d8bc78; box-shadow: none; }
+  .genesis-exchange .market-chart { grid-template-rows: 136px clamp(280px, 43dvh, 410px) 32px; height: auto; }
+  .genesis-exchange .market-chart__toolbar { padding: 16px; gap: 8px; grid-template-rows: auto auto 40px; background: #08090b; }
+  .genesis-exchange .market-chart__instrument { grid-column: 1 / -1; grid-row: 1; display: flex; flex-wrap: wrap; gap: 8px; }
+  .genesis-exchange .market-chart__instrument strong { font-size: 21px; }
+  .genesis-exchange .market-chart__instrument i { display: none; }
+  .genesis-exchange .market-chart__quote { grid-column: 1 / -1; grid-row: 2; justify-self: start; display: flex; align-items: baseline; gap: 14px; text-align: left; }
+  .genesis-exchange .market-chart__quote strong { font-size: 32px; }
+  .genesis-exchange .market-chart__timeframes { grid-column: 1 / -1; grid-row: 3; }
+  .genesis-exchange .market-chart__timeframes button { min-height: 40px; min-width: 52px; font-size: 14px; }
+  .genesis-exchange .market-chart__legend { bottom: 28px; border: 0; padding: 4px 6px; }
+  .genesis-exchange .market-chart__legend b { display: none; }
+  .genesis-exchange .market-chart__legend span { font-size: 9px; }
+  .genesis-exchange .trading-workspace__right,
+  .genesis-exchange .trading-workspace__mobile-position { display: none; }
+  .genesis-exchange .desk-terminal { min-height: 290px; grid-template-rows: 52px minmax(238px, auto); }
+  .profit-engine-rail { grid-template-columns: 1fr; margin-top: 10px; }
+  .profit-engine-rail__title { grid-template-columns: 1fr auto; align-items: center; border-right: 0; border-bottom: 1px solid #25282e; }
+  .profit-engine-rail__flow { grid-template-columns: repeat(5, 152px); }
+  .genesis-exchange .desk-terminal__tabs button { font-size: 14px; padding: 0 16px; }
+  .genesis-exchange .desk-status-rail { margin-top: 16px; }
+  .genesis-exchange .trading-mobile-nav { height: calc(70px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom); background: #101216; border-top: 1px solid #25282e; }
+  .genesis-exchange .trading-mobile-nav button { border: 0; font: 550 10px/1.2 Inter, sans-serif; color: #a1a6b1; gap: 7px; }
+  .genesis-exchange .trading-mobile-nav button svg { width: 22px; height: 22px; }
+  .genesis-exchange .trading-mobile-nav button:first-child { color: #d8bc78; }
+}
+
+.genesis-exchange .coin-logo { width: 30px; height: 30px; flex: 0 0 30px; object-fit: contain; }
+.genesis-exchange .coin-identity { display: flex; align-items: center; gap: 9px; }
+.genesis-exchange .market-watchlist__primary { grid-template-columns: minmax(0, 1fr) auto; }
+.genesis-exchange .market-watchlist__primary > svg { display: none; }
+.genesis-exchange .market-watchlist__primary .coin-identity__name { display: grid; margin: 0; gap: 4px; color: #f4f5f7; font: 650 13px/1.2 Inter, sans-serif; }
+.genesis-exchange .coin-identity__name small { font: 500 10px/1 Inter, sans-serif; color: #989faa; }
+.genesis-exchange .market-chart__instrument .coin-logo { width: 36px; height: 36px; flex-basis: 36px; }
+@media (max-width: 780px) {
+  .genesis-exchange .market-selector-mobile__item { width: 174px; }
+  .genesis-exchange .market-selector-mobile .coin-logo { width: 26px; height: 26px; flex-basis: 26px; }
+}

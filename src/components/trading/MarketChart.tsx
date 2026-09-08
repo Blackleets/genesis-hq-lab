@@ -1,3 +1,4 @@
+import { CoinLogo } from './CoinLogo';
 import { useMemo } from 'react';
 import { Activity, WifiOff } from 'lucide-react';
 import QuantChart, { type ChartTrade } from '@workflows/QuantChart';
@@ -10,6 +11,8 @@ export function MarketChart({ positionOverlay = true }: { positionOverlay?: bool
   const { symbol, timeframe, setTimeframe, market } = useMarketData();
   const executions = useExecutions();
   const positions = usePaperPositions();
+  const symbolPositions = (positions.data ?? []).filter((trade) => trade.pair === symbol);
+  const symbolExecutions = (executions.data ?? []).filter((trade) => trade.pair === symbol && trade.status === 'closed');
   const trades = useMemo<ChartTrade[]>(() => {
     const byId = new Map([...(executions.data ?? []), ...(positions.data ?? [])].map((trade) => [trade.id, trade]));
     return [...byId.values()].filter((trade) => trade.pair === symbol && trade.openedAt && trade.entryPrice != null).map((trade) => ({
@@ -33,9 +36,9 @@ export function MarketChart({ positionOverlay = true }: { positionOverlay?: bool
     <section className="market-chart" aria-label="Main trading chart" data-source="MARKET DATA">
       <div className="market-chart__toolbar">
         <div className="market-chart__instrument">
-          <strong>{symbol.replace('USDT', '/USDT')}</strong>
+          <strong className="coin-identity"><CoinLogo symbol={symbol} />{symbol.replace('USDT', '/USDT')}</strong>
           <span>BINANCE SPOT REFERENCE</span>
-          <i>PAPER FUTURES OVERLAY</i>
+          <i className={symbolPositions.length ? 'is-bot-active' : ''}>{symbolPositions.length ? `BOT ACTIVE · ${symbolPositions.length} OPEN` : `${symbolExecutions.length} BOT TRADES · PAPER OVERLAY`}</i>
         </div>
         <div className="market-chart__timeframes" aria-label="Chart timeframe">
           {TRADING_TIMEFRAMES.map((item) => <button key={item} type="button" onClick={() => setTimeframe(item)} className={timeframe === item ? 'is-active' : ''} aria-pressed={timeframe === item}>{item}</button>)}

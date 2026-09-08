@@ -13,24 +13,30 @@ import { ExecutionTable } from './ExecutionTable';
 import { DeskStatusRail } from './DeskStatusRail';
 import { ResearchOpportunitySurface } from './ResearchOpportunitySurface';
 import { ConnectorRack } from './ConnectorRack';
+import { ProfitEngineRail } from './ProfitEngineRail';
 import './tradingWorkspace.css';
 import './workstationV2.css';
 import './workstationV2Refinement.css';
+import './exchangeLayout.css';
 
 const StrategyPanel = lazy(() => import('./StrategyPanel').then((module) => ({ default: module.StrategyPanel })));
 const EconomicTruthPanel = lazy(() => import('./EconomicTruthPanel').then((module) => ({ default: module.EconomicTruthPanel })));
 const AgentBar = lazy(() => import('./AgentBar').then((module) => ({ default: module.AgentBar })));
 const ControlDrawer = lazy(() => import('./ControlDrawer').then((module) => ({ default: module.ControlDrawer })));
 
-type TerminalTab = 'positions' | 'executions' | 'decisions' | 'strategies' | 'truth' | 'agents';
+type TerminalTab = 'positions' | 'executions' | 'decisions' | 'strategies' | 'truth' | 'agents' | 'research' | 'connections' | 'risk' | 'engine';
 
 const TABS: Array<{ id: TerminalTab; label: string }> = [
-  { id: 'positions', label: 'POSITIONS' },
-  { id: 'executions', label: 'EXECUTIONS' },
-  { id: 'decisions', label: 'DECISIONS' },
-  { id: 'strategies', label: 'STRATEGIES' },
-  { id: 'truth', label: 'TRUTH' },
-  { id: 'agents', label: 'AGENTS' },
+  { id: 'positions', label: 'Posiciones' },
+  { id: 'executions', label: 'Operaciones' },
+  { id: 'decisions', label: 'Decisiones' },
+  { id: 'strategies', label: 'Estrategias' },
+  { id: 'truth', label: 'Resultados' },
+  { id: 'agents', label: 'Agentes' },
+  { id: 'research', label: 'Investigación' },
+  { id: 'connections', label: 'Conexiones' },
+  { id: 'risk', label: 'Riesgo' },
+  { id: 'engine', label: 'Motor' },
 ];
 
 function LoadingPanel() {
@@ -47,7 +53,7 @@ function TradingWorkspaceContent() {
   };
 
   return (
-    <main className="trading-workspace genesis-workstation-v2" data-ui="genesis-workstation-v2">
+    <main className="trading-workspace genesis-workstation-v2 genesis-exchange" data-ui="genesis-workstation-v2">
       <TradingHeader onControl={() => setControlOpen(true)} />
       <MarketWatchlist mobile />
       <div className="trading-workspace__body">
@@ -61,28 +67,17 @@ function TradingWorkspaceContent() {
         <div className="trading-workspace__mobile-position"><ActivePosition /></div>
       </div>
 
-      <DeskStatusRail />
-      <ResearchOpportunitySurface onOpenResearch={() => showTab('strategies')} />
-
-      <div className="genesis-operations-floor" id="desk-agent-floor">
-        <section className="genesis-agent-dock" aria-label="Genesis agent floor">
-          <div className="genesis-agent-dock__label">
-            <span>AGENT FLOOR</span>
-            <small>FOUNDER-CONTRACT STATES · NO SIMULATED ACTIVITY</small>
-          </div>
-          <div className="genesis-agent-dock__surface">
-            <Suspense fallback={<LoadingPanel />}><AgentBar /></Suspense>
-          </div>
-        </section>
-        <ConnectorRack />
-      </div>
-
+      <ProfitEngineRail onOpen={showTab} />
       <section id="desk-terminal" className="desk-terminal" aria-label="Trading desk terminal">
-        <nav className="desk-terminal__tabs">
-          {TABS.map((item) => <button key={item.id} type="button" onClick={() => setTab(item.id)} className={tab === item.id ? 'is-active' : ''} aria-selected={tab === item.id}>{item.label}</button>)}
-          <span>REAL SOURCES ONLY</span>
+        <nav className="desk-terminal__tabs" aria-label="Vistas de operaciones">
+          {TABS.map((item) => <button key={item.id} type="button" onClick={() => setTab(item.id)} className={tab === item.id ? 'is-active' : ''} aria-pressed={tab === item.id}>{item.label}</button>)}
+          <span>PAPER · CAPITAL REAL BLOQUEADO</span>
         </nav>
         <div className="desk-terminal__content">
+          {tab === 'research' ? <ResearchOpportunitySurface onOpenResearch={() => showTab('strategies')} /> : null}
+          {tab === 'connections' ? <ConnectorRack /> : null}
+          {tab === 'engine' ? <EngineTelemetry /> : null}
+          {tab === 'risk' ? <RiskPanel /> : null}
           {tab === 'positions' ? <PositionsTable /> : null}
           {tab === 'executions' ? <ExecutionTable /> : null}
           {tab === 'decisions' ? <DecisionTape limit={8} /> : null}
@@ -91,12 +86,13 @@ function TradingWorkspaceContent() {
           {tab === 'agents' ? <Suspense fallback={<LoadingPanel />}><AgentBar /></Suspense> : null}
         </div>
       </section>
+      <DeskStatusRail />
       <nav className="trading-mobile-nav" aria-label="Mobile trading navigation">
-        <button type="button" onClick={() => document.getElementById('desk-chart')?.scrollIntoView({ behavior: 'smooth' })}><CandlestickChart size={15} />CHART</button>
-        <button type="button" onClick={() => showTab('positions')}><Target size={15} />POSITIONS</button>
-        <button type="button" onClick={() => showTab('executions')}><ListChecks size={15} />TRADES</button>
-        <button type="button" onClick={() => document.getElementById('desk-agent-floor')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}><Bot size={15} />AGENTS</button>
-        <button type="button" onClick={() => setControlOpen(true)}><Shield size={15} />CONTROL</button>
+        <button type="button" onClick={() => document.getElementById('desk-chart')?.scrollIntoView({ behavior: 'smooth' })}><CandlestickChart size={15} />Trading</button>
+        <button type="button" onClick={() => showTab('positions')}><Target size={15} />Posiciones</button>
+        <button type="button" onClick={() => showTab('executions')}><ListChecks size={15} />Operaciones</button>
+        <button type="button" onClick={() => showTab('agents')}><Bot size={15} />Agentes</button>
+        <button type="button" onClick={() => setControlOpen(true)}><Shield size={15} />Control</button>
       </nav>
       <Suspense fallback={null}><ControlDrawer open={controlOpen} onClose={closeControl} /></Suspense>
     </main>

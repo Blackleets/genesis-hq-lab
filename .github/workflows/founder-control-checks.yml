@@ -7,7 +7,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -16,7 +16,7 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - name: Readiness, HTTP and economic ledger regressions
-        run: node --test server/genesis/__tests__/founderReadiness.test.mjs server/genesis/__tests__/fundingTruthLedger.test.mjs
+        run: npx vitest run server/genesis/__tests__/founderReadiness.test.mjs server/genesis/__tests__/fundingTruthLedger.test.mjs
       - name: Cookie authentication and CSRF regressions
         run: npx vitest run api/auth/__tests__
       - name: TypeScript and production build

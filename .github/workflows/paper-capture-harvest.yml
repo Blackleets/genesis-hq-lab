@@ -2,12 +2,25 @@
 # so Vercel does not redeploy every tick. Never sends an order.
 # Path is paper-tape/ because /data/ is gitignored.
 name: paper-capture-harvest
+
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
+  # Re-arm the scheduled workflow and force one verified capture when this
+  # workflow definition is promoted to the default Genesis branch.
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - .github/workflows/paper-capture-harvest.yml
+
 permissions:
   contents: write
+
+concurrency:
+  group: paper-capture-harvest
+  cancel-in-progress: true
+
 jobs:
   harvest:
     runs-on: ubuntu-latest
