@@ -1,0 +1,52 @@
+name: Quant Challenger Fallback
+
+on:
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - 'server/genesis/runQuantChallengerFallback.mjs'
+      - 'supabase/functions/_shared/quant-challenger-core.mjs'
+      - '.github/workflows/quant-challenger-fallback.yml'
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: quant-challenger-fallback-v2
+  cancel-in-progress: false
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout canonical code
+        uses: actions/checkout@v4
+
+      - name: Checkout durable evidence tape
+        uses: actions/checkout@v4
+        with:
+          ref: capture-tape
+          path: tape
+
+      - name: Run qcl_v2 research-only tournament
+        run: |
+          node server/genesis/runQuantChallengerFallback.mjs \
+            --out tape/quant-evidence/qcl-v2-latest.json \
+            --history tape/quant-evidence/qcl-v2-history.jsonl
+
+      - name: Publish durable research evidence
+        working-directory: tape
+        run: |
+          git config user.name "genesis-quant-research"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f quant-evidence/qcl-v2-latest.json quant-evidence/qcl-v2-history.jsonl
+          if git diff --staged --quiet; then
+            echo "no research evidence change"
+            exit 0
+          fi
+          git commit -m "quant challenger v2 $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push
