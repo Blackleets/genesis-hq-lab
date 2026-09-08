@@ -58,7 +58,7 @@ function TradingWorkspaceContent() {
       <MarketWatchlist mobile />
       <div className="trading-workspace__body">
         <MarketWatchlist />
-        <div id="desk-chart" className="trading-workspace__chart"><MarketChart positionOverlay={false} /></div>
+        <div id="desk-chart" className="trading-workspace__chart"><MarketChart /></div>
         <div className="trading-workspace__right">
           <EngineTelemetry />
           <RiskPanel />
