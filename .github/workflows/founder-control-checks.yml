@@ -15,8 +15,8 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - name: Readiness, HTTP and economic ledger regressions
-        run: npx vitest run server/genesis/__tests__/founderReadiness.test.mjs server/genesis/__tests__/fundingTruthLedger.test.mjs
+      - name: Readiness, HTTP, economic ledger and quant regressions
+        run: npx vitest run server/genesis/__tests__/founderReadiness.test.mjs server/genesis/__tests__/fundingTruthLedger.test.mjs server/tests/quantChallengerCore.test.mjs
       - name: Cookie authentication and CSRF regressions
         run: npx vitest run api/auth/__tests__
       - name: TypeScript and production build
