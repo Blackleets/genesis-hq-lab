@@ -15,6 +15,7 @@ import { DeskStatusRail } from './DeskStatusRail';
 import { ResearchOpportunitySurface } from './ResearchOpportunitySurface';
 import { ChallengerEvidencePanel } from './ChallengerEvidencePanel';
 import { ProfitabilitySprintPanel } from './ProfitabilitySprintPanel';
+import { EdgeFactoryPanel } from './EdgeFactoryPanel';
 import { ConnectorRack } from './ConnectorRack';
 import { ProfitEngineRail } from './ProfitEngineRail';
 import './tradingWorkspace.css';
@@ -80,7 +81,7 @@ function TradingWorkspaceContent() {
           <span>PAPER · CAPITAL REAL BLOQUEADO</span>
         </nav>
         <div className="desk-terminal__content">
-          {tab === 'research' ? <><ProfitabilitySprintPanel /><ResearchOpportunitySurface onOpenResearch={() => showTab('strategies')} /><ChallengerEvidencePanel /></> : null}
+          {tab === 'research' ? <><EdgeFactoryPanel /><ProfitabilitySprintPanel /><ResearchOpportunitySurface onOpenResearch={() => showTab('strategies')} /><ChallengerEvidencePanel /></> : null}
           {tab === 'connections' ? <ConnectorRack /> : null}
           {tab === 'engine' ? <EngineTelemetry /> : null}
           {tab === 'risk' ? <RiskPanel /> : null}
