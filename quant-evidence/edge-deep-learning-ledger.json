@@ -1,5 +1,5 @@
 {
-  "version": "edge_deep_learning_ledger_v1",
+  "version": "edge_deep_learning_ledger_v2_multi_control",
   "paperOnly": true,
   "liveOrders": false,
   "executionAuthority": false,
@@ -124,7 +124,37 @@
           "pass": false
         }
       }
+    },
+    "failed_breakout:ETHUSDT:1h:ALL": {
+      "status": "DEEP_REJECTED",
+      "firstSeen": "2026-09-08T23:44:24.477Z",
+      "lastSeen": "2026-09-08T23:44:24.477Z",
+      "parentVariant": "failed_breakout:ETHUSDT:1h:ALL:p20:ta1:sa0.75:tb8",
+      "barsPerMarket": 12000,
+      "reason": "DEEP_TRAIN_NEGATIVE_AND_VALIDATION_OR_WF_WEAK",
+      "resetPolicy": "MATERIAL_REGIME_OR_CONTEXT_CHANGE",
+      "evidence": {
+        "train": {
+          "trades": 136,
+          "expectancyBps": -16.53,
+          "profitFactor": 0.701,
+          "tStat": -1.923,
+          "maxDrawdownPct": 25.1
+        },
+        "validation": {
+          "trades": 50,
+          "expectancyBps": -15.85,
+          "profitFactor": 0.666,
+          "tStat": -1.368,
+          "maxDrawdownPct": 10.49
+        },
+        "walkForward": {
+          "positiveFolds": 0,
+          "requiredPositiveFolds": 3,
+          "pass": false
+        }
+      }
     }
   },
-  "updatedAt": "2026-09-08T23:42:52.669Z"
+  "updatedAt": "2026-09-08T23:44:24.477Z"
 }
