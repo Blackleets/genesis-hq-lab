@@ -71,6 +71,33 @@ jobs:
             --out=tape/paper-tape/agent-swarm-latest.json \
             --jsonl=tape/paper-tape/agent-swarm.jsonl
 
+      - name: Verify PAPER boundary and LLM activation
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const snapshot = JSON.parse(readFileSync('tape/paper-tape/agent-swarm-latest.json', 'utf8'));
+          const boundaryOk = snapshot.paperOnly === true
+            && snapshot.liveOrders === false
+            && snapshot.executionAuthority === false
+            && snapshot.capitalEligible === false;
+          if (!boundaryOk) throw new Error('paper_swarm_boundary_failed');
+          const requested = String(process.env.GENESIS_PAPER_AGENT_PROVIDER || '').trim().toLowerCase();
+          if (requested === 'openai' && snapshot.llmActive !== true) {
+            const detail = (snapshot.errors || []).map((row) => `${row.agentId}:${row.error}`).join(' | ');
+            throw new Error(`openai_requested_but_llm_inactive ${detail}`);
+          }
+          console.log(JSON.stringify({
+            paperOnly: snapshot.paperOnly,
+            liveOrders: snapshot.liveOrders,
+            executionAuthority: snapshot.executionAuthority,
+            llmProvider: snapshot.llmProvider,
+            llmActive: snapshot.llmActive,
+            completedLlm: snapshot.totals?.completedLlm ?? 0,
+            fallback: snapshot.totals?.fallback ?? 0,
+            verdict: snapshot.final?.verdict ?? 'UNAVAILABLE',
+          }));
+          NODE
+
       - name: Publish agent evidence
         working-directory: tape
         run: |
