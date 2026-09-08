@@ -23,6 +23,7 @@ const CONC = 8;
 const TAPE_URL = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/capture-tape/paper-tape/capture-latest.json';
 const HZ1_URL = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/capture-tape/paper-tape/hz1-latest.json';
 const FUNDING_URL = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/capture-tape/paper-tape/funding-latest.json';
+const AGENT_SWARM_URL = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/capture-tape/paper-tape/agent-swarm-latest.json';
 
 async function loadHz1() {
   try {
@@ -144,6 +145,90 @@ async function loadTape() {
   }
 }
 
+function clipSwarmText(value, max = 2600) {
+  const text = typeof value === 'string' ? value.trim() : '';
+  if (!text) return null;
+  return text.length <= max ? text : `${text.slice(0, max)}…`;
+}
+
+async function loadAgentSwarm() {
+  try {
+    const r = await fetch(AGENT_SWARM_URL, { cache: 'no-store', signal: AbortSignal.timeout(2500) });
+    if (!r.ok) return null;
+    const j = await r.json();
+    const boundaryVerified = j?.paperOnly === true
+      && j?.liveOrders === false
+      && j?.executionAuthority === false
+      && j?.capitalEligible === false;
+    if (!boundaryVerified) return null;
+    const agents = Array.isArray(j.agents) ? j.agents.slice(0, 8).map((agent) => ({
+      id: typeof agent?.id === 'string' ? agent.id : 'unknown',
+      name: typeof agent?.name === 'string' ? agent.name : 'Unknown',
+      role: typeof agent?.role === 'string' ? agent.role : 'UNAVAILABLE',
+      status: typeof agent?.status === 'string' ? agent.status : 'unavailable',
+      engine: agent?.engine === 'llm' ? 'llm' : 'deterministic_guardrail',
+      provider: typeof agent?.provider === 'string' ? agent.provider : null,
+      model: typeof agent?.model === 'string' ? agent.model : null,
+      tokens: {
+        in: Number.isFinite(Number(agent?.tokens?.in)) ? Number(agent.tokens.in) : 0,
+        out: Number.isFinite(Number(agent?.tokens?.out)) ? Number(agent.tokens.out) : 0,
+      },
+      startedAt: typeof agent?.startedAt === 'string' ? agent.startedAt : null,
+      completedAt: typeof agent?.completedAt === 'string' ? agent.completedAt : null,
+      output: clipSwarmText(agent?.output),
+      error: clipSwarmText(agent?.error, 500),
+    })) : [];
+    const capture = j?.evidence?.capture ?? {};
+    const funding = j?.evidence?.funding ?? {};
+    return {
+      ok: true,
+      version: typeof j.version === 'string' ? j.version : 'unavailable',
+      updatedAt: typeof j.ts === 'string' ? j.ts : null,
+      paperOnly: true,
+      liveOrders: false,
+      executionAuthority: false,
+      capitalEligible: false,
+      source: 'github_capture_tape',
+      llmProvider: typeof j.llmProvider === 'string' ? j.llmProvider : null,
+      llmActive: j.llmActive === true,
+      providerConfigured: j.providerConfigured === true,
+      agents,
+      totals: {
+        agents: Number.isFinite(Number(j?.totals?.agents)) ? Number(j.totals.agents) : agents.length,
+        completedLlm: Number.isFinite(Number(j?.totals?.completedLlm)) ? Number(j.totals.completedLlm) : agents.filter((agent) => agent.engine === 'llm').length,
+        fallback: Number.isFinite(Number(j?.totals?.fallback)) ? Number(j.totals.fallback) : agents.filter((agent) => agent.engine !== 'llm').length,
+        tokens: {
+          in: Number.isFinite(Number(j?.totals?.tokens?.in)) ? Number(j.totals.tokens.in) : 0,
+          out: Number.isFinite(Number(j?.totals?.tokens?.out)) ? Number(j.totals.tokens.out) : 0,
+        },
+      },
+      final: {
+        verdict: typeof j?.final?.verdict === 'string' ? j.final.verdict : 'UNAVAILABLE',
+        blockers: Array.isArray(j?.final?.blockers) ? j.final.blockers.filter((item) => typeof item === 'string').slice(0, 8) : [],
+      },
+      evidence: {
+        capture: {
+          ts: capture.ts ?? null,
+          venue: capture.venue ?? null,
+          scored: Number.isFinite(Number(capture.scored)) ? Number(capture.scored) : null,
+          quoted: Number.isFinite(Number(capture.quoted)) ? Number(capture.quoted) : null,
+          reasons: Array.isArray(capture.reasons) ? capture.reasons.slice(0, 6) : [],
+        },
+        funding: {
+          ts: funding.ts ?? null,
+          economicPnlUsdt: Number.isFinite(Number(funding.economicPnlUsdt)) ? Number(funding.economicPnlUsdt) : null,
+          equityUsdt: Number.isFinite(Number(funding.equityUsdt)) ? Number(funding.equityUsdt) : null,
+          feesUsdt: Number.isFinite(Number(funding.feesUsdt)) ? Number(funding.feesUsdt) : null,
+          feeLock: funding.feeLock === true,
+          feeLockReason: typeof funding.feeLockReason === 'string' ? funding.feeLockReason : null,
+        },
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
 function clampLimit(n) {
   const x = Number.parseInt(String(n ?? DEFAULT_LIMIT), 10);
   if (!Number.isFinite(x) || x < 1) return DEFAULT_LIMIT;
@@ -240,6 +325,21 @@ function pendingRow(u) {
 export default async function handler(req, res) {
   if (req.method !== 'GET') return sendMethodNotAllowed(res);
   const url = new URL(req.url, `http://${req.headers.host}`);
+  if (url.searchParams.get('view') === 'agent-swarm') {
+    const agentSwarm = await loadAgentSwarm();
+    return sendJson(res, 200, agentSwarm ?? {
+      ok: false,
+      updatedAt: null,
+      paperOnly: true,
+      liveOrders: false,
+      executionAuthority: false,
+      capitalEligible: false,
+      source: 'github_capture_tape',
+      agents: [],
+      final: { verdict: 'UNAVAILABLE', blockers: [] },
+      error: 'paper_swarm_unavailable',
+    });
+  }
   const limit = clampLimit(url.searchParams.get('limit'));
   const emptyLedger = {
     paperBalanceUSDT: PAPER_CAPITAL,
