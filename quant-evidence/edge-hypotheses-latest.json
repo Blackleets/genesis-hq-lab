@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-08T23:42:13.426Z",
+  "completedAt": "2026-09-08T23:42:59.508Z",
   "methodology": {
     "selectionUsesHoldout": false,
     "balancedNeighborhood": true,
@@ -15,7 +15,7 @@
     "durableDeepMemory": true
   },
   "sourceVerdict": "INTERESTING_EDGE_FOUND",
-  "queueSize": 10,
+  "queueSize": 5,
   "deepOverrides": [
     {
       "hypothesisKey": "opening_range_breakout:BTCUSDT:1h:LONDON",
@@ -110,6 +110,40 @@
             "profitFactor": 0.4,
             "tStat": -3.923,
             "maxDrawdownPct": 10.24
+          },
+          "walkForward": {
+            "positiveFolds": 0,
+            "requiredPositiveFolds": 3,
+            "pass": false
+          }
+        }
+      }
+    },
+    {
+      "hypothesisKey": "volatility_squeeze:SOLUSDT:15m:ALL",
+      "action": "SUPPRESS_DEEP_REJECTED",
+      "ledger": {
+        "status": "DEEP_REJECTED",
+        "firstSeen": "2026-09-08T23:42:52.669Z",
+        "lastSeen": "2026-09-08T23:42:52.669Z",
+        "parentVariant": "volatility_squeeze:SOLUSDT:15m:ALL:p20:ta2:sa0.75:tb8",
+        "barsPerMarket": 12000,
+        "reason": "DEEP_TRAIN_NEGATIVE_AND_VALIDATION_OR_WF_WEAK",
+        "resetPolicy": "MATERIAL_REGIME_OR_CONTEXT_CHANGE",
+        "evidence": {
+          "train": {
+            "trades": 187,
+            "expectancyBps": -9.54,
+            "profitFactor": 0.637,
+            "tStat": -2.795,
+            "maxDrawdownPct": 18.18
+          },
+          "validation": {
+            "trades": 69,
+            "expectancyBps": -16.25,
+            "profitFactor": 0.275,
+            "tStat": -5.158,
+            "maxDrawdownPct": 11.21
           },
           "walkForward": {
             "positiveFolds": 0,
@@ -220,7 +254,7 @@
         "timeoutBars": 8,
         "session": "ALL"
       },
-      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis (THREE_FAILED_GENERATIONS).",
+      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis (NEGATIVE_TRAIN_EXPECTANCY).",
       "sentinelCritique": [
         "LOW_HOLDOUT_TSTAT",
         "WEAK_HOLDOUT_PROFIT_FACTOR",
@@ -276,7 +310,7 @@
         "timeoutBars": 8,
         "session": "ALL"
       },
-      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis (THREE_FAILED_GENERATIONS).",
+      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis (NEGATIVE_TRAIN_EXPECTANCY).",
       "sentinelCritique": [
         "LOW_HOLDOUT_TSTAT",
         "WEAK_HOLDOUT_PROFIT_FACTOR",
@@ -332,7 +366,7 @@
         "timeoutBars": 6,
         "session": "ALL"
       },
-      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis (THREE_FAILED_GENERATIONS).",
+      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis (NEGATIVE_TRAIN_EXPECTANCY).",
       "sentinelCritique": [
         "LOW_HOLDOUT_TSTAT",
         "WEAK_HOLDOUT_PROFIT_FACTOR",
@@ -388,7 +422,7 @@
         "timeoutBars": 8,
         "session": "ALL"
       },
-      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis (THREE_FAILED_GENERATIONS).",
+      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis (NEGATIVE_TRAIN_EXPECTANCY).",
       "sentinelCritique": [
         "LOW_HOLDOUT_TSTAT",
         "WEAK_HOLDOUT_PROFIT_FACTOR",
@@ -421,286 +455,6 @@
         },
         "walkForward": {
           "positiveFolds": 2,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    },
-    {
-      "id": "volatility_squeeze:SOLUSDT:15m:ALL:p20:ta2:sa0.75:tb8:control",
-      "role": "CONTROL",
-      "priority": "P2",
-      "parentVariant": "volatility_squeeze:SOLUSDT:15m:ALL:p20:ta2:sa0.75:tb8",
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:15m:ALL",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "15m"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 20,
-        "targetAtr": 2,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ALL"
-      },
-      "rationale": "Control replay of the parent variant. It is not a new hypothesis and prevents us from confusing data drift with parameter improvement.",
-      "sentinelCritique": [
-        "LOW_HOLDOUT_TSTAT",
-        "WEAK_HOLDOUT_PROFIT_FACTOR",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_TRAIN_EXPECTANCY",
-        "NEGATIVE_HOLDOUT_EXPECTANCY"
-      ],
-      "expectedFalsification": "Control must remain directionally consistent on train and validation; otherwise pause mutations and diagnose regime/data drift.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 77,
-          "expectancyBps": -16.04,
-          "profitFactor": 0.266,
-          "tStat": -5.586,
-          "maxDrawdownPct": 12.38
-        },
-        "validation": {
-          "trades": 32,
-          "expectancyBps": 5.89,
-          "profitFactor": 1.204,
-          "tStat": 0.473,
-          "maxDrawdownPct": 3.59
-        },
-        "holdout": {
-          "trades": 26,
-          "expectancyBps": -11.49,
-          "profitFactor": 0.574,
-          "tStat": -1.349,
-          "maxDrawdownPct": 3.7
-        },
-        "walkForward": {
-          "positiveFolds": 1,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    },
-    {
-      "id": "volatility_squeeze:SOLUSDT:15m:ALL:p16:ta2:sa0.75:tb8",
-      "role": "MUTATION",
-      "priority": "P2",
-      "parentVariant": "volatility_squeeze:SOLUSDT:15m:ALL:p20:ta2:sa0.75:tb8",
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:15m:ALL",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "15m"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 16,
-        "targetAtr": 2,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ALL"
-      },
-      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis (NEGATIVE_TRAIN_EXPECTANCY).",
-      "sentinelCritique": [
-        "LOW_HOLDOUT_TSTAT",
-        "WEAK_HOLDOUT_PROFIT_FACTOR",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_TRAIN_EXPECTANCY",
-        "NEGATIVE_HOLDOUT_EXPECTANCY"
-      ],
-      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 77,
-          "expectancyBps": -16.04,
-          "profitFactor": 0.266,
-          "tStat": -5.586,
-          "maxDrawdownPct": 12.38
-        },
-        "validation": {
-          "trades": 32,
-          "expectancyBps": 5.89,
-          "profitFactor": 1.204,
-          "tStat": 0.473,
-          "maxDrawdownPct": 3.59
-        },
-        "holdout": {
-          "trades": 26,
-          "expectancyBps": -11.49,
-          "profitFactor": 0.574,
-          "tStat": -1.349,
-          "maxDrawdownPct": 3.7
-        },
-        "walkForward": {
-          "positiveFolds": 1,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    },
-    {
-      "id": "volatility_squeeze:SOLUSDT:15m:ALL:p20:ta1.75:sa0.75:tb8",
-      "role": "MUTATION",
-      "priority": "P2",
-      "parentVariant": "volatility_squeeze:SOLUSDT:15m:ALL:p20:ta2:sa0.75:tb8",
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:15m:ALL",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "15m"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 20,
-        "targetAtr": 1.75,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ALL"
-      },
-      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis (NEGATIVE_TRAIN_EXPECTANCY).",
-      "sentinelCritique": [
-        "LOW_HOLDOUT_TSTAT",
-        "WEAK_HOLDOUT_PROFIT_FACTOR",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_TRAIN_EXPECTANCY",
-        "NEGATIVE_HOLDOUT_EXPECTANCY"
-      ],
-      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 77,
-          "expectancyBps": -16.04,
-          "profitFactor": 0.266,
-          "tStat": -5.586,
-          "maxDrawdownPct": 12.38
-        },
-        "validation": {
-          "trades": 32,
-          "expectancyBps": 5.89,
-          "profitFactor": 1.204,
-          "tStat": 0.473,
-          "maxDrawdownPct": 3.59
-        },
-        "holdout": {
-          "trades": 26,
-          "expectancyBps": -11.49,
-          "profitFactor": 0.574,
-          "tStat": -1.349,
-          "maxDrawdownPct": 3.7
-        },
-        "walkForward": {
-          "positiveFolds": 1,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    },
-    {
-      "id": "volatility_squeeze:SOLUSDT:15m:ALL:p20:ta2:sa0.75:tb6",
-      "role": "MUTATION",
-      "priority": "P2",
-      "parentVariant": "volatility_squeeze:SOLUSDT:15m:ALL:p20:ta2:sa0.75:tb8",
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:15m:ALL",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "15m"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 20,
-        "targetAtr": 2,
-        "stopAtr": 0.75,
-        "timeoutBars": 6,
-        "session": "ALL"
-      },
-      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis (NEGATIVE_TRAIN_EXPECTANCY).",
-      "sentinelCritique": [
-        "LOW_HOLDOUT_TSTAT",
-        "WEAK_HOLDOUT_PROFIT_FACTOR",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_TRAIN_EXPECTANCY",
-        "NEGATIVE_HOLDOUT_EXPECTANCY"
-      ],
-      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 77,
-          "expectancyBps": -16.04,
-          "profitFactor": 0.266,
-          "tStat": -5.586,
-          "maxDrawdownPct": 12.38
-        },
-        "validation": {
-          "trades": 32,
-          "expectancyBps": 5.89,
-          "profitFactor": 1.204,
-          "tStat": 0.473,
-          "maxDrawdownPct": 3.59
-        },
-        "holdout": {
-          "trades": 26,
-          "expectancyBps": -11.49,
-          "profitFactor": 0.574,
-          "tStat": -1.349,
-          "maxDrawdownPct": 3.7
-        },
-        "walkForward": {
-          "positiveFolds": 1,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    },
-    {
-      "id": "volatility_squeeze:SOLUSDT:15m:ALL:p20:ta2.25:sa0.75:tb8",
-      "role": "MUTATION",
-      "priority": "P2",
-      "parentVariant": "volatility_squeeze:SOLUSDT:15m:ALL:p20:ta2:sa0.75:tb8",
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:15m:ALL",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "15m"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 20,
-        "targetAtr": 2.25,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ALL"
-      },
-      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis (NEGATIVE_TRAIN_EXPECTANCY).",
-      "sentinelCritique": [
-        "LOW_HOLDOUT_TSTAT",
-        "WEAK_HOLDOUT_PROFIT_FACTOR",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_TRAIN_EXPECTANCY",
-        "NEGATIVE_HOLDOUT_EXPECTANCY"
-      ],
-      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 77,
-          "expectancyBps": -16.04,
-          "profitFactor": 0.266,
-          "tStat": -5.586,
-          "maxDrawdownPct": 12.38
-        },
-        "validation": {
-          "trades": 32,
-          "expectancyBps": 5.89,
-          "profitFactor": 1.204,
-          "tStat": 0.473,
-          "maxDrawdownPct": 3.59
-        },
-        "holdout": {
-          "trades": 26,
-          "expectancyBps": -11.49,
-          "profitFactor": 0.574,
-          "tStat": -1.349,
-          "maxDrawdownPct": 3.7
-        },
-        "walkForward": {
-          "positiveFolds": 1,
           "requiredPositiveFolds": 3,
           "pass": false
         }
