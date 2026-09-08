@@ -1,12 +1,22 @@
+import {
+  ATR_PERIOD,
+  ECONOMICS_GATE,
+  EXIT_MODEL,
+  TARGET_COST_MULTIPLE,
+  adaptiveExitGeometry,
+  candidateGrid as buildCandidateGrid,
+  candidateId as buildCandidateId,
+} from '../_shared/quant-challenger-core.mjs';
+
 declare const Deno: any;
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY') || '';
 const BINANCE_BASE = Deno.env.get('BINANCE_BASE') || 'https://data-api.binance.vision/api/v3';
 const RUNNER_TOKEN_SHA256 = 'e9f02987e836a6eaf8ef8d7afaed805580cd31264aef5ed86fc3ebb756c59d91';
-const ENGINE_VERSION = 'qcl_v1';
-const STATE_KEY = 'quant_challenger_lab_v1';
-const HISTORY_KEY = 'quant_challenger_history_v1';
+const ENGINE_VERSION = 'qcl_v2';
+const STATE_KEY = 'quant_challenger_lab_v2';
+const HISTORY_KEY = 'quant_challenger_history_v2';
 const CANDLE_LIMIT = 1000;
 const TRAIN_END = 0.60;
 const VALIDATION_END = 0.80;
@@ -22,10 +32,27 @@ const PROFILES = [
 ] as const;
 
 type Profile = typeof PROFILES[number];
-type Candidate = { period: number; targetPct: number; stopPct: number; timeoutHours: number };
+type Candidate = { period: number; targetAtr: number; stopAtr: number; timeoutHours: number };
 type SimTrade = { pair: string; pnl: number; openedAt: number; closedAt: number; relativeIndex: number; exitReason: string };
 type Metrics = { trades: number; wins: number; losses: number; winRate: number | null; realizedPnl: number; profitFactor: number | null; expectancy: number | null; maxDrawdownUsd: number; tStat: number | null };
 type PreparedPair = { pair: string; rows: any[]; signalsByPeriod: Record<string, number[]> };
+type ReplayDiagnostics = {
+  totalSignals: number;
+  evaluatedSignals: number;
+  simulatedTrades: number;
+  skippedOverlap: number;
+  skippedInvalidMarketData: number;
+  skippedInvalidAtr: number;
+  skippedByEconomics: number;
+  economicsAccepted: number;
+  economicsAcceptanceRate: number | null;
+  signalSimulationRate: number | null;
+  averageAtrPct: number | null;
+  averageTargetPct: number | null;
+  averageStopPct: number | null;
+  averageConservativeCostPct: number | null;
+  averageTargetCostRatio: number | null;
+};
 
 const REST_HEADERS = { apikey: SERVICE_KEY, authorization: `Bearer ${SERVICE_KEY}`, 'content-type': 'application/json' };
 
@@ -90,16 +117,10 @@ function slippagePct(orderSizeUsd: number, volumeUsd: number) {
   return 0.0008;
 }
 function candidateGrid(profile: Profile): Candidate[] {
-  const periods = [...new Set([0.6, 0.8, 1, 1.2].map((factor) => Math.max(6, Math.round(profile.basePeriod * factor))))];
-  const targets = [0.04, 0.08, 0.12];
-  const stops = [0.015, 0.03];
-  const timeouts = [...new Set([0.5, 1].map((factor) => Math.max(0.5, round(profile.baseTimeoutHours * factor, 2))))];
-  const out: Candidate[] = [];
-  for (const period of periods) for (const targetPct of targets) for (const stopPct of stops) for (const timeoutHours of timeouts) out.push({ period, targetPct, stopPct, timeoutHours });
-  return out;
+  return buildCandidateGrid(profile.basePeriod, profile.baseTimeoutHours) as Candidate[];
 }
-function candidateId(profile: Profile, c: Candidate) {
-  return `${profile.id}:p${c.period}:tp${Math.round(c.targetPct * 1000)}:sl${Math.round(c.stopPct * 1000)}:h${String(c.timeoutHours).replace('.', '_')}`;
+function candidateId(profile: Profile, candidate: Candidate) {
+  return buildCandidateId(profile.id, candidate);
 }
 function signalIndicesForPeriod(profile: Profile, rows: any[], period: number) {
   const closes = rows.map((row) => Number(row?.[4]));
@@ -130,26 +151,42 @@ function preparePair(profile: Profile, pair: string, rows: any[], periods: numbe
   for (const period of periods) signalsByPeriod[String(period)] = signalIndicesForPeriod(profile, rows, period);
   return { pair, rows, signalsByPeriod };
 }
-function replayPrepared(profile: Profile, c: Candidate, prepared: PreparedPair): SimTrade[] {
+function replayPrepared(profile: Profile, candidate: Candidate, prepared: PreparedPair): { trades: SimTrade[]; diagnostics: ReplayDiagnostics } {
   const { pair, rows } = prepared;
-  const signalIndices = prepared.signalsByPeriod[String(c.period)] ?? [];
+  const signalIndices = prepared.signalsByPeriod[String(candidate.period)] ?? [];
   const trades: SimTrade[] = [];
   const minutes = tfMinutes(profile.tf);
-  const timeoutBars = Math.max(1, Math.ceil((c.timeoutHours * 60) / minutes));
+  const timeoutBars = Math.max(1, Math.ceil((candidate.timeoutHours * 60) / minutes));
   const notional = profile.margin * profile.leverage;
   let lastExitIndex = -1;
+  let skippedOverlap = 0, skippedInvalidMarketData = 0, skippedInvalidAtr = 0, skippedByEconomics = 0, evaluatedSignals = 0;
+  let atrSum = 0, targetSum = 0, stopSum = 0, costSum = 0, ratioSum = 0;
+
   for (const i of signalIndices) {
-    if (i <= lastExitIndex) continue;
+    if (i <= lastExitIndex) { skippedOverlap++; continue; }
     const side = profile.lane;
     const entryIndex = i + 1;
     const rawEntry = Number(rows[entryIndex]?.[1]);
-    if (!Number.isFinite(rawEntry) || rawEntry <= 0) continue;
+    if (!Number.isFinite(rawEntry) || rawEntry <= 0) { skippedInvalidMarketData++; continue; }
     const entrySlip = slippagePct(notional, quoteVolume(rows, i));
+    const geometry = adaptiveExitGeometry(rows, i, candidate, entrySlip);
+    if (!geometry.valid || !Number.isFinite(geometry.atrPct) || !Number.isFinite(geometry.targetPct) || !Number.isFinite(geometry.stopPct) || !Number.isFinite(geometry.conservativeCostPct) || !Number.isFinite(geometry.targetCostRatio)) {
+      skippedInvalidAtr++;
+      continue;
+    }
+    evaluatedSignals++;
+    atrSum += geometry.atrPct;
+    targetSum += geometry.targetPct;
+    stopSum += geometry.stopPct;
+    costSum += geometry.conservativeCostPct;
+    ratioSum += geometry.targetCostRatio;
+    if (!geometry.economicsPass) { skippedByEconomics++; continue; }
+
     const entry = side === 'LONG' ? rawEntry * (1 + entrySlip) : rawEntry * (1 - entrySlip);
     const shares = Math.floor((notional / entry) * 10000) / 10000;
-    if (shares <= 0) continue;
-    const target = side === 'LONG' ? entry * (1 + c.targetPct) : entry * (1 - c.targetPct);
-    const stop = side === 'LONG' ? entry * (1 - c.stopPct) : entry * (1 + c.stopPct);
+    if (shares <= 0) { skippedInvalidMarketData++; continue; }
+    const target = side === 'LONG' ? entry * (1 + geometry.targetPct) : entry * (1 - geometry.targetPct);
+    const stop = side === 'LONG' ? entry * (1 - geometry.stopPct) : entry * (1 + geometry.stopPct);
     const maxExitIndex = Math.min(rows.length - 1, entryIndex + timeoutBars);
     let exitIndex = maxExitIndex;
     let rawExit = Number(rows[maxExitIndex]?.[4]);
@@ -162,7 +199,7 @@ function replayPrepared(profile: Profile, c: Candidate, prepared: PreparedPair):
       if (stopHit) { exitIndex = j; rawExit = stop; exitReason = 'stop_loss'; break; }
       if (targetHit) { exitIndex = j; rawExit = target; exitReason = 'take_profit'; break; }
     }
-    if (!Number.isFinite(rawExit) || rawExit <= 0) continue;
+    if (!Number.isFinite(rawExit) || rawExit <= 0) { skippedInvalidMarketData++; continue; }
     const exitSlip = slippagePct(notional, quoteVolume(rows, exitIndex));
     const exit = side === 'LONG' ? rawExit * (1 - exitSlip) : rawExit * (1 + exitSlip);
     const gross = side === 'LONG' ? (exit - entry) * shares : (entry - exit) * shares;
@@ -172,7 +209,56 @@ function replayPrepared(profile: Profile, c: Candidate, prepared: PreparedPair):
     trades.push({ pair, pnl: round(gross - fees - fundingEstimate, 4), openedAt: Number(rows[entryIndex]?.[0]), closedAt: Number(rows[exitIndex]?.[6] ?? rows[exitIndex]?.[0]), relativeIndex: entryIndex / rows.length, exitReason });
     lastExitIndex = exitIndex;
   }
-  return trades;
+
+  const economicsAccepted = Math.max(0, evaluatedSignals - skippedByEconomics);
+  return {
+    trades,
+    diagnostics: {
+      totalSignals: signalIndices.length,
+      evaluatedSignals,
+      simulatedTrades: trades.length,
+      skippedOverlap,
+      skippedInvalidMarketData,
+      skippedInvalidAtr,
+      skippedByEconomics,
+      economicsAccepted,
+      economicsAcceptanceRate: evaluatedSignals ? round(economicsAccepted / evaluatedSignals, 4) : null,
+      signalSimulationRate: signalIndices.length ? round(trades.length / signalIndices.length, 4) : null,
+      averageAtrPct: evaluatedSignals ? round(atrSum / evaluatedSignals, 6) : null,
+      averageTargetPct: evaluatedSignals ? round(targetSum / evaluatedSignals, 6) : null,
+      averageStopPct: evaluatedSignals ? round(stopSum / evaluatedSignals, 6) : null,
+      averageConservativeCostPct: evaluatedSignals ? round(costSum / evaluatedSignals, 6) : null,
+      averageTargetCostRatio: evaluatedSignals ? round(ratioSum / evaluatedSignals, 4) : null,
+    },
+  };
+}
+function mergeDiagnostics(items: ReplayDiagnostics[]): ReplayDiagnostics {
+  const totalSignals = items.reduce((sum, item) => sum + item.totalSignals, 0);
+  const evaluatedSignals = items.reduce((sum, item) => sum + item.evaluatedSignals, 0);
+  const simulatedTrades = items.reduce((sum, item) => sum + item.simulatedTrades, 0);
+  const economicsAccepted = items.reduce((sum, item) => sum + item.economicsAccepted, 0);
+  const weighted = (field: keyof Pick<ReplayDiagnostics, 'averageAtrPct' | 'averageTargetPct' | 'averageStopPct' | 'averageConservativeCostPct' | 'averageTargetCostRatio'>, digits: number) => {
+    if (!evaluatedSignals) return null;
+    const value = items.reduce((sum, item) => sum + (Number(item[field] ?? 0) * item.evaluatedSignals), 0) / evaluatedSignals;
+    return round(value, digits);
+  };
+  return {
+    totalSignals,
+    evaluatedSignals,
+    simulatedTrades,
+    skippedOverlap: items.reduce((sum, item) => sum + item.skippedOverlap, 0),
+    skippedInvalidMarketData: items.reduce((sum, item) => sum + item.skippedInvalidMarketData, 0),
+    skippedInvalidAtr: items.reduce((sum, item) => sum + item.skippedInvalidAtr, 0),
+    skippedByEconomics: items.reduce((sum, item) => sum + item.skippedByEconomics, 0),
+    economicsAccepted,
+    economicsAcceptanceRate: evaluatedSignals ? round(economicsAccepted / evaluatedSignals, 4) : null,
+    signalSimulationRate: totalSignals ? round(simulatedTrades / totalSignals, 4) : null,
+    averageAtrPct: weighted('averageAtrPct', 6),
+    averageTargetPct: weighted('averageTargetPct', 6),
+    averageStopPct: weighted('averageStopPct', 6),
+    averageConservativeCostPct: weighted('averageConservativeCostPct', 6),
+    averageTargetCostRatio: weighted('averageTargetCostRatio', 4),
+  };
 }
 
 function summarize(trades: SimTrade[]): Metrics {
@@ -223,9 +309,11 @@ async function evaluateProfile(profile: Profile) {
     return preparePair(profile, pair, rows, periods);
   }));
   const trainRanking = grid.map((candidate) => {
-    const trades = pairRows.flatMap((prepared) => replayPrepared(profile, candidate, prepared));
+    const replays = pairRows.map((prepared) => replayPrepared(profile, candidate, prepared));
+    const trades = replays.flatMap((replay) => replay.trades);
+    const diagnostics = mergeDiagnostics(replays.map((replay) => replay.diagnostics));
     const train = summarize(trades.filter((trade) => trade.relativeIndex < TRAIN_END));
-    return { candidate, id: candidateId(profile, candidate), trades, train, trainPass: passTrain(train), trainScore: robustScore(train, profile) };
+    return { candidate, id: candidateId(profile, candidate), trades, diagnostics, train, trainPass: passTrain(train), trainScore: robustScore(train, profile) };
   }).sort((a, b) => b.trainScore - a.trainScore);
   const shortlist = trainRanking.slice(0, 10).map((item, index) => {
     const validation = summarize(item.trades.filter((trade) => trade.relativeIndex >= TRAIN_END && trade.relativeIndex < VALIDATION_END));
@@ -239,6 +327,7 @@ async function evaluateProfile(profile: Profile) {
     const holdoutPass = passHoldout(holdout);
     return {
       candidateId: item.id, params: item.candidate, trainRank: item.trainRank, validationRank: index + 1,
+      economics: item.diagnostics,
       train: item.train, validation: item.validation, walkForward: item.walkForward, holdout: { ...holdout, pass: holdoutPass },
       survivor: holdoutPass,
     };
@@ -247,9 +336,20 @@ async function evaluateProfile(profile: Profile) {
   const winner = survivors[0] ?? null;
   return {
     profileId: profile.id, strategyId: profile.strategyId, parentVersionId: profile.parentVersionId,
-    searchSpace: { candidateCount: grid.length, trainEnd: TRAIN_END, validationEnd: VALIDATION_END, holdoutStart: VALIDATION_END, holdoutUsedForRanking: false },
+    searchSpace: {
+      candidateCount: grid.length,
+      trainEnd: TRAIN_END,
+      validationEnd: VALIDATION_END,
+      holdoutStart: VALIDATION_END,
+      holdoutUsedForRanking: false,
+      exitModel: EXIT_MODEL,
+      atrPeriod: ATR_PERIOD,
+      economicsGate: ECONOMICS_GATE,
+      targetCostMultiple: TARGET_COST_MULTIPLE,
+      fixedPercentTargets: false,
+    },
     coverage: pairRows.map(({ pair, rows }) => ({ pair, bars: rows.length, startAt: new Date(Number(rows[0]?.[0])).toISOString(), endAt: new Date(Number(rows.at(-1)?.[6] ?? rows.at(-1)?.[0])).toISOString() })),
-    topTrain: trainRanking.slice(0, 5).map((item, index) => ({ rank: index + 1, candidateId: item.id, params: item.candidate, trainPass: item.trainPass, trainScore: item.trainScore, train: item.train })),
+    topTrain: trainRanking.slice(0, 5).map((item, index) => ({ rank: index + 1, candidateId: item.id, params: item.candidate, economics: item.diagnostics, trainPass: item.trainPass, trainScore: item.trainScore, train: item.train })),
     finalists: inspected,
     survivorCount: survivors.length,
     winner,
@@ -274,10 +374,17 @@ async function runLab(profileId: string) {
     liveOrders: false,
     scopeProfile: profile.id,
     dataPolicy: 'binance_spot_public_signal_reference_only',
+    searchPolicy: {
+      exitModel: EXIT_MODEL,
+      atrPeriod: ATR_PERIOD,
+      economicsGate: ECONOMICS_GATE,
+      targetCostMultiple: TARGET_COST_MULTIPLE,
+      rule: 'A signal is simulated only when its ATR-sized gross target clears at least 2x conservative round-trip friction.',
+    },
     antiOverfitPolicy: {
       train: 'first_60pct', validation: 'next_20pct', finalHoldout: 'last_20pct',
       holdoutUsedForRanking: false,
-      rule: 'Only train metrics rank the grid. Validation filters. Holdout is opened only for finalists and never tunes parameters.',
+      rule: 'Only train metrics rank the grid. Validation filters. Walk-forward must pass before holdout. Holdout is opened only for finalists and never tunes parameters.',
     },
     startedAt, completedAt: nowIso(), survivorCount, profiles, errors: [],
   };
@@ -287,7 +394,7 @@ async function runLab(profileId: string) {
   const compact = {
     engineVersion: ENGINE_VERSION, completedAt: payload.completedAt, scopeProfile: profile.id,
     status: result.status, survivorCount: result.survivorCount,
-    winner: result.winner ? { candidateId: result.winner.candidateId, params: result.winner.params, validation: result.winner.validation, holdout: result.winner.holdout } : null,
+    winner: result.winner ? { candidateId: result.winner.candidateId, params: result.winner.params, economics: result.winner.economics, validation: result.winner.validation, holdout: result.winner.holdout } : null,
   };
   await writeState(HISTORY_KEY, [...history, compact].slice(-40));
   return payload;
