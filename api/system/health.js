@@ -5,6 +5,12 @@ import { fetchRemoteFallback } from '../_lib/remoteFallback.js';
 const RUNNER_STATUS_URL = 'https://swgixcbwyhxttnmrglbk.supabase.co/functions/v1/genesis-runner-status';
 const QUANT_EVIDENCE_URL = 'https://swgixcbwyhxttnmrglbk.supabase.co/functions/v1/genesis-quant-evidence-status';
 const FUTURES_STATE_KEY = 'quant_futures_native_market_v1';
+const FUTURES_TRADE_TYPES = [
+  'crypto_futures_breakout_short_micro',
+  'crypto_futures_breakout_short',
+  'crypto_futures_breakout_short_alt',
+  'crypto_futures_breakout_long',
+];
 
 function normalizeHealth(input) {
   const data = input && typeof input === 'object' ? input : {};
@@ -223,10 +229,91 @@ async function readQuantEvidenceDirect() {
 async function readRunnerStatus() {
   try {
     const response = await fetch(RUNNER_STATUS_URL, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(5_000) });
-    if (!response.ok) return null;
+    if (!response.ok) return await readRunnerStatusDirect();
     const status = await response.json();
-    if (status?.ok !== true || typeof status.agentAlive !== 'boolean') return null;
+    if (status?.ok !== true || typeof status.agentAlive !== 'boolean') return await readRunnerStatusDirect();
     return status;
+  } catch {
+    return await readRunnerStatusDirect();
+  }
+}
+
+export function mapRunnerTrade(trade) {
+  return {
+    id: String(trade.id),
+    pair: trade.asset_pair ?? '',
+    side: trade.outcome === 'SHORT' ? 'SHORT' : 'LONG',
+    status: trade.status === 'open' ? 'open' : 'closed',
+    mode: 'paper',
+    entryPrice: trade.entry_price == null ? null : Number(trade.entry_price),
+    exitPrice: trade.exit_price == null ? null : Number(trade.exit_price),
+    targetPrice: trade.target_price == null ? null : Number(trade.target_price),
+    stopPrice: trade.stop_price == null ? null : Number(trade.stop_price),
+    pnl: trade.pnl == null ? null : Number(trade.pnl),
+    openedAt: trade.opened_at ?? null,
+    closedAt: trade.closed_at ?? null,
+    exitReason: trade.exit_reason ?? null,
+    tradeType: trade.trade_type ?? null,
+    leverage: trade.leverage == null ? null : Number(trade.leverage),
+    capitalUsed: trade.capital_used == null ? null : Number(trade.capital_used),
+  };
+}
+
+export function runnerStats(trades) {
+  const closed = trades.filter((trade) => trade.status === 'closed' && Number.isFinite(trade.pnl));
+  const pnl = closed.map((trade) => trade.pnl);
+  const wins = pnl.filter((value) => value > 0);
+  const losses = pnl.filter((value) => value < 0);
+  const grossProfit = wins.reduce((sum, value) => sum + value, 0);
+  const grossLoss = Math.abs(losses.reduce((sum, value) => sum + value, 0));
+  const realized = pnl.reduce((sum, value) => sum + value, 0);
+  let curve = 0, peak = 0, maxDrawdown = 0;
+  for (const trade of [...closed].sort((a, b) => Date.parse(a.closedAt ?? a.openedAt ?? '') - Date.parse(b.closedAt ?? b.openedAt ?? ''))) {
+    curve += trade.pnl; peak = Math.max(peak, curve); maxDrawdown = Math.max(maxDrawdown, peak - curve);
+  }
+  return {
+    sampleTrades: trades.length,
+    sampleClosed: closed.length,
+    openPositions: trades.filter((trade) => trade.status === 'open').length,
+    sampleRealizedPnl: Math.round(realized * 1e4) / 1e4,
+    sampleWinRate: closed.length ? wins.length / closed.length : null,
+    profitFactor: grossLoss > 0 ? grossProfit / grossLoss : null,
+    expectancy: closed.length ? realized / closed.length : null,
+    maxDrawdown: Math.round(maxDrawdown * 1e4) / 1e4,
+    windowLimit: 160,
+  };
+}
+
+async function readRunnerStatusDirect() {
+  if (!directSupabaseConfig()) return null;
+  try {
+    const [stateRows, tradeRows] = await Promise.all([
+      directRest('org_state?key=eq.external_runner_heartbeat&select=value,updated_at&limit=1'),
+      directRest(`trades?trade_type=in.(${FUTURES_TRADE_TYPES.join(',')})&select=id,asset_pair,outcome,status,entry_price,exit_price,target_price,stop_price,pnl,opened_at,closed_at,exit_reason,trade_type,leverage,capital_used&order=opened_at.desc&limit=160`),
+    ]);
+    const stateRow = Array.isArray(stateRows) ? stateRows[0] : null;
+    const heartbeat = parseStoredJson(stateRow?.value, null);
+    const recentTrades = Array.isArray(tradeRows) ? tradeRows.map(mapRunnerTrade) : [];
+    const openPositions = recentTrades.filter((trade) => trade.status === 'open');
+    const lastTickAt = heartbeat?.lastTickAt ?? stateRow?.updated_at ?? null;
+    const msSinceLastTick = lastTickAt ? Date.now() - Date.parse(lastTickAt) : null;
+    return {
+      ok: true,
+      source: 'vercel_direct_supabase_fallback',
+      agentAlive: Number.isFinite(msSinceLastTick) && msSinceLastTick < 10 * 60 * 1000,
+      neverStarted: !lastTickAt,
+      lastTickAt,
+      msSinceLastTick: Number.isFinite(msSinceLastTick) ? msSinceLastTick : null,
+      totalCycles: Number(heartbeat?.totalCycles ?? 0),
+      paperOnly: heartbeat?.paperOnly === true,
+      liveOrders: heartbeat?.liveOrders === true,
+      lastResult: heartbeat?.lastResult ?? null,
+      openTrades: openPositions.length,
+      openPositions,
+      recentTrades,
+      stats: runnerStats(recentTrades),
+      updatedAt: stateRow?.updated_at ?? null,
+    };
   } catch {
     return null;
   }
