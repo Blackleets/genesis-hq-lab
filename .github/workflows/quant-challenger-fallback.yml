@@ -1,6 +1,12 @@
 name: Quant Challenger Fallback
 
 on:
+  pull_request:
+    branches: [feat/genesis-life-os]
+    paths:
+      - 'server/genesis/runQuantChallengerFallback.mjs'
+      - 'supabase/functions/_shared/quant-challenger-core.mjs'
+      - '.github/workflows/quant-challenger-fallback.yml'
   push:
     branches: [feat/genesis-life-os]
     paths:
@@ -15,7 +21,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: quant-challenger-fallback-v2
+  group: quant-challenger-fallback-v2-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -39,6 +45,7 @@ jobs:
             --history tape/quant-evidence/qcl-v2-history.jsonl
 
       - name: Publish durable research evidence
+        if: github.event_name != 'pull_request'
         working-directory: tape
         run: |
           git config user.name "genesis-quant-research"
