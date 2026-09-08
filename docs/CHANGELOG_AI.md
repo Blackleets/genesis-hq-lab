@@ -1640,3 +1640,9 @@ at the top. Use one block per session. Be honest about failures.
 - Summary: EDGE POSITIONING (estilo Freqtrade) añadido al backtester: parametro opcional edgePositioning {window, minMultiplier, maxMultiplier} que calcula win-rate rolling de las últimas N trades cerradas y ajusta el riesgo por trade (riskPct * multiplier). Por defecto window=20, min=0.5, max=2.0 → riesgo varía entre 50% y 200% del base. A/B verificado en COTIUSDT 1h volumeProfile: SIN edge avg trade size $200.31, CON edge avg trade size $305.16 (más agresivo cuando la racha ganadora sube). Métricas: PF baja ligeramente (1.088→1.069) pero expectancy por trade sube (0.270→0.326) → el mismo número de trades genera más beneficio medio cuando se apuesta más en rachas buenas.
 - Files touched: server/genesis/backtestCore.mjs, server/genesis/evalCandidate.mjs
 - Verification: node --check ok; lookahead tests 3/3 pasan; A/B ejecutado con resultados reales
+
+## 2026-09-08 — Codex
+- Branch: feat/genesis-exchange-layout
+- Summary: First exchange layout iteration from owner-provided mobile Genesis/OKX references. Larger price and touch controls; positions immediately under chart; research, connectors, agents, risk and engine remain accessible through desk tabs. Preserves provider, execution logic, paper labels and founder controls.
+- Files touched: src/components/trading/TradingWorkspace.tsx, src/components/trading/exchangeLayout.css, docs/CHANGELOG_AI.md.
+- Verification: npm run build passed; scoped ESLint passed. Current production inspected at https://genesis-hq-lab.vercel.app/. New layout visual verification pending: cloud browser cannot access local development origin. Draft only; no production deployment or real-order activation.
