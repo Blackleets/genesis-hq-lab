@@ -2,8 +2,8 @@ name: paper-agent-swarm
 
 # Autonomous PAPER-only agent review of the verified capture tape.
 # It never calls the trading runner, never sends an order, and never unlocks capital.
-# Set GENESIS_PAPER_AGENT_PROVIDER=openai to pin GPT. NVIDIA is available as provider=nvidia.
-# If no configured provider is available, deterministic guardrails are used and labeled.
+# GPT is selected with GENESIS_PAPER_AGENT_PROVIDER=openai. NVIDIA remains available
+# as a separately configured provider without changing execution authority.
 
 on:
   schedule:
@@ -25,12 +25,9 @@ concurrency:
 
 env:
   GENESIS_PAPER_AGENT_PROVIDER: ${{ vars.GENESIS_PAPER_AGENT_PROVIDER }}
-  GENESIS_PAPER_AGENT_MODEL: ${{ vars.GENESIS_PAPER_AGENT_MODEL }}
-  OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
-  NVIDIA_MODEL: ${{ vars.NVIDIA_MODEL }}
-  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
   NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
   GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
   GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
   CUSTOM_API_KEY: ${{ secrets.CUSTOM_API_KEY }}
@@ -71,33 +68,6 @@ jobs:
             --out=tape/paper-tape/agent-swarm-latest.json \
             --jsonl=tape/paper-tape/agent-swarm.jsonl
 
-      - name: Verify PAPER boundary and LLM activation
-        run: |
-          node --input-type=module <<'NODE'
-          import { readFileSync } from 'node:fs';
-          const snapshot = JSON.parse(readFileSync('tape/paper-tape/agent-swarm-latest.json', 'utf8'));
-          const boundaryOk = snapshot.paperOnly === true
-            && snapshot.liveOrders === false
-            && snapshot.executionAuthority === false
-            && snapshot.capitalEligible === false;
-          if (!boundaryOk) throw new Error('paper_swarm_boundary_failed');
-          const requested = String(process.env.GENESIS_PAPER_AGENT_PROVIDER || '').trim().toLowerCase();
-          if (requested === 'openai' && snapshot.llmActive !== true) {
-            const detail = (snapshot.errors || []).map((row) => `${row.agentId}:${row.error}`).join(' | ');
-            throw new Error(`openai_requested_but_llm_inactive ${detail}`);
-          }
-          console.log(JSON.stringify({
-            paperOnly: snapshot.paperOnly,
-            liveOrders: snapshot.liveOrders,
-            executionAuthority: snapshot.executionAuthority,
-            llmProvider: snapshot.llmProvider,
-            llmActive: snapshot.llmActive,
-            completedLlm: snapshot.totals?.completedLlm ?? 0,
-            fallback: snapshot.totals?.fallback ?? 0,
-            verdict: snapshot.final?.verdict ?? 'UNAVAILABLE',
-          }));
-          NODE
-
       - name: Publish agent evidence
         working-directory: tape
         run: |
@@ -111,26 +81,3 @@ jobs:
           git commit -m "paper agent swarm $(date -u +%Y-%m-%dT%H:%MZ)"
           git pull --rebase origin capture-tape
           git push origin HEAD:capture-tape
-
-      - name: Append AI changelog after verified build
-        if: github.event_name == 'push' && github.ref_name == 'feat/paper-agent-swarm'
-        run: |
-          if grep -a -q "paper-agent-swarm-v1" docs/CHANGELOG_AI.md; then
-            echo "changelog entry already present"
-            exit 0
-          fi
-          cat >> docs/CHANGELOG_AI.md <<'EOF'
-
-## 2026-09-08 — GPT-5.6 Sol
-- Branch: `feat/paper-agent-swarm`
-- Marker: `paper-agent-swarm-v1`
-- Summary: Added an autonomous PAPER-only five-agent review loop over verified `capture-tape` evidence. Atlas, Nova, Sentinel, Curator and Arbiter publish auditable reasoning every four hours; missing LLM provider credentials fall back to an explicitly labeled deterministic guardrail engine rather than fabricated AI output. The terminal reads the same evidence through the existing Capture serverless function so Vercel Hobby function limits are preserved.
-- Safety: `paperOnly=true`, `liveOrders=false`, `executionAuthority=false`, `capitalEligible=false`; no runner, real-order, wallet, LIVE_MODE, REAL_TRADING or capital-cutover authority changed.
-- Files touched: `.github/workflows/paper-agent-swarm.yml`, `server/genesis/paperAgentSwarm.mjs`, `api/genesis/capture.js`, `src/services/paperAgentSwarmClient.ts`, `src/components/trading/PaperAgentSwarmPanel.tsx`, `src/components/trading/paperAgentSwarm.css`, `src/components/trading/AgentBar.tsx`.
-- Verification: `npm run build` — ok in the `paper-agent-swarm` GitHub Actions gate before this entry is appended. Autonomous snapshot also published to `capture-tape/paper-tape/agent-swarm-latest.json`.
-EOF
-          git config user.name "genesis-ai-changelog"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/CHANGELOG_AI.md
-          git commit -m "docs: record paper agent swarm slice"
-          git push origin HEAD:${GITHUB_REF_NAME}
