@@ -1,12 +1,12 @@
 {
   "ok": true,
-  "version": "edge_factory_v1_fast",
+  "version": "edge_factory_v2_learning",
   "mode": "RESEARCH_ONLY",
   "paperOnly": true,
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-08T23:00:51.792Z",
+  "completedAt": "2026-09-08T23:05:22.027Z",
   "methodology": {
     "barsPerMarket": 5000,
     "families": [
@@ -21,18 +21,22 @@
       "NY",
       "LONDON_NY"
     ],
-    "killAfterFailures": 3
+    "killAfterFailures": 3,
+    "classification": "train+validation consistency required for INTERESTING"
   },
   "tested": 192,
   "killed": 0,
-  "interesting": 24,
+  "interesting": 1,
+  "regimeDivergence": 23,
   "paperCandidates": 0,
   "verdict": "INTERESTING_EDGE_FOUND",
   "top": [
     {
       "hypothesisKey": "opening_range_breakout:BTCUSDT:1h:LONDON",
+      "variantKey": "opening_range_breakout:BTCUSDT:1h:LONDON:p20:ta2:sa0.75:tb8",
       "status": "INTERESTING",
       "failureStreak": 0,
+      "failureReason": null,
       "market": {
         "pair": "BTCUSDT",
         "tf": "1h"
@@ -74,8 +78,10 @@
     },
     {
       "hypothesisKey": "opening_range_breakout:BTCUSDT:1h:LONDON",
-      "status": "INTERESTING",
+      "variantKey": "opening_range_breakout:BTCUSDT:1h:LONDON:p20:ta1.5:sa0.75:tb8",
+      "status": "REGIME_DIVERGENCE",
       "failureStreak": 0,
+      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
       "market": {
         "pair": "BTCUSDT",
         "tf": "1h"
@@ -117,8 +123,10 @@
     },
     {
       "hypothesisKey": "opening_range_breakout:BTCUSDT:1h:LONDON",
-      "status": "INTERESTING",
+      "variantKey": "opening_range_breakout:BTCUSDT:1h:LONDON:p12:ta2:sa0.75:tb8",
+      "status": "REGIME_DIVERGENCE",
       "failureStreak": 0,
+      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
       "market": {
         "pair": "BTCUSDT",
         "tf": "1h"
@@ -160,8 +168,10 @@
     },
     {
       "hypothesisKey": "failed_breakout:ETHUSDT:1h:ALL",
-      "status": "INTERESTING",
+      "variantKey": "failed_breakout:ETHUSDT:1h:ALL:p20:ta1:sa0.75:tb8",
+      "status": "REGIME_DIVERGENCE",
       "failureStreak": 0,
+      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
       "market": {
         "pair": "ETHUSDT",
         "tf": "1h"
@@ -203,8 +213,10 @@
     },
     {
       "hypothesisKey": "opening_range_breakout:BTCUSDT:1h:LONDON",
-      "status": "INTERESTING",
+      "variantKey": "opening_range_breakout:BTCUSDT:1h:LONDON:p12:ta1.5:sa0.75:tb8",
+      "status": "REGIME_DIVERGENCE",
       "failureStreak": 0,
+      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
       "market": {
         "pair": "BTCUSDT",
         "tf": "1h"
@@ -246,8 +258,10 @@
     },
     {
       "hypothesisKey": "trend_pullback:SOLUSDT:15m:ALL",
-      "status": "INTERESTING",
+      "variantKey": "trend_pullback:SOLUSDT:15m:ALL:p20:ta1.5:sa0.75:tb8",
+      "status": "REGIME_DIVERGENCE",
       "failureStreak": 0,
+      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
       "market": {
         "pair": "SOLUSDT",
         "tf": "15m"
@@ -289,8 +303,10 @@
     },
     {
       "hypothesisKey": "trend_pullback:SOLUSDT:15m:ALL",
-      "status": "INTERESTING",
+      "variantKey": "trend_pullback:SOLUSDT:15m:ALL:p55:ta1.5:sa0.75:tb8",
+      "status": "REGIME_DIVERGENCE",
       "failureStreak": 0,
+      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
       "market": {
         "pair": "SOLUSDT",
         "tf": "15m"
@@ -332,8 +348,10 @@
     },
     {
       "hypothesisKey": "trend_pullback:SOLUSDT:15m:ALL",
-      "status": "INTERESTING",
+      "variantKey": "trend_pullback:SOLUSDT:15m:ALL:p20:ta2:sa0.75:tb8",
+      "status": "REGIME_DIVERGENCE",
       "failureStreak": 0,
+      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
       "market": {
         "pair": "SOLUSDT",
         "tf": "15m"
@@ -375,8 +393,10 @@
     },
     {
       "hypothesisKey": "trend_pullback:SOLUSDT:15m:ALL",
-      "status": "INTERESTING",
+      "variantKey": "trend_pullback:SOLUSDT:15m:ALL:p55:ta2:sa0.75:tb8",
+      "status": "REGIME_DIVERGENCE",
       "failureStreak": 0,
+      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
       "market": {
         "pair": "SOLUSDT",
         "tf": "15m"
@@ -418,8 +438,10 @@
     },
     {
       "hypothesisKey": "volatility_squeeze:SOLUSDT:15m:ALL",
-      "status": "INTERESTING",
+      "variantKey": "volatility_squeeze:SOLUSDT:15m:ALL:p20:ta2:sa0.75:tb8",
+      "status": "REGIME_DIVERGENCE",
       "failureStreak": 0,
+      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
       "market": {
         "pair": "SOLUSDT",
         "tf": "15m"
@@ -461,8 +483,10 @@
     },
     {
       "hypothesisKey": "volatility_squeeze:ETHUSDT:15m:ALL",
-      "status": "INTERESTING",
+      "variantKey": "volatility_squeeze:ETHUSDT:15m:ALL:p20:ta1.5:sa0.75:tb8",
+      "status": "REGIME_DIVERGENCE",
       "failureStreak": 0,
+      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
       "market": {
         "pair": "ETHUSDT",
         "tf": "15m"
@@ -504,8 +528,10 @@
     },
     {
       "hypothesisKey": "volatility_squeeze:ETHUSDT:15m:ALL",
-      "status": "INTERESTING",
+      "variantKey": "volatility_squeeze:ETHUSDT:15m:ALL:p34:ta1.5:sa0.75:tb8",
+      "status": "REGIME_DIVERGENCE",
       "failureStreak": 0,
+      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
       "market": {
         "pair": "ETHUSDT",
         "tf": "15m"
@@ -548,36 +574,8 @@
   ],
   "nextGeneration": [
     {
-      "parent": "opening_range_breakout:BTCUSDT:1h:LONDON",
-      "mutation": "Mutate opening_range_breakout on BTCUSDT 1h LONDON: tighten period around 20; keep costs and sealed holdout unchanged."
-    },
-    {
-      "parent": "opening_range_breakout:BTCUSDT:1h:LONDON",
-      "mutation": "Mutate opening_range_breakout on BTCUSDT 1h LONDON: tighten period around 20; keep costs and sealed holdout unchanged."
-    },
-    {
-      "parent": "opening_range_breakout:BTCUSDT:1h:LONDON",
-      "mutation": "Mutate opening_range_breakout on BTCUSDT 1h LONDON: tighten period around 12; keep costs and sealed holdout unchanged."
-    },
-    {
-      "parent": "failed_breakout:ETHUSDT:1h:ALL",
-      "mutation": "Mutate failed_breakout on ETHUSDT 1h ALL: tighten period around 20; keep costs and sealed holdout unchanged."
-    },
-    {
-      "parent": "opening_range_breakout:BTCUSDT:1h:LONDON",
-      "mutation": "Mutate opening_range_breakout on BTCUSDT 1h LONDON: tighten period around 12; keep costs and sealed holdout unchanged."
-    },
-    {
-      "parent": "trend_pullback:SOLUSDT:15m:ALL",
-      "mutation": "Mutate trend_pullback on SOLUSDT 15m ALL: tighten period around 20; keep costs and sealed holdout unchanged."
-    },
-    {
-      "parent": "trend_pullback:SOLUSDT:15m:ALL",
-      "mutation": "Mutate trend_pullback on SOLUSDT 15m ALL: tighten period around 55; keep costs and sealed holdout unchanged."
-    },
-    {
-      "parent": "trend_pullback:SOLUSDT:15m:ALL",
-      "mutation": "Mutate trend_pullback on SOLUSDT 15m ALL: tighten period around 20; keep costs and sealed holdout unchanged."
+      "parent": "opening_range_breakout:BTCUSDT:1h:LONDON:p20:ta2:sa0.75:tb8",
+      "mutation": "Mutate opening_range_breakout on BTCUSDT 1h LONDON; preserve costs and sealed holdout."
     }
   ]
 }
