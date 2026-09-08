@@ -1,6 +1,7 @@
 import { RadioTower } from 'lucide-react';
 import { useExecutions, useFounderState, useMarketData, usePaperPositions, useRiskState, useRunnerTelemetry } from './useTradingDesk';
 import { finite, formatMoney } from './formatters';
+import { PaperAgentSwarmPanel } from './PaperAgentSwarmPanel';
 
 const AGENTS = [
   { id: 'ATLAS', role: 'QUANT RESEARCH', sigil: '∆' },
@@ -61,6 +62,7 @@ export function AgentBar() {
           );
         })}
       </div>
+      <PaperAgentSwarmPanel />
     </section>
   );
 }
