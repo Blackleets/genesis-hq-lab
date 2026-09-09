@@ -22,13 +22,12 @@ test('separates clean tape integrity from minimum study readiness', () => {
     row({ capturedAt: '2026-09-09T18:10:00.000Z', closeTime: '2026-09-09T18:09:59.999Z' }),
   ];
   const out = auditPositioningRows(rows);
-  assert.equal(out.schemaVersion, 2);
+  assert.equal(out.schemaVersion, 3);
   assert.equal(out.eligibleRowCount, 3);
   assert.equal(out.independentRowCount, 3);
   assert.equal(out.effectiveIndependentRatio, 1);
   assert.equal(out.defects.overlappingWindows, 0);
   assert.equal(out.defects.excessiveGaps, 0);
-  assert.equal(out.defects.duplicateCloseTimes, 0);
   assert.equal(out.maxGapMinutes, 60);
   assert.equal(out.qualityPass, true);
   assert.equal(out.readiness.minimumIndependentRows, 20);
@@ -69,16 +68,22 @@ test('detects overlapping taker windows and reduces effective independent sample
   assert.equal(out.readiness.readyForPredeclaredStudy, false);
 });
 
-test('fails closed when an otherwise clean cohort contains an excessive capture gap', () => {
+test('an excessive gap starts a new clean cohort without bridging the outage', () => {
   const rows = [
     row({ capturedAt: '2026-09-09T18:00:00.000Z', closeTime: '2026-09-09T17:59:59.999Z' }),
     row({ capturedAt: '2026-09-09T18:05:00.000Z', closeTime: '2026-09-09T18:04:59.999Z' }),
     row({ capturedAt: '2026-09-09T19:06:00.000Z', closeTime: '2026-09-09T19:05:59.999Z' }),
+    row({ capturedAt: '2026-09-09T19:11:00.000Z', closeTime: '2026-09-09T19:10:59.999Z' }),
   ];
   const out = auditPositioningRows(rows);
-  assert.equal(out.defects.excessiveGaps, 1);
+  assert.equal(out.historicalDefects.excessiveGaps, 1);
+  assert.equal(out.cohortResetCount, 1);
+  assert.equal(out.cohortPolicy, 'LATEST_CONTIGUOUS_SEGMENT_AFTER_EXCESSIVE_GAP');
+  assert.equal(out.firstEligibleCapturedAt, '2026-09-09T19:06:00.000Z');
+  assert.equal(out.eligibleRowCount, 2);
   assert.equal(out.independentRowCount, 2);
-  assert.equal(out.qualityPass, false);
+  assert.equal(out.defects.excessiveGaps, 0);
+  assert.equal(out.qualityPass, true);
   assert.equal(out.readiness.readyForPredeclaredStudy, false);
 });
 
@@ -94,7 +99,7 @@ test('keeps old schemas visible but excludes them from the v4 quality cohort', (
   assert.equal(out.schemaCounts['4'], 1);
 });
 
-test('flags duplicate closed bars', () => {
+test('flags duplicate closed bars inside the active cohort', () => {
   const rows = [
     row({ capturedAt: '2026-09-09T18:00:00.000Z', closeTime: '2026-09-09T17:59:59.999Z' }),
     row({ capturedAt: '2026-09-09T18:05:00.000Z', closeTime: '2026-09-09T17:59:59.999Z' }),
