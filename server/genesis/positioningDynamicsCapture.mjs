@@ -4,12 +4,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { getOkxResearchContexts } from './okxResearchContext.mjs';
+import { fetchFixedWindowTaker } from './okxFixedWindowTaker.mjs';
 
 const OKX = 'https://www.okx.com';
 const OKX_ENDPOINTS = {
   price: `${OKX}/api/v5/market/candles`,
   openInterest: `${OKX}/api/v5/public/open-interest`,
-  taker: `${OKX}/api/v5/market/trades`,
+  taker: `${OKX}/api/v5/market/history-trades`,
   funding: `${OKX}/api/v5/public/funding-rate-history`,
 };
 
@@ -66,12 +67,18 @@ export function deriveCrossCapturePositioningFeatures(previous, current, { maxGa
     return { available: false, reason: 'INVALID_DENOMINATOR' };
   }
 
+  const previousBuyFraction = finite(previous.positioning?.takerBuyFractionNow);
+  const currentBuyFraction = finite(current.positioning?.takerBuyFractionNow);
+
   return {
     available: true,
     priorCapturedAt: previous.capturedAt,
     elapsedMinutes: elapsedMs / 60_000,
     oiChangePct: ((currentOi / previousOi) - 1) * 100,
     takerBuySellRatioDelta: currentTaker - previousTaker,
+    takerBuyFractionDelta: Number.isFinite(previousBuyFraction) && Number.isFinite(currentBuyFraction)
+      ? currentBuyFraction - previousBuyFraction
+      : null,
     fundingDeltaBps: (currentFunding - previousFunding) * 10_000,
     premiumDeltaBps: currentPremium - previousPremium,
     perpReturnBps: Math.log(currentClose / previousClose) * 10_000,
@@ -116,7 +123,7 @@ export function buildPositioningObservation(context, closedKline, {
   const maxAgeMs = {
     price: 5 * 60_000,
     openInterest: 15 * 60_000,
-    taker: 2 * 60 * 60_000,
+    taker: 2 * 60_000,
     funding: 12 * 60 * 60_000,
   };
   for (const key of Object.keys(maxAgeMs)) {
@@ -128,7 +135,7 @@ export function buildPositioningObservation(context, closedKline, {
   if (!Number.isFinite(oiValue)) throw new Error('Open interest value missing');
 
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     mode: 'RESEARCH_ONLY',
     provider,
     symbol,
@@ -144,6 +151,11 @@ export function buildPositioningObservation(context, closedKline, {
       oiRecentChangePct: finite(context.oiRecentChangePct),
       oiAccelerationPct: finite(context.oiAccelerationPct),
       takerBuySellRatioNow: finite(taker.buySellRatio),
+      takerBuyFractionNow: finite(taker.buyFraction),
+      takerNotionalBuyFractionNow: finite(taker.notionalBuyFraction),
+      takerTradeCount: finite(taker.tradeCount),
+      takerWindowMs: finite(taker.targetWindowMs),
+      takerWindowCoverageMs: finite(taker.coverageMs),
       takerRecentBias: finite(context.takerRecentBias),
       takerImpulse: finite(context.takerImpulse),
       takerPressure: context.takerPressure ?? 'unknown',
@@ -165,8 +177,14 @@ export function buildPositioningObservation(context, closedKline, {
       agesMs,
       maxAgeMs,
       closedPriceBarOnly: true,
+      fixedWindowTakerFlow: true,
+      takerWindowMs: finite(taker.targetWindowMs),
+      takerWindowCoverageMs: finite(taker.coverageMs),
+      takerTradeCount: finite(taker.tradeCount),
+      takerPagesFetched: finite(taker.pagesFetched),
+      takerSampleSource: taker.source ?? null,
       crossCaptureUsesStrictlyPriorDurableObservation: true,
-      note: 'openInterest.value preserves provider-native contract units; no USD-notional relabeling',
+      note: 'openInterest.value preserves provider-native contract units; taker flow uses a fixed one-minute public-trade window',
     },
     researchUse: 'OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING',
   };
@@ -188,8 +206,29 @@ export async function capturePositioning({ symbol = 'BTCUSDT', out, jsonl } = {}
   const context = contexts.derivatives;
   const bar = context?.raw?.volatility?.at(-1);
   if (!bar) throw new Error('No confirmed OKX 1m perpetual bar available');
+
+  const fixedTaker = await fetchFixedWindowTaker('BTC-USDT-SWAP', {
+    windowMs: 60_000,
+    minimumCoverageRatio: 0.9,
+    maxPages: 20,
+  });
+  if (!fixedTaker.available) throw new Error(`Fixed-window taker flow unavailable: ${fixedTaker.reason}`);
+
+  const buyFraction = fixedTaker.buyFraction;
+  const fixedContext = {
+    ...context,
+    takerRecentBias: fixedTaker.buySellRatio,
+    takerImpulse: null,
+    takerPressure: buyFraction >= 0.55 ? 'buy_pressure' : buyFraction <= 0.45 ? 'sell_pressure' : 'balanced',
+    takerReversal: false,
+    raw: {
+      ...context.raw,
+      taker: [{ ...fixedTaker, time: fixedTaker.time }],
+    },
+  };
+
   const kline = [bar.time, bar.open, bar.high, bar.low, bar.close, bar.volumeQuote, Number(bar.time) + 59_999];
-  const payload = buildPositioningObservation(context, kline, {
+  const payload = buildPositioningObservation(fixedContext, kline, {
     capturedAtMs: Date.now(),
     symbol: upper,
     provider: 'okx_public_market_data',
