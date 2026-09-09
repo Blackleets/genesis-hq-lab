@@ -27,6 +27,7 @@ export function buildSynchronizedResearchState({
   capturedAt = new Date().toISOString(),
   derivatives,
   leadLag,
+  sourceErrors = {},
 }) {
   const capturedAtMs = Date.parse(capturedAt);
   if (!Number.isFinite(capturedAtMs)) throw new Error('invalid capturedAt');
@@ -50,19 +51,22 @@ export function buildSynchronizedResearchState({
   const missingSources = Object.entries(sourceAsOf)
     .filter(([, value]) => !Number.isFinite(value))
     .map(([key]) => key);
+  const errorSources = Object.keys(sourceErrors);
 
   return {
     schemaVersion: 1,
     mode: 'RESEARCH_ONLY',
     symbol: String(symbol || derivatives?.symbol || leadLag?.symbol || '').toUpperCase(),
     capturedAt,
-    safeForResearch: futureSources.length === 0 && missingSources.length === 0,
+    safeForResearch: futureSources.length === 0 && missingSources.length === 0 && errorSources.length === 0,
     referenceSource: leadLag?.referenceSource ?? 'unknown',
     sourceAsOf,
     sourceAgeMs,
     integrity: {
       missingSources,
       futureSources,
+      errorSources,
+      sourceErrors,
       noFutureData: futureSources.length === 0,
     },
     features: {
@@ -95,6 +99,10 @@ export function buildSynchronizedResearchState({
   };
 }
 
+function messageOf(reason) {
+  return reason instanceof Error ? reason.message : String(reason ?? 'unknown error');
+}
+
 export async function captureResearchState(symbol = 'BTCUSDT', {
   out,
   jsonl,
@@ -103,11 +111,24 @@ export async function captureResearchState(symbol = 'BTCUSDT', {
 } = {}) {
   const normalizedSymbol = String(symbol).toUpperCase();
   const capturedAt = new Date().toISOString();
-  const [derivatives, leadLag] = await Promise.all([
+  const [derivativesResult, leadLagResult] = await Promise.allSettled([
     getContext(normalizedSymbol),
     getSpotPerpLeadLagContext(normalizedSymbol, { interval, points: leadLagPoints }),
   ]);
-  const state = buildSynchronizedResearchState({ symbol: normalizedSymbol, capturedAt, derivatives, leadLag });
+
+  const derivatives = derivativesResult.status === 'fulfilled' ? derivativesResult.value : null;
+  const leadLag = leadLagResult.status === 'fulfilled' ? leadLagResult.value : null;
+  const sourceErrors = {};
+  if (derivativesResult.status === 'rejected') sourceErrors.derivatives = messageOf(derivativesResult.reason);
+  if (leadLagResult.status === 'rejected') sourceErrors.leadLag = messageOf(leadLagResult.reason);
+
+  const state = buildSynchronizedResearchState({
+    symbol: normalizedSymbol,
+    capturedAt,
+    derivatives,
+    leadLag,
+    sourceErrors,
+  });
 
   if (out) {
     fs.mkdirSync(path.dirname(out), { recursive: true });
