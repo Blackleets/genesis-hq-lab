@@ -2,6 +2,7 @@
 # Writes to capture-tape (NOT feat/genesis-life-os) so Vercel does not redeploy every tick.
 # Never sends an order. Path is paper-tape/ because /data/ is gitignored.
 # The synchronized capture labels Binance Spot vs USDⓈ-M index fallback explicitly.
+# If a market-data host is geo-blocked, the partial snapshot is persisted unsafe-for-research rather than dropped.
 name: paper-capture-harvest
 
 on:
