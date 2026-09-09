@@ -7,13 +7,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getContext } from './derivativesContext.mjs';
 import { getSpotPerpLeadLagContext } from './spotPerpLeadLag.mjs';
-import { getOkxResearchContexts } from './okxResearchContext.mjs';
+import { getOkxResearchContexts } from './okxResearchContextFixedWindow.mjs';
 
 export const SOURCE_FRESHNESS_BUDGET_MS = Object.freeze({
   oi: 15 * 60 * 1000, taker: 2 * 60 * 60 * 1000, funding: 12 * 60 * 60 * 1000,
   premium: 2 * 60 * 60 * 1000, reference: 5 * 60 * 1000, perp: 5 * 60 * 1000,
   volatility: 5 * 60 * 1000,
 });
+export const OKX_FIXED_TAKER_FRESHNESS_MS = 2 * 60 * 1000;
 export const MAX_CROSS_CAPTURE_GAP_MS = 60 * 60 * 1000;
 function latestTime(rows = []) { const times = rows.map(row => Number(row?.time)).filter(Number.isFinite); return times.length ? Math.max(...times) : null; }
 function latestClose(rows = []) { const valid = rows.map(row => ({ time: Number(row?.time), close: Number(row?.close) })).filter(row => Number.isFinite(row.time) && Number.isFinite(row.close) && row.close > 0).sort((a, b) => a.time - b.time); return valid.at(-1)?.close ?? null; }
@@ -31,11 +32,29 @@ export function buildSynchronizedResearchState({ symbol, capturedAt = new Date()
   const futureSources = Object.entries(sourceAsOf).filter(([, value]) => Number.isFinite(value) && value > capturedAtMs).map(([key]) => key);
   const missingSources = Object.entries(sourceAsOf).filter(([, value]) => !Number.isFinite(value)).map(([key]) => key);
   const staleSources = Object.entries(sourceAgeMs).filter(([key, value]) => Number.isFinite(value) && Number.isFinite(SOURCE_FRESHNESS_BUDGET_MS[key]) && value > SOURCE_FRESHNESS_BUDGET_MS[key]).map(([key]) => key);
+  const okxFixedWindowTaker = provider !== 'okx' || (
+    Number(derivatives?.takerWindowMs) === 60_000 &&
+    Number(derivatives?.takerWindowCoverageMs) >= 54_000 &&
+    Number(derivatives?.takerTradeCount) > 0 &&
+    derivatives?.takerSource === 'okx_public_history_trades_fixed_window' &&
+    Number.isFinite(sourceAgeMs.taker) && sourceAgeMs.taker <= OKX_FIXED_TAKER_FRESHNESS_MS
+  );
+  if (!okxFixedWindowTaker && !staleSources.includes('taker')) staleSources.push('taker');
   const errorSources = Object.keys(sourceErrors);
+  const takerDefinition = provider === 'okx' ? 'OKX_PUBLIC_HISTORY_TRADES_FIXED_60S_V1' : 'PROVIDER_NATIVE_V1';
   return {
-    schemaVersion: 5, mode: 'RESEARCH_ONLY', provider, symbol: String(symbol || derivatives?.symbol || leadLag?.symbol || '').toUpperCase(), capturedAt,
-    safeForResearch: futureSources.length === 0 && missingSources.length === 0 && staleSources.length === 0 && errorSources.length === 0,
+    schemaVersion: 6, mode: 'RESEARCH_ONLY', provider, symbol: String(symbol || derivatives?.symbol || leadLag?.symbol || '').toUpperCase(), capturedAt,
+    safeForResearch: futureSources.length === 0 && missingSources.length === 0 && staleSources.length === 0 && errorSources.length === 0 && okxFixedWindowTaker,
     referenceSource: leadLag?.referenceSource ?? 'unknown', sourceAsOf, sourceAgeMs, sourceFreshnessBudgetMs: SOURCE_FRESHNESS_BUDGET_MS,
+    provenance: {
+      takerDefinition,
+      fixedWindowTakerFlow: okxFixedWindowTaker,
+      takerWindowMs: derivatives?.takerWindowMs ?? null,
+      takerWindowCoverageMs: derivatives?.takerWindowCoverageMs ?? null,
+      takerTradeCount: derivatives?.takerTradeCount ?? null,
+      takerSource: derivatives?.takerSource ?? (provider === 'okx' ? null : 'provider_native'),
+      takerPagesFetched: derivatives?.takerPagesFetched ?? null,
+    },
     integrity: { missingSources, futureSources, staleSources, errorSources, sourceErrors, noFutureData: futureSources.length === 0, allSourcesFresh: staleSources.length === 0 },
     features: {
       perpCloseNow: latestClose(leadLag?.raw?.perp),
@@ -58,8 +77,10 @@ export function deriveCrossCaptureFeatures(current, previous) {
   const gapMs = currentMs - previousMs;
   const compatible = Boolean(
     current?.safeForResearch && previous?.safeForResearch &&
+    current?.schemaVersion === previous?.schemaVersion &&
     current?.provider && current.provider === previous?.provider &&
     current?.symbol && current.symbol === previous?.symbol &&
+    current?.provenance?.takerDefinition && current.provenance.takerDefinition === previous?.provenance?.takerDefinition &&
     Number.isFinite(gapMs) && gapMs > 0 && gapMs <= MAX_CROSS_CAPTURE_GAP_MS
   );
   if (!compatible) return {
@@ -83,7 +104,7 @@ function readPreviousCompatibleState(jsonl, current) {
   for (let i = lines.length - 1; i >= 0; i -= 1) {
     try {
       const candidate = JSON.parse(lines[i]);
-      if (candidate?.provider === current?.provider && candidate?.symbol === current?.symbol && candidate?.safeForResearch) return candidate;
+      if (candidate?.provider === current?.provider && candidate?.symbol === current?.symbol && candidate?.safeForResearch && candidate?.schemaVersion === current?.schemaVersion && candidate?.provenance?.takerDefinition === current?.provenance?.takerDefinition) return candidate;
     } catch { /* append-only tape may contain an incomplete final line after interruption; ignore it */ }
   }
   return null;
