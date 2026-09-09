@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "mode": "RESEARCH_ONLY",
   "symbol": "BTCUSDT",
-  "capturedAt": "2026-09-09T06:46:31.100Z",
+  "capturedAt": "2026-09-09T08:12:21.432Z",
   "safeForResearch": false,
   "referenceSource": "unknown",
   "sourceAsOf": {
@@ -21,6 +21,14 @@
     "reference": null,
     "perp": null
   },
+  "sourceFreshnessBudgetMs": {
+    "oi": 900000,
+    "taker": 7200000,
+    "funding": 43200000,
+    "premium": 7200000,
+    "reference": 300000,
+    "perp": 300000
+  },
   "integrity": {
     "missingSources": [
       "oi",
@@ -31,15 +39,17 @@
       "perp"
     ],
     "futureSources": [],
+    "staleSources": [],
     "errorSources": [
       "derivatives",
       "leadLag"
     ],
     "sourceErrors": {
       "derivatives": "HTTP 451 for https://fapi.binance.com/futures/data/openInterestHist",
-      "leadLag": "HTTP 451 for https://fapi.binance.com/fapi/v1/indexPriceKlines"
+      "leadLag": "HTTP 451 for https://fapi.binance.com/fapi/v1/klines"
     },
-    "noFutureData": true
+    "noFutureData": true,
+    "allSourcesFresh": true
   },
   "features": {
     "oiUsdNow": null,
