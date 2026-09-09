@@ -76,6 +76,7 @@ export function auditPositioningRows(rows = [], { expectedSchemaVersion = 4, max
     && duplicateCloseTimes === 0
     && nonCausalSequence === 0
     && overlappingWindows === 0
+    && excessiveGaps === 0
     && effectiveRatio >= 0.95;
 
   return {
@@ -83,6 +84,7 @@ export function auditPositioningRows(rows = [], { expectedSchemaVersion = 4, max
     mode: 'RESEARCH_ONLY',
     researchUse: 'DATA_QUALITY_ONLY_NOT_FOR_RANKING',
     expectedSchemaVersion,
+    maxGapMinutes,
     rawRowCount: parsed.length,
     eligibleRowCount: rawCount,
     independentRowCount: independentCount,
