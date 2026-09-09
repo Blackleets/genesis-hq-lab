@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-08T23:55:15.458Z",
+  "completedAt": "2026-09-09T00:22:38.343Z",
   "methodology": {
     "selectionUsesHoldout": false,
     "selectionInputs": [
@@ -22,7 +22,7 @@
     "barsPerMarket": 12000
   },
   "queueMode": "HIGH_PRIORITY",
-  "sourceQueueCompletedAt": "2026-09-08T23:54:57.140Z",
+  "sourceQueueCompletedAt": "2026-09-08T23:55:32.533Z",
   "tested": 24,
   "controls": 3,
   "promotableToAudit": 5,
@@ -207,12 +207,12 @@
         "session": "ALL"
       },
       "researchStatus": "REJECT",
-      "selectionScore": 50.95,
+      "selectionScore": 48.89,
       "train": {
-        "trades": 116,
-        "expectancyBps": 12.35,
-        "profitFactor": 1.068,
-        "tStat": 0.317,
+        "trades": 115,
+        "expectancyBps": 4.09,
+        "profitFactor": 1.022,
+        "tStat": 0.106,
         "maxDrawdownPct": 55.55
       },
       "validation": {
@@ -688,46 +688,6 @@
       }
     },
     {
-      "id": "failed_breakout:SOLUSDT:4h:ALL:p20:ta1:sa0.9:tb8",
-      "role": "MUTATION",
-      "hypothesisKey": "failed_breakout:SOLUSDT:4h:ALL",
-      "parentVariant": "failed_breakout:SOLUSDT:4h:ALL:p20:ta1:sa0.75:tb8",
-      "priority": "P0",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "4h"
-      },
-      "spec": {
-        "family": "failed_breakout",
-        "period": 20,
-        "targetAtr": 1,
-        "stopAtr": 0.9,
-        "timeoutBars": 8,
-        "session": "ALL"
-      },
-      "researchStatus": "REJECT",
-      "selectionScore": 67.62,
-      "train": {
-        "trades": 115,
-        "expectancyBps": 14.7,
-        "profitFactor": 1.075,
-        "tStat": 0.349,
-        "maxDrawdownPct": 73.74
-      },
-      "validation": {
-        "trades": 43,
-        "expectancyBps": 76.11,
-        "profitFactor": 1.604,
-        "tStat": 1.397,
-        "maxDrawdownPct": 12.53
-      },
-      "walkForward": {
-        "positiveFolds": 2,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
       "id": "opening_range_breakout:XRPUSDT:4h:LONDON:p12:ta2:sa0.75:tb8:control",
       "role": "CONTROL",
       "hypothesisKey": "opening_range_breakout:XRPUSDT:4h:LONDON",
@@ -765,6 +725,46 @@
         "positiveFolds": 3,
         "requiredPositiveFolds": 3,
         "pass": true
+      }
+    },
+    {
+      "id": "failed_breakout:SOLUSDT:4h:ALL:p20:ta1:sa0.9:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "failed_breakout:SOLUSDT:4h:ALL",
+      "parentVariant": "failed_breakout:SOLUSDT:4h:ALL:p20:ta1:sa0.75:tb8",
+      "priority": "P0",
+      "market": {
+        "pair": "SOLUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 20,
+        "targetAtr": 1,
+        "stopAtr": 0.9,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 65.54,
+      "train": {
+        "trades": 114,
+        "expectancyBps": 6.38,
+        "profitFactor": 1.032,
+        "tStat": 0.153,
+        "maxDrawdownPct": 73.74
+      },
+      "validation": {
+        "trades": 43,
+        "expectancyBps": 76.11,
+        "profitFactor": 1.604,
+        "tStat": 1.397,
+        "maxDrawdownPct": 12.53
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
       }
     },
     {
