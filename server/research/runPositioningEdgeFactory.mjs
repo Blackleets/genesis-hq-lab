@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const VERSION = 'positioning_edge_factory_v1';
+const VERSION = 'positioning_edge_factory_v2';
 
 function finite(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
 function mean(xs) { return xs.length ? xs.reduce((a,b)=>a+b,0)/xs.length : null; }
@@ -27,7 +27,43 @@ function metrics(returnsBps=[]) {
 function readJson(p){ return JSON.parse(fs.readFileSync(p,'utf8')); }
 function readJsonl(p){ if(!fs.existsSync(p)) return []; return fs.readFileSync(p,'utf8').split('\n').filter(Boolean).map(JSON.parse); }
 function capturedMs(r){ const x=Date.parse(r?.capturedAt); return Number.isFinite(x)?x:null; }
-function eligibleRows(rows){ return rows.filter(r=>r?.mode==='RESEARCH_ONLY'&&r?.provider==='okx_public_market_data'&&r?.schemaVersion===4&&r?.crossCapture?.available===true).sort((a,b)=>capturedMs(a)-capturedMs(b)); }
+function takerWindowMs(r){ return finite(r?.positioning?.takerWindowMs) ?? finite(r?.provenance?.takerWindowMs); }
+function eligibleRows(rows){
+  return rows.filter(r=>
+    r?.mode==='RESEARCH_ONLY'
+    && r?.provider==='okx_public_market_data'
+    && r?.symbol==='BTCUSDT'
+    && r?.schemaVersion===4
+    && r?.crossCapture?.available===true
+    && Number.isFinite(capturedMs(r))
+    && (takerWindowMs(r)??0)>0
+  ).sort((a,b)=>capturedMs(a)-capturedMs(b));
+}
+function independentRows(rows,{maxGapMinutes=60}={}){
+  const out=[];
+  for(const row of eligibleRows(rows)){
+    const prior=out.at(-1);
+    if(!prior){ out.push(row); continue; }
+    const elapsed=capturedMs(row)-capturedMs(prior);
+    const minSep=Math.max(takerWindowMs(prior)??0,takerWindowMs(row)??0);
+    if(elapsed>=minSep && elapsed<=maxGapMinutes*60_000) out.push(row);
+  }
+  return out;
+}
+function temporalSamples(rows,{maxForwardLabelGapMinutes=30}={}){
+  const xs=independentRows(rows);
+  const samples=[];
+  let rejectedForwardGaps=0;
+  for(let i=0;i<xs.length-1;i++){
+    const cur=xs[i], nxt=xs[i+1];
+    const elapsed=capturedMs(nxt)-capturedMs(cur);
+    if(!(elapsed>0 && elapsed<=maxForwardLabelGapMinutes*60_000)){ rejectedForwardGaps+=1; continue; }
+    const px0=finite(cur.price?.close), px1=finite(nxt.price?.close);
+    if(!(px0>0&&px1>0)) continue;
+    samples.push({ row:cur, nextReturnBps:Math.log(px1/px0)*10000, forwardMinutes:elapsed/60_000 });
+  }
+  return { samples, independentRows:xs.length, rejectedForwardGaps };
+}
 
 const FAMILIES = [
   {
@@ -58,35 +94,95 @@ const FAMILIES = [
   },
 ];
 
-export function evaluatePositioningStudy(rows, quality, { minIndependentRows=20, stressedCostBps=12 }={}) {
+export function evaluatePositioningStudy(rows, quality, {
+  minIndependentRows=20,
+  stressedCostBps=12,
+  maxForwardLabelGapMinutes=30,
+  holdoutFraction=0.2,
+  walkForwardFolds=2,
+}={}) {
   const base = {
     ok:true, version:VERSION, mode:'RESEARCH_ONLY', paperOnly:true, liveOrders:false,
     executionAuthority:false, capitalEligible:false,
-    methodology:{ selectionUsesHoldout:false, finitePredeclaredFamilies:true, holdoutSealed:true, minIndependentRows, stressedCostBps },
+    methodology:{
+      selectionUsesHoldout:false,
+      finitePredeclaredFamilies:true,
+      holdoutSealed:true,
+      minIndependentRows,
+      stressedCostBps,
+      maxForwardLabelGapMinutes,
+      holdoutFraction,
+      temporalOrderPreserved:true,
+      walkForwardFolds,
+      independentNonOverlappingRowsOnly:true,
+    },
   };
   const independentCount=Number(quality?.independentRowCount??0);
   const ready = quality?.qualityPass===true && independentCount>=minIndependentRows;
   if (!ready) return { ...base, verdict:'DATA_NOT_READY', dataQuality:{ qualityPass:quality?.qualityPass===true, independentRowCount:independentCount, required:minIndependentRows, defects:quality?.defects??null }, candidates:[] };
 
-  const xs=eligibleRows(rows);
-  // Cross-capture return is contemporaneous evidence only; v1 uses the next eligible capture return as forward label.
-  const samples=[];
-  for(let i=0;i<xs.length-1;i++){
-    const cur=xs[i], nxt=xs[i+1];
-    const px0=finite(cur.price?.close), px1=finite(nxt.price?.close);
-    if(!(px0>0&&px1>0)) continue;
-    samples.push({ row:cur, nextReturnBps:Math.log(px1/px0)*10000 });
+  const temporal=temporalSamples(rows,{maxForwardLabelGapMinutes});
+  const samples=temporal.samples;
+  if(samples.length<10){
+    return {
+      ...base,
+      verdict:'DATA_NOT_READY',
+      dataQuality:{qualityPass:true,independentRowCount:independentCount,usableForwardSamples:samples.length,rejectedForwardGaps:temporal.rejectedForwardGaps},
+      candidates:[],
+    };
   }
-  const cut=Math.max(1,Math.floor(samples.length*0.7));
-  const train=samples.slice(0,cut), validation=samples.slice(cut);
+
+  const holdoutCount=Math.max(1,Math.floor(samples.length*holdoutFraction));
+  const researchSamples=samples.slice(0,samples.length-holdoutCount);
+  const sealedHoldout=samples.slice(samples.length-holdoutCount);
+  const trainCount=Math.max(1,Math.floor(researchSamples.length*0.75));
+  const train=researchSamples.slice(0,trainCount);
+  const validation=researchSamples.slice(trainCount);
+
   const candidates=FAMILIES.map(f=>{
     const evalSet=set=>set.filter(s=>f.signal(s.row)).map(s=>f.direction(s.row)*s.nextReturnBps-stressedCostBps);
-    const tr=metrics(evalSet(train)), va=metrics(evalSet(validation));
-    const pass=tr.trades>=5&&va.trades>=3&&(tr.expectancyBps??-Infinity)>0&&(va.expectancyBps??-Infinity)>0&&(tr.profitFactor??0)>=1.1&&(va.profitFactor??0)>=1.1;
-    return { family:f.id, description:f.description, train:tr, validation:va, status:pass?'RESEARCH_CANDIDATE':'REJECTED' };
+    const tr=metrics(evalSet(train));
+    const va=metrics(evalSet(validation));
+    const folds=[];
+    const foldSize=Math.max(1,Math.ceil(validation.length/Math.max(1,walkForwardFolds)));
+    for(let start=0;start<validation.length;start+=foldSize){
+      const fold=validation.slice(start,Math.min(validation.length,start+foldSize));
+      folds.push(metrics(evalSet(fold)));
+    }
+    const usableFolds=folds.filter(x=>x.trades>0);
+    const walkForwardPass=usableFolds.length>=Math.min(walkForwardFolds,validation.length)
+      && usableFolds.every(x=>(x.expectancyBps??-Infinity)>0 && (x.profitFactor??0)>=1.0);
+    const pass=tr.trades>=5
+      && va.trades>=3
+      && (tr.expectancyBps??-Infinity)>0
+      && (va.expectancyBps??-Infinity)>0
+      && (tr.profitFactor??0)>=1.1
+      && (va.profitFactor??0)>=1.1
+      && walkForwardPass;
+    return { family:f.id, description:f.description, train:tr, validation:va, walkForward:{folds,pass:walkForwardPass}, status:pass?'RESEARCH_CANDIDATE':'REJECTED' };
   });
   const survivors=candidates.filter(x=>x.status==='RESEARCH_CANDIDATE');
-  return { ...base, verdict:survivors.length?'RESEARCH_CANDIDATE_FOUND':'NO_EDGE_FOUND', dataQuality:{qualityPass:true,independentRowCount:independentCount}, candidates, survivors, holdoutOpened:false };
+  return {
+    ...base,
+    verdict:survivors.length?'RESEARCH_CANDIDATE_FOUND':'NO_EDGE_FOUND',
+    dataQuality:{
+      qualityPass:true,
+      independentRowCount:independentCount,
+      reconstructedIndependentRows:temporal.independentRows,
+      usableForwardSamples:samples.length,
+      rejectedForwardGaps:temporal.rejectedForwardGaps,
+    },
+    partitions:{
+      trainSamples:train.length,
+      validationSamples:validation.length,
+      sealedHoldoutSamples:sealedHoldout.length,
+      holdoutOpened:false,
+      holdoutMetricsComputed:false,
+    },
+    candidates,
+    survivors,
+    holdoutOpened:false,
+  };
 }
 
 if (process.argv[1]?.endsWith('runPositioningEdgeFactory.mjs')) {
