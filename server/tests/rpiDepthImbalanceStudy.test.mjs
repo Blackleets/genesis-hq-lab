@@ -1,13 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RPI_PROTOCOL, RPI_PROTOCOL_SHA256, buildMaturedRpiObservations, evaluateRpiStudy } from '../research/rpiDepthImbalanceStudy.mjs';
+import { RPI_PROTOCOL, RPI_PROTOCOL_SHA256, buildMaturedRpiObservations, selectIndependentRpiObservations, evaluateRpiStudy } from '../research/rpiDepthImbalanceStudy.mjs';
 
 function row(minute, imbalance, price) {
   return { schemaVersion:2, mode:'RESEARCH_ONLY', provider:'okx', capturedAt:new Date(Date.UTC(2026,8,9,12,minute,0)).toISOString(), features:{ rpiMidPrice:price, rpiDepthImbalance:imbalance } };
 }
 
-test('protocol is frozen with virgin sequential holdout and fixed costs', () => {
+test('protocol v2 is frozen with virgin sequential holdout, fixed costs and 25m independence embargo', () => {
+  assert.equal(RPI_PROTOCOL.studyVersion, 2);
   assert.equal(RPI_PROTOCOL.roundTripCostBps, 10);
+  assert.equal(RPI_PROTOCOL.independenceEmbargoMs, 25*60*1000);
+  assert.match(RPI_PROTOCOL.independencePolicy, /EMBARGO/);
   assert.deepEqual(RPI_PROTOCOL.sequentialSplits, { discovery:60, validation:30, holdout:30 });
   assert.match(RPI_PROTOCOL.holdoutPolicy, /NEVER_USED_FOR_RANKING_OR_TUNING/);
   assert.match(RPI_PROTOCOL_SHA256, /^[a-f0-9]{64}$/);
@@ -23,7 +26,32 @@ test('only extreme imbalance signals mature inside fixed 10-25m window', () => {
   assert.ok(obs[0].netBps < obs[0].grossBps);
 });
 
-test('holdout remains sealed and Forward PAPER stays false with insufficient sample', () => {
+test('overlapping matured signals count as one independent evidence unit', () => {
+  const rows=[
+    row(0,0.8,100), row(10,0.75,100.2), row(15,0.1,100.4),
+    row(25,0.1,100.3), row(30,-0.8,100.1), row(45,0,99.8),
+  ];
+  const raw=buildMaturedRpiObservations(rows);
+  assert.equal(raw.length,3);
+  const independent=selectIndependentRpiObservations(raw);
+  assert.equal(independent.accepted.length,2);
+  assert.equal(independent.rejected.length,1);
+  assert.equal(independent.rejected[0].reason,'OVERLAPPING_FORWARD_WINDOW');
+});
+
+test('study exposes raw versus independent matured counts and allocates only independent observations', () => {
+  const rows=[
+    row(0,0.8,100), row(10,0.75,100.2), row(15,0.1,100.4),
+    row(25,0.1,100.3), row(30,-0.8,100.1), row(45,0,99.8),
+  ];
+  const report=evaluateRpiStudy(rows);
+  assert.equal(report.rawMaturedSignalCount,3);
+  assert.equal(report.maturedSignalCount,2);
+  assert.equal(report.independence.rejectedOverlapCount,1);
+  assert.equal(report.sequentialAllocation.discoveryCount,2);
+});
+
+test('holdout remains sealed and Forward PAPER stays false with insufficient independent sample', () => {
   const report=evaluateRpiStudy([row(0,0.7,100),row(15,0,101)]);
   assert.equal(report.maturedSignalCount,1);
   assert.equal(report.holdout.status,'SEALED');
@@ -31,9 +59,9 @@ test('holdout remains sealed and Forward PAPER stays false with insufficient sam
   assert.equal(report.forwardPaperEligible,false);
 });
 
-test('chronological allocation never moves early observations into validation or holdout', () => {
+test('chronological allocation never moves early independent observations into validation or holdout', () => {
   const rows=[];
-  for (let i=0;i<121;i++) rows.push({ schemaVersion:2, mode:'RESEARCH_ONLY', provider:'okx', capturedAt:new Date(Date.UTC(2026,8,1,0,i*15,0)).toISOString(), features:{ rpiMidPrice:100+i*0.01, rpiDepthImbalance:i%2?0.7:-0.7 } });
+  for (let i=0;i<241;i++) rows.push({ schemaVersion:2, mode:'RESEARCH_ONLY', provider:'okx', capturedAt:new Date(Date.UTC(2026,8,1,0,i*15,0)).toISOString(), features:{ rpiMidPrice:100+i*0.01, rpiDepthImbalance:i%2?0.7:-0.7 } });
   const report=evaluateRpiStudy(rows);
   assert.equal(report.sequentialAllocation.discoveryCount,60);
   assert.equal(report.sequentialAllocation.validationCount,30);
