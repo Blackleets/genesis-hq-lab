@@ -1,16 +1,20 @@
-// RESEARCH_ONLY cross-market spot/perpetual capture for BTCUSDT.
-// Public Binance market data only. Never places orders or changes trading gates.
+// RESEARCH_ONLY cross-market spot/perpetual capture for BTC-USDT.
+// Public OKX market data only. Never places orders or changes trading gates.
 
 import fs from 'node:fs';
 import path from 'node:path';
 
-const SPOT = 'https://api.binance.com/api/v3/klines';
-const FUTURES = 'https://fapi.binance.com/fapi/v1/klines';
+const CANDLES = 'https://www.okx.com/api/v5/market/candles';
 
-async function getJson(url) {
+async function getCandles(instId) {
+  const url = `${CANDLES}?instId=${encodeURIComponent(instId)}&bar=1m&limit=4`;
   const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
-  if (!res.ok) throw new Error(`HTTP ${res.status} for ${url.split('?')[0]}`);
-  return res.json();
+  if (!res.ok) throw new Error(`HTTP ${res.status} for ${CANDLES}`);
+  const body = await res.json();
+  if (String(body?.code) !== '0' || !Array.isArray(body?.data)) {
+    throw new Error(`OKX market data error: ${body?.code ?? 'unknown'} ${body?.msg ?? ''}`.trim());
+  }
+  return body.data;
 }
 
 function parseKline(row) {
@@ -21,11 +25,8 @@ function parseKline(row) {
     low: Number(row[3]),
     close: Number(row[4]),
     baseVolume: Number(row[5]),
-    closeTime: Number(row[6]),
     quoteVolume: Number(row[7]),
-    trades: Number(row[8]),
-    takerBuyBase: Number(row[9]),
-    takerBuyQuote: Number(row[10]),
+    confirmed: String(row[8]) === '1',
   };
 }
 
@@ -35,18 +36,12 @@ function pctReturn(prev, next) {
     : null;
 }
 
-function takerBuyShare(row) {
-  return Number.isFinite(row.quoteVolume) && row.quoteVolume > 0
-    ? row.takerBuyQuote / row.quoteVolume
-    : null;
-}
-
-export function buildCrossMarketObservation(spotRows, futuresRows, { now = Date.now(), symbol = 'BTCUSDT' } = {}) {
-  const spot = spotRows.map(parseKline).filter(r => r.closeTime < now);
-  const futures = futuresRows.map(parseKline).filter(r => r.closeTime < now);
+export function buildCrossMarketObservation(spotRows, futuresRows, { symbol = 'BTC-USDT' } = {}) {
+  const spot = spotRows.map(parseKline).filter(r => r.confirmed).sort((a, b) => a.openTime - b.openTime);
+  const futures = futuresRows.map(parseKline).filter(r => r.confirmed).sort((a, b) => a.openTime - b.openTime);
   const futuresByTime = new Map(futures.map(r => [r.openTime, r]));
   const aligned = spot.map(s => ({ spot: s, futures: futuresByTime.get(s.openTime) })).filter(x => x.futures);
-  if (aligned.length < 2) throw new Error('Need at least two aligned closed 1m bars');
+  if (aligned.length < 2) throw new Error('Need at least two aligned confirmed 1m bars');
 
   const prev = aligned.at(-2);
   const cur = aligned.at(-1);
@@ -57,11 +52,13 @@ export function buildCrossMarketObservation(spotRows, futuresRows, { now = Date.
   return {
     schemaVersion: 1,
     mode: 'RESEARCH_ONLY',
-    provider: 'binance_public_market_data',
+    provider: 'okx_public_market_data',
     symbol,
+    spotInstId: 'BTC-USDT',
+    futuresInstId: 'BTC-USDT-SWAP',
     interval: '1m',
     barOpenTime: new Date(cur.spot.openTime).toISOString(),
-    barCloseTime: new Date(Math.min(cur.spot.closeTime, cur.futures.closeTime)).toISOString(),
+    barCloseTime: new Date(cur.spot.openTime + 59_999).toISOString(),
     features: {
       spotClose: cur.spot.close,
       futuresClose: cur.futures.close,
@@ -71,26 +68,24 @@ export function buildCrossMarketObservation(spotRows, futuresRows, { now = Date.
       returnSpread1mBps: +(futuresReturnBps - spotReturnBps).toFixed(4),
       spotQuoteVolume: cur.spot.quoteVolume,
       futuresQuoteVolume: cur.futures.quoteVolume,
-      spotTakerBuyShare: +takerBuyShare(cur.spot).toFixed(6),
-      futuresTakerBuyShare: +takerBuyShare(cur.futures).toFixed(6),
-      takerBuyShareSpread: +(takerBuyShare(cur.futures) - takerBuyShare(cur.spot)).toFixed(6),
     },
     provenance: {
-      spotEndpoint: SPOT,
-      futuresEndpoint: FUTURES,
-      securityType: 'NONE_PUBLIC_READ_ONLY',
+      endpoint: CANDLES,
+      spotInstId: 'BTC-USDT',
+      futuresInstId: 'BTC-USDT-SWAP',
+      confirmedBarsOnly: true,
+      securityType: 'PUBLIC_READ_ONLY_NO_API_KEY',
     },
     researchUse: 'OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING',
   };
 }
 
-export async function captureCrossMarket({ symbol = 'BTCUSDT', out, jsonl } = {}) {
-  const q = `symbol=${encodeURIComponent(symbol)}&interval=1m&limit=4`;
+export async function captureCrossMarket({ out, jsonl } = {}) {
   const [spotRows, futuresRows] = await Promise.all([
-    getJson(`${SPOT}?${q}`),
-    getJson(`${FUTURES}?${q}`),
+    getCandles('BTC-USDT'),
+    getCandles('BTC-USDT-SWAP'),
   ]);
-  const observation = buildCrossMarketObservation(spotRows, futuresRows, { symbol });
+  const observation = buildCrossMarketObservation(spotRows, futuresRows);
   const payload = { ...observation, capturedAt: new Date().toISOString() };
 
   if (out) {
@@ -113,7 +108,6 @@ if (process.argv[1]?.endsWith('crossMarketLeadLagCapture.mjs')) {
   const args = process.argv.slice(2);
   const valueAfter = flag => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : undefined; };
   captureCrossMarket({
-    symbol: valueAfter('--symbol') || 'BTCUSDT',
     out: valueAfter('--out'),
     jsonl: valueAfter('--jsonl'),
   }).then(x => console.log(JSON.stringify(x, null, 2)))
