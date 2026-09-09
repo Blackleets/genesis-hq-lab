@@ -1,5 +1,5 @@
 {
-  "version": "edge_deep_learning_ledger_v2_multi_control",
+  "version": "edge_deep_learning_ledger_v3_structural_gate",
   "paperOnly": true,
   "liveOrders": false,
   "executionAuthority": false,
@@ -184,7 +184,37 @@
           "pass": false
         }
       }
+    },
+    "failed_breakout:SOLUSDT:4h:ALL": {
+      "status": "DEEP_REJECTED",
+      "firstSeen": "2026-09-09T00:25:06.465Z",
+      "lastSeen": "2026-09-09T00:25:06.465Z",
+      "parentVariant": "failed_breakout:SOLUSDT:4h:ALL:p20:ta1:sa0.75:tb8",
+      "barsPerMarket": 12000,
+      "reason": "DEEP_WEAK_TRAIN_PROFIT_FACTOR",
+      "resetPolicy": "MATERIAL_REGIME_OR_CONTEXT_CHANGE",
+      "evidence": {
+        "train": {
+          "trades": 115,
+          "expectancyBps": 4.09,
+          "profitFactor": 1.022,
+          "tStat": 0.106,
+          "maxDrawdownPct": 55.55
+        },
+        "validation": {
+          "trades": 43,
+          "expectancyBps": 53.5,
+          "profitFactor": 1.422,
+          "tStat": 1.028,
+          "maxDrawdownPct": 9.42
+        },
+        "walkForward": {
+          "positiveFolds": 2,
+          "requiredPositiveFolds": 3,
+          "pass": false
+        }
+      }
     }
   },
-  "updatedAt": "2026-09-09T00:23:38.013Z"
+  "updatedAt": "2026-09-09T00:25:06.465Z"
 }
