@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "kind": "POSITIONING_CAPTURE_SCHEDULER_CONSOLIDATION_EVIDENCE",
+  "mode": "RESEARCH_ONLY",
+  "researchUse": "DATA_QUALITY_ONLY_NOT_FOR_RANKING",
+  "featureBranch": "feat/genesis-life-os",
+  "featureCommits": [
+    "7aba9537eca77e9b91ce5e9b6c1a74ded47c3788",
+    "a221a1f6cdc3643037558b563def95620f4ec883"
+  ],
+  "validationRunId": 34402862429,
+  "validationRunEvent": "push",
+  "validation": {
+    "result": "SUCCESS",
+    "positioningTestsIncluded": true,
+    "pushMarketCaptureSkipped": true,
+    "scheduledOwner": "paper-capture-harvest",
+    "scheduledCadenceMinutes": 15,
+    "duplicateScheduledPositioningProducerRemoved": true
+  },
+  "reason": "Consolidate positioning-dynamics market capture into the established paper harvest schedule so code pushes cannot create pseudo-observations and two scheduled workflows cannot sample the same 60-second taker window concurrently.",
+  "boundaries": {
+    "paperOnly": true,
+    "liveTradingEnabled": false,
+    "realOrdersPlaced": false,
+    "realTradingConfirmationsChanged": false,
+    "riskGatesLowered": false,
+    "killSwitchesWeakened": false,
+    "holdoutUsedForRanking": false,
+    "forwardPaperPromotion": false
+  }
+}
