@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { deriveFundingFeatures, derivePositioningDynamics } from '../genesis/derivativesContext.mjs';
+import {
+  deriveFundingFeatures,
+  derivePositioningDynamics,
+  derivePremiumFeatures,
+} from '../genesis/derivativesContext.mjs';
 
 test('deriveFundingFeatures keeps funding descriptive and deterministic', () => {
   const out = deriveFundingFeatures([
@@ -39,6 +43,35 @@ test('deriveFundingFeatures is honest on missing observations', () => {
     fundingPositiveShare: null,
     fundingCumulative: null,
     fundingCrowd: 'unknown',
+  });
+});
+
+test('derivePremiumFeatures preserves persistent negative basis and recent impulse', () => {
+  const out = derivePremiumFeatures([
+    { close: -0.00010 },
+    { close: -0.00020 },
+    { close: -0.00030 },
+    { close: -0.00040 },
+    { close: -0.00050 },
+    { close: -0.00060 },
+  ]);
+
+  assert.deepEqual(out, {
+    premiumNowBps: -6,
+    premiumAvgBps: -3.5,
+    premiumRecentAvgBps: -5,
+    premiumImpulseBps: -3,
+    premiumPositiveShare: 0,
+  });
+});
+
+test('derivePremiumFeatures does not fabricate basis from missing observations', () => {
+  assert.deepEqual(derivePremiumFeatures([]), {
+    premiumNowBps: null,
+    premiumAvgBps: null,
+    premiumRecentAvgBps: null,
+    premiumImpulseBps: null,
+    premiumPositiveShare: null,
   });
 });
 
