@@ -3,8 +3,8 @@
   "mode": "RESEARCH_ONLY",
   "purpose": "validate_redundant_market_data_before_use",
   "symbol": "BTCUSDT",
-  "startedAt": "2026-09-09T10:02:20.203Z",
-  "completedAt": "2026-09-09T10:02:22.053Z",
+  "startedAt": "2026-09-09T10:23:24.244Z",
+  "completedAt": "2026-09-09T10:23:27.151Z",
   "dimensions": [
     "funding",
     "oi",
@@ -13,53 +13,60 @@
     "trades"
   ],
   "usableProviders": [
+    "bybit",
     "okx"
   ],
   "results": {
     "bybit": {
       "provider": "bybit",
       "researchOnly": true,
-      "usableForSynchronizedResearch": false,
-      "availableDimensions": [],
+      "usableForSynchronizedResearch": true,
+      "availableDimensions": [
+        "funding",
+        "oi",
+        "perp",
+        "spot",
+        "trades"
+      ],
       "checks": {
         "funding": {
-          "ok": false,
-          "httpStatus": 403,
-          "providerCode": null,
-          "sampleCount": 0,
-          "latencyMs": 239,
+          "ok": true,
+          "httpStatus": 200,
+          "providerCode": 0,
+          "sampleCount": 3,
+          "latencyMs": 579,
           "endpoint": "/v5/market/funding/history"
         },
         "oi": {
-          "ok": false,
-          "httpStatus": 403,
-          "providerCode": null,
-          "sampleCount": 0,
-          "latencyMs": 103,
+          "ok": true,
+          "httpStatus": 200,
+          "providerCode": 0,
+          "sampleCount": 3,
+          "latencyMs": 533,
           "endpoint": "/v5/market/open-interest"
         },
         "perp": {
-          "ok": false,
-          "httpStatus": 403,
-          "providerCode": null,
-          "sampleCount": 0,
-          "latencyMs": 18,
+          "ok": true,
+          "httpStatus": 200,
+          "providerCode": 0,
+          "sampleCount": 3,
+          "latencyMs": 248,
           "endpoint": "/v5/market/kline"
         },
         "spot": {
-          "ok": false,
-          "httpStatus": 403,
-          "providerCode": null,
-          "sampleCount": 0,
-          "latencyMs": 16,
+          "ok": true,
+          "httpStatus": 200,
+          "providerCode": 0,
+          "sampleCount": 3,
+          "latencyMs": 253,
           "endpoint": "/v5/market/kline"
         },
         "trades": {
-          "ok": false,
-          "httpStatus": 403,
-          "providerCode": null,
-          "sampleCount": 0,
-          "latencyMs": 18,
+          "ok": true,
+          "httpStatus": 200,
+          "providerCode": 0,
+          "sampleCount": 10,
+          "latencyMs": 249,
           "endpoint": "/v5/market/recent-trade"
         }
       }
@@ -81,7 +88,7 @@
           "httpStatus": 200,
           "providerCode": "0",
           "sampleCount": 3,
-          "latencyMs": 276,
+          "latencyMs": 322,
           "endpoint": "/api/v5/public/funding-rate-history"
         },
         "oi": {
@@ -89,7 +96,7 @@
           "httpStatus": 200,
           "providerCode": "0",
           "sampleCount": 1,
-          "latencyMs": 353,
+          "latencyMs": 174,
           "endpoint": "/api/v5/public/open-interest"
         },
         "perp": {
@@ -97,7 +104,7 @@
           "httpStatus": 200,
           "providerCode": "0",
           "sampleCount": 3,
-          "latencyMs": 226,
+          "latencyMs": 174,
           "endpoint": "/api/v5/market/candles"
         },
         "spot": {
@@ -105,7 +112,7 @@
           "httpStatus": 200,
           "providerCode": "0",
           "sampleCount": 3,
-          "latencyMs": 221,
+          "latencyMs": 177,
           "endpoint": "/api/v5/market/candles"
         },
         "trades": {
@@ -113,7 +120,7 @@
           "httpStatus": 200,
           "providerCode": "0",
           "sampleCount": 10,
-          "latencyMs": 233,
+          "latencyMs": 180,
           "endpoint": "/api/v5/market/trades"
         }
       }
