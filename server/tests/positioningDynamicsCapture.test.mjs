@@ -16,10 +16,12 @@ function context() {
     fundingCrowd: 'balanced',
     premiumNowBps: -1.4,
     premiumImpulseBps: -0.8,
+    volatilityState: 'normal',
+    volatilityExpansionRatio: 0.9,
     raw: {
       oi: [
-        { time: capturedAtMs - 10 * 60_000, oiUsd: 1_000_000 },
-        { time: capturedAtMs - 5 * 60_000, oiUsd: 1_020_000 },
+        { time: capturedAtMs - 10 * 60_000, oi: 1_000_000 },
+        { time: capturedAtMs - 5 * 60_000, oi: 1_020_000 },
       ],
       taker: [
         { time: capturedAtMs - 90 * 60_000, buySellRatio: 1.17 },
@@ -37,16 +39,21 @@ function closedKline(closeTime = capturedAtMs - 1_000) {
   return [capturedAtMs - 60_000, '79000', '79100', '78900', '79050', '12', closeTime, '948600', 100, '6', '474300', '0'];
 }
 
-test('builds one causal RESEARCH_ONLY envelope with source provenance', () => {
-  const out = buildPositioningObservation(context(), closedKline(), { capturedAtMs });
+test('builds one causal RESEARCH_ONLY envelope with source provenance and explicit OI units', () => {
+  const out = buildPositioningObservation(context(), closedKline(), {
+    capturedAtMs,
+    openInterestUnit: 'CONTRACTS',
+  });
   assert.equal(out.mode, 'RESEARCH_ONLY');
   assert.equal(out.researchUse, 'OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING');
   assert.equal(out.price.close, 79050);
-  assert.equal(out.positioning.oiUsdNow, 1_020_000);
+  assert.deepEqual(out.positioning.openInterest, { value: 1_020_000, unit: 'CONTRACTS' });
   assert.equal(out.positioning.takerBuySellRatioNow, 0.78);
   assert.equal(out.positioning.fundingRateNow, 0.0001);
   assert.equal(out.positioning.takerReversal, true);
+  assert.equal(out.positioning.volatilityState, 'normal');
   assert.equal(out.provenance.closedPriceBarOnly, true);
+  assert.match(out.provenance.note, /provider-native contract units/);
   assert.equal(out.provenance.agesMs.openInterest, 5 * 60_000);
   assert.equal(out.provenance.agesMs.taker, 30 * 60_000);
   assert.equal(out.provenance.agesMs.funding, 8 * 60 * 60_000);
@@ -61,7 +68,7 @@ test('fails closed on future price data', () => {
 
 test('fails closed on stale OI instead of silently using old positioning', () => {
   const c = context();
-  c.raw.oi = [{ time: capturedAtMs - 16 * 60_000, oiUsd: 1_020_000 }];
+  c.raw.oi = [{ time: capturedAtMs - 16 * 60_000, oi: 1_020_000 }];
   assert.throws(
     () => buildPositioningObservation(c, closedKline(), { capturedAtMs }),
     /openInterest source stale/,
