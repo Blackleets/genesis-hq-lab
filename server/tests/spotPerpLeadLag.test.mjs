@@ -8,7 +8,7 @@ function closesFromReturns(returns, start = 100) {
   return closes.map((close, index) => ({ time: index * 60_000, close }));
 }
 
-test('deriveSpotPerpLeadLag detects a one-bar spot lead without implying a trade', () => {
+test('deriveSpotPerpLeadLag detects a one-bar reference-market lead without implying a trade', () => {
   const spotReturns = [
     0.001, -0.002, 0.003, 0.0015, -0.001,
     0.0025, -0.003, 0.004, -0.0025, 0.001,
@@ -26,7 +26,7 @@ test('deriveSpotPerpLeadLag detects a one-bar spot lead without implying a trade
   assert.equal(result.alignedPoints, spotReturns.length + 1);
   assert.equal(result.bestLagBars, 1);
   assert.equal(result.bestLagCorr, 1);
-  assert.equal(result.leader, 'spot');
+  assert.equal(result.leader, 'reference');
   assert.equal(typeof result.spreadNowBps, 'number');
   assert.equal(typeof result.latestReturnDivergenceBps, 'number');
 });
