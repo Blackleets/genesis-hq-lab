@@ -1,0 +1,35 @@
+{
+  "type": "RESEARCH_EVIDENCE_INTEGRITY_AUDIT",
+  "mode": "RESEARCH_ONLY",
+  "recordedAt": "2026-09-09T22:19:00Z",
+  "repo": "Blackleets/genesis-hq-lab",
+  "branch": "feat/genesis-life-os",
+  "codeCommit": "58efd88869818cd922c2bd0b9ace81753cb972c9",
+  "workflowRunId": 34411556768,
+  "workflow": "paper-capture-harvest",
+  "finding": "Push-triggered workflow executions could create irregular market snapshots in RPI/research-state tapes and therefore influence temporal maturity/exit selection in research studies.",
+  "change": "Push executions are now regression-tests only. All market-data probes, captures, study evaluations, and capture-tape publication are restricted to scheduled or explicit workflow_dispatch executions.",
+  "validation": {
+    "workflowConclusion": "success",
+    "integrityTests": "success",
+    "providerProbeOnPush": "skipped",
+    "rpiCaptureOnPush": "skipped",
+    "paperHarvestOnPush": "skipped",
+    "researchStateCaptureOnPush": "skipped",
+    "positioningCaptureOnPush": "skipped",
+    "microstructureStudyOnPush": "skipped",
+    "rpiStudyOnPush": "skipped",
+    "captureTapePublishOnPush": "skipped"
+  },
+  "boundaries": {
+    "liveTradingEnabled": false,
+    "realOrdersPlaced": false,
+    "realTradingConfirmationsChanged": false,
+    "riskGatesLowered": false,
+    "killSwitchesWeakened": false,
+    "holdoutUsedForRanking": false,
+    "forwardPaperPromotion": false
+  },
+  "expectedImpact": "Removes code-change timing as a source of market-sample timing and outcome-label contamination; future durable observations are generated only by the pre-existing scheduled/manual research capture path.",
+  "researchUse": "AUDIT_ONLY_NOT_FOR_RANKING"
+}
