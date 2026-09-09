@@ -1,0 +1,30 @@
+{
+  "kind": "research_agent_audit",
+  "mode": "RESEARCH_ONLY",
+  "paperOnly": true,
+  "liveTradingEnabled": false,
+  "realOrdersPlaced": false,
+  "realTradingConfirmationsChanged": false,
+  "riskGatesLowered": false,
+  "holdoutUsedForRanking": false,
+  "forwardPaperPromotion": false,
+  "repoBranch": "feat/genesis-life-os",
+  "codeCommit": "523ba756106936760c37d95d77082c199a020fd0",
+  "workflowRunId": 34415182244,
+  "workflowConclusion": "success",
+  "change": "research-state crossCapture now requires independent OKX fixed-60s taker windows before computing OI/taker/funding/premium deltas; production provenance uses sourceAsOf.taker separation and tests retain a conservative capture-gap fallback for synthetic/legacy fixtures.",
+  "evidenceBefore": {
+    "latestTapeCommitInspected": "aeed96b3a7d4aea442991b532237407cc9cd0bfb",
+    "latestResearchStateCrossCaptureGapMs": 79985,
+    "latestResearchStateSafeForResearch": true,
+    "latestResearchStateTakerDefinition": "OKX_PUBLIC_HISTORY_TRADES_FIXED_60S_V1"
+  },
+  "validation": {
+    "suite": "paper-capture-harvest / verify synchronized evidence integrity",
+    "result": "PASS",
+    "marketCaptureOnPush": "SKIPPED_BY_DESIGN",
+    "tapePublishOnPush": "SKIPPED_BY_DESIGN"
+  },
+  "impact": "Prevents overlapping 60-second taker samples from being treated as independent cross-capture evidence during closely spaced manual/scheduled observations, reducing pseudo-sample inflation without changing any strategy or audit threshold.",
+  "nextBottleneck": "Accumulate scheduled independent schema-v6 observations and evaluate whether OI+taker+funding/basis+regime features add net OOS information after fixed costs; do not rank on holdout."
+}
