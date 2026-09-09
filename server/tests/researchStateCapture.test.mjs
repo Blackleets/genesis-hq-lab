@@ -44,6 +44,19 @@ const leadLag = {
   },
 };
 
+const fixedOkxProvenance = { takerDefinition: 'OKX_PUBLIC_HISTORY_TRADES_FIXED_60S_V1', fixedWindowTakerFlow: true };
+
+function fixedState(overrides = {}) {
+  return {
+    schemaVersion: 6,
+    safeForResearch: true,
+    provider: 'okx',
+    symbol: 'BTCUSDT',
+    provenance: fixedOkxProvenance,
+    ...overrides,
+  };
+}
+
 test('buildSynchronizedResearchState preserves source timestamps and rejects future data', () => {
   const state = buildSynchronizedResearchState({
     symbol: 'BTCUSDT',
@@ -117,21 +130,28 @@ test('buildSynchronizedResearchState rejects present-but-stale evidence by sourc
   assert.equal(state.integrity.futureSources.length, 0);
 });
 
-test('deriveCrossCaptureFeatures creates only causal same-provider deltas', () => {
-  const previous = {
-    safeForResearch: true,
-    provider: 'okx',
+test('OKX state fails closed without fixed-window taker provenance', () => {
+  const state = buildSynchronizedResearchState({
     symbol: 'BTCUSDT',
+    capturedAt: '2023-11-14T22:13:30.000Z',
+    derivatives,
+    leadLag: { ...leadLag, referenceSource: 'okx_spot' },
+    provider: 'okx',
+  });
+  assert.equal(state.safeForResearch, false);
+  assert.equal(state.provenance.fixedWindowTakerFlow, false);
+  assert.ok(state.integrity.staleSources.includes('taker'));
+});
+
+test('deriveCrossCaptureFeatures creates only causal same-provider same-definition deltas', () => {
+  const previous = fixedState({
     capturedAt: '2026-09-09T10:00:00.000Z',
     features: { oiUsdNow: 2_000_000_000, takerBias: 1.2, fundingRateNow: 0.00005, premiumNowBps: -4.0, spreadNowBps: -4.0 },
-  };
-  const current = {
-    safeForResearch: true,
-    provider: 'okx',
-    symbol: 'BTCUSDT',
+  });
+  const current = fixedState({
     capturedAt: '2026-09-09T10:15:00.000Z',
     features: { oiUsdNow: 2_020_000_000, takerBias: 1.5, fundingRateNow: 0.00007, premiumNowBps: -3.5, spreadNowBps: -3.6 },
-  };
+  });
   const result = deriveCrossCaptureFeatures(current, previous);
   assert.equal(result.available, true);
   assert.equal(result.gapMs, 15 * 60 * 1000);
@@ -142,16 +162,17 @@ test('deriveCrossCaptureFeatures creates only causal same-provider deltas', () =
   assert.ok(Math.abs(result.spreadCrossCaptureDeltaBps - 0.4) < 1e-12);
 });
 
-test('deriveCrossCaptureFeatures refuses venue mixing and stale prior captures', () => {
-  const base = {
-    safeForResearch: true,
-    provider: 'okx',
-    symbol: 'BTCUSDT',
+test('deriveCrossCaptureFeatures refuses venue, schema, taker-definition mixing and stale prior captures', () => {
+  const base = fixedState({
     capturedAt: '2026-09-09T10:00:00.000Z',
     features: { oiUsdNow: 2_000_000_000, takerBias: 1.2, fundingRateNow: 0.00005, premiumNowBps: -4, spreadNowBps: -4 },
-  };
+  });
   const venueMix = deriveCrossCaptureFeatures({ ...base, provider: 'binance', capturedAt: '2026-09-09T10:15:00.000Z' }, base);
   assert.equal(venueMix.available, false);
+  const schemaMix = deriveCrossCaptureFeatures({ ...base, schemaVersion: 5, capturedAt: '2026-09-09T10:15:00.000Z' }, base);
+  assert.equal(schemaMix.available, false);
+  const definitionMix = deriveCrossCaptureFeatures({ ...base, provenance: { takerDefinition: 'VARIABLE_COUNT' }, capturedAt: '2026-09-09T10:15:00.000Z' }, base);
+  assert.equal(definitionMix.available, false);
   const stale = deriveCrossCaptureFeatures({ ...base, capturedAt: new Date(Date.parse(base.capturedAt) + MAX_CROSS_CAPTURE_GAP_MS + 1).toISOString() }, base);
   assert.equal(stale.available, false);
 });
