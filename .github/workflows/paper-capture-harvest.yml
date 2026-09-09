@@ -3,7 +3,7 @@
 # Never sends an order. Path is paper-tape/ because /data/ is gitignored.
 # The synchronized capture labels Binance Spot vs USDⓈ-M index fallback explicitly.
 # If a market-data host is geo-blocked, the partial snapshot is persisted unsafe-for-research rather than dropped.
-# This workflow is the single scheduled owner of positioning-dynamics capture to prevent duplicate/overlapping taker windows.
+# The scheduled/manual path is the only owner of durable market captures; push is regression-tests only.
 name: paper-capture-harvest
 
 on:
@@ -61,6 +61,7 @@ jobs:
       - name: verify synchronized evidence integrity
         run: node --test server/tests/researchStateCapture.test.mjs server/tests/researchProviderProbe.test.mjs server/tests/okxVolatilityShock.test.mjs server/tests/okxRpiOrderBook.test.mjs server/tests/rpiOrderBookCapture.test.mjs server/tests/positioningDynamicsCapture.test.mjs server/tests/okxFixedWindowTaker.test.mjs server/tests/derivativesContext.test.mjs server/tests/positioningDataQualityAudit.test.mjs server/tests/causalMicrostructureStudy.test.mjs server/tests/observationIndependenceAudit.test.mjs server/tests/rpiDepthImbalanceStudy.test.mjs
       - name: validate redundant public research routes
+        if: github.event_name != 'push'
         shell: bash
         run: |
           set +e
@@ -73,14 +74,19 @@ jobs:
           fi
           test -s tape/paper-tape/provider-probe-latest.json
       - name: capture OKX RPI liquidity context
+        if: github.event_name != 'push'
         run: node server/genesis/rpiOrderBookCapture.mjs --inst BTC-USDT-SWAP --depth 20 --out tape/paper-tape/rpi-orderbook-latest.json --jsonl tape/paper-tape/rpi-orderbook.jsonl
       - name: run paper harvest
+        if: github.event_name != 'push'
         run: node server/genesis/harvestWorker.mjs --once --out tape/paper-tape/capture-latest.json --jsonl tape/paper-tape/capture.jsonl
       - name: run 1Hz paper tick
+        if: github.event_name != 'push'
         run: node server/genesis/harvest1hz.mjs --once --out tape/paper-tape/hz1-latest.json --jsonl tape/paper-tape/hz1.jsonl
       - name: run paper funding hold
+        if: github.event_name != 'push'
         run: node server/genesis/fundingHold.mjs --once --state tape/paper-tape/funding-latest.json
       - name: capture synchronized research state
+        if: github.event_name != 'push'
         run: node server/genesis/researchStateCapture.mjs BTCUSDT --out tape/paper-tape/research-state-latest.json --jsonl tape/paper-tape/research-state.jsonl
       - name: capture synchronized positioning dynamics
         if: github.event_name != 'push'
@@ -105,21 +111,22 @@ jobs:
           if (q.boundaries?.liveTradingEnabled !== false || q.boundaries?.realOrdersPlaced !== false) throw new Error('live boundary violated');
           NODE
       - name: evaluate locked predeclared microstructure hypothesis
+        if: github.event_name != 'push'
         run: node server/research/causalMicrostructureStudy.mjs tape/paper-tape/research-state.jsonl --protocol tape/paper-tape/microstructure-study-v2-protocol.json --out tape/paper-tape/microstructure-study-latest.json
       - name: audit independent observation count
+        if: github.event_name != 'push'
         run: node server/research/observationIndependenceAudit.mjs tape/paper-tape/microstructure-study-latest.json --out tape/paper-tape/microstructure-independence-audit-latest.json
       - name: evaluate predeclared RPI depth-imbalance study
+        if: github.event_name != 'push'
         run: node server/research/rpiDepthImbalanceStudy.mjs tape/paper-tape/rpi-orderbook.jsonl --out tape/paper-tape/rpi-depth-imbalance-study-latest.json
       - name: publish tape
+        if: github.event_name != 'push'
         working-directory: tape
         run: |
           git config user.name "genesis-capture"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mkdir -p paper-tape
-          git add -f paper-tape/capture-latest.json paper-tape/capture.jsonl paper-tape/hz1-latest.json paper-tape/hz1.jsonl paper-tape/funding-latest.json paper-tape/research-state-latest.json paper-tape/research-state.jsonl paper-tape/provider-probe-latest.json paper-tape/rpi-orderbook-latest.json paper-tape/rpi-orderbook.jsonl paper-tape/rpi-depth-imbalance-study-latest.json paper-tape/microstructure-study-latest.json paper-tape/microstructure-study-v2-protocol.json paper-tape/microstructure-independence-audit-latest.json
-          if [ "$GITHUB_EVENT_NAME" != "push" ]; then
-            git add -f paper-tape/positioning-dynamics-latest.json paper-tape/positioning-dynamics.jsonl paper-tape/positioning-data-quality-latest.json
-          fi
+          git add -f paper-tape/capture-latest.json paper-tape/capture.jsonl paper-tape/hz1-latest.json paper-tape/hz1.jsonl paper-tape/funding-latest.json paper-tape/research-state-latest.json paper-tape/research-state.jsonl paper-tape/provider-probe-latest.json paper-tape/rpi-orderbook-latest.json paper-tape/rpi-orderbook.jsonl paper-tape/rpi-depth-imbalance-study-latest.json paper-tape/microstructure-study-latest.json paper-tape/microstructure-study-v2-protocol.json paper-tape/microstructure-independence-audit-latest.json paper-tape/positioning-dynamics-latest.json paper-tape/positioning-dynamics.jsonl paper-tape/positioning-data-quality-latest.json
           if git diff --staged --quiet; then
             echo "no change"
             exit 0
