@@ -26,7 +26,9 @@ test('passes a clean same-schema non-overlapping cohort', () => {
   assert.equal(out.independentRowCount, 3);
   assert.equal(out.effectiveIndependentRatio, 1);
   assert.equal(out.defects.overlappingWindows, 0);
+  assert.equal(out.defects.excessiveGaps, 0);
   assert.equal(out.defects.duplicateCloseTimes, 0);
+  assert.equal(out.maxGapMinutes, 60);
   assert.equal(out.qualityPass, true);
   assert.equal(out.boundaries.holdoutUsedForRanking, false);
 });
@@ -42,6 +44,18 @@ test('detects overlapping taker windows and reduces effective independent sample
   assert.equal(out.independentRowCount, 2);
   assert.equal(out.defects.overlappingWindows, 1);
   assert.ok(out.effectiveIndependentRatio < 0.95);
+  assert.equal(out.qualityPass, false);
+});
+
+test('fails closed when an otherwise clean cohort contains an excessive capture gap', () => {
+  const rows = [
+    row({ capturedAt: '2026-09-09T18:00:00.000Z', closeTime: '2026-09-09T17:59:59.999Z' }),
+    row({ capturedAt: '2026-09-09T18:05:00.000Z', closeTime: '2026-09-09T18:04:59.999Z' }),
+    row({ capturedAt: '2026-09-09T19:06:00.000Z', closeTime: '2026-09-09T19:05:59.999Z' }),
+  ];
+  const out = auditPositioningRows(rows);
+  assert.equal(out.defects.excessiveGaps, 1);
+  assert.equal(out.independentRowCount, 2);
   assert.equal(out.qualityPass, false);
 });
 
