@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "mode": "RESEARCH_ONLY",
+  "researchUse": "DATA_QUALITY_ONLY_NOT_FOR_RANKING",
+  "change": "positioning_gap_quality_guard",
+  "sourceBranch": "feat/genesis-life-os",
+  "codeCommits": [
+    "30ecc19f5320ca893fcc607b283fb15576a16093",
+    "99d1da9fa9f90e059ca4e3154d7a637b907edd46"
+  ],
+  "validation": {
+    "workflow": "positioning-dynamics-capture",
+    "runId": 34399091299,
+    "conclusion": "success",
+    "testAdded": "fails closed when an otherwise clean cohort contains an excessive capture gap"
+  },
+  "finding": {
+    "maxAllowedGapMinutes": 60,
+    "latestEligibleRowCount": 5,
+    "latestIndependentRowCount": 3,
+    "latestEffectiveIndependentRatio": 0.6,
+    "latestExcessiveGaps": 1,
+    "latestOverlappingWindows": 1,
+    "latestQualityPass": false,
+    "issue": "The auditor counted excessiveGaps but qualityPass did not require excessiveGaps === 0.",
+    "resolution": "qualityPass now fails closed on any gap above the existing 60-minute evidence-quality ceiling; the ceiling was not increased or weakened."
+  },
+  "boundaries": {
+    "paperOnly": true,
+    "liveTradingEnabled": false,
+    "realOrdersPlaced": false,
+    "realTradingConfirmationsChanged": false,
+    "riskGatesChanged": false,
+    "holdoutUsedForRanking": false,
+    "forwardPaperPromotion": false
+  }
+}
