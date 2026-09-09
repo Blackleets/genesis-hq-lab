@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "genesis.research.validation-run.v1",
+  "capturedAt": "2026-09-09T06:40:00Z",
+  "researchMode": "RESEARCH_ONLY",
+  "sourceBranch": "feat/genesis-life-os",
+  "sourceCommit": "858f5c7b3d7cd5d254056a29b83724dd978f4593",
+  "workflow": "CTA Futures Native v2 Deep Validation",
+  "workflowRunId": 34319250178,
+  "statusAtCapture": "in_progress",
+  "change": "The frozen checksum-verified CTA Futures Native v2 validation workflow is now wired to feat/genesis-life-os, so the active research branch can execute the existing official Binance Vision historical audit directly.",
+  "datasetContract": {
+    "source": "official Binance Vision USD-M futures archives",
+    "symbols": ["BTCUSDT", "ETHUSDT", "SOLUSDT"],
+    "marketInputs": ["mark price", "index price", "premium index", "funding", "open-interest metrics"],
+    "period": "2022-01-01 through 2026-09-01",
+    "checksumRequired": true,
+    "syntheticOpenInterest": false
+  },
+  "validationContract": {
+    "developmentFraction": 0.50,
+    "validationFraction": 0.25,
+    "holdoutFraction": 0.25,
+    "holdoutUsedForRanking": false,
+    "holdoutPolicy": "sealed unless validation passes fixed gates; evaluate once only",
+    "oneWayCostBps": 7,
+    "referenceRoundTripCostBps": 14,
+    "fixedGatesUnchanged": true
+  },
+  "authority": {
+    "executionAuthority": false,
+    "capitalEligible": false,
+    "liveOrders": false,
+    "realTradingConfirmationsChanged": false,
+    "gatesLowered": false,
+    "forwardPaperEnrollment": false
+  },
+  "claim": "No profitability or edge claim is made while the deep validation run is still executing. This capture records the material infrastructure change and immutable audit identifiers only.",
+  "nextEvidenceRequired": "Persist the completed report, hashes, validation verdict, holdout state and metrics from workflow run 34319250178 before any candidate promotion decision."
+}
