@@ -2,6 +2,7 @@
 // Reads durable synchronized snapshots only. No network, no orders, no promotion.
 
 import fs from 'node:fs';
+import path from 'node:path';
 import { createHash } from 'node:crypto';
 
 export const STUDY_VERSION = 2;
@@ -36,7 +37,7 @@ export function enforceProtocolLock(protocolPath, protocol = STUDY_PROTOCOL) {
   if (!protocolPath) return { protocolHash: protocolHash(protocol), created: false };
   const expected = { ...protocol, protocolHash: protocolHash(protocol) };
   if (!fs.existsSync(protocolPath)) {
-    fs.mkdirSync(new URL('.', `file://${protocolPath}`).pathname, { recursive: true });
+    fs.mkdirSync(path.dirname(protocolPath), { recursive: true });
     fs.writeFileSync(protocolPath, `${JSON.stringify(expected, null, 2)}\n`);
     return { protocolHash: expected.protocolHash, created: true };
   }
