@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSynchronizedResearchState } from '../genesis/researchStateCapture.mjs';
+import { buildSynchronizedResearchState, SOURCE_FRESHNESS_BUDGET_MS } from '../genesis/researchStateCapture.mjs';
 
 const derivatives = {
   symbol: 'BTCUSDT',
@@ -56,9 +56,12 @@ test('buildSynchronizedResearchState preserves source timestamps and rejects fut
   assert.equal(state.safeForResearch, true);
   assert.equal(state.referenceSource, 'binance_futures_index');
   assert.equal(state.integrity.noFutureData, true);
+  assert.equal(state.integrity.allSourcesFresh, true);
   assert.deepEqual(state.integrity.futureSources, []);
   assert.deepEqual(state.integrity.missingSources, []);
+  assert.deepEqual(state.integrity.staleSources, []);
   assert.equal(state.sourceAgeMs.oi, 10_000);
+  assert.equal(state.sourceFreshnessBudgetMs.oi, SOURCE_FRESHNESS_BUDGET_MS.oi);
   assert.equal(state.features.takerRecentBias, 1.18);
   assert.equal(state.features.leader, 'reference');
 });
@@ -93,4 +96,23 @@ test('buildSynchronizedResearchState marks missing source timestamps unsafe', ()
 
   assert.equal(state.safeForResearch, false);
   assert.deepEqual(state.integrity.missingSources, ['funding']);
+});
+
+test('buildSynchronizedResearchState rejects present-but-stale evidence by source cadence', () => {
+  const staleOiTime = 1_700_000_010_000 - SOURCE_FRESHNESS_BUDGET_MS.oi - 1;
+  const state = buildSynchronizedResearchState({
+    symbol: 'BTCUSDT',
+    capturedAt: '2023-11-14T22:13:30.000Z',
+    derivatives: {
+      ...derivatives,
+      raw: { ...derivatives.raw, oi: [{ time: staleOiTime }] },
+    },
+    leadLag,
+  });
+
+  assert.equal(state.safeForResearch, false);
+  assert.equal(state.integrity.allSourcesFresh, false);
+  assert.deepEqual(state.integrity.staleSources, ['oi']);
+  assert.equal(state.integrity.missingSources.length, 0);
+  assert.equal(state.integrity.futureSources.length, 0);
 });
