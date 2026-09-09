@@ -10,11 +10,13 @@ on:
     - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
   # Re-arm the scheduled workflow and force one verified capture when this
-  # workflow definition is promoted to the default Genesis branch.
+  # evidence path changes on the default Genesis research branch.
   push:
     branches: [feat/genesis-life-os]
     paths:
       - .github/workflows/paper-capture-harvest.yml
+      - server/genesis/researchStateCapture.mjs
+      - server/tests/researchStateCapture.test.mjs
 
 permissions:
   contents: write
@@ -35,6 +37,8 @@ jobs:
         with:
           ref: capture-tape
           path: tape
+      - name: verify synchronized evidence integrity
+        run: node --test server/tests/researchStateCapture.test.mjs
       - name: run paper harvest
         run: node server/genesis/harvestWorker.mjs --once --out tape/paper-tape/capture-latest.json --jsonl tape/paper-tape/capture.jsonl
       - name: run 1Hz paper tick
