@@ -57,7 +57,7 @@ test('paginates public history backwards until the requested window is covered',
   const calls = [];
   const responses = [
     [trade(end - 10_000, 'buy', 1, 100), trade(end, 'sell', 1, 101)],
-    [trade(end - 70_000, 'sell', 1, 90), trade(end - 40_000, 'buy', 3, 91)],
+    [trade(end - 60_000, 'sell', 1, 90), trade(end - 40_000, 'buy', 3, 91)],
   ];
   const fetchImpl = async url => {
     calls.push(String(url));
