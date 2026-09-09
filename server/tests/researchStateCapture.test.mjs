@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSynchronizedResearchState, SOURCE_FRESHNESS_BUDGET_MS } from '../genesis/researchStateCapture.mjs';
+import { buildSynchronizedResearchState, deriveCrossCaptureFeatures, SOURCE_FRESHNESS_BUDGET_MS, MAX_CROSS_CAPTURE_GAP_MS } from '../genesis/researchStateCapture.mjs';
 
 const derivatives = {
   symbol: 'BTCUSDT',
@@ -115,4 +115,43 @@ test('buildSynchronizedResearchState rejects present-but-stale evidence by sourc
   assert.deepEqual(state.integrity.staleSources, ['oi']);
   assert.equal(state.integrity.missingSources.length, 0);
   assert.equal(state.integrity.futureSources.length, 0);
+});
+
+test('deriveCrossCaptureFeatures creates only causal same-provider deltas', () => {
+  const previous = {
+    safeForResearch: true,
+    provider: 'okx',
+    symbol: 'BTCUSDT',
+    capturedAt: '2026-09-09T10:00:00.000Z',
+    features: { oiUsdNow: 2_000_000_000, takerBias: 1.2, fundingRateNow: 0.00005, premiumNowBps: -4.0, spreadNowBps: -4.0 },
+  };
+  const current = {
+    safeForResearch: true,
+    provider: 'okx',
+    symbol: 'BTCUSDT',
+    capturedAt: '2026-09-09T10:15:00.000Z',
+    features: { oiUsdNow: 2_020_000_000, takerBias: 1.5, fundingRateNow: 0.00007, premiumNowBps: -3.5, spreadNowBps: -3.6 },
+  };
+  const result = deriveCrossCaptureFeatures(current, previous);
+  assert.equal(result.available, true);
+  assert.equal(result.gapMs, 15 * 60 * 1000);
+  assert.ok(Math.abs(result.oiCrossCaptureChangePct - 1) < 1e-12);
+  assert.ok(Math.abs(result.takerBiasCrossCaptureChange - 0.3) < 1e-12);
+  assert.ok(Math.abs(result.fundingCrossCaptureDeltaBps - 0.2) < 1e-12);
+  assert.ok(Math.abs(result.premiumCrossCaptureDeltaBps - 0.5) < 1e-12);
+  assert.ok(Math.abs(result.spreadCrossCaptureDeltaBps - 0.4) < 1e-12);
+});
+
+test('deriveCrossCaptureFeatures refuses venue mixing and stale prior captures', () => {
+  const base = {
+    safeForResearch: true,
+    provider: 'okx',
+    symbol: 'BTCUSDT',
+    capturedAt: '2026-09-09T10:00:00.000Z',
+    features: { oiUsdNow: 2_000_000_000, takerBias: 1.2, fundingRateNow: 0.00005, premiumNowBps: -4, spreadNowBps: -4 },
+  };
+  const venueMix = deriveCrossCaptureFeatures({ ...base, provider: 'binance', capturedAt: '2026-09-09T10:15:00.000Z' }, base);
+  assert.equal(venueMix.available, false);
+  const stale = deriveCrossCaptureFeatures({ ...base, capturedAt: new Date(Date.parse(base.capturedAt) + MAX_CROSS_CAPTURE_GAP_MS + 1).toISOString() }, base);
+  assert.equal(stale.available, false);
 });
