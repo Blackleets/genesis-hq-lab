@@ -12,6 +12,19 @@ import path from 'node:path';
 import { getContext } from './derivativesContext.mjs';
 import { getSpotPerpLeadLagContext } from './spotPerpLeadLag.mjs';
 
+// Fixed, cadence-aware freshness budgets. A snapshot can have every source present
+// and still be invalid research evidence when one feed is stale. These budgets are
+// deliberately conservative relative to the upstream sampling cadence and are not
+// strategy/ranking parameters.
+export const SOURCE_FRESHNESS_BUDGET_MS = Object.freeze({
+  oi: 15 * 60 * 1000,            // upstream OI cadence: 5m
+  taker: 2 * 60 * 60 * 1000,     // upstream taker cadence: 1h
+  funding: 12 * 60 * 60 * 1000,  // funding cadence is normally 8h
+  premium: 2 * 60 * 60 * 1000,   // premium bars: 1h
+  reference: 5 * 60 * 1000,      // reference/index bars: 1m
+  perp: 5 * 60 * 1000,           // perpetual bars: 1m
+});
+
 function latestTime(rows = []) {
   const times = rows.map(row => Number(row?.time)).filter(Number.isFinite);
   return times.length ? Math.max(...times) : null;
@@ -51,6 +64,11 @@ export function buildSynchronizedResearchState({
   const missingSources = Object.entries(sourceAsOf)
     .filter(([, value]) => !Number.isFinite(value))
     .map(([key]) => key);
+  const staleSources = Object.entries(sourceAgeMs)
+    .filter(([key, value]) => Number.isFinite(value)
+      && Number.isFinite(SOURCE_FRESHNESS_BUDGET_MS[key])
+      && value > SOURCE_FRESHNESS_BUDGET_MS[key])
+    .map(([key]) => key);
   const errorSources = Object.keys(sourceErrors);
 
   return {
@@ -58,16 +76,22 @@ export function buildSynchronizedResearchState({
     mode: 'RESEARCH_ONLY',
     symbol: String(symbol || derivatives?.symbol || leadLag?.symbol || '').toUpperCase(),
     capturedAt,
-    safeForResearch: futureSources.length === 0 && missingSources.length === 0 && errorSources.length === 0,
+    safeForResearch: futureSources.length === 0
+      && missingSources.length === 0
+      && staleSources.length === 0
+      && errorSources.length === 0,
     referenceSource: leadLag?.referenceSource ?? 'unknown',
     sourceAsOf,
     sourceAgeMs,
+    sourceFreshnessBudgetMs: SOURCE_FRESHNESS_BUDGET_MS,
     integrity: {
       missingSources,
       futureSources,
+      staleSources,
       errorSources,
       sourceErrors,
       noFutureData: futureSources.length === 0,
+      allSourcesFresh: staleSources.length === 0,
     },
     features: {
       oiUsdNow: derivatives?.oiUsdNow ?? null,
