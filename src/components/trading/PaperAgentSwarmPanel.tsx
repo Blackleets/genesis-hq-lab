@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Bot, Cpu, RadioTower, ShieldCheck, TriangleAlert } from 'lucide-react';
 import { fetchPaperAgentSwarm, type PaperAgentSwarmSnapshot } from '@services/paperAgentSwarmClient';
+import { fetchForwardPaper, type ForwardPaperSnapshot } from '@services/forwardPaperClient';
 import './paperAgentSwarm.css';
 
 const POLL_MS = 30_000;
@@ -23,14 +24,32 @@ function money(value: number | null | undefined) {
   return `${value >= 0 ? '+' : '-'}$${Math.abs(value).toFixed(2)}`;
 }
 
+function number(value: number | null | undefined, digits = 2) {
+  return typeof value === 'number' && Number.isFinite(value) ? value.toFixed(digits) : '—';
+}
+
+function signedBps(value: number | null | undefined) {
+  return typeof value === 'number' && Number.isFinite(value) ? `${value >= 0 ? '+' : ''}${value.toFixed(2)} BPS` : '—';
+}
+
 function isFresh(timestamp: string | null | undefined) {
   const parsed = timestamp ? Date.parse(timestamp) : Number.NaN;
   return Number.isFinite(parsed) && Date.now() - parsed <= STALE_MS;
 }
 
+function simpleChampion(id: string | undefined) {
+  if (!id) return 'UNAVAILABLE';
+  const parts = id.split(':');
+  const pair = parts[1] ?? '?';
+  const tf = parts[2] ?? '?';
+  const session = parts[3] ?? '?';
+  return `${pair} · ${tf} · ${session}`;
+}
+
 export function PaperAgentSwarmPanel() {
   const [state, setState] = useState<LoadState>('loading');
   const [snapshot, setSnapshot] = useState<PaperAgentSwarmSnapshot | null>(null);
+  const [forward, setForward] = useState<ForwardPaperSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -43,16 +62,21 @@ export function PaperAgentSwarmPanel() {
       controller?.abort();
       controller = new AbortController();
       try {
-        const next = await fetchPaperAgentSwarm(controller.signal);
+        const [swarmResult, forwardResult] = await Promise.allSettled([
+          fetchPaperAgentSwarm(controller.signal),
+          fetchForwardPaper(controller.signal),
+        ]);
         if (!disposed) {
-          setSnapshot(next);
-          setState(next.ok ? 'ready' : 'error');
-          setError(next.ok ? null : next.error ?? 'paper_swarm_unavailable');
-        }
-      } catch (caught) {
-        if (!disposed && !(caught instanceof DOMException && caught.name === 'AbortError')) {
-          setState('error');
-          setError(caught instanceof Error ? caught.message : 'paper_swarm_unavailable');
+          if (swarmResult.status === 'fulfilled') {
+            const next = swarmResult.value;
+            setSnapshot(next);
+            setState(next.ok ? 'ready' : 'error');
+            setError(next.ok ? null : next.error ?? 'paper_swarm_unavailable');
+          } else if (!(swarmResult.reason instanceof DOMException && swarmResult.reason.name === 'AbortError')) {
+            setState('error');
+            setError(swarmResult.reason instanceof Error ? swarmResult.reason.message : 'paper_swarm_unavailable');
+          }
+          if (forwardResult.status === 'fulfilled' && forwardResult.value.ok) setForward(forwardResult.value);
         }
       } finally {
         pending = false;
@@ -95,14 +119,17 @@ export function PaperAgentSwarmPanel() {
   const funding = snapshot.evidence?.funding;
   const capture = snapshot.evidence?.capture;
   const verdictTone = snapshot.final.verdict === 'STAND_DOWN' ? 'blocked' : 'watch';
+  const family = forward?.families?.[0];
+  const fm = family?.championForward;
+  const gatePass = family?.nextStageEligible === true;
 
   return (
-    <section className={`paper-agent-swarm ${fresh ? 'is-fresh' : 'is-stale'}`} data-source="GITHUB PAPER AGENT TAPE" aria-label="Paper agent swarm">
+    <section className={`paper-agent-swarm ${fresh ? 'is-fresh' : 'is-stale'}`} data-source="GITHUB PAPER AGENT + FORWARD TAPE" aria-label="Paper agent swarm">
       <header className="paper-agent-swarm__head">
         <div className="paper-agent-swarm__title">
           <span><Bot size={14} /> PAPER AGENT SWARM</span>
           <strong>ATLAS · NOVA · SENTINEL · CURATOR · ARBITER</strong>
-          <small>VERIFIED CAPTURE TAPE · NO EXECUTION AUTHORITY · LIVE ORDERS OFF</small>
+          <small>VERIFIED PAPER EVIDENCE · NO EXECUTION AUTHORITY · LIVE ORDERS OFF</small>
         </div>
         <div className="paper-agent-swarm__runtime">
           <span><Cpu size={12} /> {providerLabel}</span>
@@ -121,6 +148,13 @@ export function PaperAgentSwarmPanel() {
         <div><span>ECONOMIC P&L</span><strong>{money(funding?.economicPnlUsdt)}</strong><small>{funding?.feeLock ? `LOCK · ${funding.feeLockReason ?? 'FEE'}` : 'fee lock off'}</small></div>
         <div><span>AGENT ENGINE</span><strong>{snapshot.totals?.completedLlm ?? 0} LLM · {snapshot.totals?.fallback ?? 0} RULE</strong><small>{(snapshot.totals?.tokens.in ?? 0) + (snapshot.totals?.tokens.out ?? 0)} tokens</small></div>
         <div><span>AUTHORITY</span><strong>READ / REASON</strong><small>capital eligible: no</small></div>
+      </div>
+
+      <div className="paper-agent-swarm__metrics" aria-label="Forward edge evidence">
+        <div><span>FORWARD CHAMPION</span><strong>{simpleChampion(family?.championId)}</strong><small>{family ? '1 independent edge unit' : 'awaiting verified family'}</small></div>
+        <div><span>FORWARD GATE</span><strong className={gatePass ? 'is-positive' : ''}>{family?.forwardGate?.replaceAll('_', ' ') ?? 'UNAVAILABLE'}</strong><small>{gatePass ? 'next PAPER stage eligible' : 'LIVE still locked'}</small></div>
+        <div><span>NEW TRADES</span><strong>{fm?.trades ?? 0} / 20</strong><small>{family?.championEvidenceStatus?.replaceAll('_', ' ') ?? 'sample not available'}</small></div>
+        <div><span>EDGE QUALITY</span><strong>{signedBps(fm?.expectancyBps)} · PF {number(fm?.profitFactor)}</strong><small>t {number(fm?.tStat)} · DD {number(fm?.maxDrawdownPct)}%</small></div>
       </div>
 
       <div className="paper-agent-swarm__agents">
