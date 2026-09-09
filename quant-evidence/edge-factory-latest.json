@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-09T16:53:24.256Z",
+  "completedAt": "2026-09-09T21:09:36.965Z",
   "methodology": {
     "barsPerMarket": 5000,
     "symbols": [
@@ -39,11 +39,11 @@
     "classification": "train+validation consistency required for INTERESTING",
     "researchPoolLimit": 120
   },
-  "tested": 318,
-  "killed": 642,
-  "interesting": 33,
-  "regimeDivergence": 115,
-  "paperCandidates": 2,
+  "tested": 959,
+  "killed": 1,
+  "interesting": 37,
+  "regimeDivergence": 123,
+  "paperCandidates": 3,
   "researchPoolSize": 120,
   "verdict": "PAPER_CANDIDATE_FOUND",
   "top": [
@@ -93,6 +93,51 @@
       }
     },
     {
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+      "variantKey": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8",
+      "status": "PAPER_CANDIDATE",
+      "failureStreak": 0,
+      "failureReason": null,
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "candidate": {
+        "family": "opening_range_breakout",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "train": {
+        "trades": 55,
+        "expectancyBps": 43.94,
+        "profitFactor": 1.577,
+        "tStat": 1.489,
+        "maxDrawdownPct": 6.15
+      },
+      "validation": {
+        "trades": 14,
+        "expectancyBps": 38.08,
+        "profitFactor": 1.48,
+        "tStat": 0.614,
+        "maxDrawdownPct": 3.57
+      },
+      "holdout": {
+        "trades": 15,
+        "expectancyBps": 76.6,
+        "profitFactor": 2.365,
+        "tStat": 1.404,
+        "maxDrawdownPct": 5.26
+      },
+      "walkForward": {
+        "positiveFolds": 4,
+        "requiredPositiveFolds": 3,
+        "pass": true
+      }
+    },
+    {
       "hypothesisKey": "failed_breakout:SOLUSDT:4h:ALL",
       "variantKey": "failed_breakout:SOLUSDT:4h:ALL:p20:ta1:sa0.75:tb8",
       "status": "PAPER_CANDIDATE",
@@ -130,6 +175,51 @@
         "profitFactor": 1.693,
         "tStat": 0.893,
         "maxDrawdownPct": 5.2
+      },
+      "walkForward": {
+        "positiveFolds": 3,
+        "requiredPositiveFolds": 3,
+        "pass": true
+      }
+    },
+    {
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+      "variantKey": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta2:sa0.75:tb8",
+      "status": "INTERESTING",
+      "failureStreak": 0,
+      "failureReason": null,
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "candidate": {
+        "family": "opening_range_breakout",
+        "period": 20,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "train": {
+        "trades": 53,
+        "expectancyBps": 48.57,
+        "profitFactor": 1.568,
+        "tStat": 1.401,
+        "maxDrawdownPct": 15.86
+      },
+      "validation": {
+        "trades": 14,
+        "expectancyBps": 6.59,
+        "profitFactor": 1.081,
+        "tStat": 0.11,
+        "maxDrawdownPct": 3.29
+      },
+      "holdout": {
+        "trades": 15,
+        "expectancyBps": 102.66,
+        "profitFactor": 2.648,
+        "tStat": 1.48,
+        "maxDrawdownPct": 6.19
       },
       "walkForward": {
         "positiveFolds": 3,
@@ -228,6 +318,51 @@
       }
     },
     {
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+      "variantKey": "opening_range_breakout:BNBUSDT:4h:ASIA:p12:ta2:sa0.75:tb8",
+      "status": "INTERESTING",
+      "failureStreak": 0,
+      "failureReason": null,
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "candidate": {
+        "family": "opening_range_breakout",
+        "period": 12,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "train": {
+        "trades": 63,
+        "expectancyBps": 44.6,
+        "profitFactor": 1.53,
+        "tStat": 1.432,
+        "maxDrawdownPct": 16.16
+      },
+      "validation": {
+        "trades": 17,
+        "expectancyBps": 6.23,
+        "profitFactor": 1.069,
+        "tStat": 0.109,
+        "maxDrawdownPct": 5.6
+      },
+      "holdout": {
+        "trades": 19,
+        "expectancyBps": 74.61,
+        "profitFactor": 2.132,
+        "tStat": 1.294,
+        "maxDrawdownPct": 6.19
+      },
+      "walkForward": {
+        "positiveFolds": 3,
+        "requiredPositiveFolds": 3,
+        "pass": true
+      }
+    },
+    {
       "hypothesisKey": "opening_range_breakout:XRPUSDT:4h:LONDON",
       "variantKey": "opening_range_breakout:XRPUSDT:4h:LONDON:p12:ta1.5:sa0.75:tb8",
       "status": "INTERESTING",
@@ -270,6 +405,51 @@
         "positiveFolds": 2,
         "requiredPositiveFolds": 3,
         "pass": false
+      }
+    },
+    {
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+      "variantKey": "opening_range_breakout:BNBUSDT:4h:ASIA:p12:ta1.5:sa0.75:tb8",
+      "status": "INTERESTING",
+      "failureStreak": 0,
+      "failureReason": null,
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "candidate": {
+        "family": "opening_range_breakout",
+        "period": 12,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "train": {
+        "trades": 64,
+        "expectancyBps": 33.31,
+        "profitFactor": 1.43,
+        "tStat": 1.253,
+        "maxDrawdownPct": 9.71
+      },
+      "validation": {
+        "trades": 17,
+        "expectancyBps": 8.07,
+        "profitFactor": 1.091,
+        "tStat": 0.151,
+        "maxDrawdownPct": 5.6
+      },
+      "holdout": {
+        "trades": 19,
+        "expectancyBps": 51.33,
+        "profitFactor": 1.842,
+        "tStat": 1.12,
+        "maxDrawdownPct": 5.26
+      },
+      "walkForward": {
+        "positiveFolds": 4,
+        "requiredPositiveFolds": 3,
+        "pass": true
       }
     },
     {
@@ -406,186 +586,6 @@
         "requiredPositiveFolds": 3,
         "pass": true
       }
-    },
-    {
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:ALL",
-      "variantKey": "volatility_squeeze:SOLUSDT:4h:ALL:p34:ta1.5:sa0.75:tb8",
-      "status": "INTERESTING",
-      "failureStreak": 0,
-      "failureReason": null,
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "4h"
-      },
-      "candidate": {
-        "family": "volatility_squeeze",
-        "period": 34,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ALL"
-      },
-      "train": {
-        "trades": 49,
-        "expectancyBps": 1.71,
-        "profitFactor": 1.015,
-        "tStat": 0.046,
-        "maxDrawdownPct": 12.38
-      },
-      "validation": {
-        "trades": 15,
-        "expectancyBps": 35.03,
-        "profitFactor": 1.386,
-        "tStat": 0.546,
-        "maxDrawdownPct": 5.67
-      },
-      "holdout": {
-        "trades": 12,
-        "expectancyBps": 14.24,
-        "profitFactor": 1.224,
-        "tStat": 0.284,
-        "maxDrawdownPct": 3.27
-      },
-      "walkForward": {
-        "positiveFolds": 3,
-        "requiredPositiveFolds": 3,
-        "pass": true
-      }
-    },
-    {
-      "hypothesisKey": "opening_range_breakout:XRPUSDT:1h:ASIA",
-      "variantKey": "opening_range_breakout:XRPUSDT:1h:ASIA:p12:ta1.5:sa0.75:tb8",
-      "status": "INTERESTING",
-      "failureStreak": 0,
-      "failureReason": null,
-      "market": {
-        "pair": "XRPUSDT",
-        "tf": "1h"
-      },
-      "candidate": {
-        "family": "opening_range_breakout",
-        "period": 12,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "train": {
-        "trades": 46,
-        "expectancyBps": 10,
-        "profitFactor": 1.24,
-        "tStat": 0.647,
-        "maxDrawdownPct": 4.87
-      },
-      "validation": {
-        "trades": 14,
-        "expectancyBps": 3.47,
-        "profitFactor": 1.104,
-        "tStat": 0.16,
-        "maxDrawdownPct": 1.84
-      },
-      "holdout": {
-        "trades": 15,
-        "expectancyBps": 11.95,
-        "profitFactor": 1.23,
-        "tStat": 0.282,
-        "maxDrawdownPct": 5.35
-      },
-      "walkForward": {
-        "positiveFolds": 3,
-        "requiredPositiveFolds": 3,
-        "pass": true
-      }
-    },
-    {
-      "hypothesisKey": "opening_range_breakout:BTCUSDT:4h:LONDON",
-      "variantKey": "opening_range_breakout:BTCUSDT:4h:LONDON:p12:ta2:sa0.75:tb8",
-      "status": "INTERESTING",
-      "failureStreak": 0,
-      "failureReason": null,
-      "market": {
-        "pair": "BTCUSDT",
-        "tf": "4h"
-      },
-      "candidate": {
-        "family": "opening_range_breakout",
-        "period": 12,
-        "targetAtr": 2,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "LONDON"
-      },
-      "train": {
-        "trades": 38,
-        "expectancyBps": 8.27,
-        "profitFactor": 1.123,
-        "tStat": 0.308,
-        "maxDrawdownPct": 7.56
-      },
-      "validation": {
-        "trades": 20,
-        "expectancyBps": 6.93,
-        "profitFactor": 1.091,
-        "tStat": 0.158,
-        "maxDrawdownPct": 4.87
-      },
-      "holdout": {
-        "trades": 12,
-        "expectancyBps": 8.47,
-        "profitFactor": 1.159,
-        "tStat": 0.206,
-        "maxDrawdownPct": 3.41
-      },
-      "walkForward": {
-        "positiveFolds": 3,
-        "requiredPositiveFolds": 3,
-        "pass": true
-      }
-    },
-    {
-      "hypothesisKey": "opening_range_breakout:ETHUSDT:4h:NY",
-      "variantKey": "opening_range_breakout:ETHUSDT:4h:NY:p12:ta1.5:sa0.75:tb8",
-      "status": "INTERESTING",
-      "failureStreak": 0,
-      "failureReason": null,
-      "market": {
-        "pair": "ETHUSDT",
-        "tf": "4h"
-      },
-      "candidate": {
-        "family": "opening_range_breakout",
-        "period": 12,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "NY"
-      },
-      "train": {
-        "trades": 57,
-        "expectancyBps": 38.16,
-        "profitFactor": 1.361,
-        "tStat": 1.086,
-        "maxDrawdownPct": 14.52
-      },
-      "validation": {
-        "trades": 17,
-        "expectancyBps": 7.37,
-        "profitFactor": 1.054,
-        "tStat": 0.089,
-        "maxDrawdownPct": 8.54
-      },
-      "holdout": {
-        "trades": 13,
-        "expectancyBps": 6.7,
-        "profitFactor": 1.064,
-        "tStat": 0.098,
-        "maxDrawdownPct": 9.75
-      },
-      "walkForward": {
-        "positiveFolds": 4,
-        "requiredPositiveFolds": 3,
-        "pass": true
-      }
     }
   ],
   "researchPool": [
@@ -635,6 +635,51 @@
       }
     },
     {
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+      "variantKey": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8",
+      "status": "PAPER_CANDIDATE",
+      "failureStreak": 0,
+      "failureReason": null,
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "candidate": {
+        "family": "opening_range_breakout",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "train": {
+        "trades": 55,
+        "expectancyBps": 43.94,
+        "profitFactor": 1.577,
+        "tStat": 1.489,
+        "maxDrawdownPct": 6.15
+      },
+      "validation": {
+        "trades": 14,
+        "expectancyBps": 38.08,
+        "profitFactor": 1.48,
+        "tStat": 0.614,
+        "maxDrawdownPct": 3.57
+      },
+      "holdout": {
+        "trades": 15,
+        "expectancyBps": 76.6,
+        "profitFactor": 2.365,
+        "tStat": 1.404,
+        "maxDrawdownPct": 5.26
+      },
+      "walkForward": {
+        "positiveFolds": 4,
+        "requiredPositiveFolds": 3,
+        "pass": true
+      }
+    },
+    {
       "hypothesisKey": "failed_breakout:SOLUSDT:4h:ALL",
       "variantKey": "failed_breakout:SOLUSDT:4h:ALL:p20:ta1:sa0.75:tb8",
       "status": "PAPER_CANDIDATE",
@@ -672,6 +717,51 @@
         "profitFactor": 1.693,
         "tStat": 0.893,
         "maxDrawdownPct": 5.2
+      },
+      "walkForward": {
+        "positiveFolds": 3,
+        "requiredPositiveFolds": 3,
+        "pass": true
+      }
+    },
+    {
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+      "variantKey": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta2:sa0.75:tb8",
+      "status": "INTERESTING",
+      "failureStreak": 0,
+      "failureReason": null,
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "candidate": {
+        "family": "opening_range_breakout",
+        "period": 20,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "train": {
+        "trades": 53,
+        "expectancyBps": 48.57,
+        "profitFactor": 1.568,
+        "tStat": 1.401,
+        "maxDrawdownPct": 15.86
+      },
+      "validation": {
+        "trades": 14,
+        "expectancyBps": 6.59,
+        "profitFactor": 1.081,
+        "tStat": 0.11,
+        "maxDrawdownPct": 3.29
+      },
+      "holdout": {
+        "trades": 15,
+        "expectancyBps": 102.66,
+        "profitFactor": 2.648,
+        "tStat": 1.48,
+        "maxDrawdownPct": 6.19
       },
       "walkForward": {
         "positiveFolds": 3,
@@ -770,6 +860,51 @@
       }
     },
     {
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+      "variantKey": "opening_range_breakout:BNBUSDT:4h:ASIA:p12:ta2:sa0.75:tb8",
+      "status": "INTERESTING",
+      "failureStreak": 0,
+      "failureReason": null,
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "candidate": {
+        "family": "opening_range_breakout",
+        "period": 12,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "train": {
+        "trades": 63,
+        "expectancyBps": 44.6,
+        "profitFactor": 1.53,
+        "tStat": 1.432,
+        "maxDrawdownPct": 16.16
+      },
+      "validation": {
+        "trades": 17,
+        "expectancyBps": 6.23,
+        "profitFactor": 1.069,
+        "tStat": 0.109,
+        "maxDrawdownPct": 5.6
+      },
+      "holdout": {
+        "trades": 19,
+        "expectancyBps": 74.61,
+        "profitFactor": 2.132,
+        "tStat": 1.294,
+        "maxDrawdownPct": 6.19
+      },
+      "walkForward": {
+        "positiveFolds": 3,
+        "requiredPositiveFolds": 3,
+        "pass": true
+      }
+    },
+    {
       "hypothesisKey": "opening_range_breakout:XRPUSDT:4h:LONDON",
       "variantKey": "opening_range_breakout:XRPUSDT:4h:LONDON:p12:ta1.5:sa0.75:tb8",
       "status": "INTERESTING",
@@ -812,6 +947,51 @@
         "positiveFolds": 2,
         "requiredPositiveFolds": 3,
         "pass": false
+      }
+    },
+    {
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+      "variantKey": "opening_range_breakout:BNBUSDT:4h:ASIA:p12:ta1.5:sa0.75:tb8",
+      "status": "INTERESTING",
+      "failureStreak": 0,
+      "failureReason": null,
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "candidate": {
+        "family": "opening_range_breakout",
+        "period": 12,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "train": {
+        "trades": 64,
+        "expectancyBps": 33.31,
+        "profitFactor": 1.43,
+        "tStat": 1.253,
+        "maxDrawdownPct": 9.71
+      },
+      "validation": {
+        "trades": 17,
+        "expectancyBps": 8.07,
+        "profitFactor": 1.091,
+        "tStat": 0.151,
+        "maxDrawdownPct": 5.6
+      },
+      "holdout": {
+        "trades": 19,
+        "expectancyBps": 51.33,
+        "profitFactor": 1.842,
+        "tStat": 1.12,
+        "maxDrawdownPct": 5.26
+      },
+      "walkForward": {
+        "positiveFolds": 4,
+        "requiredPositiveFolds": 3,
+        "pass": true
       }
     },
     {
@@ -1373,17 +1553,17 @@
         "session": "ALL"
       },
       "train": {
-        "trades": 36,
-        "expectancyBps": 38.58,
-        "profitFactor": 1.473,
-        "tStat": 0.999,
+        "trades": 37,
+        "expectancyBps": 61.19,
+        "profitFactor": 1.771,
+        "tStat": 1.396,
         "maxDrawdownPct": 6.91
       },
       "validation": {
-        "trades": 7,
-        "expectancyBps": 140.09,
-        "profitFactor": 2.208,
-        "tStat": 0.78,
+        "trades": 6,
+        "expectancyBps": 17.54,
+        "profitFactor": 1.13,
+        "tStat": 0.113,
         "maxDrawdownPct": 4.45
       },
       "holdout": {
@@ -1625,46 +1805,46 @@
       }
     },
     {
-      "hypothesisKey": "failed_breakout:BNBUSDT:4h:ALL",
-      "variantKey": "failed_breakout:BNBUSDT:4h:ALL:p20:ta1:sa0.75:tb8",
+      "hypothesisKey": "opening_range_breakout:ETHUSDT:4h:ASIA",
+      "variantKey": "opening_range_breakout:ETHUSDT:4h:ASIA:p12:ta2:sa0.75:tb8",
       "status": "INTERESTING",
       "failureStreak": 0,
       "failureReason": null,
       "market": {
-        "pair": "BNBUSDT",
+        "pair": "ETHUSDT",
         "tf": "4h"
       },
       "candidate": {
-        "family": "failed_breakout",
-        "period": 20,
-        "targetAtr": 1,
+        "family": "opening_range_breakout",
+        "period": 12,
+        "targetAtr": 2,
         "stopAtr": 0.75,
         "timeoutBars": 8,
-        "session": "ALL"
+        "session": "ASIA"
       },
       "train": {
-        "trades": 36,
-        "expectancyBps": 30.64,
-        "profitFactor": 1.402,
-        "tStat": 0.904,
-        "maxDrawdownPct": 6.19
+        "trades": 59,
+        "expectancyBps": 2.35,
+        "profitFactor": 1.017,
+        "tStat": 0.058,
+        "maxDrawdownPct": 19.18
       },
       "validation": {
-        "trades": 7,
-        "expectancyBps": 53.22,
-        "profitFactor": 1.459,
-        "tStat": 0.393,
-        "maxDrawdownPct": 4.45
+        "trades": 16,
+        "expectancyBps": 20.08,
+        "profitFactor": 1.166,
+        "tStat": 0.243,
+        "maxDrawdownPct": 6.48
       },
       "holdout": {
-        "trades": 13,
-        "expectancyBps": -45.33,
-        "profitFactor": 0.459,
-        "tStat": -1.291,
-        "maxDrawdownPct": 8.01
+        "trades": 16,
+        "expectancyBps": -47.14,
+        "profitFactor": 0.605,
+        "tStat": -0.742,
+        "maxDrawdownPct": 11.48
       },
       "walkForward": {
-        "positiveFolds": 4,
+        "positiveFolds": 3,
         "requiredPositiveFolds": 3,
         "pass": true
       }
@@ -1823,10 +2003,10 @@
         "session": "ASIA"
       },
       "train": {
-        "trades": 27,
-        "expectancyBps": 3.63,
-        "profitFactor": 1.116,
-        "tStat": 0.254,
+        "trades": 26,
+        "expectancyBps": 0.35,
+        "profitFactor": 1.011,
+        "tStat": 0.024,
         "maxDrawdownPct": 3.91
       },
       "validation": {
@@ -1986,6 +2166,51 @@
     },
     {
       "hypothesisKey": "failed_breakout:ETHUSDT:4h:ALL",
+      "variantKey": "failed_breakout:ETHUSDT:4h:ALL:p34:ta1.5:sa0.75:tb8",
+      "status": "INTERESTING",
+      "failureStreak": 0,
+      "failureReason": null,
+      "market": {
+        "pair": "ETHUSDT",
+        "tf": "4h"
+      },
+      "candidate": {
+        "family": "failed_breakout",
+        "period": 34,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "train": {
+        "trades": 30,
+        "expectancyBps": 49.66,
+        "profitFactor": 1.478,
+        "tStat": 0.919,
+        "maxDrawdownPct": 9.48
+      },
+      "validation": {
+        "trades": 8,
+        "expectancyBps": 14.21,
+        "profitFactor": 1.094,
+        "tStat": 0.105,
+        "maxDrawdownPct": 9.66
+      },
+      "holdout": {
+        "trades": 8,
+        "expectancyBps": -88.97,
+        "profitFactor": 0.415,
+        "tStat": -0.999,
+        "maxDrawdownPct": 7.12
+      },
+      "walkForward": {
+        "positiveFolds": 3,
+        "requiredPositiveFolds": 3,
+        "pass": true
+      }
+    },
+    {
+      "hypothesisKey": "failed_breakout:ETHUSDT:4h:ALL",
       "variantKey": "failed_breakout:ETHUSDT:4h:ALL:p20:ta1.5:sa0.75:tb8",
       "status": "INTERESTING",
       "failureStreak": 0,
@@ -2003,17 +2228,17 @@
         "session": "ALL"
       },
       "train": {
-        "trades": 39,
-        "expectancyBps": 41.47,
-        "profitFactor": 1.424,
-        "tStat": 0.934,
+        "trades": 40,
+        "expectancyBps": 31.89,
+        "profitFactor": 1.307,
+        "tStat": 0.719,
         "maxDrawdownPct": 15.03
       },
       "validation": {
-        "trades": 10,
-        "expectancyBps": 19.71,
-        "profitFactor": 1.13,
-        "tStat": 0.165,
+        "trades": 9,
+        "expectancyBps": 59.87,
+        "profitFactor": 1.46,
+        "tStat": 0.476,
         "maxDrawdownPct": 9.23
       },
       "holdout": {
@@ -2093,17 +2318,17 @@
         "session": "ALL"
       },
       "train": {
-        "trades": 30,
-        "expectancyBps": 47.75,
-        "profitFactor": 1.558,
-        "tStat": 1.081,
-        "maxDrawdownPct": 7.48
+        "trades": 31,
+        "expectancyBps": 35.19,
+        "profitFactor": 1.375,
+        "tStat": 0.79,
+        "maxDrawdownPct": 8.25
       },
       "validation": {
-        "trades": 9,
-        "expectancyBps": 18.56,
-        "profitFactor": 1.142,
-        "tStat": 0.171,
+        "trades": 8,
+        "expectancyBps": 63.59,
+        "profitFactor": 1.607,
+        "tStat": 0.568,
         "maxDrawdownPct": 3.52
       },
       "holdout": {
@@ -2138,17 +2363,17 @@
         "session": "ALL"
       },
       "train": {
-        "trades": 40,
-        "expectancyBps": 38.97,
-        "profitFactor": 1.451,
-        "tStat": 1.053,
+        "trades": 41,
+        "expectancyBps": 29.68,
+        "profitFactor": 1.321,
+        "tStat": 0.797,
         "maxDrawdownPct": 8.9
       },
       "validation": {
-        "trades": 10,
-        "expectancyBps": 46.16,
-        "profitFactor": 1.406,
-        "tStat": 0.465,
+        "trades": 9,
+        "expectancyBps": 89.26,
+        "profitFactor": 2.01,
+        "tStat": 0.893,
         "maxDrawdownPct": 3.52
       },
       "holdout": {
@@ -3065,6 +3290,51 @@
       }
     },
     {
+      "hypothesisKey": "volatility_squeeze:BNBUSDT:30m:ALL",
+      "variantKey": "volatility_squeeze:BNBUSDT:30m:ALL:p34:ta2:sa0.75:tb8",
+      "status": "REGIME_DIVERGENCE",
+      "failureStreak": 0,
+      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "30m"
+      },
+      "candidate": {
+        "family": "volatility_squeeze",
+        "period": 34,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "train": {
+        "trades": 62,
+        "expectancyBps": -9.49,
+        "profitFactor": 0.608,
+        "tStat": -1.706,
+        "maxDrawdownPct": 6.96
+      },
+      "validation": {
+        "trades": 19,
+        "expectancyBps": 1.69,
+        "profitFactor": 1.139,
+        "tStat": 0.254,
+        "maxDrawdownPct": 1.19
+      },
+      "holdout": {
+        "trades": 21,
+        "expectancyBps": 15.41,
+        "profitFactor": 1.747,
+        "tStat": 1.112,
+        "maxDrawdownPct": 2.95
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
       "hypothesisKey": "volatility_squeeze:XRPUSDT:30m:NY",
       "variantKey": "volatility_squeeze:XRPUSDT:30m:NY:p20:ta2:sa0.75:tb8",
       "status": "REGIME_DIVERGENCE",
@@ -3290,6 +3560,141 @@
       }
     },
     {
+      "hypothesisKey": "opening_range_breakout:XRPUSDT:1h:LONDON",
+      "variantKey": "opening_range_breakout:XRPUSDT:1h:LONDON:p12:ta2:sa0.75:tb8",
+      "status": "REGIME_DIVERGENCE",
+      "failureStreak": 0,
+      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "1h"
+      },
+      "candidate": {
+        "family": "opening_range_breakout",
+        "period": 12,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON"
+      },
+      "train": {
+        "trades": 37,
+        "expectancyBps": -15.89,
+        "profitFactor": 0.684,
+        "tStat": -1.006,
+        "maxDrawdownPct": 7.85
+      },
+      "validation": {
+        "trades": 16,
+        "expectancyBps": 5.01,
+        "profitFactor": 1.123,
+        "tStat": 0.211,
+        "maxDrawdownPct": 2.97
+      },
+      "holdout": {
+        "trades": 10,
+        "expectancyBps": 6.44,
+        "profitFactor": 1.131,
+        "tStat": 0.146,
+        "maxDrawdownPct": 1.54
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "hypothesisKey": "trend_pullback:SOLUSDT:15m:ASIA",
+      "variantKey": "trend_pullback:SOLUSDT:15m:ASIA:p20:ta1.5:sa0.75:tb8",
+      "status": "REGIME_DIVERGENCE",
+      "failureStreak": 0,
+      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
+      "market": {
+        "pair": "SOLUSDT",
+        "tf": "15m"
+      },
+      "candidate": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "train": {
+        "trades": 17,
+        "expectancyBps": -12.75,
+        "profitFactor": 0.385,
+        "tStat": -1.845,
+        "maxDrawdownPct": 2.38
+      },
+      "validation": {
+        "trades": 9,
+        "expectancyBps": 7.36,
+        "profitFactor": 1.221,
+        "tStat": 0.264,
+        "maxDrawdownPct": 2.19
+      },
+      "holdout": {
+        "trades": 4,
+        "expectancyBps": 3.99,
+        "profitFactor": 1.189,
+        "tStat": 0.149,
+        "maxDrawdownPct": 0.49
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "hypothesisKey": "trend_pullback:SOLUSDT:15m:ASIA",
+      "variantKey": "trend_pullback:SOLUSDT:15m:ASIA:p55:ta1.5:sa0.75:tb8",
+      "status": "REGIME_DIVERGENCE",
+      "failureStreak": 0,
+      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
+      "market": {
+        "pair": "SOLUSDT",
+        "tf": "15m"
+      },
+      "candidate": {
+        "family": "trend_pullback",
+        "period": 55,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "train": {
+        "trades": 17,
+        "expectancyBps": -12.75,
+        "profitFactor": 0.385,
+        "tStat": -1.845,
+        "maxDrawdownPct": 2.38
+      },
+      "validation": {
+        "trades": 9,
+        "expectancyBps": 7.36,
+        "profitFactor": 1.221,
+        "tStat": 0.264,
+        "maxDrawdownPct": 2.19
+      },
+      "holdout": {
+        "trades": 4,
+        "expectancyBps": 3.99,
+        "profitFactor": 1.189,
+        "tStat": 0.149,
+        "maxDrawdownPct": 0.49
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
       "hypothesisKey": "opening_range_breakout:BTCUSDT:1h:LONDON",
       "variantKey": "opening_range_breakout:BTCUSDT:1h:LONDON:p12:ta1.5:sa0.75:tb8",
       "status": "REGIME_DIVERGENCE",
@@ -3353,24 +3758,24 @@
         "session": "ALL"
       },
       "train": {
-        "trades": 42,
-        "expectancyBps": -19.42,
-        "profitFactor": 0.252,
-        "tStat": -4.149,
+        "trades": 43,
+        "expectancyBps": -18.84,
+        "profitFactor": 0.257,
+        "tStat": -4.089,
         "maxDrawdownPct": 8.16
       },
       "validation": {
-        "trades": 18,
-        "expectancyBps": 1.77,
-        "profitFactor": 1.067,
-        "tStat": 0.119,
+        "trades": 17,
+        "expectancyBps": 1.55,
+        "profitFactor": 1.055,
+        "tStat": 0.098,
         "maxDrawdownPct": 2.19
       },
       "holdout": {
         "trades": 17,
-        "expectancyBps": 2.53,
-        "profitFactor": 1.148,
-        "tStat": 0.256,
+        "expectancyBps": 1.81,
+        "profitFactor": 1.102,
+        "tStat": 0.183,
         "maxDrawdownPct": 1.55
       },
       "walkForward": {
@@ -3417,51 +3822,6 @@
         "profitFactor": 1.032,
         "tStat": 0.025,
         "maxDrawdownPct": 1.81
-      },
-      "walkForward": {
-        "positiveFolds": 1,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
-      "hypothesisKey": "failed_breakout:ETHUSDT:15m:ALL",
-      "variantKey": "failed_breakout:ETHUSDT:15m:ALL:p34:ta1:sa0.75:tb8",
-      "status": "REGIME_DIVERGENCE",
-      "failureStreak": 0,
-      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
-      "market": {
-        "pair": "ETHUSDT",
-        "tf": "15m"
-      },
-      "candidate": {
-        "family": "failed_breakout",
-        "period": 34,
-        "targetAtr": 1,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ALL"
-      },
-      "train": {
-        "trades": 42,
-        "expectancyBps": -20.77,
-        "profitFactor": 0.17,
-        "tStat": -5.479,
-        "maxDrawdownPct": 8.72
-      },
-      "validation": {
-        "trades": 18,
-        "expectancyBps": 2.08,
-        "profitFactor": 1.094,
-        "tStat": 0.167,
-        "maxDrawdownPct": 2.28
-      },
-      "holdout": {
-        "trades": 17,
-        "expectancyBps": 1.06,
-        "profitFactor": 1.077,
-        "tStat": 0.139,
-        "maxDrawdownPct": 1.09
       },
       "walkForward": {
         "positiveFolds": 1,
@@ -3555,6 +3915,51 @@
       },
       "walkForward": {
         "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "hypothesisKey": "failed_breakout:ETHUSDT:15m:ALL",
+      "variantKey": "failed_breakout:ETHUSDT:15m:ALL:p34:ta1:sa0.75:tb8",
+      "status": "REGIME_DIVERGENCE",
+      "failureStreak": 0,
+      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
+      "market": {
+        "pair": "ETHUSDT",
+        "tf": "15m"
+      },
+      "candidate": {
+        "family": "failed_breakout",
+        "period": 34,
+        "targetAtr": 1,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "train": {
+        "trades": 43,
+        "expectancyBps": -20.16,
+        "profitFactor": 0.175,
+        "tStat": -5.373,
+        "maxDrawdownPct": 8.72
+      },
+      "validation": {
+        "trades": 17,
+        "expectancyBps": 1.88,
+        "profitFactor": 1.08,
+        "tStat": 0.142,
+        "maxDrawdownPct": 2.28
+      },
+      "holdout": {
+        "trades": 17,
+        "expectancyBps": 0.34,
+        "profitFactor": 1.024,
+        "tStat": 0.044,
+        "maxDrawdownPct": 1.09
+      },
+      "walkForward": {
+        "positiveFolds": 1,
         "requiredPositiveFolds": 3,
         "pass": false
       }
@@ -3696,7 +4101,7 @@
     },
     {
       "hypothesisKey": "trend_pullback:SOLUSDT:15m:ASIA",
-      "variantKey": "trend_pullback:SOLUSDT:15m:ASIA:p20:ta1.5:sa0.75:tb8",
+      "variantKey": "trend_pullback:SOLUSDT:15m:ASIA:p20:ta2:sa0.75:tb8",
       "status": "REGIME_DIVERGENCE",
       "failureStreak": 0,
       "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
@@ -3707,31 +4112,31 @@
       "candidate": {
         "family": "trend_pullback",
         "period": 20,
-        "targetAtr": 1.5,
+        "targetAtr": 2,
         "stopAtr": 0.75,
         "timeoutBars": 8,
         "session": "ASIA"
       },
       "train": {
         "trades": 17,
-        "expectancyBps": -12.75,
-        "profitFactor": 0.385,
-        "tStat": -1.845,
-        "maxDrawdownPct": 2.38
+        "expectancyBps": -12.82,
+        "profitFactor": 0.423,
+        "tStat": -1.592,
+        "maxDrawdownPct": 2.18
       },
       "validation": {
         "trades": 8,
-        "expectancyBps": 11.41,
-        "profitFactor": 1.332,
-        "tStat": 0.365,
-        "maxDrawdownPct": 2.19
+        "expectancyBps": 5.08,
+        "profitFactor": 1.136,
+        "tStat": 0.146,
+        "maxDrawdownPct": 2.58
       },
       "holdout": {
-        "trades": 5,
-        "expectancyBps": -1.81,
+        "trades": 4,
+        "expectancyBps": -1.76,
         "profitFactor": 0.917,
-        "tStat": -0.084,
-        "maxDrawdownPct": 0.74
+        "tStat": -0.064,
+        "maxDrawdownPct": 0.49
       },
       "walkForward": {
         "positiveFolds": 1,
@@ -3741,7 +4146,7 @@
     },
     {
       "hypothesisKey": "trend_pullback:SOLUSDT:15m:ASIA",
-      "variantKey": "trend_pullback:SOLUSDT:15m:ASIA:p55:ta1.5:sa0.75:tb8",
+      "variantKey": "trend_pullback:SOLUSDT:15m:ASIA:p55:ta2:sa0.75:tb8",
       "status": "REGIME_DIVERGENCE",
       "failureStreak": 0,
       "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
@@ -3752,31 +4157,31 @@
       "candidate": {
         "family": "trend_pullback",
         "period": 55,
-        "targetAtr": 1.5,
+        "targetAtr": 2,
         "stopAtr": 0.75,
         "timeoutBars": 8,
         "session": "ASIA"
       },
       "train": {
         "trades": 17,
-        "expectancyBps": -12.75,
-        "profitFactor": 0.385,
-        "tStat": -1.845,
-        "maxDrawdownPct": 2.38
+        "expectancyBps": -12.82,
+        "profitFactor": 0.423,
+        "tStat": -1.592,
+        "maxDrawdownPct": 2.18
       },
       "validation": {
         "trades": 8,
-        "expectancyBps": 11.41,
-        "profitFactor": 1.332,
-        "tStat": 0.365,
-        "maxDrawdownPct": 2.19
+        "expectancyBps": 5.08,
+        "profitFactor": 1.136,
+        "tStat": 0.146,
+        "maxDrawdownPct": 2.58
       },
       "holdout": {
-        "trades": 5,
-        "expectancyBps": -1.81,
+        "trades": 4,
+        "expectancyBps": -1.76,
         "profitFactor": 0.917,
-        "tStat": -0.084,
-        "maxDrawdownPct": 0.74
+        "tStat": -0.064,
+        "maxDrawdownPct": 0.49
       },
       "walkForward": {
         "positiveFolds": 1,
@@ -3810,17 +4215,17 @@
         "maxDrawdownPct": 12.3
       },
       "validation": {
-        "trades": 30,
-        "expectancyBps": 3.38,
-        "profitFactor": 1.113,
-        "tStat": 0.263,
+        "trades": 31,
+        "expectancyBps": 2.47,
+        "profitFactor": 1.083,
+        "tStat": 0.198,
         "maxDrawdownPct": 3.84
       },
       "holdout": {
-        "trades": 21,
-        "expectancyBps": -4.17,
-        "profitFactor": 0.833,
-        "tStat": -0.395,
+        "trades": 20,
+        "expectancyBps": -3.13,
+        "profitFactor": 0.874,
+        "tStat": -0.283,
         "maxDrawdownPct": 1.9
       },
       "walkForward": {
@@ -3855,17 +4260,17 @@
         "maxDrawdownPct": 12.3
       },
       "validation": {
-        "trades": 30,
-        "expectancyBps": 3.38,
-        "profitFactor": 1.113,
-        "tStat": 0.263,
+        "trades": 31,
+        "expectancyBps": 2.47,
+        "profitFactor": 1.083,
+        "tStat": 0.198,
         "maxDrawdownPct": 3.84
       },
       "holdout": {
-        "trades": 21,
-        "expectancyBps": -4.17,
-        "profitFactor": 0.833,
-        "tStat": -0.395,
+        "trades": 20,
+        "expectancyBps": -3.13,
+        "profitFactor": 0.874,
+        "tStat": -0.283,
         "maxDrawdownPct": 1.9
       },
       "walkForward": {
@@ -3965,96 +4370,6 @@
       }
     },
     {
-      "hypothesisKey": "trend_pullback:SOLUSDT:15m:ASIA",
-      "variantKey": "trend_pullback:SOLUSDT:15m:ASIA:p20:ta2:sa0.75:tb8",
-      "status": "REGIME_DIVERGENCE",
-      "failureStreak": 0,
-      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "15m"
-      },
-      "candidate": {
-        "family": "trend_pullback",
-        "period": 20,
-        "targetAtr": 2,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "train": {
-        "trades": 17,
-        "expectancyBps": -12.82,
-        "profitFactor": 0.423,
-        "tStat": -1.592,
-        "maxDrawdownPct": 2.18
-      },
-      "validation": {
-        "trades": 7,
-        "expectancyBps": 9.38,
-        "profitFactor": 1.239,
-        "tStat": 0.235,
-        "maxDrawdownPct": 2.33
-      },
-      "holdout": {
-        "trades": 5,
-        "expectancyBps": -6.4,
-        "profitFactor": 0.707,
-        "tStat": -0.293,
-        "maxDrawdownPct": 0.74
-      },
-      "walkForward": {
-        "positiveFolds": 1,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
-      "hypothesisKey": "trend_pullback:SOLUSDT:15m:ASIA",
-      "variantKey": "trend_pullback:SOLUSDT:15m:ASIA:p55:ta2:sa0.75:tb8",
-      "status": "REGIME_DIVERGENCE",
-      "failureStreak": 0,
-      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "15m"
-      },
-      "candidate": {
-        "family": "trend_pullback",
-        "period": 55,
-        "targetAtr": 2,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "train": {
-        "trades": 17,
-        "expectancyBps": -12.82,
-        "profitFactor": 0.423,
-        "tStat": -1.592,
-        "maxDrawdownPct": 2.18
-      },
-      "validation": {
-        "trades": 7,
-        "expectancyBps": 9.38,
-        "profitFactor": 1.239,
-        "tStat": 0.235,
-        "maxDrawdownPct": 2.33
-      },
-      "holdout": {
-        "trades": 5,
-        "expectancyBps": -6.4,
-        "profitFactor": 0.707,
-        "tStat": -0.293,
-        "maxDrawdownPct": 0.74
-      },
-      "walkForward": {
-        "positiveFolds": 1,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
       "hypothesisKey": "failed_breakout:BNBUSDT:1h:ALL",
       "variantKey": "failed_breakout:BNBUSDT:1h:ALL:p20:ta1.5:sa0.75:tb8",
       "status": "REGIME_DIVERGENCE",
@@ -4118,17 +4433,17 @@
         "session": "LONDON"
       },
       "train": {
-        "trades": 36,
-        "expectancyBps": -1.99,
-        "profitFactor": 0.953,
-        "tStat": -0.131,
+        "trades": 37,
+        "expectancyBps": -3.69,
+        "profitFactor": 0.914,
+        "tStat": -0.249,
         "maxDrawdownPct": 4.51
       },
       "validation": {
-        "trades": 17,
-        "expectancyBps": 8.31,
-        "profitFactor": 1.241,
-        "tStat": 0.419,
+        "trades": 16,
+        "expectancyBps": 12.9,
+        "profitFactor": 1.395,
+        "tStat": 0.628,
         "maxDrawdownPct": 2.97
       },
       "holdout": {
@@ -4140,6 +4455,96 @@
       },
       "walkForward": {
         "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "hypothesisKey": "trend_pullback:SOLUSDT:15m:ALL",
+      "variantKey": "trend_pullback:SOLUSDT:15m:ALL:p20:ta2:sa0.75:tb8",
+      "status": "REGIME_DIVERGENCE",
+      "failureStreak": 0,
+      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
+      "market": {
+        "pair": "SOLUSDT",
+        "tf": "15m"
+      },
+      "candidate": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "train": {
+        "trades": 89,
+        "expectancyBps": -12.24,
+        "profitFactor": 0.412,
+        "tStat": -4.01,
+        "maxDrawdownPct": 11.52
+      },
+      "validation": {
+        "trades": 30,
+        "expectancyBps": 7.44,
+        "profitFactor": 1.242,
+        "tStat": 0.495,
+        "maxDrawdownPct": 4.19
+      },
+      "holdout": {
+        "trades": 19,
+        "expectancyBps": -9.55,
+        "profitFactor": 0.665,
+        "tStat": -0.804,
+        "maxDrawdownPct": 3.02
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "hypothesisKey": "trend_pullback:SOLUSDT:15m:ALL",
+      "variantKey": "trend_pullback:SOLUSDT:15m:ALL:p55:ta2:sa0.75:tb8",
+      "status": "REGIME_DIVERGENCE",
+      "failureStreak": 0,
+      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
+      "market": {
+        "pair": "SOLUSDT",
+        "tf": "15m"
+      },
+      "candidate": {
+        "family": "trend_pullback",
+        "period": 55,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "train": {
+        "trades": 89,
+        "expectancyBps": -12.24,
+        "profitFactor": 0.412,
+        "tStat": -4.01,
+        "maxDrawdownPct": 11.52
+      },
+      "validation": {
+        "trades": 30,
+        "expectancyBps": 7.44,
+        "profitFactor": 1.242,
+        "tStat": 0.495,
+        "maxDrawdownPct": 4.19
+      },
+      "holdout": {
+        "trades": 19,
+        "expectancyBps": -9.55,
+        "profitFactor": 0.665,
+        "tStat": -0.804,
+        "maxDrawdownPct": 3.02
+      },
+      "walkForward": {
+        "positiveFolds": 1,
         "requiredPositiveFolds": 3,
         "pass": false
       }
@@ -4235,96 +4640,6 @@
       }
     },
     {
-      "hypothesisKey": "trend_pullback:SOLUSDT:15m:ALL",
-      "variantKey": "trend_pullback:SOLUSDT:15m:ALL:p20:ta2:sa0.75:tb8",
-      "status": "REGIME_DIVERGENCE",
-      "failureStreak": 0,
-      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "15m"
-      },
-      "candidate": {
-        "family": "trend_pullback",
-        "period": 20,
-        "targetAtr": 2,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ALL"
-      },
-      "train": {
-        "trades": 89,
-        "expectancyBps": -12.24,
-        "profitFactor": 0.412,
-        "tStat": -4.01,
-        "maxDrawdownPct": 11.52
-      },
-      "validation": {
-        "trades": 29,
-        "expectancyBps": 8.55,
-        "profitFactor": 1.277,
-        "tStat": 0.552,
-        "maxDrawdownPct": 3.94
-      },
-      "holdout": {
-        "trades": 20,
-        "expectancyBps": -10.32,
-        "profitFactor": 0.635,
-        "tStat": -0.914,
-        "maxDrawdownPct": 3.02
-      },
-      "walkForward": {
-        "positiveFolds": 1,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
-      "hypothesisKey": "trend_pullback:SOLUSDT:15m:ALL",
-      "variantKey": "trend_pullback:SOLUSDT:15m:ALL:p55:ta2:sa0.75:tb8",
-      "status": "REGIME_DIVERGENCE",
-      "failureStreak": 0,
-      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "15m"
-      },
-      "candidate": {
-        "family": "trend_pullback",
-        "period": 55,
-        "targetAtr": 2,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ALL"
-      },
-      "train": {
-        "trades": 89,
-        "expectancyBps": -12.24,
-        "profitFactor": 0.412,
-        "tStat": -4.01,
-        "maxDrawdownPct": 11.52
-      },
-      "validation": {
-        "trades": 29,
-        "expectancyBps": 8.55,
-        "profitFactor": 1.277,
-        "tStat": 0.552,
-        "maxDrawdownPct": 3.94
-      },
-      "holdout": {
-        "trades": 20,
-        "expectancyBps": -10.32,
-        "profitFactor": 0.635,
-        "tStat": -0.914,
-        "maxDrawdownPct": 3.02
-      },
-      "walkForward": {
-        "positiveFolds": 1,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
       "hypothesisKey": "failed_breakout:XRPUSDT:1h:ALL",
       "variantKey": "failed_breakout:XRPUSDT:1h:ALL:p34:ta1:sa0.75:tb8",
       "status": "REGIME_DIVERGENCE",
@@ -4343,17 +4658,17 @@
         "session": "ALL"
       },
       "train": {
-        "trades": 49,
-        "expectancyBps": -24.31,
-        "profitFactor": 0.529,
-        "tStat": -2.127,
-        "maxDrawdownPct": 14.47
+        "trades": 50,
+        "expectancyBps": -25.03,
+        "profitFactor": 0.517,
+        "tStat": -2.23,
+        "maxDrawdownPct": 15.07
       },
       "validation": {
-        "trades": 16,
-        "expectancyBps": 11.32,
-        "profitFactor": 1.358,
-        "tStat": 0.573,
+        "trades": 15,
+        "expectancyBps": 16.09,
+        "profitFactor": 1.542,
+        "tStat": 0.785,
         "maxDrawdownPct": 3.26
       },
       "holdout": {
@@ -4460,6 +4775,51 @@
       }
     },
     {
+      "hypothesisKey": "volatility_squeeze:ETHUSDT:15m:ALL",
+      "variantKey": "volatility_squeeze:ETHUSDT:15m:ALL:p20:ta1.5:sa0.75:tb8",
+      "status": "REGIME_DIVERGENCE",
+      "failureStreak": 0,
+      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
+      "market": {
+        "pair": "ETHUSDT",
+        "tf": "15m"
+      },
+      "candidate": {
+        "family": "volatility_squeeze",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "train": {
+        "trades": 86,
+        "expectancyBps": -11.9,
+        "profitFactor": 0.283,
+        "tStat": -5.521,
+        "maxDrawdownPct": 10.43
+      },
+      "validation": {
+        "trades": 28,
+        "expectancyBps": 2.77,
+        "profitFactor": 1.13,
+        "tStat": 0.29,
+        "maxDrawdownPct": 2.21
+      },
+      "holdout": {
+        "trades": 33,
+        "expectancyBps": -13.97,
+        "profitFactor": 0.309,
+        "tStat": -3.271,
+        "maxDrawdownPct": 4.61
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
       "hypothesisKey": "failed_breakout:BTCUSDT:1h:ALL",
       "variantKey": "failed_breakout:BTCUSDT:1h:ALL:p20:ta1:sa0.75:tb8",
       "status": "REGIME_DIVERGENCE",
@@ -4497,51 +4857,6 @@
         "profitFactor": 0.482,
         "tStat": -1.266,
         "maxDrawdownPct": 2.5
-      },
-      "walkForward": {
-        "positiveFolds": 1,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
-      "hypothesisKey": "volatility_squeeze:ETHUSDT:15m:ALL",
-      "variantKey": "volatility_squeeze:ETHUSDT:15m:ALL:p20:ta1.5:sa0.75:tb8",
-      "status": "REGIME_DIVERGENCE",
-      "failureStreak": 0,
-      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
-      "market": {
-        "pair": "ETHUSDT",
-        "tf": "15m"
-      },
-      "candidate": {
-        "family": "volatility_squeeze",
-        "period": 20,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ALL"
-      },
-      "train": {
-        "trades": 87,
-        "expectancyBps": -12,
-        "profitFactor": 0.279,
-        "tStat": -5.628,
-        "maxDrawdownPct": 10.44
-      },
-      "validation": {
-        "trades": 27,
-        "expectancyBps": 3.6,
-        "profitFactor": 1.168,
-        "tStat": 0.364,
-        "maxDrawdownPct": 2.01
-      },
-      "holdout": {
-        "trades": 34,
-        "expectancyBps": -14.14,
-        "profitFactor": 0.301,
-        "tStat": -3.409,
-        "maxDrawdownPct": 4.81
       },
       "walkForward": {
         "positiveFolds": 1,
@@ -4613,73 +4928,28 @@
         "session": "ALL"
       },
       "train": {
-        "trades": 61,
-        "expectancyBps": -9.68,
-        "profitFactor": 0.372,
-        "tStat": -3.544,
+        "trades": 60,
+        "expectancyBps": -9.49,
+        "profitFactor": 0.38,
+        "tStat": -3.425,
         "maxDrawdownPct": 5.92
       },
       "validation": {
-        "trades": 17,
-        "expectancyBps": 7.53,
-        "profitFactor": 1.337,
-        "tStat": 0.555,
-        "maxDrawdownPct": 1.19
+        "trades": 18,
+        "expectancyBps": 6.03,
+        "profitFactor": 1.272,
+        "tStat": 0.468,
+        "maxDrawdownPct": 1.33
       },
       "holdout": {
-        "trades": 23,
-        "expectancyBps": -14.98,
-        "profitFactor": 0.285,
-        "tStat": -2.926,
-        "maxDrawdownPct": 3.46
+        "trades": 22,
+        "expectancyBps": -14.77,
+        "profitFactor": 0.297,
+        "tStat": -2.759,
+        "maxDrawdownPct": 3.26
       },
       "walkForward": {
         "positiveFolds": 1,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
-      "hypothesisKey": "opening_range_breakout:BTCUSDT:15m:LONDON",
-      "variantKey": "opening_range_breakout:BTCUSDT:15m:LONDON:p12:ta2:sa0.75:tb8",
-      "status": "REGIME_DIVERGENCE",
-      "failureStreak": 0,
-      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
-      "market": {
-        "pair": "BTCUSDT",
-        "tf": "15m"
-      },
-      "candidate": {
-        "family": "opening_range_breakout",
-        "period": 12,
-        "targetAtr": 2,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "LONDON"
-      },
-      "train": {
-        "trades": 28,
-        "expectancyBps": -7.3,
-        "profitFactor": 0.439,
-        "tStat": -2.092,
-        "maxDrawdownPct": 2.15
-      },
-      "validation": {
-        "trades": 14,
-        "expectancyBps": 1.83,
-        "profitFactor": 1.074,
-        "tStat": 0.118,
-        "maxDrawdownPct": 2.09
-      },
-      "holdout": {
-        "trades": 14,
-        "expectancyBps": -15.18,
-        "profitFactor": 0.262,
-        "tStat": -2.483,
-        "maxDrawdownPct": 2.12
-      },
-      "walkForward": {
-        "positiveFolds": 2,
         "requiredPositiveFolds": 3,
         "pass": false
       }
@@ -4722,6 +4992,141 @@
         "profitFactor": 0.606,
         "tStat": -0.721,
         "maxDrawdownPct": 3.85
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "hypothesisKey": "opening_range_breakout:BTCUSDT:30m:ASIA",
+      "variantKey": "opening_range_breakout:BTCUSDT:30m:ASIA:p12:ta2:sa0.75:tb8",
+      "status": "REGIME_DIVERGENCE",
+      "failureStreak": 0,
+      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
+      "market": {
+        "pair": "BTCUSDT",
+        "tf": "30m"
+      },
+      "candidate": {
+        "family": "opening_range_breakout",
+        "period": 12,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "train": {
+        "trades": 52,
+        "expectancyBps": -14.61,
+        "profitFactor": 0.508,
+        "tStat": -2.019,
+        "maxDrawdownPct": 8.08
+      },
+      "validation": {
+        "trades": 10,
+        "expectancyBps": 1.36,
+        "profitFactor": 1.099,
+        "tStat": 0.128,
+        "maxDrawdownPct": 1
+      },
+      "holdout": {
+        "trades": 16,
+        "expectancyBps": -16.25,
+        "profitFactor": 0.485,
+        "tStat": -1.361,
+        "maxDrawdownPct": 2.99
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "hypothesisKey": "opening_range_breakout:BTCUSDT:30m:ASIA",
+      "variantKey": "opening_range_breakout:BTCUSDT:30m:ASIA:p12:ta1.5:sa0.75:tb8",
+      "status": "REGIME_DIVERGENCE",
+      "failureStreak": 0,
+      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
+      "market": {
+        "pair": "BTCUSDT",
+        "tf": "30m"
+      },
+      "candidate": {
+        "family": "opening_range_breakout",
+        "period": 12,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "train": {
+        "trades": 52,
+        "expectancyBps": -15.39,
+        "profitFactor": 0.47,
+        "tStat": -2.424,
+        "maxDrawdownPct": 8
+      },
+      "validation": {
+        "trades": 10,
+        "expectancyBps": 3.39,
+        "profitFactor": 1.322,
+        "tStat": 0.379,
+        "maxDrawdownPct": 1
+      },
+      "holdout": {
+        "trades": 16,
+        "expectancyBps": -16.42,
+        "profitFactor": 0.443,
+        "tStat": -1.561,
+        "maxDrawdownPct": 3.4
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "hypothesisKey": "volatility_squeeze:SOLUSDT:15m:ASIA",
+      "variantKey": "volatility_squeeze:SOLUSDT:15m:ASIA:p20:ta2:sa0.75:tb8",
+      "status": "REGIME_DIVERGENCE",
+      "failureStreak": 0,
+      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
+      "market": {
+        "pair": "SOLUSDT",
+        "tf": "15m"
+      },
+      "candidate": {
+        "family": "volatility_squeeze",
+        "period": 20,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "train": {
+        "trades": 35,
+        "expectancyBps": -14.31,
+        "profitFactor": 0.288,
+        "tStat": -3.364,
+        "maxDrawdownPct": 5.01
+      },
+      "validation": {
+        "trades": 6,
+        "expectancyBps": 21.2,
+        "profitFactor": 2.382,
+        "tStat": 0.886,
+        "maxDrawdownPct": 0.92
+      },
+      "holdout": {
+        "trades": 10,
+        "expectancyBps": -17.15,
+        "profitFactor": 0.42,
+        "tStat": -1.278,
+        "maxDrawdownPct": 2.64
       },
       "walkForward": {
         "positiveFolds": 1,
@@ -4860,51 +5265,6 @@
       },
       "walkForward": {
         "positiveFolds": 2,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
-      "hypothesisKey": "opening_range_breakout:XRPUSDT:15m:LONDON",
-      "variantKey": "opening_range_breakout:XRPUSDT:15m:LONDON:p12:ta2:sa0.75:tb8",
-      "status": "REGIME_DIVERGENCE",
-      "failureStreak": 0,
-      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
-      "market": {
-        "pair": "XRPUSDT",
-        "tf": "15m"
-      },
-      "candidate": {
-        "family": "opening_range_breakout",
-        "period": 12,
-        "targetAtr": 2,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "LONDON"
-      },
-      "train": {
-        "trades": 17,
-        "expectancyBps": -12.73,
-        "profitFactor": 0.36,
-        "tStat": -2.045,
-        "maxDrawdownPct": 2.41
-      },
-      "validation": {
-        "trades": 7,
-        "expectancyBps": 9.32,
-        "profitFactor": 1.16,
-        "tStat": 0.119,
-        "maxDrawdownPct": 2.13
-      },
-      "holdout": {
-        "trades": 13,
-        "expectancyBps": -18.69,
-        "profitFactor": 0.409,
-        "tStat": -1.548,
-        "maxDrawdownPct": 3.44
-      },
-      "walkForward": {
-        "positiveFolds": 1,
         "requiredPositiveFolds": 3,
         "pass": false
       }
@@ -5082,6 +5442,51 @@
         "profitFactor": 0.159,
         "tStat": -3.819,
         "maxDrawdownPct": 3.02
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "hypothesisKey": "volatility_squeeze:SOLUSDT:15m:ASIA",
+      "variantKey": "volatility_squeeze:SOLUSDT:15m:ASIA:p20:ta1.5:sa0.75:tb8",
+      "status": "REGIME_DIVERGENCE",
+      "failureStreak": 0,
+      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
+      "market": {
+        "pair": "SOLUSDT",
+        "tf": "15m"
+      },
+      "candidate": {
+        "family": "volatility_squeeze",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "train": {
+        "trades": 36,
+        "expectancyBps": -14.92,
+        "profitFactor": 0.23,
+        "tStat": -4.262,
+        "maxDrawdownPct": 5.37
+      },
+      "validation": {
+        "trades": 6,
+        "expectancyBps": 19.69,
+        "profitFactor": 2.823,
+        "tStat": 1.121,
+        "maxDrawdownPct": 0.65
+      },
+      "holdout": {
+        "trades": 10,
+        "expectancyBps": -20.86,
+        "profitFactor": 0.299,
+        "tStat": -1.878,
+        "maxDrawdownPct": 2.66
       },
       "walkForward": {
         "positiveFolds": 1,
@@ -5315,96 +5720,6 @@
       }
     },
     {
-      "hypothesisKey": "failed_breakout:ETHUSDT:15m:LONDON_NY",
-      "variantKey": "failed_breakout:ETHUSDT:15m:LONDON_NY:p20:ta1:sa0.75:tb8",
-      "status": "REGIME_DIVERGENCE",
-      "failureStreak": 0,
-      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
-      "market": {
-        "pair": "ETHUSDT",
-        "tf": "15m"
-      },
-      "candidate": {
-        "family": "failed_breakout",
-        "period": 20,
-        "targetAtr": 1,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "LONDON_NY"
-      },
-      "train": {
-        "trades": 18,
-        "expectancyBps": -16.41,
-        "profitFactor": 0.229,
-        "tStat": -2.909,
-        "maxDrawdownPct": 2.95
-      },
-      "validation": {
-        "trades": 10,
-        "expectancyBps": 14.57,
-        "profitFactor": 1.737,
-        "tStat": 0.798,
-        "maxDrawdownPct": 1.29
-      },
-      "holdout": {
-        "trades": 4,
-        "expectancyBps": -22.42,
-        "profitFactor": 0.034,
-        "tStat": -2.095,
-        "maxDrawdownPct": 0.93
-      },
-      "walkForward": {
-        "positiveFolds": 1,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
-      "hypothesisKey": "failed_breakout:ETHUSDT:15m:LONDON_NY",
-      "variantKey": "failed_breakout:ETHUSDT:15m:LONDON_NY:p20:ta1.5:sa0.75:tb8",
-      "status": "REGIME_DIVERGENCE",
-      "failureStreak": 0,
-      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
-      "market": {
-        "pair": "ETHUSDT",
-        "tf": "15m"
-      },
-      "candidate": {
-        "family": "failed_breakout",
-        "period": 20,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "LONDON_NY"
-      },
-      "train": {
-        "trades": 18,
-        "expectancyBps": -13.71,
-        "profitFactor": 0.377,
-        "tStat": -1.928,
-        "maxDrawdownPct": 2.47
-      },
-      "validation": {
-        "trades": 10,
-        "expectancyBps": 25.16,
-        "profitFactor": 2.272,
-        "tStat": 1.181,
-        "maxDrawdownPct": 1.29
-      },
-      "holdout": {
-        "trades": 4,
-        "expectancyBps": -22.42,
-        "profitFactor": 0.034,
-        "tStat": -2.095,
-        "maxDrawdownPct": 0.93
-      },
-      "walkForward": {
-        "positiveFolds": 1,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
       "hypothesisKey": "volatility_squeeze:XRPUSDT:15m:ALL",
       "variantKey": "volatility_squeeze:XRPUSDT:15m:ALL:p34:ta1.5:sa0.75:tb8",
       "status": "REGIME_DIVERGENCE",
@@ -5495,6 +5810,51 @@
       }
     },
     {
+      "hypothesisKey": "opening_range_breakout:XRPUSDT:15m:LONDON",
+      "variantKey": "opening_range_breakout:XRPUSDT:15m:LONDON:p12:ta2:sa0.75:tb8",
+      "status": "REGIME_DIVERGENCE",
+      "failureStreak": 0,
+      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "15m"
+      },
+      "candidate": {
+        "family": "opening_range_breakout",
+        "period": 12,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON"
+      },
+      "train": {
+        "trades": 17,
+        "expectancyBps": -12.73,
+        "profitFactor": 0.36,
+        "tStat": -2.045,
+        "maxDrawdownPct": 2.41
+      },
+      "validation": {
+        "trades": 9,
+        "expectancyBps": 7.99,
+        "profitFactor": 1.164,
+        "tStat": 0.133,
+        "maxDrawdownPct": 2.13
+      },
+      "holdout": {
+        "trades": 11,
+        "expectancyBps": -22.69,
+        "profitFactor": 0.343,
+        "tStat": -1.715,
+        "maxDrawdownPct": 3.44
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
       "hypothesisKey": "volatility_squeeze:BNBUSDT:15m:ASIA",
       "variantKey": "volatility_squeeze:BNBUSDT:15m:ASIA:p34:ta1.5:sa0.75:tb8",
       "status": "REGIME_DIVERGENCE",
@@ -5540,6 +5900,51 @@
       }
     },
     {
+      "hypothesisKey": "failed_breakout:BNBUSDT:30m:ALL",
+      "variantKey": "failed_breakout:BNBUSDT:30m:ALL:p34:ta1.5:sa0.75:tb8",
+      "status": "REGIME_DIVERGENCE",
+      "failureStreak": 0,
+      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "30m"
+      },
+      "candidate": {
+        "family": "failed_breakout",
+        "period": 34,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "train": {
+        "trades": 35,
+        "expectancyBps": -1.24,
+        "profitFactor": 0.95,
+        "tStat": -0.125,
+        "maxDrawdownPct": 2.41
+      },
+      "validation": {
+        "trades": 12,
+        "expectancyBps": 1.15,
+        "profitFactor": 1.073,
+        "tStat": 0.11,
+        "maxDrawdownPct": 1.01
+      },
+      "holdout": {
+        "trades": 15,
+        "expectancyBps": -24.11,
+        "profitFactor": 0.431,
+        "tStat": -1.442,
+        "maxDrawdownPct": 4.81
+      },
+      "walkForward": {
+        "positiveFolds": 3,
+        "requiredPositiveFolds": 3,
+        "pass": true
+      }
+    },
+    {
       "hypothesisKey": "failed_breakout:XRPUSDT:1h:ALL",
       "variantKey": "failed_breakout:XRPUSDT:1h:ALL:p20:ta1:sa0.75:tb8",
       "status": "REGIME_DIVERGENCE",
@@ -5558,17 +5963,17 @@
         "session": "ALL"
       },
       "train": {
-        "trades": 63,
-        "expectancyBps": -21.67,
-        "profitFactor": 0.573,
-        "tStat": -2.104,
-        "maxDrawdownPct": 18.62
+        "trades": 64,
+        "expectancyBps": -22.27,
+        "profitFactor": 0.562,
+        "tStat": -2.193,
+        "maxDrawdownPct": 19.22
       },
       "validation": {
-        "trades": 21,
-        "expectancyBps": 9.4,
-        "profitFactor": 1.302,
-        "tStat": 0.565,
+        "trades": 20,
+        "expectancyBps": 12.89,
+        "profitFactor": 1.435,
+        "tStat": 0.753,
         "maxDrawdownPct": 3.49
       },
       "holdout": {
@@ -5583,414 +5988,13 @@
         "requiredPositiveFolds": 3,
         "pass": false
       }
-    },
-    {
-      "hypothesisKey": "volatility_squeeze:ETHUSDT:1h:ASIA",
-      "variantKey": "volatility_squeeze:ETHUSDT:1h:ASIA:p34:ta2:sa0.75:tb8",
-      "status": "REGIME_DIVERGENCE",
-      "failureStreak": 0,
-      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
-      "market": {
-        "pair": "ETHUSDT",
-        "tf": "1h"
-      },
-      "candidate": {
-        "family": "volatility_squeeze",
-        "period": 34,
-        "targetAtr": 2,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "train": {
-        "trades": 17,
-        "expectancyBps": -0.48,
-        "profitFactor": 0.987,
-        "tStat": -0.023,
-        "maxDrawdownPct": 2.19
-      },
-      "validation": {
-        "trades": 7,
-        "expectancyBps": 8.89,
-        "profitFactor": 1.292,
-        "tStat": 0.265,
-        "maxDrawdownPct": 1.11
-      },
-      "holdout": {
-        "trades": 9,
-        "expectancyBps": -24.81,
-        "profitFactor": 0.54,
-        "tStat": -0.762,
-        "maxDrawdownPct": 3.14
-      },
-      "walkForward": {
-        "positiveFolds": 2,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:ALL",
-      "variantKey": "volatility_squeeze:SOLUSDT:4h:ALL:p20:ta2:sa0.75:tb8",
-      "status": "REGIME_DIVERGENCE",
-      "failureStreak": 0,
-      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "4h"
-      },
-      "candidate": {
-        "family": "volatility_squeeze",
-        "period": 20,
-        "targetAtr": 2,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ALL"
-      },
-      "train": {
-        "trades": 66,
-        "expectancyBps": -34.8,
-        "profitFactor": 0.746,
-        "tStat": -1.026,
-        "maxDrawdownPct": 31.3
-      },
-      "validation": {
-        "trades": 26,
-        "expectancyBps": 13.35,
-        "profitFactor": 1.118,
-        "tStat": 0.234,
-        "maxDrawdownPct": 9.97
-      },
-      "holdout": {
-        "trades": 22,
-        "expectancyBps": -25.28,
-        "profitFactor": 0.655,
-        "tStat": -0.783,
-        "maxDrawdownPct": 8.38
-      },
-      "walkForward": {
-        "positiveFolds": 1,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
-      "hypothesisKey": "trend_pullback:BTCUSDT:4h:LONDON_NY",
-      "variantKey": "trend_pullback:BTCUSDT:4h:LONDON_NY:p20:ta1.5:sa0.75:tb8",
-      "status": "REGIME_DIVERGENCE",
-      "failureStreak": 0,
-      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
-      "market": {
-        "pair": "BTCUSDT",
-        "tf": "4h"
-      },
-      "candidate": {
-        "family": "trend_pullback",
-        "period": 20,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "LONDON_NY"
-      },
-      "train": {
-        "trades": 26,
-        "expectancyBps": -14.47,
-        "profitFactor": 0.819,
-        "tStat": -0.426,
-        "maxDrawdownPct": 13.38
-      },
-      "validation": {
-        "trades": 10,
-        "expectancyBps": 82.42,
-        "profitFactor": 3.34,
-        "tStat": 1.689,
-        "maxDrawdownPct": 1.82
-      },
-      "holdout": {
-        "trades": 9,
-        "expectancyBps": -25.88,
-        "profitFactor": 0.617,
-        "tStat": -0.662,
-        "maxDrawdownPct": 3.96
-      },
-      "walkForward": {
-        "positiveFolds": 3,
-        "requiredPositiveFolds": 3,
-        "pass": true
-      }
-    },
-    {
-      "hypothesisKey": "trend_pullback:BTCUSDT:4h:LONDON_NY",
-      "variantKey": "trend_pullback:BTCUSDT:4h:LONDON_NY:p55:ta1.5:sa0.75:tb8",
-      "status": "REGIME_DIVERGENCE",
-      "failureStreak": 0,
-      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
-      "market": {
-        "pair": "BTCUSDT",
-        "tf": "4h"
-      },
-      "candidate": {
-        "family": "trend_pullback",
-        "period": 55,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "LONDON_NY"
-      },
-      "train": {
-        "trades": 26,
-        "expectancyBps": -14.47,
-        "profitFactor": 0.819,
-        "tStat": -0.426,
-        "maxDrawdownPct": 13.38
-      },
-      "validation": {
-        "trades": 10,
-        "expectancyBps": 82.42,
-        "profitFactor": 3.34,
-        "tStat": 1.689,
-        "maxDrawdownPct": 1.82
-      },
-      "holdout": {
-        "trades": 9,
-        "expectancyBps": -25.88,
-        "profitFactor": 0.617,
-        "tStat": -0.662,
-        "maxDrawdownPct": 3.96
-      },
-      "walkForward": {
-        "positiveFolds": 3,
-        "requiredPositiveFolds": 3,
-        "pass": true
-      }
-    },
-    {
-      "hypothesisKey": "failed_breakout:XRPUSDT:15m:ALL",
-      "variantKey": "failed_breakout:XRPUSDT:15m:ALL:p34:ta1.5:sa0.75:tb8",
-      "status": "REGIME_DIVERGENCE",
-      "failureStreak": 0,
-      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
-      "market": {
-        "pair": "XRPUSDT",
-        "tf": "15m"
-      },
-      "candidate": {
-        "family": "failed_breakout",
-        "period": 34,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ALL"
-      },
-      "train": {
-        "trades": 45,
-        "expectancyBps": -9.07,
-        "profitFactor": 0.547,
-        "tStat": -1.833,
-        "maxDrawdownPct": 4.53
-      },
-      "validation": {
-        "trades": 13,
-        "expectancyBps": 34.68,
-        "profitFactor": 1.607,
-        "tStat": 0.639,
-        "maxDrawdownPct": 3.64
-      },
-      "holdout": {
-        "trades": 15,
-        "expectancyBps": -25.94,
-        "profitFactor": 0.3,
-        "tStat": -2.163,
-        "maxDrawdownPct": 4.39
-      },
-      "walkForward": {
-        "positiveFolds": 2,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
-      "hypothesisKey": "volatility_squeeze:BTCUSDT:4h:ALL",
-      "variantKey": "volatility_squeeze:BTCUSDT:4h:ALL:p34:ta2:sa0.75:tb8",
-      "status": "REGIME_DIVERGENCE",
-      "failureStreak": 0,
-      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
-      "market": {
-        "pair": "BTCUSDT",
-        "tf": "4h"
-      },
-      "candidate": {
-        "family": "volatility_squeeze",
-        "period": 34,
-        "targetAtr": 2,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ALL"
-      },
-      "train": {
-        "trades": 48,
-        "expectancyBps": -16.6,
-        "profitFactor": 0.753,
-        "tStat": -0.815,
-        "maxDrawdownPct": 11.1
-      },
-      "validation": {
-        "trades": 15,
-        "expectancyBps": 49.15,
-        "profitFactor": 1.986,
-        "tStat": 1.149,
-        "maxDrawdownPct": 2.89
-      },
-      "holdout": {
-        "trades": 18,
-        "expectancyBps": -26.48,
-        "profitFactor": 0.567,
-        "tStat": -1.088,
-        "maxDrawdownPct": 7.72
-      },
-      "walkForward": {
-        "positiveFolds": 2,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
-      "hypothesisKey": "volatility_squeeze:BTCUSDT:4h:ALL",
-      "variantKey": "volatility_squeeze:BTCUSDT:4h:ALL:p20:ta2:sa0.75:tb8",
-      "status": "REGIME_DIVERGENCE",
-      "failureStreak": 0,
-      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
-      "market": {
-        "pair": "BTCUSDT",
-        "tf": "4h"
-      },
-      "candidate": {
-        "family": "volatility_squeeze",
-        "period": 20,
-        "targetAtr": 2,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ALL"
-      },
-      "train": {
-        "trades": 65,
-        "expectancyBps": -10,
-        "profitFactor": 0.846,
-        "tStat": -0.553,
-        "maxDrawdownPct": 14.15
-      },
-      "validation": {
-        "trades": 29,
-        "expectancyBps": 7.31,
-        "profitFactor": 1.117,
-        "tStat": 0.266,
-        "maxDrawdownPct": 12.29
-      },
-      "holdout": {
-        "trades": 27,
-        "expectancyBps": -28.14,
-        "profitFactor": 0.526,
-        "tStat": -1.479,
-        "maxDrawdownPct": 9.98
-      },
-      "walkForward": {
-        "positiveFolds": 2,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
-      "hypothesisKey": "failed_breakout:XRPUSDT:15m:ALL",
-      "variantKey": "failed_breakout:XRPUSDT:15m:ALL:p34:ta1:sa0.75:tb8",
-      "status": "REGIME_DIVERGENCE",
-      "failureStreak": 0,
-      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
-      "market": {
-        "pair": "XRPUSDT",
-        "tf": "15m"
-      },
-      "candidate": {
-        "family": "failed_breakout",
-        "period": 34,
-        "targetAtr": 1,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ALL"
-      },
-      "train": {
-        "trades": 46,
-        "expectancyBps": -10.49,
-        "profitFactor": 0.445,
-        "tStat": -2.618,
-        "maxDrawdownPct": 5.07
-      },
-      "validation": {
-        "trades": 13,
-        "expectancyBps": 6.89,
-        "profitFactor": 1.121,
-        "tStat": 0.171,
-        "maxDrawdownPct": 3.64
-      },
-      "holdout": {
-        "trades": 15,
-        "expectancyBps": -28.46,
-        "profitFactor": 0.232,
-        "tStat": -2.587,
-        "maxDrawdownPct": 4.59
-      },
-      "walkForward": {
-        "positiveFolds": 1,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
-      "hypothesisKey": "opening_range_breakout:ETHUSDT:1h:LONDON",
-      "variantKey": "opening_range_breakout:ETHUSDT:1h:LONDON:p12:ta1.5:sa0.75:tb8",
-      "status": "REGIME_DIVERGENCE",
-      "failureStreak": 0,
-      "failureReason": "NEGATIVE_TRAIN_EXPECTANCY",
-      "market": {
-        "pair": "ETHUSDT",
-        "tf": "1h"
-      },
-      "candidate": {
-        "family": "opening_range_breakout",
-        "period": 12,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "LONDON"
-      },
-      "train": {
-        "trades": 39,
-        "expectancyBps": -17.15,
-        "profitFactor": 0.663,
-        "tStat": -1.173,
-        "maxDrawdownPct": 9.43
-      },
-      "validation": {
-        "trades": 14,
-        "expectancyBps": 3.3,
-        "profitFactor": 1.086,
-        "tStat": 0.142,
-        "maxDrawdownPct": 3.44
-      },
-      "holdout": {
-        "trades": 10,
-        "expectancyBps": -28.56,
-        "profitFactor": 0.372,
-        "tStat": -1.396,
-        "maxDrawdownPct": 2.86
-      },
-      "walkForward": {
-        "positiveFolds": 1,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
     }
   ],
   "nextGeneration": [
+    {
+      "parent": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta2:sa0.75:tb8",
+      "mutation": "Mutate opening_range_breakout on BNBUSDT 4h ASIA; preserve costs and sealed holdout."
+    },
     {
       "parent": "opening_range_breakout:XRPUSDT:4h:LONDON:p20:ta1.5:sa0.75:tb8",
       "mutation": "Mutate opening_range_breakout on XRPUSDT 4h LONDON; preserve costs and sealed holdout."
@@ -6000,8 +6004,16 @@
       "mutation": "Mutate opening_range_breakout on XRPUSDT 4h LONDON; preserve costs and sealed holdout."
     },
     {
+      "parent": "opening_range_breakout:BNBUSDT:4h:ASIA:p12:ta2:sa0.75:tb8",
+      "mutation": "Mutate opening_range_breakout on BNBUSDT 4h ASIA; preserve costs and sealed holdout."
+    },
+    {
       "parent": "opening_range_breakout:XRPUSDT:4h:LONDON:p12:ta1.5:sa0.75:tb8",
       "mutation": "Mutate opening_range_breakout on XRPUSDT 4h LONDON; preserve costs and sealed holdout."
+    },
+    {
+      "parent": "opening_range_breakout:BNBUSDT:4h:ASIA:p12:ta1.5:sa0.75:tb8",
+      "mutation": "Mutate opening_range_breakout on BNBUSDT 4h ASIA; preserve costs and sealed holdout."
     },
     {
       "parent": "failed_breakout:SOLUSDT:4h:ALL:p20:ta1.5:sa0.75:tb8",
@@ -6009,18 +6021,6 @@
     },
     {
       "parent": "opening_range_breakout:XRPUSDT:1h:ASIA:p12:ta2:sa0.75:tb8",
-      "mutation": "Mutate opening_range_breakout on XRPUSDT 1h ASIA; preserve costs and sealed holdout."
-    },
-    {
-      "parent": "volatility_squeeze:XRPUSDT:4h:ASIA:p20:ta2:sa0.75:tb8",
-      "mutation": "Mutate volatility_squeeze on XRPUSDT 4h ASIA; preserve costs and sealed holdout."
-    },
-    {
-      "parent": "volatility_squeeze:SOLUSDT:4h:ALL:p34:ta1.5:sa0.75:tb8",
-      "mutation": "Mutate volatility_squeeze on SOLUSDT 4h ALL; preserve costs and sealed holdout."
-    },
-    {
-      "parent": "opening_range_breakout:XRPUSDT:1h:ASIA:p12:ta1.5:sa0.75:tb8",
       "mutation": "Mutate opening_range_breakout on XRPUSDT 1h ASIA; preserve costs and sealed holdout."
     }
   ]
