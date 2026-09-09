@@ -11,6 +11,7 @@ export const MIN_FORWARD_MS = 10 * 60 * 1000;
 export const MAX_FORWARD_MS = 25 * 60 * 1000;
 export const MIN_OBSERVATIONS = 30;
 export const MIN_CONTROL_OBSERVATIONS = 30;
+export const MIN_DURABLE_SCHEMA_FOR_FIXED_TAKER = 6;
 
 export const STUDY_PROTOCOL = Object.freeze({
   studyVersion: STUDY_VERSION,
@@ -50,8 +51,25 @@ export function enforceProtocolLock(protocolPath, protocol = STUDY_PROTOCOL) {
 
 function finite(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
 
+// Durable production states carry schemaVersion. Legacy schema <=5 used an OKX
+// variable-count last-100-trades taker sample and is not admissible for H1/control.
+// Synthetic unit fixtures without a schema remain valid for deterministic logic tests.
+export function isAdmissibleStudyState(state) {
+  if (!state?.safeForResearch) return false;
+  const schema = Number(state?.schemaVersion);
+  if (!Number.isFinite(schema)) return true;
+  if (schema < MIN_DURABLE_SCHEMA_FOR_FIXED_TAKER) return false;
+  if (state?.provider === 'okx') {
+    return state?.provenance?.fixedWindowTakerFlow === true &&
+      state?.provenance?.takerDefinition === 'OKX_PUBLIC_HISTORY_TRADES_FIXED_60S_V1' &&
+      Number(state?.provenance?.takerWindowMs) === 60_000 &&
+      Number(state?.provenance?.takerWindowCoverageMs) >= 54_000;
+  }
+  return true;
+}
+
 export function classifyHypothesis(state) {
-  if (!state?.safeForResearch || !state?.crossCapture?.available) return null;
+  if (!isAdmissibleStudyState(state) || !state?.crossCapture?.available) return null;
   const f = state.features ?? {};
   const c = state.crossCapture ?? {};
   const oi = finite(c.oiCrossCaptureChangePct);
@@ -69,7 +87,7 @@ export function classifyHypothesis(state) {
 }
 
 export function classifyControlSide(state) {
-  if (!state?.safeForResearch || !state?.crossCapture?.available) return null;
+  if (!isAdmissibleStudyState(state) || !state?.crossCapture?.available) return null;
   if (classifyHypothesis(state)) return null;
   const f = state.features ?? {};
   const taker = finite(f.takerBias);
@@ -84,12 +102,13 @@ export function classifyControlSide(state) {
 
 export function pairForwardOutcome(states, index) {
   const entry = states[index];
+  if (!isAdmissibleStudyState(entry)) return null;
   const entryMs = Date.parse(entry?.capturedAt ?? '');
   const entryPx = finite(entry?.features?.perpCloseNow);
   if (!Number.isFinite(entryMs) || entryPx === null || entryPx <= 0) return null;
   for (let j = index + 1; j < states.length; j += 1) {
     const candidate = states[j];
-    if (candidate?.provider !== entry?.provider || candidate?.symbol !== entry?.symbol || !candidate?.safeForResearch) continue;
+    if (candidate?.provider !== entry?.provider || candidate?.symbol !== entry?.symbol || !isAdmissibleStudyState(candidate)) continue;
     const t = Date.parse(candidate?.capturedAt ?? '');
     const gap = t - entryMs;
     if (!Number.isFinite(gap) || gap < MIN_FORWARD_MS) continue;
@@ -132,6 +151,8 @@ function summarize(observations = []) {
 
 export function evaluateStudy(states = []) {
   const ordered = [...states].filter(Boolean).sort((a, b) => Date.parse(a.capturedAt) - Date.parse(b.capturedAt));
+  const durableRows = ordered.filter(state => Number.isFinite(Number(state?.schemaVersion)));
+  const admissibleDurableRows = durableRows.filter(isAdmissibleStudyState);
   const observations = [];
   const controlObservations = [];
   for (let i = 0; i < ordered.length; i += 1) {
@@ -150,6 +171,13 @@ export function evaluateStudy(states = []) {
     studyVersion: STUDY_VERSION,
     protocolHash: protocolHash(),
     mode: 'RESEARCH_ONLY',
+    dataEligibility: {
+      policy: 'DURABLE_SCHEMA_6_PLUS; OKX_REQUIRES_FIXED_60S_TAKER_WITH_90PCT_COVERAGE',
+      durableRowCount: durableRows.length,
+      admissibleDurableRowCount: admissibleDurableRows.length,
+      rejectedLegacyOrUnprovenancedRows: durableRows.length - admissibleDurableRows.length,
+      holdoutUsedForRanking: false,
+    },
     predeclaredHypothesis: STUDY_PROTOCOL.hypothesis,
     controlDefinition: STUDY_PROTOCOL.controlDefinition,
     thresholds: STUDY_PROTOCOL.thresholds,
