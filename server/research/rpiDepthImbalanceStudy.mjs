@@ -1,21 +1,23 @@
 // RESEARCH_ONLY predeclared RPI depth-imbalance study.
 // This file never places orders or changes trading gates.
 // Sequential discipline is fixed BEFORE sufficient sample exists:
-// first 60 matured signals = discovery, next 30 = validation, next 30 = virgin holdout.
+// first 60 independent matured signals = discovery, next 30 = validation, next 30 = virgin holdout.
 
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
 export const RPI_PROTOCOL = Object.freeze({
-  studyVersion: 1,
+  studyVersion: 2,
   hypothesis: 'Extreme OKX RPI depth imbalance predicts same-direction BTC-USDT-SWAP mid-price return 10-25m later net of fixed round-trip costs.',
   signal: { longMinImbalance: 0.60, shortMaxImbalance: -0.60 },
   maturityWindowMs: [10 * 60 * 1000, 25 * 60 * 1000],
+  independenceEmbargoMs: 25 * 60 * 1000,
+  independencePolicy: 'ACCEPT_FIRST_MATURED_SIGNAL_THEN_EMBARGO_NEW_ENTRIES_FOR_FULL_MAX_FORWARD_WINDOW',
   roundTripCostBps: 10,
   sequentialSplits: { discovery: 60, validation: 30, holdout: 30 },
   validationGates: { meanNetBpsMin: 2, medianNetBpsMin: 0, winRateMin: 0.55, profitFactorMin: 1.20 },
-  holdoutPolicy: 'SEALED_UNTIL_120_MATURED_SIGNALS_AND_NEVER_USED_FOR_RANKING_OR_TUNING',
+  holdoutPolicy: 'SEALED_UNTIL_120_INDEPENDENT_MATURED_SIGNALS_AND_NEVER_USED_FOR_RANKING_OR_TUNING',
   researchBoundary: 'RESEARCH_ONLY_NOT_IN_H1_NOT_FORWARD_PAPER',
 });
 
@@ -56,6 +58,24 @@ export function buildMaturedRpiObservations(rows, protocol=RPI_PROTOCOL) {
   return out;
 }
 
+export function selectIndependentRpiObservations(observations=[], protocol=RPI_PROTOCOL) {
+  const embargoMs = Number(protocol.independenceEmbargoMs ?? protocol.maturityWindowMs?.[1]);
+  if (!Number.isFinite(embargoMs) || embargoMs <= 0) throw new Error('invalid independenceEmbargoMs');
+  const accepted=[]; const rejected=[];
+  let embargoUntil=-Infinity;
+  for (const observation of [...observations].sort((a,b)=>Date.parse(a.entryCapturedAt)-Date.parse(b.entryCapturedAt))) {
+    const entryMs=Date.parse(observation.entryCapturedAt);
+    if (!Number.isFinite(entryMs)) continue;
+    if (entryMs < embargoUntil) {
+      rejected.push({ entryCapturedAt:observation.entryCapturedAt, reason:'OVERLAPPING_FORWARD_WINDOW', embargoUntil:new Date(embargoUntil).toISOString() });
+      continue;
+    }
+    accepted.push(observation);
+    embargoUntil=entryMs+embargoMs;
+  }
+  return { accepted, rejected, embargoMs };
+}
+
 export function summarize(obs=[]) {
   if (!obs.length) return { count:0, meanNetBps:null, medianNetBps:null, winRate:null, profitFactor:null };
   const nets=obs.map(o=>o.netBps); const wins=nets.filter(x=>x>0); const losses=nets.filter(x=>x<0);
@@ -68,7 +88,9 @@ function passes(summary, gates) {
 }
 
 export function evaluateRpiStudy(rows, protocol=RPI_PROTOCOL) {
-  const matured=buildMaturedRpiObservations(rows, protocol);
+  const rawMatured=buildMaturedRpiObservations(rows, protocol);
+  const independence=selectIndependentRpiObservations(rawMatured, protocol);
+  const matured=independence.accepted;
   const dN=protocol.sequentialSplits.discovery, vN=protocol.sequentialSplits.validation, hN=protocol.sequentialSplits.holdout;
   const discovery=matured.slice(0,dN); const validation=matured.slice(dN,dN+vN);
   const holdoutEligible=matured.length>=dN+vN+hN;
@@ -79,7 +101,8 @@ export function evaluateRpiStudy(rows, protocol=RPI_PROTOCOL) {
   const candidateStatus = matured.length<dN ? 'ACCUMULATING_DISCOVERY' : matured.length<dN+vN ? 'DISCOVERY_COMPLETE_AWAITING_VALIDATION' : (!discoveryPass || !validationPass ? 'REJECTED_PRE_HOLDOUT' : holdoutEligible ? 'HOLDOUT_READY_FOR_ONE_TIME_AUDIT' : 'VALIDATION_PASS_HOLDOUT_SEALED');
   return {
     studyVersion:protocol.studyVersion, mode:'RESEARCH_ONLY', protocolSha256:RPI_PROTOCOL_SHA256,
-    protocol, rawSnapshotCount:rows.length, maturedSignalCount:matured.length,
+    protocol, rawSnapshotCount:rows.length, rawMaturedSignalCount:rawMatured.length, maturedSignalCount:matured.length,
+    independence:{ policy:protocol.independencePolicy, embargoMs:independence.embargoMs, acceptedCount:matured.length, rejectedOverlapCount:independence.rejected.length, rejected:independence.rejected },
     sequentialAllocation:{ discoveryCount:discovery.length, validationCount:validation.length, holdoutCount:holdout.length },
     discovery:discoverySummary, validation:validationSummary,
     holdout:{ status:holdoutEligible?'AVAILABLE_ONE_TIME_AUDIT_NOT_FOR_RANKING':'SEALED', count:holdout.length, metrics:holdoutEligible?summarize(holdout):null },
