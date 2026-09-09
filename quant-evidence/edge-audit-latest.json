@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-09T00:37:21.115Z",
+  "completedAt": "2026-09-09T00:47:39.157Z",
   "methodology": {
     "oneShot": true,
     "holdoutStart": 0.8,
@@ -22,11 +22,98 @@
     "familyAuditBudget": true,
     "historyRebuild": true
   },
-  "sourceAdaptiveCompletedAt": "2026-09-09T00:37:20.989Z",
-  "newAudits": 0,
+  "sourceAdaptiveCompletedAt": "2026-09-09T00:47:36.419Z",
+  "newAudits": 3,
   "passed": 0,
   "totalPassedRegistered": 2,
-  "exhaustedFamilies": [],
-  "verdict": "NO_NEW_AUDIT_CANDIDATES",
-  "results": []
+  "exhaustedFamilies": [
+    "opening_range_breakout:ETHUSDT:4h:NY"
+  ],
+  "verdict": "AUDIT_REJECTED",
+  "results": [
+    {
+      "id": "opening_range_breakout:ETHUSDT:4h:NY:p24:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "opening_range_breakout:ETHUSDT:4h:NY",
+      "market": {
+        "pair": "ETHUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 24,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "NY"
+      },
+      "parentVariant": "opening_range_breakout:ETHUSDT:4h:NY:p20:ta1.5:sa0.75:tb8",
+      "selectionScore": 96.9,
+      "holdout": {
+        "trades": 36,
+        "expectancyBps": 4.85,
+        "profitFactor": 1.04,
+        "tStat": 0.101,
+        "maxDrawdownPct": 14.62
+      },
+      "status": "AUDIT_REJECTED",
+      "rejectReason": "WEAK_HOLDOUT_PROFIT_FACTOR",
+      "auditedAt": "2026-09-09T00:47:39.147Z"
+    },
+    {
+      "id": "opening_range_breakout:ETHUSDT:4h:NY:p20:ta1.5:sa0.6:tb8",
+      "hypothesisKey": "opening_range_breakout:ETHUSDT:4h:NY",
+      "market": {
+        "pair": "ETHUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.6,
+        "timeoutBars": 8,
+        "session": "NY"
+      },
+      "parentVariant": "opening_range_breakout:ETHUSDT:4h:NY:p20:ta1.5:sa0.75:tb8",
+      "selectionScore": 92.05,
+      "holdout": {
+        "trades": 39,
+        "expectancyBps": -35.74,
+        "profitFactor": 0.697,
+        "tStat": -0.94,
+        "maxDrawdownPct": 26.52
+      },
+      "status": "AUDIT_REJECTED",
+      "rejectReason": "NEGATIVE_HOLDOUT_EXPECTANCY",
+      "auditedAt": "2026-09-09T00:47:39.151Z"
+    },
+    {
+      "id": "opening_range_breakout:ETHUSDT:4h:NY:p16:ta1.5:sa0.6:tb8",
+      "hypothesisKey": "opening_range_breakout:ETHUSDT:4h:NY",
+      "market": {
+        "pair": "ETHUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 16,
+        "targetAtr": 1.5,
+        "stopAtr": 0.6,
+        "timeoutBars": 8,
+        "session": "NY"
+      },
+      "parentVariant": "opening_range_breakout:ETHUSDT:4h:NY:p20:ta1.5:sa0.75:tb8",
+      "selectionScore": 87.48,
+      "holdout": {
+        "trades": 41,
+        "expectancyBps": -40.18,
+        "profitFactor": 0.661,
+        "tStat": -1.107,
+        "maxDrawdownPct": 29.05
+      },
+      "status": "AUDIT_REJECTED",
+      "rejectReason": "NEGATIVE_HOLDOUT_EXPECTANCY",
+      "auditedAt": "2026-09-09T00:47:39.157Z"
+    }
+  ]
 }
