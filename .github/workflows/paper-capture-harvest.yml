@@ -3,6 +3,7 @@
 # Never sends an order. Path is paper-tape/ because /data/ is gitignored.
 # The synchronized capture labels Binance Spot vs USDⓈ-M index fallback explicitly.
 # If a market-data host is geo-blocked, the partial snapshot is persisted unsafe-for-research rather than dropped.
+# This workflow is the single scheduled owner of positioning-dynamics capture to prevent duplicate/overlapping taker windows.
 name: paper-capture-harvest
 
 on:
@@ -18,14 +19,22 @@ on:
       - server/genesis/okxResearchContext.mjs
       - server/genesis/okxRpiOrderBook.mjs
       - server/genesis/rpiOrderBookCapture.mjs
+      - server/genesis/positioningDynamicsCapture.mjs
+      - server/genesis/okxFixedWindowTaker.mjs
+      - server/genesis/derivativesContext.mjs
       - server/research/causalMicrostructureStudy.mjs
       - server/research/observationIndependenceAudit.mjs
       - server/research/rpiDepthImbalanceStudy.mjs
+      - server/research/positioningDataQualityAudit.mjs
       - server/tests/researchStateCapture.test.mjs
       - server/tests/researchProviderProbe.test.mjs
       - server/tests/okxVolatilityShock.test.mjs
       - server/tests/okxRpiOrderBook.test.mjs
       - server/tests/rpiOrderBookCapture.test.mjs
+      - server/tests/positioningDynamicsCapture.test.mjs
+      - server/tests/okxFixedWindowTaker.test.mjs
+      - server/tests/derivativesContext.test.mjs
+      - server/tests/positioningDataQualityAudit.test.mjs
       - server/tests/causalMicrostructureStudy.test.mjs
       - server/tests/observationIndependenceAudit.test.mjs
       - server/tests/rpiDepthImbalanceStudy.test.mjs
@@ -50,7 +59,7 @@ jobs:
           ref: capture-tape
           path: tape
       - name: verify synchronized evidence integrity
-        run: node --test server/tests/researchStateCapture.test.mjs server/tests/researchProviderProbe.test.mjs server/tests/okxVolatilityShock.test.mjs server/tests/okxRpiOrderBook.test.mjs server/tests/rpiOrderBookCapture.test.mjs server/tests/causalMicrostructureStudy.test.mjs server/tests/observationIndependenceAudit.test.mjs server/tests/rpiDepthImbalanceStudy.test.mjs
+        run: node --test server/tests/researchStateCapture.test.mjs server/tests/researchProviderProbe.test.mjs server/tests/okxVolatilityShock.test.mjs server/tests/okxRpiOrderBook.test.mjs server/tests/rpiOrderBookCapture.test.mjs server/tests/positioningDynamicsCapture.test.mjs server/tests/okxFixedWindowTaker.test.mjs server/tests/derivativesContext.test.mjs server/tests/positioningDataQualityAudit.test.mjs server/tests/causalMicrostructureStudy.test.mjs server/tests/observationIndependenceAudit.test.mjs server/tests/rpiDepthImbalanceStudy.test.mjs
       - name: validate redundant public research routes
         shell: bash
         run: |
@@ -73,6 +82,28 @@ jobs:
         run: node server/genesis/fundingHold.mjs --once --state tape/paper-tape/funding-latest.json
       - name: capture synchronized research state
         run: node server/genesis/researchStateCapture.mjs BTCUSDT --out tape/paper-tape/research-state-latest.json --jsonl tape/paper-tape/research-state.jsonl
+      - name: capture synchronized positioning dynamics
+        if: github.event_name != 'push'
+        run: node server/genesis/positioningDynamicsCapture.mjs --symbol BTCUSDT --out tape/paper-tape/positioning-dynamics-latest.json --jsonl tape/paper-tape/positioning-dynamics.jsonl
+      - name: audit effective independent positioning evidence
+        if: github.event_name != 'push'
+        run: node server/research/positioningDataQualityAudit.mjs --input tape/paper-tape/positioning-dynamics.jsonl --out tape/paper-tape/positioning-data-quality-latest.json
+      - name: assert positioning RESEARCH_ONLY boundary
+        if: github.event_name != 'push'
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const x = JSON.parse(fs.readFileSync('tape/paper-tape/positioning-dynamics-latest.json', 'utf8'));
+          const q = JSON.parse(fs.readFileSync('tape/paper-tape/positioning-data-quality-latest.json', 'utf8'));
+          if (x.mode !== 'RESEARCH_ONLY') throw new Error('mode must remain RESEARCH_ONLY');
+          if (x.researchUse !== 'OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING') throw new Error('ranking boundary missing');
+          if (!x.provenance?.closedPriceBarOnly || !x.provenance?.fixedWindowTakerFlow) throw new Error('causal provenance missing');
+          if (x.positioning?.takerWindowMs !== 60000 || !(x.positioning?.takerWindowCoverageMs >= 54000)) throw new Error('fixed-window taker discipline violated');
+          if (q.mode !== 'RESEARCH_ONLY' || q.researchUse !== 'DATA_QUALITY_ONLY_NOT_FOR_RANKING') throw new Error('quality boundary missing');
+          if (q.boundaries?.holdoutUsedForRanking !== false) throw new Error('holdout ranking boundary violated');
+          if (q.boundaries?.liveTradingEnabled !== false || q.boundaries?.realOrdersPlaced !== false) throw new Error('live boundary violated');
+          NODE
       - name: evaluate locked predeclared microstructure hypothesis
         run: node server/research/causalMicrostructureStudy.mjs tape/paper-tape/research-state.jsonl --protocol tape/paper-tape/microstructure-study-v2-protocol.json --out tape/paper-tape/microstructure-study-latest.json
       - name: audit independent observation count
@@ -86,6 +117,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mkdir -p paper-tape
           git add -f paper-tape/capture-latest.json paper-tape/capture.jsonl paper-tape/hz1-latest.json paper-tape/hz1.jsonl paper-tape/funding-latest.json paper-tape/research-state-latest.json paper-tape/research-state.jsonl paper-tape/provider-probe-latest.json paper-tape/rpi-orderbook-latest.json paper-tape/rpi-orderbook.jsonl paper-tape/rpi-depth-imbalance-study-latest.json paper-tape/microstructure-study-latest.json paper-tape/microstructure-study-v2-protocol.json paper-tape/microstructure-independence-audit-latest.json
+          if [ "$GITHUB_EVENT_NAME" != "push" ]; then
+            git add -f paper-tape/positioning-dynamics-latest.json paper-tape/positioning-dynamics.jsonl paper-tape/positioning-data-quality-latest.json
+          fi
           if git diff --staged --quiet; then
             echo "no change"
             exit 0
