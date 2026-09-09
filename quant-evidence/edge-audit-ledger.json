@@ -1,6 +1,6 @@
 {
   "version": "edge_audit_ledger_v3_family_budget",
-  "updatedAt": "2026-09-09T00:48:51.313Z",
+  "updatedAt": "2026-09-09T00:49:53.474Z",
   "auditedIds": [
     "opening_range_breakout:BTCUSDT:1h:LONDON:p24:ta2:sa0.75:tb8",
     "opening_range_breakout:BTCUSDT:1h:LONDON:p20:ta2:sa0.75:tb6",
@@ -16,7 +16,10 @@
     "opening_range_breakout:ETHUSDT:4h:NY:p16:ta1.5:sa0.6:tb8",
     "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.9:tb8",
     "volatility_squeeze:SOLUSDT:4h:NY:p16:ta1.5:sa0.75:tb8",
-    "volatility_squeeze:SOLUSDT:4h:NY:p16:ta1.5:sa0.6:tb8"
+    "volatility_squeeze:SOLUSDT:4h:NY:p16:ta1.5:sa0.6:tb8",
+    "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.6:tb8",
+    "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.75:tb12",
+    "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb12"
   ],
   "passedCandidates": {
     "opening_range_breakout:XRPUSDT:4h:LONDON:p20:ta2.25:sa0.75:tb8": {
@@ -105,25 +108,26 @@
       "updatedAt": "2026-09-09T00:47:39.157Z"
     },
     "opening_range_breakout:BNBUSDT:4h:NY": {
-      "audits": 1,
-      "passes": 0,
-      "rejects": 1,
-      "reasons": {
-        "LOW_HOLDOUT_TSTAT": 1
-      },
-      "status": "OPEN",
-      "updatedAt": "2026-09-09T00:48:51.307Z"
-    },
-    "volatility_squeeze:SOLUSDT:4h:NY": {
       "audits": 2,
       "passes": 0,
       "rejects": 2,
       "reasons": {
-        "WEAK_HOLDOUT_PROFIT_FACTOR": 1,
+        "LOW_HOLDOUT_TSTAT": 1,
         "NEGATIVE_HOLDOUT_EXPECTANCY": 1
       },
       "status": "OPEN",
-      "updatedAt": "2026-09-09T00:48:51.313Z"
+      "updatedAt": "2026-09-09T00:49:53.471Z"
+    },
+    "volatility_squeeze:SOLUSDT:4h:NY": {
+      "audits": 4,
+      "passes": 0,
+      "rejects": 4,
+      "reasons": {
+        "WEAK_HOLDOUT_PROFIT_FACTOR": 1,
+        "NEGATIVE_HOLDOUT_EXPECTANCY": 3
+      },
+      "status": "AUDIT_BUDGET_EXHAUSTED",
+      "updatedAt": "2026-09-09T00:49:53.474Z"
     }
   }
 }
