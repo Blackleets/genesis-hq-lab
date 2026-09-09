@@ -1,25 +1,33 @@
 {
-  "ts": "2026-09-09T11:14:44.607Z",
+  "ts": "2026-09-09T11:15:19.927Z",
   "liveOff": true,
   "paper": true,
   "go": false,
   "hz": 1,
   "tickers": 460,
-  "preQuote": 9,
+  "preQuote": 8,
   "full": 4,
   "quoted": 0,
   "quotedNames": [],
   "filled": 0,
   "paperPnl": 0,
   "reasons": {
-    "TAPE_PENDING": 4
+    "TAPE_PENDING": 2,
+    "WOULD_CROSS": 2
   },
-  "ms": 915,
+  "ms": 1198,
   "scored": [
     {
-      "symbol": "SOON-USDT-SWAP",
-      "preH": -0.2785752259435408,
-      "spread": 10.632642211589884,
+      "symbol": "ACU-USDT-SWAP",
+      "preH": 0.11220443530604474,
+      "spread": 11.749155529445844,
+      "quote": false,
+      "reason": "TAPE_PENDING"
+    },
+    {
+      "symbol": "SIGN-USDT-SWAP",
+      "preH": -0.10822831727209925,
+      "spread": 11.11934766493686,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
@@ -28,27 +36,30 @@
       "preH": -0.30606860158352056,
       "spread": 10.55408970976137,
       "quote": false,
-      "reason": "TAPE_PENDING"
+      "reason": "WOULD_CROSS",
+      "harvestBps": null,
+      "vpin": 0.8888,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "WOULD_CROSS"
     },
     {
-      "symbol": "CASHCAT-USDT-SWAP",
-      "preH": -0.15806805708055505,
-      "spread": 10.976948408341272,
+      "symbol": "SPK-USDT-SWAP",
+      "preH": -0.4947421131692904,
+      "spread": 10.015022533802028,
       "quote": false,
-      "reason": "TAPE_PENDING"
-    },
-    {
-      "symbol": "PIPPIN-USDT-SWAP",
-      "preH": -0.38989169675104973,
-      "spread": 10.314595152139859,
-      "quote": false,
-      "reason": "TAPE_PENDING"
+      "reason": "WOULD_CROSS",
+      "harvestBps": null,
+      "vpin": 0.7876,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "WOULD_CROSS"
     }
   ],
   "intersection": {
     "liquid": 246,
-    "hGe": 9,
-    "band": 144,
+    "hGe": 8,
+    "band": 147,
     "both": 0
   },
   "formula": "H=spread*0.35-4bps; width is a toxicity prior. Kalman+VPIN+GLFT. not a GO."
