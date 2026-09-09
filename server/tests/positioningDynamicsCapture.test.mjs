@@ -48,9 +48,9 @@ function closedKline(closeTime = capturedAtMs - 1_000) {
   return [capturedAtMs - 60_000, '79000', '79100', '78900', '79050', '12', closeTime, '948600', 100, '6', '474300', '0'];
 }
 
-function observation({ capturedAt = '2026-09-09T16:25:00.000Z', oi = 1_000_000, taker = 0.8, buyFraction = 0.4444, funding = 0.00008, premium = -2, close = 79000 } = {}) {
+function observation({ capturedAt = '2026-09-09T16:25:00.000Z', schemaVersion = 4, oi = 1_000_000, taker = 0.8, buyFraction = 0.4444, funding = 0.00008, premium = -2, close = 79000, takerWindowMs = 60_000 } = {}) {
   return {
-    schemaVersion: 4,
+    schemaVersion,
     mode: 'RESEARCH_ONLY',
     provider: 'okx_public_market_data',
     symbol: 'BTCUSDT',
@@ -60,9 +60,11 @@ function observation({ capturedAt = '2026-09-09T16:25:00.000Z', oi = 1_000_000, 
       openInterest: { value: oi, unit: 'CONTRACTS' },
       takerBuySellRatioNow: taker,
       takerBuyFractionNow: buyFraction,
+      takerWindowMs,
       fundingRateNow: funding,
       premiumNowBps: premium,
     },
+    provenance: { takerWindowMs },
   };
 }
 
@@ -85,13 +87,15 @@ test('builds one causal RESEARCH_ONLY envelope with fixed-window taker provenanc
   assert.equal(out.provenance.closedPriceBarOnly, true);
   assert.equal(out.provenance.fixedWindowTakerFlow, true);
   assert.equal(out.provenance.crossCaptureUsesStrictlyPriorDurableObservation, true);
-  assert.match(out.provenance.note, /fixed one-minute public-trade window/);
+  assert.equal(out.provenance.crossCaptureRequiresSameSchema, true);
+  assert.equal(out.provenance.crossCaptureRequiresNonOverlappingTakerWindows, true);
+  assert.match(out.provenance.note, /non-overlapping taker windows/);
   assert.equal(out.provenance.agesMs.openInterest, 5 * 60_000);
   assert.equal(out.provenance.agesMs.taker, 30_000);
   assert.equal(out.provenance.agesMs.funding, 8 * 60 * 60_000);
 });
 
-test('derives real positioning dynamics only from a strictly prior durable capture', () => {
+test('derives real positioning dynamics only from a strictly prior same-schema non-overlapping durable capture', () => {
   const previous = observation();
   const current = observation({
     capturedAt: '2026-09-09T16:30:00.000Z',
@@ -105,7 +109,9 @@ test('derives real positioning dynamics only from a strictly prior durable captu
   const out = deriveCrossCapturePositioningFeatures(previous, current);
   assert.equal(out.available, true);
   assert.equal(out.causal, true);
+  assert.equal(out.nonOverlappingTakerWindows, true);
   assert.equal(out.elapsedMinutes, 5);
+  assert.equal(out.minimumSeparationMinutes, 1);
   assert.ok(Math.abs(out.oiChangePct - 1) < 1e-9);
   assert.ok(Math.abs(out.takerBuySellRatioDelta - 0.25) < 1e-9);
   assert.ok(Math.abs(out.takerBuyFractionDelta - 0.0678) < 1e-9);
@@ -115,7 +121,31 @@ test('derives real positioning dynamics only from a strictly prior durable captu
   assert.equal(out.researchUse, 'OBSERVATIONAL_ONLY_NOT_FOR_RANKING');
 });
 
-test('keeps legacy prior captures usable but does not fabricate bounded taker delta', () => {
+test('refuses overlapping fixed-window taker observations', () => {
+  const previous = observation({ capturedAt: '2026-09-09T16:29:11.000Z' });
+  const current = observation({ capturedAt: '2026-09-09T16:30:00.000Z' });
+  const out = deriveCrossCapturePositioningFeatures(previous, current);
+  assert.equal(out.available, false);
+  assert.equal(out.reason, 'OVERLAPPING_TAKER_WINDOWS');
+  assert.ok(out.elapsedMinutes < 1);
+  assert.equal(out.minimumSeparationMinutes, 1);
+});
+
+test('refuses schema mixing so pre-fixed-window observations cannot contaminate v4 deltas', () => {
+  const previous = observation({ schemaVersion: 3 });
+  const current = observation({ capturedAt: '2026-09-09T16:30:00.000Z', schemaVersion: 4 });
+  assert.equal(deriveCrossCapturePositioningFeatures(previous, current).reason, 'SCHEMA_MISMATCH');
+});
+
+test('refuses observations without taker-window provenance', () => {
+  const previous = observation();
+  delete previous.positioning.takerWindowMs;
+  delete previous.provenance.takerWindowMs;
+  const current = observation({ capturedAt: '2026-09-09T16:30:00.000Z' });
+  assert.equal(deriveCrossCapturePositioningFeatures(previous, current).reason, 'TAKER_WINDOW_PROVENANCE_MISSING');
+});
+
+test('keeps bounded taker delta optional when same-schema prior lacks buy fraction', () => {
   const previous = observation();
   delete previous.positioning.takerBuyFractionNow;
   const current = observation({ capturedAt: '2026-09-09T16:30:00.000Z' });
