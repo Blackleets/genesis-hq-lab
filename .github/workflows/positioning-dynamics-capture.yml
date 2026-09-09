@@ -11,8 +11,10 @@ on:
     paths:
       - .github/workflows/positioning-dynamics-capture.yml
       - server/genesis/positioningDynamicsCapture.mjs
+      - server/genesis/okxFixedWindowTaker.mjs
       - server/genesis/derivativesContext.mjs
       - server/tests/positioningDynamicsCapture.test.mjs
+      - server/tests/okxFixedWindowTaker.test.mjs
       - server/tests/derivativesContext.test.mjs
 
 permissions:
@@ -34,9 +36,9 @@ jobs:
         with:
           ref: capture-tape
           path: tape
-      - name: verify causal capture and descriptive feature discipline
-        run: node --test server/tests/positioningDynamicsCapture.test.mjs server/tests/derivativesContext.test.mjs
-      - name: capture synchronized closed-price + funding + OI + taker evidence
+      - name: verify causal capture and fixed-window taker discipline
+        run: node --test server/tests/positioningDynamicsCapture.test.mjs server/tests/okxFixedWindowTaker.test.mjs server/tests/derivativesContext.test.mjs
+      - name: capture synchronized closed-price + funding + OI + fixed-window taker evidence
         run: node server/genesis/positioningDynamicsCapture.mjs --symbol BTCUSDT --out tape/paper-tape/positioning-dynamics-latest.json --jsonl tape/paper-tape/positioning-dynamics.jsonl
       - name: assert RESEARCH_ONLY boundary
         shell: bash
@@ -47,6 +49,9 @@ jobs:
           if (x.mode !== 'RESEARCH_ONLY') throw new Error('mode must remain RESEARCH_ONLY');
           if (x.researchUse !== 'OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING') throw new Error('ranking boundary missing');
           if (!x.provenance?.closedPriceBarOnly) throw new Error('causal closed-bar provenance missing');
+          if (!x.provenance?.fixedWindowTakerFlow) throw new Error('fixed-window taker provenance missing');
+          if (x.positioning?.takerWindowMs !== 60000) throw new Error('taker window must remain fixed at one minute');
+          if (!(x.positioning?.takerWindowCoverageMs >= 54000)) throw new Error('taker window coverage below 90%');
           NODE
       - name: publish durable evidence
         working-directory: tape
