@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-09T21:00:30Z",
+  "mode": "RESEARCH_ONLY",
+  "researchUse": "AUDIT_EVIDENCE_ONLY_NOT_FOR_RANKING",
+  "repo": "Blackleets/genesis-hq-lab",
+  "branch": "feat/genesis-life-os",
+  "change": {
+    "implementationCommit": "a432226f4ee9226d98bf09c3934f05ed4bf63b1f",
+    "testCommit": "f01aca5ec4ece73addea61c6b73c247bead65b39",
+    "purpose": "Separate tape integrity from minimum cohort readiness so a tiny clean sample cannot be mistaken for research-ready evidence.",
+    "minimumIndependentRowsForPredeclaredStudy": 20,
+    "changesTradingGate": false,
+    "changesRiskGate": false
+  },
+  "validation": {
+    "workflow": "positioning-dynamics-capture",
+    "runId": 34404402613,
+    "conclusion": "success",
+    "pushMarketCaptureExpected": false
+  },
+  "evidenceBeforeChange": {
+    "source": "paper-tape/positioning-data-quality-latest.json",
+    "eligibleRowCount": 5,
+    "independentRowCount": 3,
+    "effectiveIndependentRatio": 0.6,
+    "qualityPass": false,
+    "defects": {
+      "overlappingWindows": 1,
+      "excessiveGaps": 1
+    }
+  },
+  "boundaries": {
+    "paperOnly": true,
+    "liveTradingEnabled": false,
+    "realOrdersPlaced": false,
+    "realTradingConfirmationsChanged": false,
+    "killSwitchesWeakened": false,
+    "riskGatesReduced": false,
+    "holdoutUsedForRanking": false,
+    "forwardPaperPromoted": false
+  },
+  "nextBottleneck": "Accumulate a clean schema-v4 cohort until tape integrity passes and at least 20 independent observations exist; only then begin a predeclared study, with holdout still sealed."
+}
