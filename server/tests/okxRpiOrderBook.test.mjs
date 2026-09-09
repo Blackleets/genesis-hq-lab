@@ -8,6 +8,9 @@ test('deriveRpiOrderBookFeatures computes depth imbalance without direction inve
     asks: [['101', '3', '3', '1'], ['102', '2', '1', '2']],
   });
   assert.equal(result.rpiBookLevelCount, 2);
+  assert.equal(result.rpiBestBid, 100);
+  assert.equal(result.rpiBestAsk, 101);
+  assert.equal(result.rpiMidPrice, 100.5);
   assert.equal(result.rpiBidDepth, 10);
   assert.equal(result.rpiAskDepth, 5);
   assert.ok(Math.abs(result.rpiDepthImbalance - (5 / 15)) < 1e-12);
@@ -35,6 +38,9 @@ test('getOkxRpiOrderBookContext preserves exchange timestamp and uses public end
   assert.equal(result.source, 'okx_books_rpi');
   assert.ok(requested.includes('/api/v5/market/books-rpi?'));
   assert.ok(requested.includes('BTC-USDT-SWAP'));
+  assert.equal(result.rpiBestBid, 100);
+  assert.equal(result.rpiBestAsk, 101);
+  assert.equal(result.rpiMidPrice, 100.5);
   assert.ok(result.rpiDepthImbalance > 0);
 });
 
@@ -45,4 +51,13 @@ test('RPI depth share is zero when all displayed depth is organic', () => {
   });
   assert.equal(result.rpiDepthShare, 0);
   assert.equal(result.rpiDepthImbalance, 0);
+});
+
+test('invalid or crossed book never fabricates a mid price', () => {
+  const result = deriveRpiOrderBookFeatures({
+    bids: [['102', '5', '5', '1']],
+    asks: [['101', '5', '5', '1']],
+  });
+  assert.equal(result.rpiMidPrice, null);
+  assert.equal(result.rpiSpreadBps, null);
 });
