@@ -16,11 +16,14 @@ on:
       - server/genesis/researchStateCapture.mjs
       - server/genesis/researchProviderProbe.mjs
       - server/genesis/okxResearchContext.mjs
+      - server/genesis/okxRpiOrderBook.mjs
+      - server/genesis/rpiOrderBookCapture.mjs
       - server/research/causalMicrostructureStudy.mjs
       - server/research/observationIndependenceAudit.mjs
       - server/tests/researchStateCapture.test.mjs
       - server/tests/researchProviderProbe.test.mjs
       - server/tests/okxVolatilityShock.test.mjs
+      - server/tests/okxRpiOrderBook.test.mjs
       - server/tests/causalMicrostructureStudy.test.mjs
       - server/tests/observationIndependenceAudit.test.mjs
 
@@ -44,7 +47,7 @@ jobs:
           ref: capture-tape
           path: tape
       - name: verify synchronized evidence integrity
-        run: node --test server/tests/researchStateCapture.test.mjs server/tests/researchProviderProbe.test.mjs server/tests/okxVolatilityShock.test.mjs server/tests/causalMicrostructureStudy.test.mjs server/tests/observationIndependenceAudit.test.mjs
+        run: node --test server/tests/researchStateCapture.test.mjs server/tests/researchProviderProbe.test.mjs server/tests/okxVolatilityShock.test.mjs server/tests/okxRpiOrderBook.test.mjs server/tests/causalMicrostructureStudy.test.mjs server/tests/observationIndependenceAudit.test.mjs
       - name: validate redundant public research routes
         shell: bash
         run: |
@@ -57,6 +60,8 @@ jobs:
             exit 1
           fi
           test -s tape/paper-tape/provider-probe-latest.json
+      - name: capture OKX RPI liquidity context
+        run: node server/genesis/rpiOrderBookCapture.mjs --inst BTC-USDT-SWAP --depth 20 --out tape/paper-tape/rpi-orderbook-latest.json
       - name: run paper harvest
         run: node server/genesis/harvestWorker.mjs --once --out tape/paper-tape/capture-latest.json --jsonl tape/paper-tape/capture.jsonl
       - name: run 1Hz paper tick
@@ -75,7 +80,7 @@ jobs:
           git config user.name "genesis-capture"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mkdir -p paper-tape
-          git add -f paper-tape/capture-latest.json paper-tape/capture.jsonl paper-tape/hz1-latest.json paper-tape/hz1.jsonl paper-tape/funding-latest.json paper-tape/research-state-latest.json paper-tape/research-state.jsonl paper-tape/provider-probe-latest.json paper-tape/microstructure-study-latest.json paper-tape/microstructure-study-v2-protocol.json paper-tape/microstructure-independence-audit-latest.json
+          git add -f paper-tape/capture-latest.json paper-tape/capture.jsonl paper-tape/hz1-latest.json paper-tape/hz1.jsonl paper-tape/funding-latest.json paper-tape/research-state-latest.json paper-tape/research-state.jsonl paper-tape/provider-probe-latest.json paper-tape/rpi-orderbook-latest.json paper-tape/microstructure-study-latest.json paper-tape/microstructure-study-v2-protocol.json paper-tape/microstructure-independence-audit-latest.json
           if git diff --staged --quiet; then
             echo "no change"
             exit 0
