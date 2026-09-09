@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-09T00:49:53.474Z",
+  "completedAt": "2026-09-09T01:00:44.196Z",
   "methodology": {
     "oneShot": true,
     "holdoutStart": 0.8,
@@ -22,46 +22,75 @@
     "familyAuditBudget": true,
     "historyRebuild": true
   },
-  "sourceAdaptiveCompletedAt": "2026-09-09T00:49:47.399Z",
+  "sourceAdaptiveCompletedAt": "2026-09-09T01:00:41.481Z",
   "newAudits": 3,
   "passed": 0,
   "totalPassedRegistered": 2,
   "exhaustedFamilies": [
     "opening_range_breakout:ETHUSDT:4h:NY",
+    "opening_range_breakout:BNBUSDT:4h:NY",
     "volatility_squeeze:SOLUSDT:4h:NY"
   ],
   "verdict": "AUDIT_REJECTED",
   "results": [
     {
-      "id": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.6:tb8",
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:NY",
+      "id": "opening_range_breakout:BNBUSDT:4h:NY:p24:ta2:sa0.75:tb8",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:NY",
       "market": {
-        "pair": "SOLUSDT",
+        "pair": "BNBUSDT",
         "tf": "4h"
       },
       "spec": {
-        "family": "volatility_squeeze",
-        "period": 20,
-        "targetAtr": 1.5,
-        "stopAtr": 0.6,
+        "family": "opening_range_breakout",
+        "period": 24,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
         "timeoutBars": 8,
         "session": "NY"
       },
-      "parentVariant": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb8",
-      "selectionScore": 78.12,
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.75:tb8",
+      "selectionScore": 73.95,
       "holdout": {
-        "trades": 12,
-        "expectancyBps": -27.89,
-        "profitFactor": 0.716,
-        "tStat": -0.45,
-        "maxDrawdownPct": 8.01
+        "trades": 32,
+        "expectancyBps": -25.34,
+        "profitFactor": 0.767,
+        "tStat": -0.59,
+        "maxDrawdownPct": 21.16
       },
       "status": "AUDIT_REJECTED",
       "rejectReason": "NEGATIVE_HOLDOUT_EXPECTANCY",
-      "auditedAt": "2026-09-09T00:49:53.467Z"
+      "auditedAt": "2026-09-09T01:00:44.186Z"
     },
     {
-      "id": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.75:tb12",
+      "id": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2.25:sa0.75:tb8",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:NY",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 20,
+        "targetAtr": 2.25,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "NY"
+      },
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.75:tb8",
+      "selectionScore": 69.68,
+      "holdout": {
+        "trades": 36,
+        "expectancyBps": 0.83,
+        "profitFactor": 1.008,
+        "tStat": 0.017,
+        "maxDrawdownPct": 15.47
+      },
+      "status": "AUDIT_REJECTED",
+      "rejectReason": "WEAK_HOLDOUT_PROFIT_FACTOR",
+      "auditedAt": "2026-09-09T01:00:44.190Z"
+    },
+    {
+      "id": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.75:tb6",
       "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:NY",
       "market": {
         "pair": "BNBUSDT",
@@ -72,49 +101,21 @@
         "period": 20,
         "targetAtr": 2,
         "stopAtr": 0.75,
-        "timeoutBars": 12,
+        "timeoutBars": 6,
         "session": "NY"
       },
       "parentVariant": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.75:tb8",
-      "selectionScore": 77.06,
+      "selectionScore": 67.46,
       "holdout": {
         "trades": 36,
-        "expectancyBps": -8.91,
-        "profitFactor": 0.915,
-        "tStat": -0.201,
-        "maxDrawdownPct": 15.75
+        "expectancyBps": -24.29,
+        "profitFactor": 0.761,
+        "tStat": -0.631,
+        "maxDrawdownPct": 20.27
       },
       "status": "AUDIT_REJECTED",
       "rejectReason": "NEGATIVE_HOLDOUT_EXPECTANCY",
-      "auditedAt": "2026-09-09T00:49:53.471Z"
-    },
-    {
-      "id": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb12",
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:NY",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "4h"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 20,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 12,
-        "session": "NY"
-      },
-      "parentVariant": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb8",
-      "selectionScore": 76.59,
-      "holdout": {
-        "trades": 12,
-        "expectancyBps": -24.87,
-        "profitFactor": 0.79,
-        "tStat": -0.348,
-        "maxDrawdownPct": 5.6
-      },
-      "status": "AUDIT_REJECTED",
-      "rejectReason": "NEGATIVE_HOLDOUT_EXPECTANCY",
-      "auditedAt": "2026-09-09T00:49:53.474Z"
+      "auditedAt": "2026-09-09T01:00:44.196Z"
     }
   ]
 }

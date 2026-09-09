@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-09T00:49:47.399Z",
+  "completedAt": "2026-09-09T01:00:41.481Z",
   "methodology": {
     "selectionUsesHoldout": false,
     "selectionInputs": [
@@ -22,10 +22,10 @@
     "barsPerMarket": 12000
   },
   "queueMode": "HIGH_PRIORITY",
-  "sourceQueueCompletedAt": "2026-09-09T00:49:11.616Z",
-  "tested": 24,
-  "controls": 3,
-  "promotableToAudit": 18,
+  "sourceQueueCompletedAt": "2026-09-09T00:50:18.126Z",
+  "tested": 15,
+  "controls": 2,
+  "promotableToAudit": 10,
   "verdict": "AUDIT_CANDIDATE_FOUND",
   "bestMutation": {
     "id": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.9:tb8",
@@ -149,81 +149,41 @@
       }
     },
     {
-      "id": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb8:control",
+      "id": "failed_breakout:BNBUSDT:1h:ASIA:p20:ta1:sa0.75:tb8:control",
       "role": "CONTROL",
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:NY",
-      "parentVariant": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "failed_breakout:BNBUSDT:1h:ASIA",
+      "parentVariant": "failed_breakout:BNBUSDT:1h:ASIA:p20:ta1:sa0.75:tb8",
       "priority": "P1",
       "market": {
-        "pair": "SOLUSDT",
-        "tf": "4h"
+        "pair": "BNBUSDT",
+        "tf": "1h"
       },
       "spec": {
-        "family": "volatility_squeeze",
+        "family": "failed_breakout",
         "period": 20,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "NY"
-      },
-      "researchStatus": "PROMOTABLE_TO_ONE_SHOT_AUDIT",
-      "selectionScore": 73.06,
-      "train": {
-        "trades": 67,
-        "expectancyBps": 62.28,
-        "profitFactor": 1.504,
-        "tStat": 1.481,
-        "maxDrawdownPct": 12.64
-      },
-      "validation": {
-        "trades": 19,
-        "expectancyBps": 53.9,
-        "profitFactor": 1.546,
-        "tStat": 0.833,
-        "maxDrawdownPct": 7.79
-      },
-      "walkForward": {
-        "positiveFolds": 4,
-        "requiredPositiveFolds": 3,
-        "pass": true
-      }
-    },
-    {
-      "id": "opening_range_breakout:ETHUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8:control",
-      "role": "CONTROL",
-      "hypothesisKey": "opening_range_breakout:ETHUSDT:4h:ASIA",
-      "parentVariant": "opening_range_breakout:ETHUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8",
-      "priority": "P1",
-      "market": {
-        "pair": "ETHUSDT",
-        "tf": "4h"
-      },
-      "spec": {
-        "family": "opening_range_breakout",
-        "period": 20,
-        "targetAtr": 1.5,
+        "targetAtr": 1,
         "stopAtr": 0.75,
         "timeoutBars": 8,
         "session": "ASIA"
       },
       "researchStatus": "REJECT",
-      "selectionScore": 17.56,
+      "selectionScore": 4.4,
       "train": {
-        "trades": 131,
-        "expectancyBps": 38.71,
-        "profitFactor": 1.342,
-        "tStat": 1.255,
-        "maxDrawdownPct": 20.31
+        "trades": 36,
+        "expectancyBps": 0.75,
+        "profitFactor": 1.018,
+        "tStat": 0.044,
+        "maxDrawdownPct": 5.05
       },
       "validation": {
-        "trades": 44,
-        "expectancyBps": -3.85,
-        "profitFactor": 0.971,
-        "tStat": -0.089,
-        "maxDrawdownPct": 17.41
+        "trades": 16,
+        "expectancyBps": -1.43,
+        "profitFactor": 0.956,
+        "tStat": -0.082,
+        "maxDrawdownPct": 2.26
       },
       "walkForward": {
-        "positiveFolds": 2,
+        "positiveFolds": 1,
         "requiredPositiveFolds": 3,
         "pass": false
       }
@@ -250,63 +210,6 @@
       "reason": "Passed train+validation+walk-forward without consulting holdout."
     },
     {
-      "id": "volatility_squeeze:SOLUSDT:4h:NY:p16:ta1.5:sa0.75:tb8",
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:NY",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "4h"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 16,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "NY"
-      },
-      "parentVariant": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb8",
-      "selectionScore": 86.67,
-      "reason": "Passed train+validation+walk-forward without consulting holdout."
-    },
-    {
-      "id": "volatility_squeeze:SOLUSDT:4h:NY:p16:ta1.5:sa0.6:tb8",
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:NY",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "4h"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 16,
-        "targetAtr": 1.5,
-        "stopAtr": 0.6,
-        "timeoutBars": 8,
-        "session": "NY"
-      },
-      "parentVariant": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb8",
-      "selectionScore": 85.06,
-      "reason": "Passed train+validation+walk-forward without consulting holdout."
-    },
-    {
-      "id": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.6:tb8",
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:NY",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "4h"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 20,
-        "targetAtr": 1.5,
-        "stopAtr": 0.6,
-        "timeoutBars": 8,
-        "session": "NY"
-      },
-      "parentVariant": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb8",
-      "selectionScore": 78.12,
-      "reason": "Passed train+validation+walk-forward without consulting holdout."
-    },
-    {
       "id": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.75:tb12",
       "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:NY",
       "market": {
@@ -326,63 +229,6 @@
       "reason": "Passed train+validation+walk-forward without consulting holdout."
     },
     {
-      "id": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb12",
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:NY",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "4h"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 20,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 12,
-        "session": "NY"
-      },
-      "parentVariant": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb8",
-      "selectionScore": 76.59,
-      "reason": "Passed train+validation+walk-forward without consulting holdout."
-    },
-    {
-      "id": "volatility_squeeze:SOLUSDT:4h:NY:p24:ta1.5:sa0.75:tb8",
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:NY",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "4h"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 24,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "NY"
-      },
-      "parentVariant": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb8",
-      "selectionScore": 76.48,
-      "reason": "Passed train+validation+walk-forward without consulting holdout."
-    },
-    {
-      "id": "volatility_squeeze:SOLUSDT:4h:NY:p16:ta1.25:sa0.75:tb8",
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:NY",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "4h"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 16,
-        "targetAtr": 1.25,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "NY"
-      },
-      "parentVariant": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb8",
-      "selectionScore": 74.91,
-      "reason": "Passed train+validation+walk-forward without consulting holdout."
-    },
-    {
       "id": "opening_range_breakout:BNBUSDT:4h:NY:p24:ta2:sa0.75:tb8",
       "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:NY",
       "market": {
@@ -399,25 +245,6 @@
       },
       "parentVariant": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.75:tb8",
       "selectionScore": 73.95,
-      "reason": "Passed train+validation+walk-forward without consulting holdout."
-    },
-    {
-      "id": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb6",
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:NY",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "4h"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 20,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 6,
-        "session": "NY"
-      },
-      "parentVariant": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb8",
-      "selectionScore": 73.05,
       "reason": "Passed train+validation+walk-forward without consulting holdout."
     },
     {
@@ -456,6 +283,101 @@
       },
       "parentVariant": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.75:tb8",
       "selectionScore": 67.46,
+      "reason": "Passed train+validation+walk-forward without consulting holdout."
+    },
+    {
+      "id": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta1.75:sa0.75:tb8",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:NY",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 20,
+        "targetAtr": 1.75,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "NY"
+      },
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.75:tb8",
+      "selectionScore": 60.11,
+      "reason": "Passed train+validation+walk-forward without consulting holdout."
+    },
+    {
+      "id": "opening_range_breakout:BNBUSDT:4h:NY:p16:ta1.75:sa0.75:tb8",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:NY",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 16,
+        "targetAtr": 1.75,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "NY"
+      },
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.75:tb8",
+      "selectionScore": 58.22,
+      "reason": "Passed train+validation+walk-forward without consulting holdout."
+    },
+    {
+      "id": "opening_range_breakout:BNBUSDT:4h:NY:p16:ta2:sa0.75:tb8",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:NY",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 16,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "NY"
+      },
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.75:tb8",
+      "selectionScore": 57.39,
+      "reason": "Passed train+validation+walk-forward without consulting holdout."
+    },
+    {
+      "id": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.6:tb8",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:NY",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 20,
+        "targetAtr": 2,
+        "stopAtr": 0.6,
+        "timeoutBars": 8,
+        "session": "NY"
+      },
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.75:tb8",
+      "selectionScore": 39.01,
+      "reason": "Passed train+validation+walk-forward without consulting holdout."
+    },
+    {
+      "id": "failed_breakout:BNBUSDT:1h:ASIA:p16:ta1:sa0.75:tb8",
+      "hypothesisKey": "failed_breakout:BNBUSDT:1h:ASIA",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 16,
+        "targetAtr": 1,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "parentVariant": "failed_breakout:BNBUSDT:1h:ASIA:p20:ta1:sa0.75:tb8",
+      "selectionScore": 22.06,
       "reason": "Passed train+validation+walk-forward without consulting holdout."
     }
   ],
@@ -501,126 +423,6 @@
       }
     },
     {
-      "id": "volatility_squeeze:SOLUSDT:4h:NY:p16:ta1.5:sa0.75:tb8",
-      "role": "MUTATION",
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:NY",
-      "parentVariant": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb8",
-      "priority": "P1",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "4h"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 16,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "NY"
-      },
-      "researchStatus": "PROMOTABLE_TO_ONE_SHOT_AUDIT",
-      "selectionScore": 86.67,
-      "train": {
-        "trades": 71,
-        "expectancyBps": 67.11,
-        "profitFactor": 1.554,
-        "tStat": 1.641,
-        "maxDrawdownPct": 12.64
-      },
-      "validation": {
-        "trades": 21,
-        "expectancyBps": 69.98,
-        "profitFactor": 1.784,
-        "tStat": 1.169,
-        "maxDrawdownPct": 7.79
-      },
-      "walkForward": {
-        "positiveFolds": 4,
-        "requiredPositiveFolds": 3,
-        "pass": true
-      }
-    },
-    {
-      "id": "volatility_squeeze:SOLUSDT:4h:NY:p16:ta1.5:sa0.6:tb8",
-      "role": "MUTATION",
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:NY",
-      "parentVariant": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb8",
-      "priority": "P1",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "4h"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 16,
-        "targetAtr": 1.5,
-        "stopAtr": 0.6,
-        "timeoutBars": 8,
-        "session": "NY"
-      },
-      "researchStatus": "PROMOTABLE_TO_ONE_SHOT_AUDIT",
-      "selectionScore": 85.06,
-      "train": {
-        "trades": 71,
-        "expectancyBps": 50.92,
-        "profitFactor": 1.454,
-        "tStat": 1.353,
-        "maxDrawdownPct": 9.89
-      },
-      "validation": {
-        "trades": 22,
-        "expectancyBps": 66.21,
-        "profitFactor": 1.807,
-        "tStat": 1.188,
-        "maxDrawdownPct": 6.29
-      },
-      "walkForward": {
-        "positiveFolds": 4,
-        "requiredPositiveFolds": 3,
-        "pass": true
-      }
-    },
-    {
-      "id": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.6:tb8",
-      "role": "MUTATION",
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:NY",
-      "parentVariant": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb8",
-      "priority": "P1",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "4h"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 20,
-        "targetAtr": 1.5,
-        "stopAtr": 0.6,
-        "timeoutBars": 8,
-        "session": "NY"
-      },
-      "researchStatus": "PROMOTABLE_TO_ONE_SHOT_AUDIT",
-      "selectionScore": 78.12,
-      "train": {
-        "trades": 67,
-        "expectancyBps": 44.2,
-        "profitFactor": 1.384,
-        "tStat": 1.147,
-        "maxDrawdownPct": 10.45
-      },
-      "validation": {
-        "trades": 20,
-        "expectancyBps": 65.4,
-        "profitFactor": 1.805,
-        "tStat": 1.116,
-        "maxDrawdownPct": 6.29
-      },
-      "walkForward": {
-        "positiveFolds": 3,
-        "requiredPositiveFolds": 3,
-        "pass": true
-      }
-    },
-    {
       "id": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.75:tb12",
       "role": "MUTATION",
       "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:NY",
@@ -653,126 +455,6 @@
         "profitFactor": 1.709,
         "tStat": 1.348,
         "maxDrawdownPct": 9.02
-      },
-      "walkForward": {
-        "positiveFolds": 4,
-        "requiredPositiveFolds": 3,
-        "pass": true
-      }
-    },
-    {
-      "id": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb12",
-      "role": "MUTATION",
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:NY",
-      "parentVariant": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb8",
-      "priority": "P1",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "4h"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 20,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 12,
-        "session": "NY"
-      },
-      "researchStatus": "PROMOTABLE_TO_ONE_SHOT_AUDIT",
-      "selectionScore": 76.59,
-      "train": {
-        "trades": 66,
-        "expectancyBps": 55.64,
-        "profitFactor": 1.428,
-        "tStat": 1.296,
-        "maxDrawdownPct": 13.53
-      },
-      "validation": {
-        "trades": 19,
-        "expectancyBps": 58.57,
-        "profitFactor": 1.594,
-        "tStat": 0.903,
-        "maxDrawdownPct": 7.79
-      },
-      "walkForward": {
-        "positiveFolds": 4,
-        "requiredPositiveFolds": 3,
-        "pass": true
-      }
-    },
-    {
-      "id": "volatility_squeeze:SOLUSDT:4h:NY:p24:ta1.5:sa0.75:tb8",
-      "role": "MUTATION",
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:NY",
-      "parentVariant": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb8",
-      "priority": "P1",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "4h"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 24,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "NY"
-      },
-      "researchStatus": "PROMOTABLE_TO_ONE_SHOT_AUDIT",
-      "selectionScore": 76.48,
-      "train": {
-        "trades": 62,
-        "expectancyBps": 60.68,
-        "profitFactor": 1.48,
-        "tStat": 1.365,
-        "maxDrawdownPct": 13.3
-      },
-      "validation": {
-        "trades": 18,
-        "expectancyBps": 58.59,
-        "profitFactor": 1.588,
-        "tStat": 0.868,
-        "maxDrawdownPct": 5.73
-      },
-      "walkForward": {
-        "positiveFolds": 4,
-        "requiredPositiveFolds": 3,
-        "pass": true
-      }
-    },
-    {
-      "id": "volatility_squeeze:SOLUSDT:4h:NY:p16:ta1.25:sa0.75:tb8",
-      "role": "MUTATION",
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:NY",
-      "parentVariant": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb8",
-      "priority": "P1",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "4h"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 16,
-        "targetAtr": 1.25,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "NY"
-      },
-      "researchStatus": "PROMOTABLE_TO_ONE_SHOT_AUDIT",
-      "selectionScore": 74.91,
-      "train": {
-        "trades": 73,
-        "expectancyBps": 62.88,
-        "profitFactor": 1.558,
-        "tStat": 1.717,
-        "maxDrawdownPct": 11.71
-      },
-      "validation": {
-        "trades": 21,
-        "expectancyBps": 54.79,
-        "profitFactor": 1.614,
-        "tStat": 0.999,
-        "maxDrawdownPct": 7.79
       },
       "walkForward": {
         "positiveFolds": 4,
@@ -861,38 +543,38 @@
       }
     },
     {
-      "id": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb8:control",
-      "role": "CONTROL",
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:NY",
-      "parentVariant": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb8",
+      "id": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2.25:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:NY",
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.75:tb8",
       "priority": "P1",
       "market": {
-        "pair": "SOLUSDT",
+        "pair": "BNBUSDT",
         "tf": "4h"
       },
       "spec": {
-        "family": "volatility_squeeze",
+        "family": "opening_range_breakout",
         "period": 20,
-        "targetAtr": 1.5,
+        "targetAtr": 2.25,
         "stopAtr": 0.75,
         "timeoutBars": 8,
         "session": "NY"
       },
       "researchStatus": "PROMOTABLE_TO_ONE_SHOT_AUDIT",
-      "selectionScore": 73.06,
+      "selectionScore": 69.68,
       "train": {
-        "trades": 67,
-        "expectancyBps": 62.28,
-        "profitFactor": 1.504,
-        "tStat": 1.481,
-        "maxDrawdownPct": 12.64
+        "trades": 83,
+        "expectancyBps": 53.8,
+        "profitFactor": 1.433,
+        "tStat": 1.184,
+        "maxDrawdownPct": 19.24
       },
       "validation": {
-        "trades": 19,
-        "expectancyBps": 53.9,
-        "profitFactor": 1.546,
-        "tStat": 0.833,
-        "maxDrawdownPct": 7.79
+        "trades": 34,
+        "expectancyBps": 46.66,
+        "profitFactor": 1.576,
+        "tStat": 1.084,
+        "maxDrawdownPct": 9.02
       },
       "walkForward": {
         "positiveFolds": 4,
@@ -901,41 +583,281 @@
       }
     },
     {
-      "id": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb6",
+      "id": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.75:tb6",
       "role": "MUTATION",
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:NY",
-      "parentVariant": "volatility_squeeze:SOLUSDT:4h:NY:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:NY",
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.75:tb8",
       "priority": "P1",
       "market": {
-        "pair": "SOLUSDT",
+        "pair": "BNBUSDT",
         "tf": "4h"
       },
       "spec": {
-        "family": "volatility_squeeze",
+        "family": "opening_range_breakout",
         "period": 20,
-        "targetAtr": 1.5,
+        "targetAtr": 2,
         "stopAtr": 0.75,
         "timeoutBars": 6,
         "session": "NY"
       },
       "researchStatus": "PROMOTABLE_TO_ONE_SHOT_AUDIT",
-      "selectionScore": 73.05,
+      "selectionScore": 67.46,
       "train": {
-        "trades": 67,
-        "expectancyBps": 61.11,
-        "profitFactor": 1.504,
-        "tStat": 1.486,
-        "maxDrawdownPct": 11.71
+        "trades": 84,
+        "expectancyBps": 32.06,
+        "profitFactor": 1.261,
+        "tStat": 0.781,
+        "maxDrawdownPct": 22.37
       },
       "validation": {
-        "trades": 19,
-        "expectancyBps": 53.88,
-        "profitFactor": 1.546,
-        "tStat": 0.833,
-        "maxDrawdownPct": 7.79
+        "trades": 34,
+        "expectancyBps": 48.88,
+        "profitFactor": 1.628,
+        "tStat": 1.207,
+        "maxDrawdownPct": 9.02
       },
       "walkForward": {
         "positiveFolds": 4,
+        "requiredPositiveFolds": 3,
+        "pass": true
+      }
+    },
+    {
+      "id": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta1.75:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:NY",
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 20,
+        "targetAtr": 1.75,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "NY"
+      },
+      "researchStatus": "PROMOTABLE_TO_ONE_SHOT_AUDIT",
+      "selectionScore": 60.11,
+      "train": {
+        "trades": 84,
+        "expectancyBps": 37.44,
+        "profitFactor": 1.299,
+        "tStat": 0.912,
+        "maxDrawdownPct": 20.69
+      },
+      "validation": {
+        "trades": 34,
+        "expectancyBps": 38.12,
+        "profitFactor": 1.489,
+        "tStat": 1.025,
+        "maxDrawdownPct": 9.02
+      },
+      "walkForward": {
+        "positiveFolds": 4,
+        "requiredPositiveFolds": 3,
+        "pass": true
+      }
+    },
+    {
+      "id": "opening_range_breakout:BNBUSDT:4h:NY:p16:ta1.75:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:NY",
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 16,
+        "targetAtr": 1.75,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "NY"
+      },
+      "researchStatus": "PROMOTABLE_TO_ONE_SHOT_AUDIT",
+      "selectionScore": 58.22,
+      "train": {
+        "trades": 91,
+        "expectancyBps": 33.24,
+        "profitFactor": 1.267,
+        "tStat": 0.864,
+        "maxDrawdownPct": 24.56
+      },
+      "validation": {
+        "trades": 39,
+        "expectancyBps": 36.81,
+        "profitFactor": 1.483,
+        "tStat": 1.069,
+        "maxDrawdownPct": 9.44
+      },
+      "walkForward": {
+        "positiveFolds": 4,
+        "requiredPositiveFolds": 3,
+        "pass": true
+      }
+    },
+    {
+      "id": "opening_range_breakout:BNBUSDT:4h:NY:p16:ta2:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:NY",
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 16,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "NY"
+      },
+      "researchStatus": "PROMOTABLE_TO_ONE_SHOT_AUDIT",
+      "selectionScore": 57.39,
+      "train": {
+        "trades": 91,
+        "expectancyBps": 43.16,
+        "profitFactor": 1.346,
+        "tStat": 1.063,
+        "maxDrawdownPct": 23.84
+      },
+      "validation": {
+        "trades": 39,
+        "expectancyBps": 33.39,
+        "profitFactor": 1.412,
+        "tStat": 0.914,
+        "maxDrawdownPct": 9.17
+      },
+      "walkForward": {
+        "positiveFolds": 4,
+        "requiredPositiveFolds": 3,
+        "pass": true
+      }
+    },
+    {
+      "id": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.6:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:NY",
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 20,
+        "targetAtr": 2,
+        "stopAtr": 0.6,
+        "timeoutBars": 8,
+        "session": "NY"
+      },
+      "researchStatus": "PROMOTABLE_TO_ONE_SHOT_AUDIT",
+      "selectionScore": 39.01,
+      "train": {
+        "trades": 85,
+        "expectancyBps": 30.31,
+        "profitFactor": 1.261,
+        "tStat": 0.772,
+        "maxDrawdownPct": 15.46
+      },
+      "validation": {
+        "trades": 34,
+        "expectancyBps": 14.16,
+        "profitFactor": 1.182,
+        "tStat": 0.402,
+        "maxDrawdownPct": 9.9
+      },
+      "walkForward": {
+        "positiveFolds": 4,
+        "requiredPositiveFolds": 3,
+        "pass": true
+      }
+    },
+    {
+      "id": "opening_range_breakout:BNBUSDT:4h:NY:p16:ta2:sa0.6:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:NY",
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 16,
+        "targetAtr": 2,
+        "stopAtr": 0.6,
+        "timeoutBars": 8,
+        "session": "NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 30.06,
+      "train": {
+        "trades": 92,
+        "expectancyBps": 29.38,
+        "profitFactor": 1.257,
+        "tStat": 0.797,
+        "maxDrawdownPct": 18.59
+      },
+      "validation": {
+        "trades": 39,
+        "expectancyBps": 3.37,
+        "profitFactor": 1.043,
+        "tStat": 0.108,
+        "maxDrawdownPct": 12.95
+      },
+      "walkForward": {
+        "positiveFolds": 4,
+        "requiredPositiveFolds": 3,
+        "pass": true
+      }
+    },
+    {
+      "id": "failed_breakout:BNBUSDT:1h:ASIA:p16:ta1:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "failed_breakout:BNBUSDT:1h:ASIA",
+      "parentVariant": "failed_breakout:BNBUSDT:1h:ASIA:p20:ta1:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 16,
+        "targetAtr": 1,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "PROMOTABLE_TO_ONE_SHOT_AUDIT",
+      "selectionScore": 22.06,
+      "train": {
+        "trades": 39,
+        "expectancyBps": 5.87,
+        "profitFactor": 1.149,
+        "tStat": 0.355,
+        "maxDrawdownPct": 3.94
+      },
+      "validation": {
+        "trades": 18,
+        "expectancyBps": 4.35,
+        "profitFactor": 1.16,
+        "tStat": 0.283,
+        "maxDrawdownPct": 1.85
+      },
+      "walkForward": {
+        "positiveFolds": 3,
         "requiredPositiveFolds": 3,
         "pass": true
       }
