@@ -18,30 +18,43 @@ function simulate(rows,prep,market,spec){const trades=[];let last=-1;const mins=
 function metrics(t){const p=t.map(x=>x.netPct),wins=p.filter(x=>x>0),losses=p.filter(x=>x<0),gp=wins.reduce((s,x)=>s+x,0),gl=Math.abs(losses.reduce((s,x)=>s+x,0)),ev=p.length?mean(p):null,sd=std(p),ts=p.length>1&&sd>0&&ev!=null?ev/(sd/Math.sqrt(p.length)):null;let curve=0,peak=0,dd=0;for(const x of p){curve+=x;peak=Math.max(peak,curve);dd=Math.max(dd,peak-curve);}return{trades:p.length,expectancyBps:ev==null?null:round(ev*10000,2),profitFactor:gl>0?round(gp/gl,3):null,tStat:round(ts,3),maxDrawdownPct:round(dd*100,2)};}
 function auditPass(m){return m.trades>=8&&(m.expectancyBps??-999)>0&&(m.profitFactor??0)>=1.1&&(m.tStat??-999)>=.75&&(m.maxDrawdownPct??999)<=12;}
 function rejectReason(m){if((m.trades??0)<8)return'INSUFFICIENT_HOLDOUT_SAMPLE';if((m.expectancyBps??-999)<=0)return'NEGATIVE_HOLDOUT_EXPECTANCY';if((m.profitFactor??0)<1.1)return'WEAK_HOLDOUT_PROFIT_FACTOR';if((m.tStat??-999)<.75)return'LOW_HOLDOUT_TSTAT';if((m.maxDrawdownPct??999)>12)return'HOLDOUT_DRAWDOWN';return'AUDIT_GATE_NOT_MET';}
-function familyState(ledger,key){return ledger.familyStats[key]??{audits:0,passes:0,rejects:0,reasons:{},status:'OPEN'};}
+function emptyFamily(){return{audits:0,passes:0,rejects:0,reasons:{},status:'OPEN'};}
+function familyState(ledger,key){return ledger.familyStats[key]??emptyFamily();}
+function applyFamilyResult(ledger,r){
+  if(!r?.id||!r?.hypothesisKey)return;
+  const fs=familyState(ledger,r.hypothesisKey);fs.audits++;
+  if(r.status==='PAPER_RESEARCH_CANDIDATE'){fs.passes++;fs.status='PASSED';}
+  else if(r.status==='AUDIT_REJECTED'){const reason=r.rejectReason??rejectReason(r.holdout??{});fs.rejects++;fs.reasons[reason]=(fs.reasons[reason]??0)+1;if(fs.passes===0&&fs.audits>=MAX_FAMILY_AUDITS)fs.status='AUDIT_BUDGET_EXHAUSTED';}
+  fs.updatedAt=r.auditedAt??null;ledger.familyStats[r.hypothesisKey]=fs;
+}
+async function rebuildFamilyStats(historyPath){
+  try{
+    const lines=(await readFile(historyPath,'utf8')).split('\n').filter(Boolean),byId=new Map();
+    for(const line of lines){let snap;try{snap=JSON.parse(line);}catch{continue;}for(const r of snap.results??[])if(r?.id)byId.set(r.id,r);}
+    const temp={familyStats:{}};for(const r of byId.values())applyFamilyResult(temp,r);return temp.familyStats;
+  }catch{return{};}
+}
 
 async function main(){
   const adaptivePath=arg('--adaptive','quant-evidence/edge-adaptive-latest.json'),ledgerPath=arg('--ledger','quant-evidence/edge-audit-ledger.json'),out=arg('--out','quant-evidence/edge-audit-latest.json'),history=arg('--history','quant-evidence/edge-audit-history.jsonl');
   const adaptive=JSON.parse(await readFile(adaptivePath,'utf8'));if(adaptive.paperOnly!==true||adaptive.liveOrders!==false||adaptive.executionAuthority!==false||adaptive.capitalEligible!==false)throw new Error('adaptive_boundary_unverified');
   const priorSnapshot=await readJson(out,null);
-  const ledger=await readJson(ledgerPath,{version:'edge_audit_ledger_v3_family_budget',auditedIds:[],passedCandidates:{},familyStats:{}});ledger.version='edge_audit_ledger_v3_family_budget';ledger.auditedIds=ledger.auditedIds??[];ledger.passedCandidates=ledger.passedCandidates??{};ledger.familyStats=ledger.familyStats??{};
+  const ledger=await readJson(ledgerPath,{version:'edge_audit_ledger_v3_family_budget',auditedIds:[],passedCandidates:{},familyStats:{}});ledger.version='edge_audit_ledger_v3_family_budget';ledger.auditedIds=ledger.auditedIds??[];ledger.passedCandidates=ledger.passedCandidates??{};
+  if(!ledger.familyStats||!Object.keys(ledger.familyStats).length)ledger.familyStats=await rebuildFamilyStats(history);
   for(const r of priorSnapshot?.results??[]){if(r?.status==='PAPER_RESEARCH_CANDIDATE'&&r.id&&!ledger.passedCandidates[r.id])ledger.passedCandidates[r.id]={...r,migratedFromPriorSnapshot:true};}
   const audited=new Set(ledger.auditedIds);
-  const incoming=(adaptive.auditQueue??[]).filter(x=>!audited.has(x.id)).filter(x=>{
-    const key=x.hypothesisKey??'UNKNOWN';const fs=familyState(ledger,key);return fs.passes>0||fs.audits<MAX_FAMILY_AUDITS;
-  }).slice(0,3),results=[];
+  const incoming=(adaptive.auditQueue??[]).filter(x=>!audited.has(x.id)).filter(x=>{const fs=familyState(ledger,x.hypothesisKey??'UNKNOWN');return fs.passes>0||fs.audits<MAX_FAMILY_AUDITS;}).slice(0,3),results=[];
   if(incoming.length){
     const keys=[...new Set(incoming.map(x=>`${x.market.pair}:${x.market.tf}`))],datasets=new Map();
     for(const key of keys){const [pair,tf]=key.split(':'),items=incoming.filter(x=>x.market.pair===pair&&x.market.tf===tf),rows=await fetchHistory(pair,tf);datasets.set(key,{rows,prep:prepare(rows,items.map(x=>x.spec.period)),market:{pair,tf}});}
     for(const item of incoming){
       const d=datasets.get(`${item.market.pair}:${item.market.tf}`),tr=simulate(d.rows,d.prep,d.market,item.spec),holdout=metrics(tr.filter(x=>x.relativeIndex>=HOLDOUT)),pass=auditPass(holdout),reason=pass?null:rejectReason(holdout),key=item.hypothesisKey??'UNKNOWN';
       const result={id:item.id,hypothesisKey:key,market:item.market,spec:item.spec,parentVariant:item.parentVariant,selectionScore:item.selectionScore,holdout,status:pass?'PAPER_RESEARCH_CANDIDATE':'AUDIT_REJECTED',rejectReason:reason,auditedAt:new Date().toISOString()};
-      results.push(result);audited.add(item.id);
-      const fs=familyState(ledger,key);fs.audits++;if(pass){fs.passes++;fs.status='PASSED';ledger.passedCandidates[item.id]=result;}else{fs.rejects++;fs.reasons[reason]=(fs.reasons[reason]??0)+1;if(fs.passes===0&&fs.audits>=MAX_FAMILY_AUDITS)fs.status='AUDIT_BUDGET_EXHAUSTED';}fs.updatedAt=result.auditedAt;ledger.familyStats[key]=fs;
+      results.push(result);audited.add(item.id);applyFamilyResult(ledger,result);if(pass)ledger.passedCandidates[item.id]=result;
     }
   }
   const exhausted=Object.entries(ledger.familyStats).filter(([,v])=>v.status==='AUDIT_BUDGET_EXHAUSTED').map(([key])=>key);
-  const passed=results.filter(x=>x.status==='PAPER_RESEARCH_CANDIDATE'),snapshot={ok:true,version:'edge_one_shot_audit_v3_family_budget',mode:'RESEARCH_ONLY',paperOnly:true,liveOrders:false,executionAuthority:false,capitalEligible:false,completedAt:new Date().toISOString(),methodology:{oneShot:true,holdoutStart:HOLDOUT,maxAuditsPerUnprovenFamily:MAX_FAMILY_AUDITS,gate:{minTrades:8,minExpectancyBps:0,minProfitFactor:1.1,minTStat:.75,maxDrawdownPct:12},durablePassedRegistry:true,familyAuditBudget:true},sourceAdaptiveCompletedAt:adaptive.completedAt??null,newAudits:results.length,passed:passed.length,totalPassedRegistered:Object.keys(ledger.passedCandidates).length,exhaustedFamilies:exhausted,verdict:passed.length?'PAPER_RESEARCH_CANDIDATE_FOUND':results.length?'AUDIT_REJECTED':'NO_NEW_AUDIT_CANDIDATES',results};
-  ledger.updatedAt=snapshot.completedAt;ledger.auditedIds=[...audited];await mkdir(dirname(out),{recursive:true});await writeFile(out,JSON.stringify(snapshot,null,2)+'\n');await appendFile(history,JSON.stringify(snapshot)+'\n');await writeFile(ledgerPath,JSON.stringify(ledger,null,2)+'\n');console.log(JSON.stringify({ok:true,verdict:snapshot.verdict,newAudits:snapshot.newAudits,passed:snapshot.passed,exhaustedFamilies:snapshot.exhaustedFamilies.length}));
+  const passed=results.filter(x=>x.status==='PAPER_RESEARCH_CANDIDATE'),snapshot={ok:true,version:'edge_one_shot_audit_v3_family_budget',mode:'RESEARCH_ONLY',paperOnly:true,liveOrders:false,executionAuthority:false,capitalEligible:false,completedAt:new Date().toISOString(),methodology:{oneShot:true,holdoutStart:HOLDOUT,maxAuditsPerUnprovenFamily:MAX_FAMILY_AUDITS,gate:{minTrades:8,minExpectancyBps:0,minProfitFactor:1.1,minTStat:.75,maxDrawdownPct:12},durablePassedRegistry:true,familyAuditBudget:true,historyRebuild:true},sourceAdaptiveCompletedAt:adaptive.completedAt??null,newAudits:results.length,passed:passed.length,totalPassedRegistered:Object.keys(ledger.passedCandidates).length,exhaustedFamilies:exhausted,verdict:passed.length?'PAPER_RESEARCH_CANDIDATE_FOUND':results.length?'AUDIT_REJECTED':'NO_NEW_AUDIT_CANDIDATES',results};
+  ledger.updatedAt=snapshot.completedAt;ledger.auditedIds=[...audited];await mkdir(dirname(out),{recursive:true});await writeFile(out,JSON.stringify(snapshot,null,2)+'\n');await appendFile(history,JSON.stringify(snapshot)+'\n');await writeFile(ledgerPath,JSON.stringify(ledger,null,2)+'\n');console.log(JSON.stringify({ok:true,verdict:snapshot.verdict,newAudits:snapshot.newAudits,passed:snapshot.passed,exhaustedFamilies:snapshot.exhaustedFamilies.length,familyStats:Object.keys(ledger.familyStats).length}));
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});
