@@ -17,8 +17,10 @@ on:
       - .github/workflows/paper-capture-harvest.yml
       - server/genesis/researchStateCapture.mjs
       - server/genesis/researchProviderProbe.mjs
+      - server/genesis/okxResearchContext.mjs
       - server/tests/researchStateCapture.test.mjs
       - server/tests/researchProviderProbe.test.mjs
+      - server/tests/okxVolatilityShock.test.mjs
 
 permissions:
   contents: write
@@ -40,7 +42,7 @@ jobs:
           ref: capture-tape
           path: tape
       - name: verify synchronized evidence integrity
-        run: node --test server/tests/researchStateCapture.test.mjs server/tests/researchProviderProbe.test.mjs
+        run: node --test server/tests/researchStateCapture.test.mjs server/tests/researchProviderProbe.test.mjs server/tests/okxVolatilityShock.test.mjs
       - name: validate redundant public research routes
         shell: bash
         run: |
