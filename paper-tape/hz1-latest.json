@@ -1,54 +1,66 @@
 {
-  "ts": "2026-09-09T11:15:39.631Z",
+  "ts": "2026-09-09T11:16:11.714Z",
   "liveOff": true,
   "paper": true,
   "go": false,
   "hz": 1,
   "tickers": 460,
-  "preQuote": 6,
+  "preQuote": 9,
   "full": 4,
   "quoted": 0,
   "quotedNames": [],
   "filled": 0,
   "paperPnl": 0,
   "reasons": {
-    "TAPE_PENDING": 4
+    "TAPE_PENDING": 2,
+    "WOULD_CROSS": 1,
+    "VPIN_HALT": 1
   },
-  "ms": 703,
+  "ms": 1193,
   "scored": [
     {
       "symbol": "APR-USDT-SWAP",
-      "preH": 0.05797101449287023,
-      "spread": 11.594202898551059,
+      "preH": 0.04858299595097115,
+      "spread": 11.567379988431346,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
-      "symbol": "SIGN-USDT-SWAP",
-      "preH": -0.10822831727209925,
-      "spread": 11.11934766493686,
+      "symbol": "TRUTH-USDT-SWAP",
+      "preH": 0.022121669180589443,
+      "spread": 11.491776197658828,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
-      "symbol": "BERA-USDT-SWAP",
-      "preH": -0.23047926763586357,
-      "spread": 10.770059235326105,
+      "symbol": "MINA-USDT-SWAP",
+      "preH": -0.18154047567084808,
+      "spread": 10.909884355226149,
       "quote": false,
-      "reason": "TAPE_PENDING"
+      "reason": "WOULD_CROSS",
+      "harvestBps": -0.9442,
+      "vpin": 0.6125,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "WOULD_CROSS"
     },
     {
-      "symbol": "PROVE-USDT-SWAP",
-      "preH": -0.30606860158352056,
-      "spread": 10.55408970976137,
+      "symbol": "ZRX-USDT-SWAP",
+      "preH": -0.3797075555973821,
+      "spread": 10.343692698293195,
       "quote": false,
-      "reason": "TAPE_PENDING"
+      "reason": "VPIN_HALT",
+      "harvestBps": null,
+      "vpin": 0.7397,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "VPIN_HALT"
     }
   ],
   "intersection": {
     "liquid": 246,
-    "hGe": 6,
-    "band": 141,
+    "hGe": 9,
+    "band": 150,
     "both": 0
   },
   "formula": "H=spread*0.35-4bps; width is a toxicity prior. Kalman+VPIN+GLFT. not a GO."
