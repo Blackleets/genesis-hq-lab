@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "kind": "research_context_evidence",
+  "capturedAt": "2026-09-09T04:46:49Z",
+  "mode": "RESEARCH_ONLY",
+  "executionBoundary": {
+    "liveTradingEnabled": false,
+    "realOrdersPlaced": false,
+    "realTradingConfirmationsChanged": false,
+    "auditGatesLowered": false,
+    "forwardPaperEnrolled": false
+  },
+  "change": {
+    "feature": "spot_perpetual_lead_lag_context",
+    "implementationCommit": "b2086c5fed1d86a2551b3a7756e0459c10a69eec",
+    "sourceModule": "server/genesis/spotPerpLeadLag.mjs",
+    "testModule": "server/tests/spotPerpLeadLag.test.mjs",
+    "integration": "standalone_research_module_not_connected_to_execution"
+  },
+  "dataAvailability": {
+    "venue": "Binance Spot + Binance USD-M Futures",
+    "symbol": "BTCUSDT",
+    "interval": "1m",
+    "spotEndpoint": "/api/v3/klines",
+    "perpetualEndpoint": "/fapi/v1/klines",
+    "spotObservationsFetched": 120,
+    "perpetualObservationsFetched": 120,
+    "timestampGrid": "matching 1-minute open times observed",
+    "latestObservedSpotClose": 79120.01,
+    "latestObservedPerpetualClose": 79080.60,
+    "latestObservedSpreadBps": -4.981,
+    "interpretation": "Both public feeds are available on a synchronized minute grid, so spot-perpetual price-discovery and divergence can be researched without credentials. This availability sample is not evidence of trading edge."
+  },
+  "features": [
+    "alignedPoints",
+    "spreadNowBps",
+    "spreadAvgBps",
+    "spreadVolBps",
+    "returnCorr0",
+    "bestLagBars",
+    "bestLagCorr",
+    "leader",
+    "latestReturnDivergenceBps"
+  ],
+  "testStatus": {
+    "deterministicTestsAdded": true,
+    "cases": [
+      "detect one-bar spot lead on synthetic synchronized series",
+      "remain null/unknown when synchronized history is insufficient",
+      "align observations by timestamp rather than array position"
+    ],
+    "githubActionsRunObservedForCommit": false,
+    "localCloneAttempt": "blocked_by_runtime_dns_resolution_for_github.com",
+    "ciClaim": "not_green_claimed"
+  },
+  "researchProtocol": {
+    "status": "feature_capture_only",
+    "rankingUsesHoldout": false,
+    "candidatePromoted": null,
+    "requiredBeforePromotion": [
+      "accumulate durable synchronized spot/perpetual history across regimes",
+      "predeclare lag horizons and interaction hypotheses before final holdout",
+      "select only on train and validation",
+      "freeze candidate before walk-forward/out-of-sample evaluation",
+      "use untouched final holdout only after candidate freeze",
+      "apply fees, slippage and latency assumptions",
+      "require positive post-cost expectancy and all existing audit gates",
+      "Forward PAPER only if robust and independent"
+    ]
+  }
+}
