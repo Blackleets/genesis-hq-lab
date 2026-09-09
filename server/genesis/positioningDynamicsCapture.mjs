@@ -30,6 +30,12 @@ function ageMs(capturedAtMs, sourceTimeMs) {
   return Number.isFinite(sourceTimeMs) ? Math.max(0, capturedAtMs - sourceTimeMs) : null;
 }
 
+function takerWindowMs(observation) {
+  return finite(observation?.positioning?.takerWindowMs)
+    ?? finite(observation?.provenance?.takerWindowMs)
+    ?? null;
+}
+
 export function deriveCrossCapturePositioningFeatures(previous, current, { maxGapMinutes = 60 } = {}) {
   if (!previous || !current) return { available: false, reason: 'NO_PRIOR_CAPTURE' };
   if (previous.mode !== 'RESEARCH_ONLY' || current.mode !== 'RESEARCH_ONLY') {
@@ -37,6 +43,9 @@ export function deriveCrossCapturePositioningFeatures(previous, current, { maxGa
   }
   if (previous.provider !== current.provider || previous.symbol !== current.symbol) {
     return { available: false, reason: 'SERIES_MISMATCH' };
+  }
+  if (previous.schemaVersion !== current.schemaVersion) {
+    return { available: false, reason: 'SCHEMA_MISMATCH' };
   }
 
   const previousMs = Date.parse(previous.capturedAt);
@@ -47,6 +56,21 @@ export function deriveCrossCapturePositioningFeatures(previous, current, { maxGa
   }
   if (elapsedMs > maxGapMinutes * 60_000) {
     return { available: false, reason: 'PRIOR_CAPTURE_TOO_OLD', elapsedMinutes: elapsedMs / 60_000 };
+  }
+
+  const previousWindowMs = takerWindowMs(previous);
+  const currentWindowMs = takerWindowMs(current);
+  if (!Number.isFinite(previousWindowMs) || !Number.isFinite(currentWindowMs) || previousWindowMs <= 0 || currentWindowMs <= 0) {
+    return { available: false, reason: 'TAKER_WINDOW_PROVENANCE_MISSING', elapsedMinutes: elapsedMs / 60_000 };
+  }
+  const minimumSeparationMs = Math.max(previousWindowMs, currentWindowMs);
+  if (elapsedMs < minimumSeparationMs) {
+    return {
+      available: false,
+      reason: 'OVERLAPPING_TAKER_WINDOWS',
+      elapsedMinutes: elapsedMs / 60_000,
+      minimumSeparationMinutes: minimumSeparationMs / 60_000,
+    };
   }
 
   const previousOi = finite(previous.positioning?.openInterest?.value);
@@ -74,6 +98,7 @@ export function deriveCrossCapturePositioningFeatures(previous, current, { maxGa
     available: true,
     priorCapturedAt: previous.capturedAt,
     elapsedMinutes: elapsedMs / 60_000,
+    minimumSeparationMinutes: minimumSeparationMs / 60_000,
     oiChangePct: ((currentOi / previousOi) - 1) * 100,
     takerBuySellRatioDelta: currentTaker - previousTaker,
     takerBuyFractionDelta: Number.isFinite(previousBuyFraction) && Number.isFinite(currentBuyFraction)
@@ -83,6 +108,7 @@ export function deriveCrossCapturePositioningFeatures(previous, current, { maxGa
     premiumDeltaBps: currentPremium - previousPremium,
     perpReturnBps: Math.log(currentClose / previousClose) * 10_000,
     causal: true,
+    nonOverlappingTakerWindows: true,
     researchUse: 'OBSERVATIONAL_ONLY_NOT_FOR_RANKING',
   };
 }
@@ -184,7 +210,9 @@ export function buildPositioningObservation(context, closedKline, {
       takerPagesFetched: finite(taker.pagesFetched),
       takerSampleSource: taker.source ?? null,
       crossCaptureUsesStrictlyPriorDurableObservation: true,
-      note: 'openInterest.value preserves provider-native contract units; taker flow uses a fixed one-minute public-trade window',
+      crossCaptureRequiresSameSchema: true,
+      crossCaptureRequiresNonOverlappingTakerWindows: true,
+      note: 'openInterest.value preserves provider-native contract units; taker flow uses a fixed one-minute public-trade window; cross-capture deltas require same-schema non-overlapping taker windows',
     },
     researchUse: 'OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING',
   };
