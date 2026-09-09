@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-09T00:22:38.453Z",
+  "completedAt": "2026-09-09T00:23:40.439Z",
   "methodology": {
     "oneShot": true,
     "holdoutStart": 0.8,
@@ -20,10 +20,38 @@
     "durablePassedRegistry": true,
     "migratePriorPassed": true
   },
-  "sourceAdaptiveCompletedAt": "2026-09-09T00:22:38.343Z",
-  "newAudits": 0,
+  "sourceAdaptiveCompletedAt": "2026-09-09T00:23:37.966Z",
+  "newAudits": 1,
   "passed": 0,
   "totalPassedRegistered": 2,
-  "verdict": "NO_NEW_AUDIT_CANDIDATES",
-  "results": []
+  "verdict": "AUDIT_REJECTED",
+  "results": [
+    {
+      "id": "volatility_squeeze:XRPUSDT:4h:ASIA:p20:ta2:sa0.6:tb8",
+      "hypothesisKey": "volatility_squeeze:XRPUSDT:4h:ASIA",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "volatility_squeeze",
+        "period": 20,
+        "targetAtr": 2,
+        "stopAtr": 0.6,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "parentVariant": "volatility_squeeze:XRPUSDT:4h:ASIA:p20:ta2:sa0.75:tb8",
+      "selectionScore": 81.24,
+      "holdout": {
+        "trades": 29,
+        "expectancyBps": 17.02,
+        "profitFactor": 1.23,
+        "tStat": 0.471,
+        "maxDrawdownPct": 5.2
+      },
+      "status": "AUDIT_REJECTED",
+      "auditedAt": "2026-09-09T00:23:40.439Z"
+    }
+  ]
 }
