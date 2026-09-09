@@ -1,32 +1,33 @@
 {
-  "ts": "2026-09-09T21:00:15.519Z",
+  "ts": "2026-09-09T21:00:32.890Z",
   "liveOff": true,
   "paper": true,
   "go": false,
   "hz": 1,
   "tickers": 460,
-  "preQuote": 6,
+  "preQuote": 7,
   "full": 4,
   "quoted": 0,
   "quotedNames": [],
   "filled": 0,
   "paperPnl": 0,
   "reasons": {
-    "TAPE_PENDING": 4
+    "TAPE_PENDING": 3,
+    "WOULD_CROSS": 1
   },
-  "ms": 890,
+  "ms": 1009,
   "scored": [
     {
-      "symbol": "BLUR-USDT-SWAP",
-      "preH": -0.13899613899629681,
-      "spread": 11.031439602867724,
+      "symbol": "KAT-USDT-SWAP",
+      "preH": -0.017231569535850255,
+      "spread": 11.379338372754715,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
-      "symbol": "MINA-USDT-SWAP",
-      "preH": -0.19689231772290094,
-      "spread": 10.866021949363141,
+      "symbol": "BERA-USDT-SWAP",
+      "preH": -0.21826039978379264,
+      "spread": 10.804970286332022,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
@@ -38,17 +39,22 @@
       "reason": "TAPE_PENDING"
     },
     {
-      "symbol": "MET-USDT-SWAP",
-      "preH": -0.49474211316965455,
-      "spread": 10.015022533800988,
+      "symbol": "CORE-USDT-SWAP",
+      "preH": -0.6134494436382614,
+      "spread": 9.67585873246211,
       "quote": false,
-      "reason": "TAPE_PENDING"
+      "reason": "WOULD_CROSS",
+      "harvestBps": null,
+      "vpin": 0.8848,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "WOULD_CROSS"
     }
   ],
   "intersection": {
     "liquid": 246,
-    "hGe": 6,
-    "band": 163,
+    "hGe": 7,
+    "band": 149,
     "both": 0
   },
   "formula": "H=spread*0.35-4bps; width is a toxicity prior. Kalman+VPIN+GLFT. not a GO."
