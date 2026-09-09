@@ -3,49 +3,51 @@
   "mode": "RESEARCH_ONLY",
   "provider": "okx_public_market_data",
   "symbol": "BTCUSDT",
-  "capturedAt": "2026-09-09T17:43:26.633Z",
+  "capturedAt": "2026-09-09T18:03:12.170Z",
   "price": {
     "interval": "1m",
-    "openTime": "2026-09-09T17:42:00.000Z",
-    "closeTime": "2026-09-09T17:42:59.999Z",
-    "close": 78683.8
+    "openTime": "2026-09-09T18:02:00.000Z",
+    "closeTime": "2026-09-09T18:02:59.999Z",
+    "close": 78734.3
   },
   "positioning": {
     "openInterest": {
-      "value": 2719374.7300000107,
+      "value": 2716889.1600000113,
       "unit": "CONTRACTS"
     },
     "oiRecentChangePct": 0,
     "oiAccelerationPct": 0,
-    "takerBuySellRatioNow": 1.5112249253094299,
-    "takerBuyFractionNow": 0.6017879601617998,
-    "takerNotionalBuyFractionNow": 0.6017727966602019,
-    "takerTradeCount": 718,
+    "takerBuySellRatioNow": 1.1663940072326535,
+    "takerBuyFractionNow": 0.5384034498519512,
+    "takerNotionalBuyFractionNow": 0.5383795243543487,
+    "takerTradeCount": 1252,
     "takerWindowMs": 60000,
-    "takerWindowCoverageMs": 59969,
-    "takerRecentBias": 1.5112249253094299,
+    "takerWindowCoverageMs": 59754,
+    "takerRecentBias": 1.1663940072326535,
     "takerImpulse": 0,
-    "takerPressure": "buy_pressure",
+    "takerPressure": "balanced",
     "takerReversal": false,
     "fundingRateNow": 0.0000695402575674,
     "fundingAvg": 0.00004418,
     "fundingCrowd": "balanced",
-    "premiumNowBps": -4.903,
-    "premiumImpulseBps": -0.04,
+    "premiumNowBps": -3.734,
+    "premiumImpulseBps": 0.025,
     "volatilityState": "normal",
-    "volatilityExpansionRatio": 0.960819983521333
+    "volatilityExpansionRatio": 0.8827655271002841
   },
   "crossCapture": {
     "available": true,
-    "priorCapturedAt": "2026-09-09T17:42:37.813Z",
-    "elapsedMinutes": 0.8136666666666666,
-    "oiChangePct": -0.01596251866049503,
-    "takerBuySellRatioDelta": 0.8851368107289972,
-    "takerBuyFractionDelta": 0.21676078422553302,
+    "priorCapturedAt": "2026-09-09T17:43:26.633Z",
+    "elapsedMinutes": 19.75895,
+    "minimumSeparationMinutes": 1,
+    "oiChangePct": -0.09140226143086183,
+    "takerBuySellRatioDelta": -0.34483091807677635,
+    "takerBuyFractionDelta": -0.0633845103098486,
     "fundingDeltaBps": 0,
-    "premiumDeltaBps": -0.7989999999999995,
-    "perpReturnBps": 2.4912931974189796,
+    "premiumDeltaBps": 1.1689999999999996,
+    "perpReturnBps": 6.41603497086873,
     "causal": true,
+    "nonOverlappingTakerWindows": true,
     "researchUse": "OBSERVATIONAL_ONLY_NOT_FOR_RANKING"
   },
   "provenance": {
@@ -58,16 +60,16 @@
     },
     "instrument": "BTC-USDT-SWAP",
     "sourceTimes": {
-      "price": "2026-09-09T17:42:59.999Z",
-      "openInterest": "2026-09-09T17:43:24.862Z",
-      "taker": "2026-09-09T17:43:23.861Z",
+      "price": "2026-09-09T18:02:59.999Z",
+      "openInterest": "2026-09-09T18:03:10.423Z",
+      "taker": "2026-09-09T18:03:08.582Z",
       "funding": "2026-09-09T16:00:00.000Z"
     },
     "agesMs": {
-      "price": 26634,
-      "openInterest": 1771,
-      "taker": 2772,
-      "funding": 6206633
+      "price": 12171,
+      "openInterest": 1747,
+      "taker": 3588,
+      "funding": 7392170
     },
     "maxAgeMs": {
       "price": 300000,
@@ -78,12 +80,14 @@
     "closedPriceBarOnly": true,
     "fixedWindowTakerFlow": true,
     "takerWindowMs": 60000,
-    "takerWindowCoverageMs": 59969,
-    "takerTradeCount": 718,
-    "takerPagesFetched": 8,
+    "takerWindowCoverageMs": 59754,
+    "takerTradeCount": 1252,
+    "takerPagesFetched": 13,
     "takerSampleSource": "okx_public_history_trades_fixed_window",
     "crossCaptureUsesStrictlyPriorDurableObservation": true,
-    "note": "openInterest.value preserves provider-native contract units; taker flow uses a fixed one-minute public-trade window"
+    "crossCaptureRequiresSameSchema": true,
+    "crossCaptureRequiresNonOverlappingTakerWindows": true,
+    "note": "openInterest.value preserves provider-native contract units; taker flow uses a fixed one-minute public-trade window; cross-capture deltas require same-schema non-overlapping taker windows"
   },
   "researchUse": "OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING"
 }
