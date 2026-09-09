@@ -1,10 +1,9 @@
 # RESEARCH_ONLY synchronized BTCUSDT derivatives-positioning evidence.
 # Public read-only market data. Never places orders or changes trading gates.
+# Scheduled market capture is owned by paper-capture-harvest to avoid duplicate/overlapping samples.
 name: positioning-dynamics-capture
 
 on:
-  schedule:
-    - cron: "2,7,12,17,22,27,32,37,42,47,52,57 * * * *"
   workflow_dispatch:
   push:
     branches: [feat/genesis-life-os]
