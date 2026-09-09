@@ -16,7 +16,9 @@ on:
     paths:
       - .github/workflows/paper-capture-harvest.yml
       - server/genesis/researchStateCapture.mjs
+      - server/genesis/researchProviderProbe.mjs
       - server/tests/researchStateCapture.test.mjs
+      - server/tests/researchProviderProbe.test.mjs
 
 permissions:
   contents: write
@@ -38,7 +40,19 @@ jobs:
           ref: capture-tape
           path: tape
       - name: verify synchronized evidence integrity
-        run: node --test server/tests/researchStateCapture.test.mjs
+        run: node --test server/tests/researchStateCapture.test.mjs server/tests/researchProviderProbe.test.mjs
+      - name: validate redundant public research routes
+        shell: bash
+        run: |
+          set +e
+          node server/genesis/researchProviderProbe.mjs --out tape/paper-tape/provider-probe-latest.json
+          status=$?
+          set -e
+          if [ "$status" -eq 1 ]; then
+            echo "provider probe crashed"
+            exit 1
+          fi
+          test -s tape/paper-tape/provider-probe-latest.json
       - name: run paper harvest
         run: node server/genesis/harvestWorker.mjs --once --out tape/paper-tape/capture-latest.json --jsonl tape/paper-tape/capture.jsonl
       - name: run 1Hz paper tick
@@ -53,10 +67,11 @@ jobs:
           git config user.name "genesis-capture"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mkdir -p paper-tape
-          git add -f paper-tape/capture-latest.json paper-tape/capture.jsonl paper-tape/hz1-latest.json paper-tape/hz1.jsonl paper-tape/funding-latest.json paper-tape/research-state-latest.json paper-tape/research-state.jsonl
+          git add -f paper-tape/capture-latest.json paper-tape/capture.jsonl paper-tape/hz1-latest.json paper-tape/hz1.jsonl paper-tape/funding-latest.json paper-tape/research-state-latest.json paper-tape/research-state.jsonl paper-tape/provider-probe-latest.json
           if git diff --staged --quiet; then
             echo "no change"
             exit 0
           fi
           git commit -m "paper harvest $(date -u +%Y-%m-%dT%H:%MZ)"
+          git pull --rebase origin capture-tape
           git push
