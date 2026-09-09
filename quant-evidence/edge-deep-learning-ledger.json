@@ -1,5 +1,5 @@
 {
-  "version": "edge_deep_learning_ledger_v3_structural_gate",
+  "version": "edge_deep_learning_ledger_v4_audit_aware",
   "paperOnly": true,
   "liveOrders": false,
   "executionAuthority": false,
@@ -214,7 +214,37 @@
           "pass": false
         }
       }
+    },
+    "volatility_squeeze:XRPUSDT:4h:ASIA": {
+      "status": "DEEP_REJECTED",
+      "firstSeen": "2026-09-09T00:33:47.981Z",
+      "lastSeen": "2026-09-09T00:33:47.981Z",
+      "parentVariant": "volatility_squeeze:XRPUSDT:4h:ASIA:p20:ta2:sa0.75:tb8",
+      "barsPerMarket": 12000,
+      "reason": "DEEP_NEGATIVE_TRAIN_EXPECTANCY",
+      "resetPolicy": "MATERIAL_REGIME_OR_CONTEXT_CHANGE",
+      "evidence": {
+        "train": {
+          "trades": 89,
+          "expectancyBps": -8.57,
+          "profitFactor": 0.922,
+          "tStat": -0.313,
+          "maxDrawdownPct": 21.53
+        },
+        "validation": {
+          "trades": 26,
+          "expectancyBps": 67.49,
+          "profitFactor": 1.718,
+          "tStat": 1.142,
+          "maxDrawdownPct": 6.41
+        },
+        "walkForward": {
+          "positiveFolds": 2,
+          "requiredPositiveFolds": 3,
+          "pass": false
+        }
+      }
     }
   },
-  "updatedAt": "2026-09-09T00:31:52.969Z"
+  "updatedAt": "2026-09-09T00:33:47.981Z"
 }
