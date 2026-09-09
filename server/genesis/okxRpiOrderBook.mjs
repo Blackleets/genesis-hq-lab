@@ -47,6 +47,9 @@ export function deriveRpiOrderBookFeatures(snapshot = {}) {
   const rpiDepthShare = totalDepth > 0 ? Math.max(0, totalDepth - nonRpiDepth) / totalDepth : null;
   return {
     rpiBookLevelCount: Math.min(bids.length, asks.length),
+    rpiBestBid: bestBid,
+    rpiBestAsk: bestAsk,
+    rpiMidPrice: mid,
     rpiBidDepth: bidDepth,
     rpiAskDepth: askDepth,
     rpiDepthImbalance: imbalance,
