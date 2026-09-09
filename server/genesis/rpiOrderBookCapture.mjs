@@ -15,7 +15,7 @@ export async function captureRpiOrderBook({ instId = 'BTC-USDT-SWAP', depth = 20
   const context = await getOkxRpiOrderBookContext(instId, { depth });
   const capturedAt = new Date().toISOString();
   const payload = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     mode: 'RESEARCH_ONLY',
     provider: 'okx',
     source: context.source,
@@ -25,6 +25,9 @@ export async function captureRpiOrderBook({ instId = 'BTC-USDT-SWAP', depth = 20
     sourceAgeMs: Math.max(0, Date.parse(capturedAt) - context.time),
     features: {
       rpiBookLevelCount: context.rpiBookLevelCount,
+      rpiBestBid: context.rpiBestBid,
+      rpiBestAsk: context.rpiBestAsk,
+      rpiMidPrice: context.rpiMidPrice,
       rpiBidDepth: context.rpiBidDepth,
       rpiAskDepth: context.rpiAskDepth,
       rpiDepthImbalance: context.rpiDepthImbalance,
