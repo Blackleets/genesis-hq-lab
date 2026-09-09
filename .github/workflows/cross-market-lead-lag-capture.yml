@@ -1,0 +1,52 @@
+# RESEARCH_ONLY BTCUSDT spot/perpetual cross-market evidence.
+# Public read-only Binance endpoints. Never places orders or changes trading gates.
+name: cross-market-lead-lag-capture
+
+on:
+  schedule:
+    - cron: "4,9,14,19,24,29,34,39,44,49,54,59 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - .github/workflows/cross-market-lead-lag-capture.yml
+      - server/genesis/crossMarketLeadLagCapture.mjs
+      - server/tests/crossMarketLeadLagCapture.test.mjs
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cross-market-lead-lag-capture
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: code
+        uses: actions/checkout@v4
+      - name: tape
+        uses: actions/checkout@v4
+        with:
+          ref: capture-tape
+          path: tape
+      - name: verify causal capture semantics
+        run: node --test server/tests/crossMarketLeadLagCapture.test.mjs
+      - name: capture aligned closed spot/perp bar
+        run: node server/genesis/crossMarketLeadLagCapture.mjs --symbol BTCUSDT --out tape/paper-tape/cross-market-latest.json --jsonl tape/paper-tape/cross-market.jsonl
+      - name: publish durable evidence
+        working-directory: tape
+        shell: bash
+        run: |
+          git config user.name "genesis-capture"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f paper-tape/cross-market-latest.json paper-tape/cross-market.jsonl
+          if git diff --staged --quiet; then
+            echo "no change"
+            exit 0
+          fi
+          git commit -m "cross-market capture $(date -u +%Y-%m-%dT%H:%MZ)"
+          git pull --rebase origin capture-tape
+          git push
