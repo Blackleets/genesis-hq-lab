@@ -1,11 +1,13 @@
 // server/genesis/spotPerpLeadLag.mjs
-// RESEARCH_ONLY spot↔perpetual microstructure context.
+// RESEARCH_ONLY spot/index↔perpetual microstructure context.
 //
-// Purpose: preserve synchronized price-discovery information that is lost when spot
-// and perpetual candles are studied independently. This module is read-only and MUST
-// NOT place orders, promote candidates, alter REAL_TRADING confirmations, or bypass
-// fixed audit gates. Features produced here require train/validation/walk-forward and
-// untouched holdout evaluation before any Forward PAPER enrollment.
+// Purpose: preserve synchronized price-discovery information that is lost when
+// reference-market and perpetual candles are studied independently. Binance Spot
+// is preferred; when a hosted runner is geo-blocked (for example HTTP 451), the
+// official USDⓈ-M index-price kline is used explicitly as a fallback and labeled.
+// This module is read-only and MUST NOT place orders, promote candidates, alter
+// REAL_TRADING confirmations, or bypass fixed audit gates. Features require
+// train/validation/walk-forward and untouched holdout evaluation before Forward PAPER.
 
 import { getSharedThrottler } from './rateLimiter.mjs';
 
@@ -16,7 +18,11 @@ const ALLOWED_INTERVALS = new Set(['1m', '3m', '5m', '15m', '30m', '1h']);
 async function jget(url, { futures = false } = {}) {
   if (futures) await getSharedThrottler().acquire('default', 1);
   const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
-  if (!res.ok) throw new Error(`HTTP ${res.status} for ${url.split('?')[0]}`);
+  if (!res.ok) {
+    const error = new Error(`HTTP ${res.status} for ${url.split('?')[0]}`);
+    error.status = res.status;
+    throw error;
+  }
   return res.json();
 }
 
@@ -38,21 +44,39 @@ function normalizeKlines(rows = []) {
   })).filter(row => Number.isFinite(row.time) && Number.isFinite(row.close) && row.close > 0);
 }
 
+async function getReferenceKlines(normalizedSymbol, normalizedInterval, limit) {
+  const query = `symbol=${encodeURIComponent(normalizedSymbol)}&interval=${encodeURIComponent(normalizedInterval)}&limit=${limit}`;
+  try {
+    const spotRaw = await jget(`${SPOT}/api/v3/klines?${query}`);
+    return { referenceSource: 'binance_spot', rows: normalizeKlines(spotRaw) };
+  } catch (error) {
+    // GitHub-hosted runners can be geo-blocked from api.binance.com while fapi remains available.
+    // Fall back only to the official Binance index-price series and label it honestly.
+    if (![403, 451].includes(error?.status)) throw error;
+    const indexQuery = `pair=${encodeURIComponent(normalizedSymbol)}&interval=${encodeURIComponent(normalizedInterval)}&limit=${limit}`;
+    const indexRaw = await jget(`${FUTS}/fapi/v1/indexPriceKlines?${indexQuery}`, { futures: true });
+    return { referenceSource: 'binance_futures_index', rows: normalizeKlines(indexRaw) };
+  }
+}
+
 export async function getSpotPerpKlines(symbol, { interval = '1m', points = 120 } = {}) {
   const normalizedSymbol = normalizeSymbol(symbol);
   const normalizedInterval = normalizeInterval(interval);
   const limit = Math.max(20, Math.min(Number(points) || 120, 1000));
-  const query = `symbol=${encodeURIComponent(normalizedSymbol)}&interval=${encodeURIComponent(normalizedInterval)}&limit=${limit}`;
+  const perpQuery = `symbol=${encodeURIComponent(normalizedSymbol)}&interval=${encodeURIComponent(normalizedInterval)}&limit=${limit}`;
 
-  const [spotRaw, perpRaw] = await Promise.all([
-    jget(`${SPOT}/api/v3/klines?${query}`),
-    jget(`${FUTS}/fapi/v1/klines?${query}`, { futures: true }),
+  const [reference, perpRaw] = await Promise.all([
+    getReferenceKlines(normalizedSymbol, normalizedInterval, limit),
+    jget(`${FUTS}/fapi/v1/klines?${perpQuery}`, { futures: true }),
   ]);
 
   return {
     symbol: normalizedSymbol,
     interval: normalizedInterval,
-    spot: normalizeKlines(spotRaw),
+    referenceSource: reference.referenceSource,
+    // Keep the field name `spot` for backward-compatible pure derivation/tests;
+    // referenceSource says whether these rows are true spot or futures index price.
+    spot: reference.rows,
     perp: normalizeKlines(perpRaw),
   };
 }
@@ -87,16 +111,12 @@ function correlation(xs, ys) {
 
 function logReturns(closes) {
   const out = [];
-  for (let i = 1; i < closes.length; i += 1) {
-    out.push(Math.log(closes[i] / closes[i - 1]));
-  }
+  for (let i = 1; i < closes.length; i += 1) out.push(Math.log(closes[i] / closes[i - 1]));
   return out;
 }
 
 function lagCorrelation(spotReturns, perpReturns, lag) {
-  if (lag > 0) {
-    return correlation(spotReturns.slice(0, -lag), perpReturns.slice(lag));
-  }
+  if (lag > 0) return correlation(spotReturns.slice(0, -lag), perpReturns.slice(lag));
   if (lag < 0) {
     const offset = -lag;
     return correlation(spotReturns.slice(offset), perpReturns.slice(0, -offset));
@@ -104,12 +124,6 @@ function lagCorrelation(spotReturns, perpReturns, lag) {
   return correlation(spotReturns, perpReturns);
 }
 
-/**
- * Derive synchronized spot↔perpetual microstructure features.
- * Positive bestLagBars means spot returns lead perpetual returns by that many bars;
- * negative means perpetual leads spot. Lag zero is reported separately and excluded
- * when selecting a leader because contemporaneous correlation is normally dominant.
- */
 export function deriveSpotPerpLeadLag(spotRows = [], perpRows = [], {
   maxLagBars = 3,
   minAlignedPoints = 20,
@@ -167,7 +181,7 @@ export function deriveSpotPerpLeadLag(spotRows = [], perpRows = [], {
     returnCorr0: round(returnCorr0, 4),
     bestLagBars,
     bestLagCorr: round(bestLagCorr, 4),
-    leader: bestLagBars > 0 ? 'spot' : bestLagBars < 0 ? 'perp' : 'unknown',
+    leader: bestLagBars > 0 ? 'reference' : bestLagBars < 0 ? 'perp' : 'unknown',
     latestReturnDivergenceBps: round((latestSpotReturn - latestPerpReturn) * 10_000, 3),
   };
 }
@@ -177,6 +191,7 @@ export async function getSpotPerpLeadLagContext(symbol, options = {}) {
   return {
     symbol: history.symbol,
     interval: history.interval,
+    referenceSource: history.referenceSource,
     fetchedAt: new Date().toISOString(),
     researchOnly: true,
     ...deriveSpotPerpLeadLag(history.spot, history.perp, options),
