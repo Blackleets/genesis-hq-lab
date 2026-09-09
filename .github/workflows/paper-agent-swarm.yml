@@ -1,9 +1,7 @@
 name: paper-agent-swarm
 
-# Autonomous PAPER-only agent review of the verified capture tape.
+# Autonomous PAPER-only agent review of verified capture + forward research evidence.
 # It never calls the trading runner, never sends an order, and never unlocks capital.
-# OpenAI remains configured but is quota-blocked. The active PAPER provider uses
-# NVIDIA's OpenAI-compatible free endpoint with Nemotron 3.5 Lightning for low-latency agents.
 
 on:
   schedule:
@@ -24,12 +22,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GENESIS_PAPER_AGENT_PROVIDER: custom
+  GENESIS_PAPER_AGENT_PROVIDER: nvidia
   GENESIS_PAPER_AGENT_MODEL: nvidia/nemotron-3.5-lightning-30b-a3b
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
   NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-  CUSTOM_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-  CUSTOM_API_URL: https://integrate.api.nvidia.com/v1
   ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
   GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
   GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
@@ -66,8 +62,13 @@ jobs:
             --capture=tape/paper-tape/capture-latest.json \
             --funding=tape/paper-tape/funding-latest.json \
             --hz1=tape/paper-tape/hz1-latest.json \
+            --forward=tape/quant-evidence/forward-paper-latest.json \
             --out=tape/paper-tape/agent-swarm-latest.json \
             --jsonl=tape/paper-tape/agent-swarm.jsonl
+
+      - name: Verify swarm capital boundary
+        run: |
+          node -e "const x=require('./tape/paper-tape/agent-swarm-latest.json'); if(x.paperOnly!==true||x.liveOrders!==false||x.executionAuthority!==false||x.capitalEligible!==false) process.exit(1)"
 
       - name: Publish agent evidence
         working-directory: tape
@@ -80,5 +81,13 @@ jobs:
             exit 0
           fi
           git commit -m "paper agent swarm $(date -u +%Y-%m-%dT%H:%MZ)"
-          git pull --rebase origin capture-tape
-          git push origin HEAD:capture-tape
+          for attempt in 1 2 3; do
+            git pull --rebase origin capture-tape
+            if git push origin HEAD:capture-tape; then
+              exit 0
+            fi
+            echo "capture-tape advanced during agent publish; retry ${attempt}/3"
+            sleep $((attempt * 2))
+          done
+          echo "failed to publish agent evidence after retries"
+          exit 1
