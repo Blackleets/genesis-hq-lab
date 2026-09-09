@@ -6,13 +6,14 @@
 //   - Top trader position ratio  GET /futures/data/topLongShortPositionRatio
 //   - Taker buy/sell volume      GET /futures/data/takerlongshortRatio  (order-flow delta proxy)
 //   - Funding rate history       GET /fapi/v1/fundingRate
+//   - Premium index history      GET /fapi/v1/premiumIndexKlines
 // Sentiment:
 //   - Fear & Greed Index         GET https://api.alternative.me/fng/?limit=N
 //
 // Purpose: give strategies/regime filters access to POSITIONING data, not just price.
 // All fetchers are read-only public data; cached to disk like candle_cache.
-// Funding and positioning dynamics are exposed as RESEARCH_ONLY context; they are
-// descriptive features, not execution signals by themselves.
+// Funding, premium/basis, and positioning dynamics are exposed as RESEARCH_ONLY
+// context; they are descriptive features, not execution signals by themselves.
 //
 // Usage (CLI):
 //   node derivativesContext.mjs context COTIUSDT     # full snapshot JSON
@@ -89,6 +90,24 @@ export async function getFundingRateHistory(symbol, points = 30) {
   return out;
 }
 
+/** Historical USDⓈ-M premium-index bars. Close is a decimal premium, e.g. -0.0005 = -5 bps. */
+export async function getPremiumIndexHistory(symbol, points = 24) {
+  const limit = Math.max(1, Math.min(points, 1500));
+  const key = `premium_${symbol}_1h_${limit}`;
+  const hit = cacheGet(key);
+  if (hit) return hit;
+  const data = await jget(`${FUTS}/fapi/v1/premiumIndexKlines?symbol=${symbol}&interval=1h&limit=${limit}`);
+  const out = data.map(d => ({
+    time: +d[0],
+    open: +d[1],
+    high: +d[2],
+    low: +d[3],
+    close: +d[4],
+  })).filter(d => Number.isFinite(d.time) && Number.isFinite(d.close));
+  cacheSet(key, out);
+  return out;
+}
+
 /**
  * Pure funding feature derivation so research/tests can evaluate the feature without network access.
  * Rates remain decimals (0.0001 = 1 bp per funding event).
@@ -126,6 +145,43 @@ export function deriveFundingFeatures(rows = []) {
     fundingPositiveShare: +positiveShare.toFixed(4),
     fundingCumulative: +cumulative.toFixed(8),
     fundingCrowd,
+  };
+}
+
+/**
+ * Pure premium/basis feature derivation. Values are converted to basis points so
+ * the magnitude remains interpretable in research reports. No trade direction is implied.
+ */
+export function derivePremiumFeatures(rows = [], { recentPoints = 3 } = {}) {
+  const closes = rows.map(r => Number(r?.close)).filter(Number.isFinite);
+  if (!closes.length) {
+    return {
+      premiumNowBps: null,
+      premiumAvgBps: null,
+      premiumRecentAvgBps: null,
+      premiumImpulseBps: null,
+      premiumPositiveShare: null,
+    };
+  }
+
+  const recentN = Math.max(1, recentPoints);
+  const recent = closes.slice(-recentN);
+  const previous = closes.slice(-recentN * 2, -recentN);
+  const avg = closes.reduce((sum, value) => sum + value, 0) / closes.length;
+  const recentAvg = recent.reduce((sum, value) => sum + value, 0) / recent.length;
+  const previousAvg = previous.length
+    ? previous.reduce((sum, value) => sum + value, 0) / previous.length
+    : null;
+  const impulse = Number.isFinite(previousAvg) ? recentAvg - previousAvg : null;
+  const positiveShare = closes.filter(value => value > 0).length / closes.length;
+  const toBps = value => Number.isFinite(value) ? +(value * 10_000).toFixed(3) : null;
+
+  return {
+    premiumNowBps: toBps(closes[closes.length - 1]),
+    premiumAvgBps: toBps(avg),
+    premiumRecentAvgBps: toBps(recentAvg),
+    premiumImpulseBps: toBps(impulse),
+    premiumPositiveShare: +positiveShare.toFixed(4),
   };
 }
 
@@ -256,14 +312,20 @@ export async function getFearGreed(days = 30) {
  *  - takerPressure:        descriptive buy/sell/balanced label
  *  - takerReversal:        whether strong payer aggression flipped sides
  *  - funding*:             payer-side pressure; descriptive RESEARCH_ONLY context
+ *  - premium*:             perpetual premium/basis level + impulse in basis points
  *  - fearGreedNow:         current sentiment value
  */
-export async function getContext(symbol, { oiPoints = 48, fundingPoints = 30 } = {}) {
-  const [oi, gls, taker, funding, fng] = await Promise.all([
+export async function getContext(symbol, {
+  oiPoints = 48,
+  fundingPoints = 30,
+  premiumPoints = 24,
+} = {}) {
+  const [oi, gls, taker, funding, premium, fng] = await Promise.all([
     getOpenInterestHistory(symbol, oiPoints),
     getGlobalLongShort(symbol, 24),
     getTakerFlow(symbol, 12),
     getFundingRateHistory(symbol, fundingPoints),
+    getPremiumIndexHistory(symbol, premiumPoints),
     getFearGreed(30),
   ]);
   const positioningDynamics = derivePositioningDynamics(oi, taker);
@@ -275,6 +337,7 @@ export async function getContext(symbol, { oiPoints = 48, fundingPoints = 30 } =
     : 'neutral';
 
   const fundingFeatures = deriveFundingFeatures(funding);
+  const premiumFeatures = derivePremiumFeatures(premium);
   const fngNow = fng[fng.length - 1] ?? null;
   const fngAvg30 = fng.length ? +(fng.reduce((s, d) => s + d.value, 0) / fng.length).toFixed(1) : null;
   const oiUsdNow = oi[oi.length - 1]?.oiUsd ?? null;
@@ -287,10 +350,11 @@ export async function getContext(symbol, { oiPoints = 48, fundingPoints = 30 } =
     crowdSide,
     crowdRatio: latestGls?.ratio ?? null,
     ...fundingFeatures,
+    ...premiumFeatures,
     fearGreedNow: fngNow?.value ?? null,
     fearGreedLabel: fngNow?.label ?? null,
     fearGreedAvg30: fngAvg30,
-    raw: { oi, gls, taker, funding },
+    raw: { oi, gls, taker, funding, premium },
   };
 }
 
