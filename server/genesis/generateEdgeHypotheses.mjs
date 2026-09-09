@@ -7,7 +7,6 @@ const clamp=(v,min,max)=>Math.min(max,Math.max(min,v));
 const round=(v,d=2)=>Number(Number(v).toFixed(d));
 async function readJson(path,fallback=null){try{return JSON.parse(await readFile(path,'utf8'));}catch{return fallback;}}
 
-// Evolution score intentionally excludes holdout. Holdout is audit evidence, never a mutation selector.
 function score(item){
   const a=item.train??{},b=item.validation??{},w=item.walkForward??{};
   let s=0;
@@ -49,8 +48,7 @@ function mutations(item){
     const distance=Math.abs(period-c.period)/4+Math.abs(targetAtr-c.targetAtr)/.25+Math.abs(stopAtr-c.stopAtr)/.15+Math.abs(timeoutBars-c.timeoutBars)/2;
     out.push({family:c.family,period,targetAtr,stopAtr,timeoutBars,session:c.session,_changed:changed,_distance:distance});
   }
-  return out.sort((a,b)=>a._changed-b._changed||a._distance-b._distance||a.period-b.period||a.targetAtr-b.targetAtr||a.stopAtr-b.stopAtr||a.timeoutBars-b.timeoutBars)
-    .map(({_changed,_distance,...spec})=>spec);
+  return out.sort((a,b)=>a._changed-b._changed||a._distance-b._distance||a.period-b.period||a.targetAtr-b.targetAtr||a.stopAtr-b.stopAtr||a.timeoutBars-b.timeoutBars).map(({_changed,_distance,...spec})=>spec);
 }
 
 function reasonFor(item,rule){
@@ -87,6 +85,7 @@ async function main(){
   const learningPath=arg('--learning','quant-evidence/edge-learning-latest.json');
   const adaptivePath=arg('--adaptive',null);
   const deepLedgerPath=arg('--deep-ledger',null);
+  const auditLedgerPath=arg('--audit-ledger',null);
   const forwardPath=arg('--forward',null);
   const out=arg('--out','quant-evidence/edge-hypotheses-latest.json');
   const history=arg('--history','quant-evidence/edge-hypotheses-history.jsonl');
@@ -94,6 +93,7 @@ async function main(){
   const learning=JSON.parse(await readFile(learningPath,'utf8'));
   const adaptive=adaptivePath?await readJson(adaptivePath,null):null;
   const deepLedger=deepLedgerPath?await readJson(deepLedgerPath,{killed:{}}):{killed:{}};
+  const auditLedger=auditLedgerPath?await readJson(auditLedgerPath,{familyStats:{}}):{familyStats:{}};
   const forward=forwardPath?await readJson(forwardPath,null):null;
   if(edge.paperOnly!==true||edge.liveOrders!==false||edge.executionAuthority!==false||edge.capitalEligible!==false) throw new Error('edge_boundary_unverified');
   if(forward&&!(forward.paperOnly===true&&forward.liveOrders===false&&forward.executionAuthority===false&&forward.capitalEligible===false)) throw new Error('forward_boundary_unverified');
@@ -103,7 +103,8 @@ async function main(){
   const durableKilled=new Set(Object.keys(deepLedger?.killed??{}));
   if(override)durableKilled.add(override.hypothesisKey);
   const forwardEnrolled=new Set((forward?.families??[]).map(f=>f.familyKey).filter(Boolean));
-  const eligible=sources.filter(x=>!durableKilled.has(x.hypothesisKey)&&!forwardEnrolled.has(x.hypothesisKey));
+  const auditExhausted=new Set(Object.entries(auditLedger?.familyStats??{}).filter(([,v])=>v?.status==='AUDIT_BUDGET_EXHAUSTED').map(([k])=>k));
+  const eligible=sources.filter(x=>!durableKilled.has(x.hypothesisKey)&&!forwardEnrolled.has(x.hypothesisKey)&&!auditExhausted.has(x.hypothesisKey));
   const ranked=bestPerHypothesis(eligible);
   const queue=[];
   for(const source of ranked.slice(0,6)){
@@ -114,8 +115,9 @@ async function main(){
   }
   const deepOverrides=[...durableKilled].map(hypothesisKey=>({hypothesisKey,action:'SUPPRESS_DEEP_REJECTED',ledger:deepLedger?.killed?.[hypothesisKey]??(override?.hypothesisKey===hypothesisKey?override:null)}));
   const forwardSuppressed=[...forwardEnrolled].map(hypothesisKey=>({hypothesisKey,action:'SUPPRESS_FORWARD_ENROLLED',reason:'Family already has a frozen forward champion. Continue collecting new data there while research capacity searches for an independent edge.'}));
-  const snapshot={ok:true,version:'edge_hypothesis_generator_v5_parallel_discovery',mode:'RESEARCH_ONLY',paperOnly:true,liveOrders:false,executionAuthority:false,capitalEligible:false,completedAt:new Date().toISOString(),methodology:{selectionUsesHoldout:false,balancedNeighborhood:true,parentControl:true,deepValidationOverridesShortWindow:true,durableDeepMemory:true,forwardEnrolledSuppression:true,oneParentPerHypothesis:true},sourceVerdict:edge.verdict,queueSize:queue.length,deepOverrides,forwardSuppressed,focus:ranked[0]?{hypothesisKey:ranked[0].hypothesisKey,variantKey:ranked[0].variantKey??null,market:ranked[0].market,candidate:ranked[0].candidate,status:ranked[0].status,researchScore:ranked[0].researchScore,sentinelCritique:sentinelCritique(ranked[0])}:null,queue:queue.slice(0,30)};
+  const auditSuppressed=[...auditExhausted].map(hypothesisKey=>({hypothesisKey,action:'SUPPRESS_AUDIT_BUDGET_EXHAUSTED',familyStats:auditLedger?.familyStats?.[hypothesisKey]??null,reason:'Family exhausted its one-shot holdout audit budget without a pass. Do not keep fishing the same holdout.'}));
+  const snapshot={ok:true,version:'edge_hypothesis_generator_v6_audit_budget',mode:'RESEARCH_ONLY',paperOnly:true,liveOrders:false,executionAuthority:false,capitalEligible:false,completedAt:new Date().toISOString(),methodology:{selectionUsesHoldout:false,balancedNeighborhood:true,parentControl:true,deepValidationOverridesShortWindow:true,durableDeepMemory:true,forwardEnrolledSuppression:true,oneParentPerHypothesis:true,auditBudgetSuppression:true},sourceVerdict:edge.verdict,queueSize:queue.length,deepOverrides,forwardSuppressed,auditSuppressed,focus:ranked[0]?{hypothesisKey:ranked[0].hypothesisKey,variantKey:ranked[0].variantKey??null,market:ranked[0].market,candidate:ranked[0].candidate,status:ranked[0].status,researchScore:ranked[0].researchScore,sentinelCritique:sentinelCritique(ranked[0])}:null,queue:queue.slice(0,30)};
   await mkdir(dirname(out),{recursive:true});await writeFile(out,JSON.stringify(snapshot,null,2)+'\n');await appendFile(history,JSON.stringify(snapshot)+'\n');
-  console.log(JSON.stringify({ok:true,queueSize:snapshot.queueSize,focus:snapshot.focus?.hypothesisKey??null,deepKilled:deepOverrides.length,forwardSuppressed:forwardSuppressed.length,selectionUsesHoldout:false}));
+  console.log(JSON.stringify({ok:true,queueSize:snapshot.queueSize,focus:snapshot.focus?.hypothesisKey??null,deepKilled:deepOverrides.length,forwardSuppressed:forwardSuppressed.length,auditSuppressed:auditSuppressed.length,selectionUsesHoldout:false}));
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});
