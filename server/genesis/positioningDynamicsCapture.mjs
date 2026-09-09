@@ -1,12 +1,17 @@
 // RESEARCH_ONLY synchronized derivatives-positioning capture for BTCUSDT.
-// Public read-only Binance USDⓈ-M data only. Never places orders or changes trading gates.
+// Public read-only OKX data only. Never places orders or changes trading gates.
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { getContext } from './derivativesContext.mjs';
+import { getOkxResearchContexts } from './okxResearchContext.mjs';
 
-const FUTS = 'https://fapi.binance.com';
-const PRICE_ENDPOINT = '/fapi/v1/klines';
+const OKX = 'https://www.okx.com';
+const OKX_ENDPOINTS = {
+  price: `${OKX}/api/v5/market/candles`,
+  openInterest: `${OKX}/api/v5/public/open-interest`,
+  taker: `${OKX}/api/v5/market/trades`,
+  funding: `${OKX}/api/v5/public/funding-rate-history`,
+};
 
 function finite(value) {
   const n = Number(value);
@@ -27,6 +32,9 @@ function ageMs(capturedAtMs, sourceTimeMs) {
 export function buildPositioningObservation(context, closedKline, {
   capturedAtMs = Date.now(),
   symbol = 'BTCUSDT',
+  provider = 'okx_public_market_data',
+  endpoints = OKX_ENDPOINTS,
+  openInterestUnit = 'SOURCE_NATIVE_UNITS',
 } = {}) {
   if (!context?.raw) throw new Error('Positioning context missing raw provenance rows');
   if (!Array.isArray(closedKline) || closedKline.length < 7) throw new Error('Closed price kline missing');
@@ -53,7 +61,7 @@ export function buildPositioningObservation(context, closedKline, {
   const agesMs = Object.fromEntries(Object.entries(sourceTimes).map(([key, value]) => [key, ageMs(capturedAtMs, value)]));
 
   // Fail closed on impossible/future or materially stale observations. These ceilings reflect
-  // the native cadence of each public series, not strategy thresholds.
+  // native series cadence and evidence quality only; they are not trading/promotion thresholds.
   const maxAgeMs = {
     price: 5 * 60_000,
     openInterest: 15 * 60_000,
@@ -65,10 +73,13 @@ export function buildPositioningObservation(context, closedKline, {
     if (!Number.isFinite(agesMs[key]) || agesMs[key] > maxAgeMs[key]) throw new Error(`${key} source stale`);
   }
 
+  const oiValue = finite(oi.oi ?? oi.oiUsd);
+  if (!Number.isFinite(oiValue)) throw new Error('Open interest value missing');
+
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     mode: 'RESEARCH_ONLY',
-    provider: 'binance_usdm_public',
+    provider,
     symbol,
     capturedAt: new Date(capturedAtMs).toISOString(),
     price: {
@@ -78,7 +89,7 @@ export function buildPositioningObservation(context, closedKline, {
       close: priceClose,
     },
     positioning: {
-      oiUsdNow: finite(oi.oiUsd),
+      openInterest: { value: oiValue, unit: openInterestUnit },
       oiRecentChangePct: finite(context.oiRecentChangePct),
       oiAccelerationPct: finite(context.oiAccelerationPct),
       takerBuySellRatioNow: finite(taker.buySellRatio),
@@ -91,40 +102,37 @@ export function buildPositioningObservation(context, closedKline, {
       fundingCrowd: context.fundingCrowd ?? 'unknown',
       premiumNowBps: finite(context.premiumNowBps),
       premiumImpulseBps: finite(context.premiumImpulseBps),
+      volatilityState: context.volatilityState ?? 'unknown',
+      volatilityExpansionRatio: finite(context.volatilityExpansionRatio),
     },
     provenance: {
       securityType: 'PUBLIC_READ_ONLY_NO_API_KEY',
-      endpoints: {
-        price: `${FUTS}${PRICE_ENDPOINT}`,
-        openInterest: `${FUTS}/futures/data/openInterestHist`,
-        taker: `${FUTS}/futures/data/takerlongshortRatio`,
-        funding: `${FUTS}/fapi/v1/fundingRate`,
-      },
+      endpoints,
+      instrument: 'BTC-USDT-SWAP',
       sourceTimes: Object.fromEntries(Object.entries(sourceTimes).map(([key, value]) => [key, new Date(value).toISOString()])),
       agesMs,
       maxAgeMs,
       closedPriceBarOnly: true,
+      note: 'openInterest.value preserves provider-native contract units; no USD-notional relabeling',
     },
     researchUse: 'OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING',
   };
 }
 
-async function getClosedKline(symbol) {
-  const url = `${FUTS}${PRICE_ENDPOINT}?symbol=${encodeURIComponent(symbol)}&interval=1m&limit=3`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
-  if (!res.ok) throw new Error(`HTTP ${res.status} for ${PRICE_ENDPOINT}`);
-  const rows = await res.json();
-  if (!Array.isArray(rows)) throw new Error('Binance price response malformed');
-  const now = Date.now();
-  const closed = rows.filter(row => Number(row?.[6]) <= now).sort((a, b) => Number(a[0]) - Number(b[0])).at(-1);
-  if (!closed) throw new Error('No closed 1m kline available');
-  return closed;
-}
-
 export async function capturePositioning({ symbol = 'BTCUSDT', out, jsonl } = {}) {
   const upper = symbol.toUpperCase();
-  const [context, kline] = await Promise.all([getContext(upper), getClosedKline(upper)]);
-  const payload = buildPositioningObservation(context, kline, { capturedAtMs: Date.now(), symbol: upper });
+  const contexts = await getOkxResearchContexts(upper, { points: 120 });
+  const context = contexts.derivatives;
+  const bar = context?.raw?.volatility?.at(-1);
+  if (!bar) throw new Error('No confirmed OKX 1m perpetual bar available');
+  const kline = [bar.time, bar.open, bar.high, bar.low, bar.close, bar.volumeQuote, Number(bar.time) + 59_999];
+  const payload = buildPositioningObservation(context, kline, {
+    capturedAtMs: Date.now(),
+    symbol: upper,
+    provider: 'okx_public_market_data',
+    endpoints: OKX_ENDPOINTS,
+    openInterestUnit: 'CONTRACTS',
+  });
 
   if (out) {
     fs.mkdirSync(path.dirname(out), { recursive: true });
