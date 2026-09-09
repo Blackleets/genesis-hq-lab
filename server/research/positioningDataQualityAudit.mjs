@@ -18,7 +18,11 @@ function takerWindowMs(row) {
   return finite(row?.positioning?.takerWindowMs) ?? finite(row?.provenance?.takerWindowMs);
 }
 
-export function auditPositioningRows(rows = [], { expectedSchemaVersion = 4, maxGapMinutes = 60 } = {}) {
+export function auditPositioningRows(rows = [], {
+  expectedSchemaVersion = 4,
+  maxGapMinutes = 60,
+  minIndependentRowsForPredeclaredStudy = 20,
+} = {}) {
   const parsed = rows.filter(row => row && typeof row === 'object');
   const schemaCounts = {};
   for (const row of parsed) {
@@ -79,8 +83,12 @@ export function auditPositioningRows(rows = [], { expectedSchemaVersion = 4, max
     && excessiveGaps === 0
     && effectiveRatio >= 0.95;
 
+  const minimumRows = Math.max(1, Math.floor(Number(minIndependentRowsForPredeclaredStudy) || 20));
+  const remainingIndependentRows = Math.max(0, minimumRows - independentCount);
+  const readyForPredeclaredStudy = qualityPass && independentCount >= minimumRows;
+
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     mode: 'RESEARCH_ONLY',
     researchUse: 'DATA_QUALITY_ONLY_NOT_FOR_RANKING',
     expectedSchemaVersion,
@@ -99,6 +107,14 @@ export function auditPositioningRows(rows = [], { expectedSchemaVersion = 4, max
     firstEligibleCapturedAt: eligibleBase[0]?.capturedAt ?? null,
     lastEligibleCapturedAt: eligibleBase.at(-1)?.capturedAt ?? null,
     qualityPass,
+    readiness: {
+      purpose: 'MINIMUM_COHORT_SIZE_TO_BEGIN_PREDECLARED_STUDY_NOT_A_TRADING_GATE',
+      minimumIndependentRows: minimumRows,
+      remainingIndependentRows,
+      readyForPredeclaredStudy,
+      holdoutStillSealed: true,
+      rankingAllowed: false,
+    },
     boundaries: {
       holdoutUsedForRanking: false,
       liveTradingEnabled: false,
