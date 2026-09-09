@@ -29,6 +29,57 @@ function ageMs(capturedAtMs, sourceTimeMs) {
   return Number.isFinite(sourceTimeMs) ? Math.max(0, capturedAtMs - sourceTimeMs) : null;
 }
 
+export function deriveCrossCapturePositioningFeatures(previous, current, { maxGapMinutes = 60 } = {}) {
+  if (!previous || !current) return { available: false, reason: 'NO_PRIOR_CAPTURE' };
+  if (previous.mode !== 'RESEARCH_ONLY' || current.mode !== 'RESEARCH_ONLY') {
+    return { available: false, reason: 'MODE_MISMATCH' };
+  }
+  if (previous.provider !== current.provider || previous.symbol !== current.symbol) {
+    return { available: false, reason: 'SERIES_MISMATCH' };
+  }
+
+  const previousMs = Date.parse(previous.capturedAt);
+  const currentMs = Date.parse(current.capturedAt);
+  const elapsedMs = currentMs - previousMs;
+  if (!Number.isFinite(previousMs) || !Number.isFinite(currentMs) || elapsedMs <= 0) {
+    return { available: false, reason: 'NON_CAUSAL_TIME_ORDER' };
+  }
+  if (elapsedMs > maxGapMinutes * 60_000) {
+    return { available: false, reason: 'PRIOR_CAPTURE_TOO_OLD', elapsedMinutes: elapsedMs / 60_000 };
+  }
+
+  const previousOi = finite(previous.positioning?.openInterest?.value);
+  const currentOi = finite(current.positioning?.openInterest?.value);
+  const previousTaker = finite(previous.positioning?.takerBuySellRatioNow);
+  const currentTaker = finite(current.positioning?.takerBuySellRatioNow);
+  const previousFunding = finite(previous.positioning?.fundingRateNow);
+  const currentFunding = finite(current.positioning?.fundingRateNow);
+  const previousPremium = finite(previous.positioning?.premiumNowBps);
+  const currentPremium = finite(current.positioning?.premiumNowBps);
+  const previousClose = finite(previous.price?.close);
+  const currentClose = finite(current.price?.close);
+
+  if (![previousOi, currentOi, previousTaker, currentTaker, previousFunding, currentFunding, previousPremium, currentPremium, previousClose, currentClose].every(Number.isFinite)) {
+    return { available: false, reason: 'MISSING_REQUIRED_FEATURE' };
+  }
+  if (previousOi <= 0 || previousClose <= 0 || currentClose <= 0) {
+    return { available: false, reason: 'INVALID_DENOMINATOR' };
+  }
+
+  return {
+    available: true,
+    priorCapturedAt: previous.capturedAt,
+    elapsedMinutes: elapsedMs / 60_000,
+    oiChangePct: ((currentOi / previousOi) - 1) * 100,
+    takerBuySellRatioDelta: currentTaker - previousTaker,
+    fundingDeltaBps: (currentFunding - previousFunding) * 10_000,
+    premiumDeltaBps: currentPremium - previousPremium,
+    perpReturnBps: Math.log(currentClose / previousClose) * 10_000,
+    causal: true,
+    researchUse: 'OBSERVATIONAL_ONLY_NOT_FOR_RANKING',
+  };
+}
+
 export function buildPositioningObservation(context, closedKline, {
   capturedAtMs = Date.now(),
   symbol = 'BTCUSDT',
@@ -77,7 +128,7 @@ export function buildPositioningObservation(context, closedKline, {
   if (!Number.isFinite(oiValue)) throw new Error('Open interest value missing');
 
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     mode: 'RESEARCH_ONLY',
     provider,
     symbol,
@@ -105,6 +156,7 @@ export function buildPositioningObservation(context, closedKline, {
       volatilityState: context.volatilityState ?? 'unknown',
       volatilityExpansionRatio: finite(context.volatilityExpansionRatio),
     },
+    crossCapture: { available: false, reason: 'NOT_DERIVED_YET' },
     provenance: {
       securityType: 'PUBLIC_READ_ONLY_NO_API_KEY',
       endpoints,
@@ -113,10 +165,21 @@ export function buildPositioningObservation(context, closedKline, {
       agesMs,
       maxAgeMs,
       closedPriceBarOnly: true,
+      crossCaptureUsesStrictlyPriorDurableObservation: true,
       note: 'openInterest.value preserves provider-native contract units; no USD-notional relabeling',
     },
     researchUse: 'OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING',
   };
+}
+
+function readLastJsonlObservation(jsonl) {
+  if (!jsonl) return null;
+  try {
+    const last = fs.readFileSync(jsonl, 'utf8').trim().split('\n').filter(Boolean).at(-1);
+    return last ? JSON.parse(last) : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function capturePositioning({ symbol = 'BTCUSDT', out, jsonl } = {}) {
@@ -134,17 +197,16 @@ export async function capturePositioning({ symbol = 'BTCUSDT', out, jsonl } = {}
     openInterestUnit: 'CONTRACTS',
   });
 
+  const prior = readLastJsonlObservation(jsonl);
+  payload.crossCapture = deriveCrossCapturePositioningFeatures(prior, payload);
+
   if (out) {
     fs.mkdirSync(path.dirname(out), { recursive: true });
     fs.writeFileSync(out, `${JSON.stringify(payload, null, 2)}\n`);
   }
   if (jsonl) {
     fs.mkdirSync(path.dirname(jsonl), { recursive: true });
-    let duplicate = false;
-    try {
-      const last = fs.readFileSync(jsonl, 'utf8').trim().split('\n').at(-1);
-      if (last) duplicate = JSON.parse(last)?.price?.closeTime === payload.price.closeTime;
-    } catch { /* first write */ }
+    const duplicate = prior?.price?.closeTime === payload.price.closeTime;
     if (!duplicate) fs.appendFileSync(jsonl, `${JSON.stringify(payload)}\n`);
   }
   return payload;
