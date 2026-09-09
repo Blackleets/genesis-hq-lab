@@ -1,0 +1,132 @@
+{
+  "capitalEligible": false,
+  "coverage": {
+    "market": {
+      "coverage": 1.0,
+      "expected": 672,
+      "hardFailures": 0,
+      "ok": 672
+    },
+    "oi": {
+      "BTCUSDT": {
+        "coverage": 1.0,
+        "expected": 1704,
+        "missingDays": [],
+        "ok": 1704
+      },
+      "ETHUSDT": {
+        "coverage": 1.0,
+        "expected": 1704,
+        "missingDays": [],
+        "ok": 1704
+      },
+      "SOLUSDT": {
+        "coverage": 1.0,
+        "expected": 1704,
+        "missingDays": [],
+        "ok": 1704
+      }
+    }
+  },
+  "engineVersion": "cta_futures_native_v2",
+  "executionAuthority": false,
+  "holdout": null,
+  "holdoutState": "SEALED",
+  "hypothesisFingerprint": "13308ee022a34bcefbccbc6ef543482e0070c1a973d8cdf1d2095624541c518e",
+  "liveOrders": false,
+  "paperOnly": true,
+  "proposalId": "8461e67c-783a-46e5-a0ee-93cd6380ebad",
+  "researchOnly": true,
+  "schemaVersion": 1,
+  "sourceCommit": "e839ce20993e59f3e1d3cd4658f8597b8ff7ae4e",
+  "sourceEvidenceHashSha256": "d0a2082ea1786fb879d763bb2cca6fd31d8dfdf25ef373d2bfef7e3ffc3a1c92",
+  "strategyVersion": "v2-vision-oi-frozen",
+  "validation": {
+    "expectancyPct": -0.084702,
+    "half1ExpectancyPct": -0.017777,
+    "half2ExpectancyPct": -0.151627,
+    "losses": 473,
+    "maxDrawdownPct": 56.424511,
+    "mcP5TotalReturnPct": -144.999273,
+    "n": 782,
+    "portfolioHourlyObservations": 10225,
+    "portfolioTotalReturnPct": -54.896956,
+    "profitFactor": 0.851211,
+    "tStat": -1.388044,
+    "winRate": 0.395141,
+    "wins": 309
+  },
+  "validationGate": {
+    "gates": [
+      {
+        "code": "MIN_TRADES",
+        "observed": 782,
+        "pass": true,
+        "required": 50
+      },
+      {
+        "code": "WIN_RATE",
+        "observed": 0.395141,
+        "pass": false,
+        "required": 0.4
+      },
+      {
+        "code": "PROFIT_FACTOR",
+        "observed": 0.851211,
+        "pass": false,
+        "required": 1.3
+      },
+      {
+        "code": "EXPECTANCY",
+        "observed": -0.084702,
+        "pass": false,
+        "required": 0.05
+      },
+      {
+        "code": "T_STAT",
+        "observed": -1.388044,
+        "pass": false,
+        "required": 2.0
+      },
+      {
+        "code": "MAX_DRAWDOWN",
+        "observed": 56.424511,
+        "pass": false,
+        "required": 25.0
+      },
+      {
+        "code": "TEMPORAL_HALVES",
+        "observed": [
+          -0.017777,
+          -0.151627
+        ],
+        "pass": false,
+        "required": "both_positive"
+      },
+      {
+        "code": "MC_P5",
+        "observed": -144.999273,
+        "pass": false,
+        "required": ">0"
+      },
+      {
+        "code": "VALIDATION_FOLDS",
+        "observed": {
+          "expectancyPct": [
+            -0.105376,
+            -0.019126,
+            -0.125499
+          ],
+          "positive": 0
+        },
+        "pass": false,
+        "required": ">=2/3_positive"
+      }
+    ],
+    "pass": false,
+    "passed": 1,
+    "total": 9
+  },
+  "verdict": "NO_GO",
+  "workflowRunId": "34326862075"
+}
