@@ -162,4 +162,7 @@ jobs:
             exit 0
           fi
           git commit -m "research verdict ${GITHUB_SHA:0:12}"
-          git push
+          # capture-tape is append-heavy and may advance while this run computes.
+          # Rebase our isolated evidence commit before push instead of losing the verdict.
+          git pull --rebase origin capture-tape
+          git push origin HEAD:capture-tape
