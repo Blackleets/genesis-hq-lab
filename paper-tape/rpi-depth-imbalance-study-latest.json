@@ -1,9 +1,9 @@
 {
-  "studyVersion": 1,
+  "studyVersion": 2,
   "mode": "RESEARCH_ONLY",
-  "protocolSha256": "e3d25b4878c3e3846c7d175c7adc0717f50b9d50b3e33a6b9cf3145f83f4496b",
+  "protocolSha256": "9324c618ad5be5701c5f5747b5bf93c2a866a71c46856b455961f2f68cb81d11",
   "protocol": {
-    "studyVersion": 1,
+    "studyVersion": 2,
     "hypothesis": "Extreme OKX RPI depth imbalance predicts same-direction BTC-USDT-SWAP mid-price return 10-25m later net of fixed round-trip costs.",
     "signal": {
       "longMinImbalance": 0.6,
@@ -13,6 +13,8 @@
       600000,
       1500000
     ],
+    "independenceEmbargoMs": 1500000,
+    "independencePolicy": "ACCEPT_FIRST_MATURED_SIGNAL_THEN_EMBARGO_NEW_ENTRIES_FOR_FULL_MAX_FORWARD_WINDOW",
     "roundTripCostBps": 10,
     "sequentialSplits": {
       "discovery": 60,
@@ -25,11 +27,19 @@
       "winRateMin": 0.55,
       "profitFactorMin": 1.2
     },
-    "holdoutPolicy": "SEALED_UNTIL_120_MATURED_SIGNALS_AND_NEVER_USED_FOR_RANKING_OR_TUNING",
+    "holdoutPolicy": "SEALED_UNTIL_120_INDEPENDENT_MATURED_SIGNALS_AND_NEVER_USED_FOR_RANKING_OR_TUNING",
     "researchBoundary": "RESEARCH_ONLY_NOT_IN_H1_NOT_FORWARD_PAPER"
   },
-  "rawSnapshotCount": 3,
+  "rawSnapshotCount": 4,
+  "rawMaturedSignalCount": 0,
   "maturedSignalCount": 0,
+  "independence": {
+    "policy": "ACCEPT_FIRST_MATURED_SIGNAL_THEN_EMBARGO_NEW_ENTRIES_FOR_FULL_MAX_FORWARD_WINDOW",
+    "embargoMs": 1500000,
+    "acceptedCount": 0,
+    "rejectedOverlapCount": 0,
+    "rejected": []
+  },
   "sequentialAllocation": {
     "discoveryCount": 0,
     "validationCount": 0,
