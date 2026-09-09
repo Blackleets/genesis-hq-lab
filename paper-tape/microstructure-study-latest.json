@@ -2,6 +2,13 @@
   "studyVersion": 2,
   "protocolHash": "8f099b162a53ddf28c5ac3515b107e03a2bd48594b16e0c2b98de0c0f46935dd",
   "mode": "RESEARCH_ONLY",
+  "dataEligibility": {
+    "policy": "DURABLE_SCHEMA_6_PLUS; OKX_REQUIRES_FIXED_60S_TAKER_WITH_90PCT_COVERAGE",
+    "durableRowCount": 37,
+    "admissibleDurableRowCount": 2,
+    "rejectedLegacyOrUnprovenancedRows": 35,
+    "holdoutUsedForRanking": false
+  },
   "predeclaredHypothesis": "H1: OI expansion + directional taker acceleration + basis alignment, excluding volatility shock, predicts same-direction 10-25m perp return net of fixed costs.",
   "controlDefinition": "Strong same-direction taker pressure under identical safety/volatility constraints, excluding full H1 confluence. Tests incremental value of OI acceleration + basis/funding alignment beyond taker pressure alone.",
   "thresholds": {
@@ -27,71 +34,14 @@
   "profitFactor": null,
   "observations": [],
   "control": {
-    "observationCount": 4,
-    "meanNetBps": -13.592435857786569,
-    "medianNetBps": -4.902125889592037,
-    "winRate": 0,
-    "profitFactor": 0,
+    "observationCount": 0,
+    "meanNetBps": null,
+    "medianNetBps": null,
+    "winRate": null,
+    "profitFactor": null,
     "sufficient": false,
     "minRequired": 30,
-    "observations": [
-      {
-        "cohort": "TAKER_ONLY_CONTROL",
-        "entryAt": "2026-09-09T10:47:39.414Z",
-        "exitAt": "2026-09-09T11:01:29.083Z",
-        "provider": "okx",
-        "symbol": "BTCUSDT",
-        "side": "LONG",
-        "entryPx": 78995.3,
-        "exitPx": 78856.4,
-        "horizonMs": 829669,
-        "grossBps": -17.583324577539194,
-        "costBps": 10,
-        "netBps": -27.583324577539194
-      },
-      {
-        "cohort": "TAKER_ONLY_CONTROL",
-        "entryAt": "2026-09-09T11:01:29.083Z",
-        "exitAt": "2026-09-09T11:14:45.457Z",
-        "provider": "okx",
-        "symbol": "BTCUSDT",
-        "side": "SHORT",
-        "entryPx": 78856.4,
-        "exitPx": 78816.2,
-        "horizonMs": 796374,
-        "grossBps": 5.097874110407963,
-        "costBps": 10,
-        "netBps": -4.902125889592037
-      },
-      {
-        "cohort": "TAKER_ONLY_CONTROL",
-        "entryAt": "2026-09-09T12:51:41.036Z",
-        "exitAt": "2026-09-09T13:01:47.008Z",
-        "provider": "okx",
-        "symbol": "BTCUSDT",
-        "side": "SHORT",
-        "entryPx": 79585,
-        "exitPx": 79505.5,
-        "horizonMs": 605972,
-        "grossBps": 9.989319595401502,
-        "costBps": 10,
-        "netBps": -0.010680404598497617
-      },
-      {
-        "cohort": "TAKER_ONLY_CONTROL",
-        "entryAt": "2026-09-09T21:33:46.629Z",
-        "exitAt": "2026-09-09T21:56:20.802Z",
-        "provider": "okx",
-        "symbol": "BTCUSDT",
-        "side": "LONG",
-        "entryPx": 78156.5,
-        "exitPx": 78063.7,
-        "horizonMs": 1354173,
-        "grossBps": -11.873612559416546,
-        "costBps": 10,
-        "netBps": -21.873612559416546
-      }
-    ]
+    "observations": []
   },
   "upliftMeanNetBps": null,
   "upliftWinRate": null,
