@@ -5,11 +5,13 @@
 //   - Global long/short accounts GET /futures/data/globalLongShortAccountRatio
 //   - Top trader position ratio  GET /futures/data/topLongShortPositionRatio
 //   - Taker buy/sell volume      GET /futures/data/takerlongshortRatio  (order-flow delta proxy)
+//   - Funding rate history       GET /fapi/v1/fundingRate
 // Sentiment:
 //   - Fear & Greed Index         GET https://api.alternative.me/fng/?limit=N
 //
 // Purpose: give strategies/regime filters access to POSITIONING data, not just price.
 // All fetchers are read-only public data; cached to disk like candle_cache.
+// Funding is exposed as research context only; it is not an execution signal by itself.
 //
 // Usage (CLI):
 //   node derivativesContext.mjs context COTIUSDT     # full snapshot JSON
@@ -31,7 +33,7 @@ const FNG = 'https://api.alternative.me/fng/';
 
 const TTL_MS = 10 * 60 * 1000; // 10 min cache for positioning snapshots
 
-// fapi /futures/data/* endpoints: IP weight 1 each on Binance futures.
+// fapi market-data endpoints draw from the shared public-IP budget.
 const FAPI_WEIGHT = 1;
 
 async function jget(u, weight = FAPI_WEIGHT) {
@@ -68,6 +70,62 @@ export async function getOpenInterestHistory(symbol, points = 48) {
   }));
   cacheSet(key, out);
   return out;
+}
+
+/** Historical USDⓈ-M perpetual funding rates (normally one observation per funding interval). */
+export async function getFundingRateHistory(symbol, points = 30) {
+  const limit = Math.max(1, Math.min(points, 1000));
+  const key = `funding_${symbol}_${limit}`;
+  const hit = cacheGet(key);
+  if (hit) return hit;
+  const data = await jget(`${FUTS}/fapi/v1/fundingRate?symbol=${symbol}&limit=${limit}`);
+  const out = data.map(d => ({
+    time: +d.fundingTime,
+    rate: +d.fundingRate,
+    markPrice: d.markPrice == null ? null : +d.markPrice,
+  })).filter(d => Number.isFinite(d.time) && Number.isFinite(d.rate));
+  cacheSet(key, out);
+  return out;
+}
+
+/**
+ * Pure funding feature derivation so research/tests can evaluate the feature without network access.
+ * Rates remain decimals (0.0001 = 1 bp per funding event).
+ */
+export function deriveFundingFeatures(rows = []) {
+  const rates = rows.map(r => Number(r?.rate)).filter(Number.isFinite);
+  if (!rates.length) {
+    return {
+      fundingRateNow: null,
+      fundingAvg: null,
+      fundingAbsAvg: null,
+      fundingPositiveShare: null,
+      fundingCumulative: null,
+      fundingCrowd: 'unknown',
+    };
+  }
+
+  const latest = rates[rates.length - 1];
+  const avg = rates.reduce((sum, rate) => sum + rate, 0) / rates.length;
+  const absAvg = rates.reduce((sum, rate) => sum + Math.abs(rate), 0) / rates.length;
+  const positiveShare = rates.filter(rate => rate > 0).length / rates.length;
+  const cumulative = rates.reduce((sum, rate) => sum + rate, 0);
+
+  // This labels persistent payer-side pressure, not trade direction.
+  // 1 bp/event is intentionally a conservative descriptive threshold.
+  const crowdThreshold = 0.0001;
+  const fundingCrowd = avg >= crowdThreshold ? 'long_payers'
+    : avg <= -crowdThreshold ? 'short_payers'
+    : 'balanced';
+
+  return {
+    fundingRateNow: +latest.toFixed(8),
+    fundingAvg: +avg.toFixed(8),
+    fundingAbsAvg: +absAvg.toFixed(8),
+    fundingPositiveShare: +positiveShare.toFixed(4),
+    fundingCumulative: +cumulative.toFixed(8),
+    fundingCrowd,
+  };
 }
 
 /** Global long/short account ratio (all traders). */
@@ -108,13 +166,15 @@ export async function getFearGreed(days = 30) {
  *  - oiChangePct:    OI expansion/contraction over the window
  *  - crowdSide:      where retail accounts lean ('long'|'short'|'neutral')
  *  - takerBias:      avg taker buy/sell over recent hours (>1 = aggressive buying)
+ *  - funding*:       payer-side pressure; descriptive RESEARCH_ONLY context
  *  - fearGreedNow:   current sentiment value
  */
-export async function getContext(symbol, { oiPoints = 48 } = {}) {
-  const [oi, gls, taker, fng] = await Promise.all([
+export async function getContext(symbol, { oiPoints = 48, fundingPoints = 30 } = {}) {
+  const [oi, gls, taker, funding, fng] = await Promise.all([
     getOpenInterestHistory(symbol, oiPoints),
     getGlobalLongShort(symbol, 24),
     getTakerFlow(symbol, 12),
+    getFundingRateHistory(symbol, fundingPoints),
     getFearGreed(30),
   ]);
   const first = oi[0]?.oiUsd ?? 0;
@@ -128,6 +188,7 @@ export async function getContext(symbol, { oiPoints = 48 } = {}) {
     : 'neutral';
 
   const takerAvg = taker.length ? +(taker.reduce((s, d) => s + d.buySellRatio, 0) / taker.length).toFixed(3) : null;
+  const fundingFeatures = deriveFundingFeatures(funding);
   const fngNow = fng[fng.length - 1] ?? null;
   const fngAvg30 = fng.length ? +(fng.reduce((s, d) => s + d.value, 0) / fng.length).toFixed(1) : null;
 
@@ -139,10 +200,11 @@ export async function getContext(symbol, { oiPoints = 48 } = {}) {
     crowdSide,
     crowdRatio: latestGls?.ratio ?? null,
     takerBias: takerAvg,
+    ...fundingFeatures,
     fearGreedNow: fngNow?.value ?? null,
     fearGreedLabel: fngNow?.label ?? null,
     fearGreedAvg30: fngAvg30,
-    raw: { oi, gls, taker },
+    raw: { oi, gls, taker, funding },
   };
 }
 
