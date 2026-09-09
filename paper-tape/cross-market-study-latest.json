@@ -1,0 +1,72 @@
+{
+  "studyVersion": 1,
+  "mode": "RESEARCH_ONLY",
+  "protocolSha256": "7d13b32ba87f987b329df14823a919d14c34887f10681e65f3e0aa5a72739670",
+  "protocol": {
+    "studyVersion": 1,
+    "hypothesis": "A material 1m BTC spot/perpetual return disagreement predicts partial perpetual catch-up over the next 10-25m net of fixed round-trip costs.",
+    "signal": {
+      "longPerpMaxSpreadBps": -2,
+      "shortPerpMinSpreadBps": 2
+    },
+    "maturityWindowMs": [
+      600000,
+      1500000
+    ],
+    "independenceEmbargoMs": 1500000,
+    "independencePolicy": "ACCEPT_FIRST_MATURED_SIGNAL_THEN_EMBARGO_NEW_ENTRIES_FOR_FULL_MAX_FORWARD_WINDOW",
+    "roundTripCostBps": 10,
+    "sequentialSplits": {
+      "discovery": 60,
+      "validation": 30,
+      "holdout": 30
+    },
+    "validationGates": {
+      "meanNetBpsMin": 2,
+      "medianNetBpsMin": 0,
+      "winRateMin": 0.55,
+      "profitFactorMin": 1.2
+    },
+    "holdoutPolicy": "SEALED_UNTIL_120_INDEPENDENT_MATURED_SIGNALS_AND_NEVER_USED_FOR_RANKING_OR_TUNING",
+    "rankingPolicy": "DISCOVERY_AND_VALIDATION_ONLY; HOLDOUT NEVER RANKS OR TUNES",
+    "provenanceRequirement": "OKX_PUBLIC_CONFIRMED_1M_SPOT_AND_SWAP_BARS_ALIGNED_BY_OPEN_TIME",
+    "researchBoundary": "RESEARCH_ONLY_NOT_IN_H1_NOT_FORWARD_PAPER"
+  },
+  "rawSnapshotCount": 2,
+  "rawMaturedSignalCount": 0,
+  "maturedSignalCount": 0,
+  "independence": {
+    "policy": "ACCEPT_FIRST_MATURED_SIGNAL_THEN_EMBARGO_NEW_ENTRIES_FOR_FULL_MAX_FORWARD_WINDOW",
+    "embargoMs": 1500000,
+    "acceptedCount": 0,
+    "rejectedOverlapCount": 0,
+    "rejected": []
+  },
+  "sequentialAllocation": {
+    "discoveryCount": 0,
+    "validationCount": 0,
+    "holdoutCount": 0
+  },
+  "discovery": {
+    "count": 0,
+    "meanNetBps": null,
+    "medianNetBps": null,
+    "winRate": null,
+    "profitFactor": null
+  },
+  "validation": {
+    "count": 0,
+    "meanNetBps": null,
+    "medianNetBps": null,
+    "winRate": null,
+    "profitFactor": null
+  },
+  "holdout": {
+    "status": "SEALED",
+    "count": 0,
+    "metrics": null
+  },
+  "candidateStatus": "ACCUMULATING_DISCOVERY",
+  "forwardPaperEligible": false,
+  "observations": []
+}
