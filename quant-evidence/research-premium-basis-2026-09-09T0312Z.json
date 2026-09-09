@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "kind": "research_context_evidence",
+  "capturedAt": "2026-09-09T03:12:34Z",
+  "mode": "RESEARCH_ONLY",
+  "executionBoundary": {
+    "liveTradingEnabled": false,
+    "realOrdersPlaced": false,
+    "realTradingConfirmationsChanged": false,
+    "auditGatesLowered": false,
+    "forwardPaperEnrolled": false
+  },
+  "change": {
+    "feature": "usd_m_perpetual_premium_index_history",
+    "implementationCommit": "8280118d85b69ed0990b65d8091375e397bfbe5a",
+    "testCommit": "04368222f6faf2c675c3cd7f0f775403e64ed745",
+    "sourceModule": "server/genesis/derivativesContext.mjs",
+    "testModule": "server/tests/derivativesContext.test.mjs"
+  },
+  "dataAvailability": {
+    "venue": "Binance USD-M Futures",
+    "symbol": "BTCUSDT",
+    "endpoint": "/fapi/v1/premiumIndexKlines",
+    "interval": "1h",
+    "observations": 24,
+    "fieldsUsed": ["openTime", "open", "high", "low", "close"],
+    "observedMetrics": {
+      "premiumNowBps": -5.4042,
+      "premiumAvgBps": -4.103821,
+      "premiumRecent3hAvgBps": -4.573967,
+      "premiumRecentVsPrior3hImpulseBps": -0.765133,
+      "premiumPositiveShare": 0,
+      "minCloseBps": -6.0591,
+      "maxCloseBps": -1.4074
+    },
+    "interpretation": "The 24-hour sample shows persistent negative perpetual premium. This is proof of usable historical basis information, not proof of trading edge."
+  },
+  "researchProtocol": {
+    "status": "feature_capture_only",
+    "rankingUsesHoldout": false,
+    "requiredBeforePromotion": [
+      "synchronize premium with price, funding, open interest and taker flow",
+      "predeclare candidate interactions before final holdout",
+      "train and validation selection without holdout access",
+      "fixed-candidate walk-forward/out-of-sample evaluation",
+      "virgin final holdout after candidate freeze",
+      "positive post-cost expectancy and all existing audit gates",
+      "Forward PAPER only if robust and independent"
+    ],
+    "candidatePromoted": null
+  }
+}
