@@ -1,13 +1,13 @@
 {
-  "version": "paper_agent_swarm_v2_forward_evidence",
-  "ts": "2026-09-09T00:17:16.311Z",
+  "version": "paper_agent_swarm_v3_output_firewall",
+  "ts": "2026-09-09T00:20:21.513Z",
   "paperOnly": true,
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
   "source": "github_capture_tape",
   "llmProvider": "nvidia",
-  "llmActive": true,
+  "llmActive": false,
   "providerConfigured": true,
   "evidence": {
     "safety": {
@@ -201,94 +201,94 @@
       "id": "atlas",
       "name": "Atlas",
       "role": "Market Intelligence Analyst",
-      "status": "completed",
-      "engine": "llm",
+      "status": "fallback_complete",
+      "engine": "deterministic_guardrail",
       "provider": "nvidia",
       "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
       "tokens": {
-        "in": 1892,
+        "in": 1895,
         "out": 350
       },
-      "startedAt": "2026-09-09T00:15:34.704Z",
-      "completedAt": "2026-09-09T00:15:54.761Z",
-      "output": "Here's a thinking process:\n\n1.  **Analyze User Input:**\n   - Role: Atlas, Market Intelligence Analyst at Genesis\n   - Task: Review verified Genesis PAPER evidence, return ONLY four compact sections: VERDICT, EVIDENCE, NEXT PAPER ACTION, BLOCKERS\n   - Must NOT provide chain-of-thought, hidden reasoning, or reasoning transcript\n   - Must follow PAPER SWARM HARD BOUNDARY rules\n   - Input: EVIDENCE JSON with safety, capture, funding, hz1, forwardResearch sections\n\n2.  **Understand Constraints:**\n   - PAPER SWARM HARD BOUNDARY:\n     - Zero execution authority, cannot place/live order\n     - Never infer missing market facts\n     - Use only supplied evidence JSON and prior agent notes\n     - Capital eligibility is false. LIVE remains locked\n     - Forward PAPER evidence can justify more PAPER observation only, never LIVE promotion\n     - Recommendations must be framed as: PAPER observation, PAPER experiment, WAIT, SKIP, WARN, or VETO\n     - Return final conclusions only. Do not expose chain-of-thought or hidden reasoning\n     - If evidence insufficient, say so explicitly\n   - Output format: Exactly four sections: VERDICT, EVIDENCE, NEXT PAPER ACTION, BLOCKERS\n   - Each section should be compact\n\n3.  **Analyze the EVIDENCE JSON:**\n   - `safety`: paperOnly=true, liveOrders=false, executionAuthority=false, capitalEligible=false, liveOff=true\n   - `capture`: timestamps",
-      "error": null
+      "startedAt": "2026-09-09T00:19:13.398Z",
+      "completedAt": "2026-09-09T00:19:20.810Z",
+      "output": "VERDICT: CONTINUE PAPER OBSERVATION\nEVIDENCE: 40 scanned, 0 quoted. opening_range_breakout:XRPUSDT:4h:LONDON; champion=opening_range_breakout:XRPUSDT:4h:LONDON:p20:ta2:sa0.6:tb8; trades=0; expectancy=NAbps; PF=NA; t=NA; gate=FORWARD_GATE_BUILDING.\nNEXT PAPER ACTION: Keep collecting new completed-candle evidence for the frozen champion.\nBLOCKERS: Fee lock active (FEES_DOMINATE).",
+      "error": "llm_output_rejected_by_firewall"
     },
     {
       "id": "nova",
       "name": "Nova",
       "role": "Strategy & Signal Architect",
-      "status": "completed",
-      "engine": "llm",
+      "status": "fallback_complete",
+      "engine": "deterministic_guardrail",
       "provider": "nvidia",
       "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
       "tokens": {
-        "in": 2096,
+        "in": 2044,
         "out": 350
       },
-      "startedAt": "2026-09-09T00:15:54.761Z",
-      "completedAt": "2026-09-09T00:16:13.118Z",
-      "output": "Here's a thinking process:\n\n1.  **Analyze User Input:**\n   - Role: Nova, Strategy and Signal Architect at Genesis\n   - Task: Review verified Genesis PAPER evidence below in assigned role\n   - Return ONLY four compact sections: VERDICT, EVIDENCE, NEXT PAPER ACTION, BLOCKERS\n   - Do not provide chain-of-thought, hidden reasoning, or reasoning transcript\n   - Must follow PAPER SWARM HARD BOUNDARY rules\n   - Input: EVIDENCE JSON with safety, capture, funding, hz1, forwardResearch sections\n\n2.  **Understand Constraints:**\n   - PAPER SWARM HARD BOUNDARY:\n     - Zero execution authority, cannot place/live order\n     - Never infer missing market facts\n     - Use only supplied evidence JSON and prior agent notes\n     - Capital eligibility is false. LIVE remains locked\n     - Forward PAPER evidence can justify more PAPER obs… only, never LIVE promotion\n     - Recommendations must be framed as PAPER observation, PAPER experiment, WAIT, SKIP, WARN, or VETO\n     - Return final conclusions only. Do not expose chain-of-thought or hidden reasoning.\n     - If evidence is insufficient, say so explicitly\n   - Output format: ONLY four compact sections: VERDICT, EVIDENCE, NEXT PAPER ACTION, BLOCKERS\n   - Must not expose chain-of-thought\n\n3.  **Process the Evidence JSON:**\n   Let me carefully read through the evidence to understand what's there:\n\n   - `safety`: paperOnly: true, liveOrders:",
-      "error": null
+      "startedAt": "2026-09-09T00:19:20.810Z",
+      "completedAt": "2026-09-09T00:19:30.280Z",
+      "output": "VERDICT: NO PROMOTION\nEVIDENCE: opening_range_breakout:XRPUSDT:4h:LONDON; champion=opening_range_breakout:XRPUSDT:4h:LONDON:p20:ta2:sa0.6:tb8; trades=0; expectancy=NAbps; PF=NA; t=NA; gate=FORWARD_GATE_BUILDING.\nNEXT PAPER ACTION: Do not retune the frozen champion from forward outcomes; challengers remain correlated evidence only.\nBLOCKERS: Forward gate not yet passed.",
+      "error": "llm_output_rejected_by_firewall"
     },
     {
       "id": "sentinel",
       "name": "Sentinel",
       "role": "Risk Guardian",
-      "status": "completed",
-      "engine": "llm",
+      "status": "fallback_complete",
+      "engine": "deterministic_guardrail",
       "provider": "nvidia",
       "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
       "tokens": {
-        "in": 2327,
+        "in": 2207,
         "out": 350
       },
-      "startedAt": "2026-09-09T00:16:13.118Z",
-      "completedAt": "2026-09-09T00:16:37.638Z",
-      "output": "Here's a thinking process:\n\n1.  **Analyze User Input:**\n   - User wants me to review Genesis PAPER evidence\n   - Return ONLY four compact sections: VERDICT, EVIDENCE, NEXT PAPER ACTION, BLOCKERS\n   - Must not provide chain-of-thought, hidden reasoning, or reasoning transcript\n   - Must follow PAPER SWARM HARD BOUNDARY rules\n   - Input is an EVIDENCE JSON with safety, capture, funding, hz1, forwardResearch sections\n\n2.  **Understand the Role and Constraints:**\n   - I'm Sentinel, the Risk Guardian at Genesis\n   - Primary directive: capital preservation\n   - Must check hard constraints (5% rule, 5 max open trades, 0.65 min confidence)\n   - Must flag constitutional rule violations\n   - Must assess VaR and drawdown scenarios\n   - Must issue VETO, WARN, or APPROVE verdict\n   - PAPER SWARM HARD BOUNDARY: zero execution authority, capital eligibility false, LIVE locked\n   - Forward PAPER evidence can justify more PAPER observation only, never LIVE promotion\n   - Recommendations must be framed as PAPER observation, PAPER experiment, WAIT, SKIP, WARN, or VETO\n   - Return final conclusions only. Do not expose chain-of-thought\n   - If evidence insufficient, say so explicitly\n\n3.  **Analyze the EVIDENCE JSON:**\n   Let me carefully go through the JSON structure:\n\n   - `safety`: paperOnly: true, liveOrders: false, executionAuthority: false,",
-      "error": null
+      "startedAt": "2026-09-09T00:19:30.280Z",
+      "completedAt": "2026-09-09T00:19:37.533Z",
+      "output": "VERDICT: VETO\nEVIDENCE: Economic P&L $-16.89; fee lock ON; opening_range_breakout:XRPUSDT:4h:LONDON; champion=opening_range_breakout:XRPUSDT:4h:LONDON:p20:ta2:sa0.6:tb8; trades=0; expectancy=NAbps; PF=NA; t=NA; gate=FORWARD_GATE_BUILDING.\nNEXT PAPER ACTION: Keep capital eligibility false and continue forward observation.\nBLOCKERS: No live capital path is authorized by this swarm.",
+      "error": "llm_output_rejected_by_firewall"
     },
     {
       "id": "curator",
       "name": "Curator",
       "role": "Memory Architect",
-      "status": "completed",
-      "engine": "llm",
+      "status": "fallback_complete",
+      "engine": "deterministic_guardrail",
       "provider": "nvidia",
       "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
       "tokens": {
-        "in": 2550,
+        "in": 2354,
         "out": 350
       },
-      "startedAt": "2026-09-09T00:16:37.638Z",
-      "completedAt": "2026-09-09T00:16:58.863Z",
-      "output": "Here's a thinking process:\n\n1.  **Analyze User Input:**\n   - User wants me to review Genesis PAPER evidence\n   - Return ONLY four compact sections: VERDICT, EVIDENCE, NEXT PAPER ACTION, BLOCKERS\n   - Must not provide chain-of-thought, hidden reasoning, or reasoning transcript\n   - Must follow PAPER SWARM HARD BOUNDARY rules\n   - Input is an EVIDENCE JSON with safety, capture, funding, hz1, forwardResearch sections\n\n2.  **Understand the Constraints (PAPER SWARM HARD BOUNDARY):**\n   - Zero execution authority, cannot place/live order\n   - Never infer missing market facts\n   - Use only supplied evidence JSON and prior agent notes\n   - Capital eligibility is false. LIVE remains locked\n   - Forward PAPER evidence can justify more PAPER observation only, never LIVE promotion\n   - Recommendations must be framed as PAPER observation, PAPER experiment, WAIT, SKIP, WARN, or VETO\n   - Return final conclusions only. Do not expose chain-of-thought or hidden reasoning\n   - If evidence is insufficient, say so explicitly\n\n3.  **Examine the EVIDENCE JSON:**\n   - safety: paperOnly: true, liveOrders: false, executionAuthority: false, capitalEligible: false, liveOff: true\n   - capture: ts, venue, universe, scored, quoted, go: false, reasons: WOULD_CROSS (23), VPIN_HALT (16), H_LE_EDGE (1), candidates with reasons",
-      "error": null
+      "startedAt": "2026-09-09T00:19:37.534Z",
+      "completedAt": "2026-09-09T00:20:10.768Z",
+      "output": "VERDICT: LEARN\nEVIDENCE: opening_range_breakout:XRPUSDT:4h:LONDON; champion=opening_range_breakout:XRPUSDT:4h:LONDON:p20:ta2:sa0.6:tb8; trades=0; expectancy=NAbps; PF=NA; t=NA; gate=FORWARD_GATE_BUILDING.\nNEXT PAPER ACTION: Preserve the champion freeze and record forward outcomes as new evidence, not parameter-selection data.\nBLOCKERS: Correlated challengers must never count as independent confirmations.",
+      "error": "llm_output_rejected_by_firewall"
     },
     {
       "id": "arbiter",
       "name": "Arbiter",
       "role": "Decision Facilitator",
-      "status": "completed",
-      "engine": "llm",
+      "status": "fallback_complete",
+      "engine": "deterministic_guardrail",
       "provider": "nvidia",
       "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
       "tokens": {
-        "in": 2752,
+        "in": 2490,
         "out": 350
       },
-      "startedAt": "2026-09-09T00:16:58.863Z",
-      "completedAt": "2026-09-09T00:17:16.311Z",
-      "output": "Here's a thinking process:\n\n1.  **Analyze User Input:**\n   - User wants me to review Genesis PAPER evidence\n   - Return ONLY four compact sections: VERDICT, EVIDENCE, NEXT PAPER ACTION, BLOCKERS\n   - Must not provide chain-of-thought, hidden reasoning, or reasoning transcript\n   - Must follow PAPER SWARM HARD BOUNDARY rules\n   - Input is an EVIDENCE JSON with safety, capture, funding, hz1, forwardResearch sections\n\n2.  **Understand the PAPER SWARM HARD BOUNDARY:**\n   - Zero execution authority, cannot place/live order\n   - Never infer missing market facts\n   - Use only supplied evidence JSON and prior agent notes\n   - Capital eligibility is false. LIVE remains locked\n   - Forward PAPER evidence can justify more PAPER observation only, never LIVE promotion\n   - Recommendations must be framed as PAPER observation, PAPER experiment, WAIT, SKIP, WARN, or VETO\n   - Return final conclusions only. Do not expose chain-of-thought or hidden reasoning.\n   - If evidence is insufficient, say so explicitly\n\n3.  **Examine the EVIDENCE JSON:**\n   - `safety`: paperOnly: true, liveOrders: false, executionAuthority: false, capitalEligible: false, liveOff: true\n   - `capture`: ts, venue, universe, scored, quoted, go: false, reasons (WOULD_CROSS:23, VPIN_HALT:16, H_LE_EDGE:1), candidates (10",
-      "error": null
+      "startedAt": "2026-09-09T00:20:10.768Z",
+      "completedAt": "2026-09-09T00:20:21.513Z",
+      "output": "VERDICT: STAND DOWN\nEVIDENCE: opening_range_breakout:XRPUSDT:4h:LONDON; champion=opening_range_breakout:XRPUSDT:4h:LONDON:p20:ta2:sa0.6:tb8; trades=0; expectancy=NAbps; PF=NA; t=NA; gate=FORWARD_GATE_BUILDING; economic P&L $-16.89; live authority OFF.\nNEXT PAPER ACTION: Continue collecting forward evidence.\nBLOCKERS: LIVE orders, execution authority, and capital eligibility remain false.",
+      "error": "llm_output_rejected_by_firewall"
     }
   ],
   "totals": {
     "agents": 5,
-    "completedLlm": 5,
-    "fallback": 0,
+    "completedLlm": 0,
+    "fallback": 5,
     "tokens": {
-      "in": 11617,
+      "in": 10990,
       "out": 1750
     }
   },
@@ -306,5 +306,26 @@
     "liveOrders": false,
     "capitalEligible": false
   },
-  "errors": []
+  "errors": [
+    {
+      "agentId": "atlas",
+      "error": "llm_output_rejected_by_firewall"
+    },
+    {
+      "agentId": "nova",
+      "error": "llm_output_rejected_by_firewall"
+    },
+    {
+      "agentId": "sentinel",
+      "error": "llm_output_rejected_by_firewall"
+    },
+    {
+      "agentId": "curator",
+      "error": "llm_output_rejected_by_firewall"
+    },
+    {
+      "agentId": "arbiter",
+      "error": "llm_output_rejected_by_firewall"
+    }
+  ]
 }
