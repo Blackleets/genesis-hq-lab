@@ -1,0 +1,64 @@
+# RESEARCH_ONLY synchronized BTCUSDT derivatives-positioning evidence.
+# Public read-only market data. Never places orders or changes trading gates.
+name: positioning-dynamics-capture
+
+on:
+  schedule:
+    - cron: "2,7,12,17,22,27,32,37,42,47,52,57 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - .github/workflows/positioning-dynamics-capture.yml
+      - server/genesis/positioningDynamicsCapture.mjs
+      - server/genesis/derivativesContext.mjs
+      - server/tests/positioningDynamicsCapture.test.mjs
+      - server/tests/derivativesContext.test.mjs
+
+permissions:
+  contents: write
+
+concurrency:
+  group: positioning-dynamics-capture
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: code
+        uses: actions/checkout@v4
+      - name: tape
+        uses: actions/checkout@v4
+        with:
+          ref: capture-tape
+          path: tape
+      - name: verify causal capture and descriptive feature discipline
+        run: node --test server/tests/positioningDynamicsCapture.test.mjs server/tests/derivativesContext.test.mjs
+      - name: capture synchronized closed-price + funding + OI + taker evidence
+        run: node server/genesis/positioningDynamicsCapture.mjs --symbol BTCUSDT --out tape/paper-tape/positioning-dynamics-latest.json --jsonl tape/paper-tape/positioning-dynamics.jsonl
+      - name: assert RESEARCH_ONLY boundary
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const x = JSON.parse(fs.readFileSync('tape/paper-tape/positioning-dynamics-latest.json', 'utf8'));
+          if (x.mode !== 'RESEARCH_ONLY') throw new Error('mode must remain RESEARCH_ONLY');
+          if (x.researchUse !== 'OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING') throw new Error('ranking boundary missing');
+          if (!x.provenance?.closedPriceBarOnly) throw new Error('causal closed-bar provenance missing');
+          NODE
+      - name: publish durable evidence
+        working-directory: tape
+        shell: bash
+        run: |
+          git config user.name "genesis-capture"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f paper-tape/positioning-dynamics-latest.json paper-tape/positioning-dynamics.jsonl
+          if git diff --staged --quiet; then
+            echo "no change"
+            exit 0
+          fi
+          git commit -m "positioning dynamics capture $(date -u +%Y-%m-%dT%H:%MZ)"
+          git pull --rebase origin capture-tape
+          git push
