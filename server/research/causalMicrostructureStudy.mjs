@@ -2,6 +2,7 @@
 // Reads durable synchronized snapshots only. No network, no orders, no promotion.
 
 import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 
 export const STUDY_VERSION = 2;
 export const ROUND_TRIP_COST_BPS = 10; // 8 bps futures taker fees + 2 bps base slippage
@@ -9,6 +10,42 @@ export const MIN_FORWARD_MS = 10 * 60 * 1000;
 export const MAX_FORWARD_MS = 25 * 60 * 1000;
 export const MIN_OBSERVATIONS = 30;
 export const MIN_CONTROL_OBSERVATIONS = 30;
+
+export const STUDY_PROTOCOL = Object.freeze({
+  studyVersion: STUDY_VERSION,
+  hypothesis: 'H1: OI expansion + directional taker acceleration + basis alignment, excluding volatility shock, predicts same-direction 10-25m perp return net of fixed costs.',
+  controlDefinition: 'Strong same-direction taker pressure under identical safety/volatility constraints, excluding full H1 confluence. Tests incremental value of OI acceleration + basis/funding alignment beyond taker pressure alone.',
+  thresholds: Object.freeze({
+    oiCrossCaptureChangePctMin: 0.02,
+    longTakerBiasMin: 1.20,
+    shortTakerBiasMax: 0.83,
+    takerDeltaAbsMin: 0.15,
+    maxFundingAbs: 0.0002,
+    roundTripCostBps: ROUND_TRIP_COST_BPS,
+    forwardWindowMs: Object.freeze([MIN_FORWARD_MS, MAX_FORWARD_MS]),
+    minH1Observations: MIN_OBSERVATIONS,
+    minControlObservations: MIN_CONTROL_OBSERVATIONS,
+  }),
+});
+
+export function protocolHash(protocol = STUDY_PROTOCOL) {
+  return createHash('sha256').update(JSON.stringify(protocol)).digest('hex');
+}
+
+export function enforceProtocolLock(protocolPath, protocol = STUDY_PROTOCOL) {
+  if (!protocolPath) return { protocolHash: protocolHash(protocol), created: false };
+  const expected = { ...protocol, protocolHash: protocolHash(protocol) };
+  if (!fs.existsSync(protocolPath)) {
+    fs.mkdirSync(new URL('.', `file://${protocolPath}`).pathname, { recursive: true });
+    fs.writeFileSync(protocolPath, `${JSON.stringify(expected, null, 2)}\n`);
+    return { protocolHash: expected.protocolHash, created: true };
+  }
+  const stored = JSON.parse(fs.readFileSync(protocolPath, 'utf8'));
+  if (stored.studyVersion !== protocol.studyVersion || stored.protocolHash !== expected.protocolHash) {
+    throw new Error(`protocol lock mismatch for study v${protocol.studyVersion}; bump STUDY_VERSION instead of changing an active protocol`);
+  }
+  return { protocolHash: expected.protocolHash, created: false };
+}
 
 function finite(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
 
@@ -24,19 +61,12 @@ export function classifyHypothesis(state) {
   const px = finite(f.perpCloseNow);
   if ([oi, taker, takerDelta, funding, premium, px].some(v => v === null)) return null;
   if (f.volatilityState === 'shock' || f.volatilityState === 'insufficient' || f.volatilityState === 'unknown') return null;
-
-  // H1 LONG: fresh OI expansion + strengthening aggressive buys + non-positive basis,
-  // without expensive positive funding. Thresholds are fixed before outcome observation.
-  if (oi >= 0.02 && taker >= 1.20 && takerDelta >= 0.15 && premium <= 0 && funding <= 0.0002) return 'LONG';
-
-  // Symmetric H1 SHORT.
-  if (oi >= 0.02 && taker <= 0.83 && takerDelta <= -0.15 && premium >= 0 && funding >= -0.0002) return 'SHORT';
+  const t = STUDY_PROTOCOL.thresholds;
+  if (oi >= t.oiCrossCaptureChangePctMin && taker >= t.longTakerBiasMin && takerDelta >= t.takerDeltaAbsMin && premium <= 0 && funding <= t.maxFundingAbs) return 'LONG';
+  if (oi >= t.oiCrossCaptureChangePctMin && taker <= t.shortTakerBiasMax && takerDelta <= -t.takerDeltaAbsMin && premium >= 0 && funding >= -t.maxFundingAbs) return 'SHORT';
   return null;
 }
 
-// Predeclared control for study v2: strong taker direction under the same data-quality
-// and volatility constraints, but WITHOUT the full H1 confluence. This asks whether
-// OI acceleration + basis/funding alignment add incremental information beyond taker pressure alone.
 export function classifyControlSide(state) {
   if (!state?.safeForResearch || !state?.crossCapture?.available) return null;
   if (classifyHypothesis(state)) return null;
@@ -45,8 +75,9 @@ export function classifyControlSide(state) {
   const px = finite(f.perpCloseNow);
   if (taker === null || px === null || px <= 0) return null;
   if (f.volatilityState === 'shock' || f.volatilityState === 'insufficient' || f.volatilityState === 'unknown') return null;
-  if (taker >= 1.20) return 'LONG';
-  if (taker <= 0.83) return 'SHORT';
+  const t = STUDY_PROTOCOL.thresholds;
+  if (taker >= t.longTakerBiasMin) return 'LONG';
+  if (taker <= t.shortTakerBiasMax) return 'SHORT';
   return null;
 }
 
@@ -95,52 +126,32 @@ function summarize(observations = []) {
   const median = sorted.length ? sorted[Math.floor(sorted.length / 2)] : null;
   const grossWin = wins.reduce((s, x) => s + x.netBps, 0);
   const grossLoss = losses.reduce((s, x) => s + Math.abs(x.netBps), 0);
-  return {
-    observationCount: n,
-    meanNetBps: avg,
-    medianNetBps: median,
-    winRate: n ? wins.length / n : null,
-    profitFactor: grossLoss > 0 ? grossWin / grossLoss : (grossWin > 0 ? Infinity : null),
-  };
+  return { observationCount: n, meanNetBps: avg, medianNetBps: median, winRate: n ? wins.length / n : null, profitFactor: grossLoss > 0 ? grossWin / grossLoss : (grossWin > 0 ? Infinity : null) };
 }
 
 export function evaluateStudy(states = []) {
   const ordered = [...states].filter(Boolean).sort((a, b) => Date.parse(a.capturedAt) - Date.parse(b.capturedAt));
   const observations = [];
   const controlObservations = [];
-
   for (let i = 0; i < ordered.length; i += 1) {
     const h1Side = classifyHypothesis(ordered[i]);
-    if (h1Side) {
-      const obs = observationFor(ordered, i, h1Side, 'H1');
-      if (obs) observations.push(obs);
-      continue;
-    }
+    if (h1Side) { const obs = observationFor(ordered, i, h1Side, 'H1'); if (obs) observations.push(obs); continue; }
     const controlSide = classifyControlSide(ordered[i]);
-    if (controlSide) {
-      const obs = observationFor(ordered, i, controlSide, 'TAKER_ONLY_CONTROL');
-      if (obs) controlObservations.push(obs);
-    }
+    if (controlSide) { const obs = observationFor(ordered, i, controlSide, 'TAKER_ONLY_CONTROL'); if (obs) controlObservations.push(obs); }
   }
-
   const h1 = summarize(observations);
   const control = summarize(controlObservations);
   const h1Sufficient = h1.observationCount >= MIN_OBSERVATIONS;
   const controlSufficient = control.observationCount >= MIN_CONTROL_OBSERVATIONS;
   const upliftMeanNetBps = h1.meanNetBps !== null && control.meanNetBps !== null ? h1.meanNetBps - control.meanNetBps : null;
   const upliftWinRate = h1.winRate !== null && control.winRate !== null ? h1.winRate - control.winRate : null;
-
   const result = {
     studyVersion: STUDY_VERSION,
+    protocolHash: protocolHash(),
     mode: 'RESEARCH_ONLY',
-    predeclaredHypothesis: 'H1: OI expansion + directional taker acceleration + basis alignment, excluding volatility shock, predicts same-direction 10-25m perp return net of fixed costs.',
-    controlDefinition: 'Strong same-direction taker pressure under identical safety/volatility constraints, excluding full H1 confluence. Tests incremental value of OI acceleration + basis/funding alignment beyond taker pressure alone.',
-    thresholds: {
-      oiCrossCaptureChangePctMin: 0.02, longTakerBiasMin: 1.20, shortTakerBiasMax: 0.83,
-      takerDeltaAbsMin: 0.15, maxFundingAbs: 0.0002, roundTripCostBps: ROUND_TRIP_COST_BPS,
-      forwardWindowMs: [MIN_FORWARD_MS, MAX_FORWARD_MS], minH1Observations: MIN_OBSERVATIONS,
-      minControlObservations: MIN_CONTROL_OBSERVATIONS,
-    },
+    predeclaredHypothesis: STUDY_PROTOCOL.hypothesis,
+    controlDefinition: STUDY_PROTOCOL.controlDefinition,
+    thresholds: STUDY_PROTOCOL.thresholds,
     observationCount: h1.observationCount,
     sufficient: h1Sufficient && controlSufficient,
     minRequired: MIN_OBSERVATIONS,
@@ -153,7 +164,6 @@ export function evaluateStudy(states = []) {
     upliftMeanNetBps,
     upliftWinRate,
   };
-
   if (!h1Sufficient || !controlSufficient) result.decision = 'INSUFFICIENT_DATA';
   else if (h1.meanNetBps > 0 && h1.profitFactor > 1 && upliftMeanNetBps > 0) result.decision = 'SURVIVES_INITIAL_SCREEN';
   else result.decision = 'REJECT_H1';
@@ -168,8 +178,10 @@ export function readJsonl(file) {
 if (process.argv[1]?.endsWith('causalMicrostructureStudy.mjs')) {
   const args = process.argv.slice(2);
   const input = args[0];
-  const outIndex = args.indexOf('--out');
-  const out = outIndex >= 0 ? args[outIndex + 1] : null;
+  const valueAfter = flag => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : null; };
+  const out = valueAfter('--out');
+  const protocolPath = valueAfter('--protocol');
+  enforceProtocolLock(protocolPath);
   const report = evaluateStudy(readJsonl(input));
   const text = `${JSON.stringify(report, null, 2)}\n`;
   if (out) fs.writeFileSync(out, text);
