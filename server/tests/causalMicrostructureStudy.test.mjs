@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { classifyHypothesis, classifyControlSide, evaluateStudy, ROUND_TRIP_COST_BPS } from '../research/causalMicrostructureStudy.mjs';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { classifyHypothesis, classifyControlSide, evaluateStudy, ROUND_TRIP_COST_BPS, STUDY_PROTOCOL, protocolHash, enforceProtocolLock } from '../research/causalMicrostructureStudy.mjs';
 
 function state({ at, px, oi=0.05, taker=1.4, delta=0.2, premium=-2, funding=0.00005, vol='normal', safe=true } = {}) {
   return {
@@ -41,6 +44,7 @@ test('evaluateStudy uses only forward snapshots and subtracts fixed round-trip c
   assert.equal(r.observations[0].costBps, ROUND_TRIP_COST_BPS);
   assert.ok(Math.abs(r.observations[0].grossBps - 20) < 1e-9);
   assert.ok(Math.abs(r.observations[0].netBps - 10) < 1e-9);
+  assert.equal(r.protocolHash, protocolHash());
 });
 
 test('study reports control cohort separately and computes uplift', () => {
@@ -65,4 +69,18 @@ test('study refuses initial survival unless both H1 and control meet minimum sam
   assert.equal(r.sufficient,false);
   assert.equal(r.decision,'INSUFFICIENT_DATA');
   assert.equal(r.control.sufficient,false);
+});
+
+test('protocol lock is durable and rejects threshold edits without version bump', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'genesis-h1-lock-'));
+  const lock = path.join(dir, 'protocol.json');
+  try {
+    const first = enforceProtocolLock(lock);
+    assert.equal(first.created, true);
+    assert.equal(first.protocolHash, protocolHash());
+    const second = enforceProtocolLock(lock);
+    assert.equal(second.created, false);
+    const tampered = { ...STUDY_PROTOCOL, thresholds: { ...STUDY_PROTOCOL.thresholds, longTakerBiasMin: 1.01 } };
+    assert.throws(() => enforceProtocolLock(lock, tampered), /protocol lock mismatch/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
