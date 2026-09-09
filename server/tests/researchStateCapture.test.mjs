@@ -29,13 +29,14 @@ const derivatives = {
 
 const leadLag = {
   symbol: 'BTCUSDT',
+  referenceSource: 'binance_futures_index',
   spreadNowBps: -4.9,
   spreadAvgBps: -3.1,
   spreadVolBps: 1.2,
   returnCorr0: 0.96,
   bestLagBars: 1,
   bestLagCorr: 0.41,
-  leader: 'spot',
+  leader: 'reference',
   latestReturnDivergenceBps: 2.3,
   raw: {
     spot: [{ time: 1_700_000_000_000, close: 100 }],
@@ -53,12 +54,13 @@ test('buildSynchronizedResearchState preserves source timestamps and rejects fut
 
   assert.equal(state.mode, 'RESEARCH_ONLY');
   assert.equal(state.safeForResearch, true);
+  assert.equal(state.referenceSource, 'binance_futures_index');
   assert.equal(state.integrity.noFutureData, true);
   assert.deepEqual(state.integrity.futureSources, []);
   assert.deepEqual(state.integrity.missingSources, []);
   assert.equal(state.sourceAgeMs.oi, 10_000);
   assert.equal(state.features.takerRecentBias, 1.18);
-  assert.equal(state.features.leader, 'spot');
+  assert.equal(state.features.leader, 'reference');
 });
 
 test('buildSynchronizedResearchState marks a future source unsafe instead of silently accepting look-ahead', () => {
@@ -78,7 +80,7 @@ test('buildSynchronizedResearchState marks a future source unsafe instead of sil
 
   assert.equal(state.safeForResearch, false);
   assert.equal(state.integrity.noFutureData, false);
-  assert.deepEqual(state.integrity.futureSources, ['spot']);
+  assert.deepEqual(state.integrity.futureSources, ['reference']);
 });
 
 test('buildSynchronizedResearchState marks missing source timestamps unsafe', () => {
