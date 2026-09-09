@@ -16,6 +16,7 @@ export const SOURCE_FRESHNESS_BUDGET_MS = Object.freeze({
 });
 export const MAX_CROSS_CAPTURE_GAP_MS = 60 * 60 * 1000;
 function latestTime(rows = []) { const times = rows.map(row => Number(row?.time)).filter(Number.isFinite); return times.length ? Math.max(...times) : null; }
+function latestClose(rows = []) { const valid = rows.map(row => ({ time: Number(row?.time), close: Number(row?.close) })).filter(row => Number.isFinite(row.time) && Number.isFinite(row.close) && row.close > 0).sort((a, b) => a.time - b.time); return valid.at(-1)?.close ?? null; }
 function ageMs(capturedAtMs, sourceTime) { if (!Number.isFinite(sourceTime)) return null; return Math.max(0, capturedAtMs - sourceTime); }
 function finite(value) { const n = Number(value); return Number.isFinite(n) ? n : null; }
 function pctChange(now, prev) { const a = finite(now); const b = finite(prev); return a !== null && b !== null && b !== 0 ? ((a / b) - 1) * 100 : null; }
@@ -32,11 +33,12 @@ export function buildSynchronizedResearchState({ symbol, capturedAt = new Date()
   const staleSources = Object.entries(sourceAgeMs).filter(([key, value]) => Number.isFinite(value) && Number.isFinite(SOURCE_FRESHNESS_BUDGET_MS[key]) && value > SOURCE_FRESHNESS_BUDGET_MS[key]).map(([key]) => key);
   const errorSources = Object.keys(sourceErrors);
   return {
-    schemaVersion: 4, mode: 'RESEARCH_ONLY', provider, symbol: String(symbol || derivatives?.symbol || leadLag?.symbol || '').toUpperCase(), capturedAt,
+    schemaVersion: 5, mode: 'RESEARCH_ONLY', provider, symbol: String(symbol || derivatives?.symbol || leadLag?.symbol || '').toUpperCase(), capturedAt,
     safeForResearch: futureSources.length === 0 && missingSources.length === 0 && staleSources.length === 0 && errorSources.length === 0,
     referenceSource: leadLag?.referenceSource ?? 'unknown', sourceAsOf, sourceAgeMs, sourceFreshnessBudgetMs: SOURCE_FRESHNESS_BUDGET_MS,
     integrity: { missingSources, futureSources, staleSources, errorSources, sourceErrors, noFutureData: futureSources.length === 0, allSourcesFresh: staleSources.length === 0 },
     features: {
+      perpCloseNow: latestClose(leadLag?.raw?.perp),
       oiUsdNow: derivatives?.oiUsdNow ?? null, oiChangePct: derivatives?.oiChangePct ?? null, oiRecentChangePct: derivatives?.oiRecentChangePct ?? null, oiAccelerationPct: derivatives?.oiAccelerationPct ?? null,
       takerBias: derivatives?.takerBias ?? null, takerRecentBias: derivatives?.takerRecentBias ?? null, takerImpulse: derivatives?.takerImpulse ?? null, takerPressure: derivatives?.takerPressure ?? 'unknown', takerReversal: derivatives?.takerReversal ?? false,
       crowdSide: derivatives?.crowdSide ?? 'unknown', crowdRatio: derivatives?.crowdRatio ?? null, fundingRateNow: derivatives?.fundingRateNow ?? null, fundingAvg: derivatives?.fundingAvg ?? null, fundingCrowd: derivatives?.fundingCrowd ?? 'unknown',
