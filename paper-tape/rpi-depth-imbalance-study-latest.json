@@ -1,0 +1,60 @@
+{
+  "studyVersion": 1,
+  "mode": "RESEARCH_ONLY",
+  "protocolSha256": "e3d25b4878c3e3846c7d175c7adc0717f50b9d50b3e33a6b9cf3145f83f4496b",
+  "protocol": {
+    "studyVersion": 1,
+    "hypothesis": "Extreme OKX RPI depth imbalance predicts same-direction BTC-USDT-SWAP mid-price return 10-25m later net of fixed round-trip costs.",
+    "signal": {
+      "longMinImbalance": 0.6,
+      "shortMaxImbalance": -0.6
+    },
+    "maturityWindowMs": [
+      600000,
+      1500000
+    ],
+    "roundTripCostBps": 10,
+    "sequentialSplits": {
+      "discovery": 60,
+      "validation": 30,
+      "holdout": 30
+    },
+    "validationGates": {
+      "meanNetBpsMin": 2,
+      "medianNetBpsMin": 0,
+      "winRateMin": 0.55,
+      "profitFactorMin": 1.2
+    },
+    "holdoutPolicy": "SEALED_UNTIL_120_MATURED_SIGNALS_AND_NEVER_USED_FOR_RANKING_OR_TUNING",
+    "researchBoundary": "RESEARCH_ONLY_NOT_IN_H1_NOT_FORWARD_PAPER"
+  },
+  "rawSnapshotCount": 3,
+  "maturedSignalCount": 0,
+  "sequentialAllocation": {
+    "discoveryCount": 0,
+    "validationCount": 0,
+    "holdoutCount": 0
+  },
+  "discovery": {
+    "count": 0,
+    "meanNetBps": null,
+    "medianNetBps": null,
+    "winRate": null,
+    "profitFactor": null
+  },
+  "validation": {
+    "count": 0,
+    "meanNetBps": null,
+    "medianNetBps": null,
+    "winRate": null,
+    "profitFactor": null
+  },
+  "holdout": {
+    "status": "SEALED",
+    "count": 0,
+    "metrics": null
+  },
+  "candidateStatus": "ACCUMULATING_DISCOVERY",
+  "forwardPaperEligible": false,
+  "observations": []
+}
