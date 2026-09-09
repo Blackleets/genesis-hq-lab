@@ -1,7 +1,7 @@
 // server/genesis/researchStateCapture.mjs
 // RESEARCH_ONLY synchronized market-state capture for durable evidence.
 //
-// Purpose: persist funding, OI, taker flow, premium/basis and spot↔perp
+// Purpose: persist funding, OI, taker flow, premium/basis and reference↔perp
 // microstructure in one capture envelope with explicit source timestamps/ages.
 // This module never places orders, promotes candidates, modifies REAL_TRADING,
 // or changes fixed audit gates. Captures are evidence for later
@@ -37,18 +37,16 @@ export function buildSynchronizedResearchState({
     taker: latestTime(raw.taker),
     funding: latestTime(raw.funding),
     premium: latestTime(raw.premium),
-    spot: latestTime(leadLag?.raw?.spot),
+    reference: latestTime(leadLag?.raw?.spot),
     perp: latestTime(leadLag?.raw?.perp),
   };
 
   const sourceAgeMs = Object.fromEntries(
     Object.entries(sourceAsOf).map(([key, value]) => [key, ageMs(capturedAtMs, value)]),
   );
-
   const futureSources = Object.entries(sourceAsOf)
     .filter(([, value]) => Number.isFinite(value) && value > capturedAtMs)
     .map(([key]) => key);
-
   const missingSources = Object.entries(sourceAsOf)
     .filter(([, value]) => !Number.isFinite(value))
     .map(([key]) => key);
@@ -59,6 +57,7 @@ export function buildSynchronizedResearchState({
     symbol: String(symbol || derivatives?.symbol || leadLag?.symbol || '').toUpperCase(),
     capturedAt,
     safeForResearch: futureSources.length === 0 && missingSources.length === 0,
+    referenceSource: leadLag?.referenceSource ?? 'unknown',
     sourceAsOf,
     sourceAgeMs,
     integrity: {
@@ -108,7 +107,7 @@ export async function captureResearchState(symbol = 'BTCUSDT', {
     getContext(normalizedSymbol),
     getSpotPerpLeadLagContext(normalizedSymbol, { interval, points: leadLagPoints }),
   ]);
-  const state = buildSynchronizedResearchState({ normalizedSymbol, symbol: normalizedSymbol, capturedAt, derivatives, leadLag });
+  const state = buildSynchronizedResearchState({ symbol: normalizedSymbol, capturedAt, derivatives, leadLag });
 
   if (out) {
     fs.mkdirSync(path.dirname(out), { recursive: true });
@@ -131,10 +130,6 @@ if (process.argv[1] && process.argv[1].endsWith('researchStateCapture.mjs')) {
   captureResearchState(symbol, {
     out: valueAfter('--out'),
     jsonl: valueAfter('--jsonl'),
-  }).then(state => {
-    console.log(JSON.stringify(state, null, 2));
-  }).catch(error => {
-    console.error('ERROR:', error.message);
-    process.exitCode = 1;
-  });
+  }).then(state => console.log(JSON.stringify(state, null, 2)))
+    .catch(error => { console.error('ERROR:', error.message); process.exitCode = 1; });
 }
