@@ -13,8 +13,12 @@ export const SOURCE_FRESHNESS_BUDGET_MS = Object.freeze({
   oi: 15 * 60 * 1000, taker: 2 * 60 * 60 * 1000, funding: 12 * 60 * 60 * 1000,
   premium: 2 * 60 * 60 * 1000, reference: 5 * 60 * 1000, perp: 5 * 60 * 1000,
 });
+export const MAX_CROSS_CAPTURE_GAP_MS = 60 * 60 * 1000;
 function latestTime(rows = []) { const times = rows.map(row => Number(row?.time)).filter(Number.isFinite); return times.length ? Math.max(...times) : null; }
 function ageMs(capturedAtMs, sourceTime) { if (!Number.isFinite(sourceTime)) return null; return Math.max(0, capturedAtMs - sourceTime); }
+function finite(value) { const n = Number(value); return Number.isFinite(n) ? n : null; }
+function pctChange(now, prev) { const a = finite(now); const b = finite(prev); return a !== null && b !== null && b !== 0 ? ((a / b) - 1) * 100 : null; }
+function difference(now, prev) { const a = finite(now); const b = finite(prev); return a !== null && b !== null ? a - b : null; }
 
 export function buildSynchronizedResearchState({ symbol, capturedAt = new Date().toISOString(), derivatives, leadLag, sourceErrors = {}, provider = 'binance' }) {
   const capturedAtMs = Date.parse(capturedAt); if (!Number.isFinite(capturedAtMs)) throw new Error('invalid capturedAt');
@@ -26,7 +30,7 @@ export function buildSynchronizedResearchState({ symbol, capturedAt = new Date()
   const staleSources = Object.entries(sourceAgeMs).filter(([key, value]) => Number.isFinite(value) && Number.isFinite(SOURCE_FRESHNESS_BUDGET_MS[key]) && value > SOURCE_FRESHNESS_BUDGET_MS[key]).map(([key]) => key);
   const errorSources = Object.keys(sourceErrors);
   return {
-    schemaVersion: 2, mode: 'RESEARCH_ONLY', provider, symbol: String(symbol || derivatives?.symbol || leadLag?.symbol || '').toUpperCase(), capturedAt,
+    schemaVersion: 3, mode: 'RESEARCH_ONLY', provider, symbol: String(symbol || derivatives?.symbol || leadLag?.symbol || '').toUpperCase(), capturedAt,
     safeForResearch: futureSources.length === 0 && missingSources.length === 0 && staleSources.length === 0 && errorSources.length === 0,
     referenceSource: leadLag?.referenceSource ?? 'unknown', sourceAsOf, sourceAgeMs, sourceFreshnessBudgetMs: SOURCE_FRESHNESS_BUDGET_MS,
     integrity: { missingSources, futureSources, staleSources, errorSources, sourceErrors, noFutureData: futureSources.length === 0, allSourcesFresh: staleSources.length === 0 },
@@ -39,6 +43,43 @@ export function buildSynchronizedResearchState({ symbol, capturedAt = new Date()
       bestLagBars: leadLag?.bestLagBars ?? null, bestLagCorr: leadLag?.bestLagCorr ?? null, leader: leadLag?.leader ?? 'unknown', latestReturnDivergenceBps: leadLag?.latestReturnDivergenceBps ?? null,
     },
   };
+}
+
+export function deriveCrossCaptureFeatures(current, previous) {
+  const currentMs = Date.parse(current?.capturedAt ?? '');
+  const previousMs = Date.parse(previous?.capturedAt ?? '');
+  const gapMs = currentMs - previousMs;
+  const compatible = Boolean(
+    current?.safeForResearch && previous?.safeForResearch &&
+    current?.provider && current.provider === previous?.provider &&
+    current?.symbol && current.symbol === previous?.symbol &&
+    Number.isFinite(gapMs) && gapMs > 0 && gapMs <= MAX_CROSS_CAPTURE_GAP_MS
+  );
+  if (!compatible) return {
+    available: false, previousCapturedAt: previous?.capturedAt ?? null, gapMs: Number.isFinite(gapMs) ? gapMs : null,
+    oiCrossCaptureChangePct: null, takerBiasCrossCaptureChange: null, fundingCrossCaptureDeltaBps: null,
+    premiumCrossCaptureDeltaBps: null, spreadCrossCaptureDeltaBps: null,
+  };
+  return {
+    available: true, previousCapturedAt: previous.capturedAt, gapMs,
+    oiCrossCaptureChangePct: pctChange(current?.features?.oiUsdNow, previous?.features?.oiUsdNow),
+    takerBiasCrossCaptureChange: difference(current?.features?.takerBias, previous?.features?.takerBias),
+    fundingCrossCaptureDeltaBps: difference(finite(current?.features?.fundingRateNow) * 10000, finite(previous?.features?.fundingRateNow) * 10000),
+    premiumCrossCaptureDeltaBps: difference(current?.features?.premiumNowBps, previous?.features?.premiumNowBps),
+    spreadCrossCaptureDeltaBps: difference(current?.features?.spreadNowBps, previous?.features?.spreadNowBps),
+  };
+}
+
+function readPreviousCompatibleState(jsonl, current) {
+  if (!jsonl || !fs.existsSync(jsonl)) return null;
+  const lines = fs.readFileSync(jsonl, 'utf8').split(/\r?\n/).filter(Boolean);
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    try {
+      const candidate = JSON.parse(lines[i]);
+      if (candidate?.provider === current?.provider && candidate?.symbol === current?.symbol && candidate?.safeForResearch) return candidate;
+    } catch { /* append-only tape may contain an incomplete final line after interruption; ignore it */ }
+  }
+  return null;
 }
 function messageOf(reason) { return reason instanceof Error ? reason.message : String(reason ?? 'unknown error'); }
 
@@ -61,6 +102,8 @@ export async function captureResearchState(symbol = 'BTCUSDT', { out, jsonl, int
   // no-future-data semantics without misclassifying observations received during network I/O.
   const capturedAt = new Date().toISOString();
   const state = buildSynchronizedResearchState({ symbol: normalizedSymbol, capturedAt, derivatives, leadLag, sourceErrors, provider });
+  const previous = readPreviousCompatibleState(jsonl, state);
+  state.crossCapture = deriveCrossCaptureFeatures(state, previous);
   if (out) { fs.mkdirSync(path.dirname(out), { recursive: true }); fs.writeFileSync(out, `${JSON.stringify(state, null, 2)}\n`); }
   if (jsonl) { fs.mkdirSync(path.dirname(jsonl), { recursive: true }); fs.appendFileSync(jsonl, `${JSON.stringify(state)}\n`); }
   return state;
