@@ -17,10 +17,12 @@ on:
       - server/genesis/researchProviderProbe.mjs
       - server/genesis/okxResearchContext.mjs
       - server/research/causalMicrostructureStudy.mjs
+      - server/research/observationIndependenceAudit.mjs
       - server/tests/researchStateCapture.test.mjs
       - server/tests/researchProviderProbe.test.mjs
       - server/tests/okxVolatilityShock.test.mjs
       - server/tests/causalMicrostructureStudy.test.mjs
+      - server/tests/observationIndependenceAudit.test.mjs
 
 permissions:
   contents: write
@@ -42,7 +44,7 @@ jobs:
           ref: capture-tape
           path: tape
       - name: verify synchronized evidence integrity
-        run: node --test server/tests/researchStateCapture.test.mjs server/tests/researchProviderProbe.test.mjs server/tests/okxVolatilityShock.test.mjs server/tests/causalMicrostructureStudy.test.mjs
+        run: node --test server/tests/researchStateCapture.test.mjs server/tests/researchProviderProbe.test.mjs server/tests/okxVolatilityShock.test.mjs server/tests/causalMicrostructureStudy.test.mjs server/tests/observationIndependenceAudit.test.mjs
       - name: validate redundant public research routes
         shell: bash
         run: |
@@ -65,13 +67,15 @@ jobs:
         run: node server/genesis/researchStateCapture.mjs BTCUSDT --out tape/paper-tape/research-state-latest.json --jsonl tape/paper-tape/research-state.jsonl
       - name: evaluate locked predeclared microstructure hypothesis
         run: node server/research/causalMicrostructureStudy.mjs tape/paper-tape/research-state.jsonl --protocol tape/paper-tape/microstructure-study-v2-protocol.json --out tape/paper-tape/microstructure-study-latest.json
+      - name: audit independent observation count
+        run: node server/research/observationIndependenceAudit.mjs tape/paper-tape/microstructure-study-latest.json --out tape/paper-tape/microstructure-independence-audit-latest.json
       - name: publish tape
         working-directory: tape
         run: |
           git config user.name "genesis-capture"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mkdir -p paper-tape
-          git add -f paper-tape/capture-latest.json paper-tape/capture.jsonl paper-tape/hz1-latest.json paper-tape/hz1.jsonl paper-tape/funding-latest.json paper-tape/research-state-latest.json paper-tape/research-state.jsonl paper-tape/provider-probe-latest.json paper-tape/microstructure-study-latest.json paper-tape/microstructure-study-v2-protocol.json
+          git add -f paper-tape/capture-latest.json paper-tape/capture.jsonl paper-tape/hz1-latest.json paper-tape/hz1.jsonl paper-tape/funding-latest.json paper-tape/research-state-latest.json paper-tape/research-state.jsonl paper-tape/provider-probe-latest.json paper-tape/microstructure-study-latest.json paper-tape/microstructure-study-v2-protocol.json paper-tape/microstructure-independence-audit-latest.json
           if git diff --staged --quiet; then
             echo "no change"
             exit 0
