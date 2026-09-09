@@ -11,7 +11,8 @@
 //
 // Purpose: give strategies/regime filters access to POSITIONING data, not just price.
 // All fetchers are read-only public data; cached to disk like candle_cache.
-// Funding is exposed as research context only; it is not an execution signal by itself.
+// Funding and positioning dynamics are exposed as RESEARCH_ONLY context; they are
+// descriptive features, not execution signals by themselves.
 //
 // Usage (CLI):
 //   node derivativesContext.mjs context COTIUSDT     # full snapshot JSON
@@ -128,6 +129,88 @@ export function deriveFundingFeatures(rows = []) {
   };
 }
 
+function pctChange(first, last) {
+  return Number.isFinite(first) && first !== 0 && Number.isFinite(last)
+    ? ((last - first) / first) * 100
+    : null;
+}
+
+function mean(values) {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+}
+
+function takerSide(ratio, threshold = 0.05) {
+  if (!Number.isFinite(ratio)) return 'unknown';
+  if (ratio >= 1 + threshold) return 'buy_pressure';
+  if (ratio <= 1 - threshold) return 'sell_pressure';
+  return 'balanced';
+}
+
+/**
+ * Preserve short-horizon derivatives dynamics instead of collapsing OI and taker flow
+ * into one long-window average. These features are intentionally descriptive and
+ * RESEARCH_ONLY. They MUST NOT place orders or bypass promotion/audit gates.
+ */
+export function derivePositioningDynamics(oiRows = [], takerRows = [], {
+  recentOiPoints = 6,      // 30 minutes with 5m OI rows
+  recentTakerPoints = 3,  // 3 hours with 1h taker rows
+} = {}) {
+  const oiValues = oiRows.map(row => Number(row?.oiUsd)).filter(Number.isFinite);
+  const takerValues = takerRows.map(row => Number(row?.buySellRatio)).filter(Number.isFinite);
+
+  const oiChangePct = oiValues.length >= 2
+    ? pctChange(oiValues[0], oiValues[oiValues.length - 1])
+    : null;
+
+  const oiRecent = oiValues.slice(-Math.max(2, recentOiPoints));
+  const oiRecentChangePct = oiRecent.length >= 2
+    ? pctChange(oiRecent[0], oiRecent[oiRecent.length - 1])
+    : null;
+
+  const oiPrevious = oiValues.slice(
+    -Math.max(2, recentOiPoints) * 2,
+    -Math.max(2, recentOiPoints),
+  );
+  const oiPreviousChangePct = oiPrevious.length >= 2
+    ? pctChange(oiPrevious[0], oiPrevious[oiPrevious.length - 1])
+    : null;
+  const oiAccelerationPct = Number.isFinite(oiRecentChangePct) && Number.isFinite(oiPreviousChangePct)
+    ? oiRecentChangePct - oiPreviousChangePct
+    : null;
+
+  const takerBias = mean(takerValues);
+  const takerRecent = takerValues.slice(-Math.max(1, recentTakerPoints));
+  const takerPrevious = takerValues.slice(
+    -Math.max(1, recentTakerPoints) * 2,
+    -Math.max(1, recentTakerPoints),
+  );
+  const takerRecentBias = mean(takerRecent);
+  const takerPreviousBias = mean(takerPrevious);
+  const takerImpulse = Number.isFinite(takerRecentBias) && Number.isFinite(takerPreviousBias)
+    ? takerRecentBias - takerPreviousBias
+    : null;
+  const takerPressure = takerSide(takerRecentBias);
+  const previousPressure = takerSide(takerPreviousBias);
+  const takerReversal = previousPressure !== 'unknown'
+    && previousPressure !== 'balanced'
+    && takerPressure !== 'unknown'
+    && takerPressure !== 'balanced'
+    && previousPressure !== takerPressure;
+
+  const round = (value, digits) => Number.isFinite(value) ? +value.toFixed(digits) : null;
+
+  return {
+    oiChangePct: round(oiChangePct, 2),
+    oiRecentChangePct: round(oiRecentChangePct, 2),
+    oiAccelerationPct: round(oiAccelerationPct, 2),
+    takerBias: round(takerBias, 3),
+    takerRecentBias: round(takerRecentBias, 3),
+    takerImpulse: round(takerImpulse, 3),
+    takerPressure,
+    takerReversal,
+  };
+}
+
 /** Global long/short account ratio (all traders). */
 export async function getGlobalLongShort(symbol, points = 24) {
   const key = `gls_${symbol}_${points}`;
@@ -162,12 +245,18 @@ export async function getFearGreed(days = 30) {
 }
 
 /**
- * Aggregate positioning snapshot with derived features a strategy can gate on:
- *  - oiChangePct:    OI expansion/contraction over the window
- *  - crowdSide:      where retail accounts lean ('long'|'short'|'neutral')
- *  - takerBias:      avg taker buy/sell over recent hours (>1 = aggressive buying)
- *  - funding*:       payer-side pressure; descriptive RESEARCH_ONLY context
- *  - fearGreedNow:   current sentiment value
+ * Aggregate positioning snapshot with derived features a strategy can research/gate on:
+ *  - oiChangePct:          OI expansion/contraction over the full window
+ *  - oiRecentChangePct:    short-window OI expansion/contraction
+ *  - oiAccelerationPct:    recent OI change minus prior equal-window OI change
+ *  - crowdSide:            where retail accounts lean ('long'|'short'|'neutral')
+ *  - takerBias:            avg taker buy/sell over recent hours (>1 = aggressive buying)
+ *  - takerRecentBias:      recent subset average to retain short-horizon information
+ *  - takerImpulse:         recent average minus prior equal-window average
+ *  - takerPressure:        descriptive buy/sell/balanced label
+ *  - takerReversal:        whether strong payer aggression flipped sides
+ *  - funding*:             payer-side pressure; descriptive RESEARCH_ONLY context
+ *  - fearGreedNow:         current sentiment value
  */
 export async function getContext(symbol, { oiPoints = 48, fundingPoints = 30 } = {}) {
   const [oi, gls, taker, funding, fng] = await Promise.all([
@@ -177,9 +266,7 @@ export async function getContext(symbol, { oiPoints = 48, fundingPoints = 30 } =
     getFundingRateHistory(symbol, fundingPoints),
     getFearGreed(30),
   ]);
-  const first = oi[0]?.oiUsd ?? 0;
-  const last = oi[oi.length - 1]?.oiUsd ?? 0;
-  const oiChangePct = first ? +(((last - first) / first) * 100).toFixed(2) : null;
+  const positioningDynamics = derivePositioningDynamics(oi, taker);
 
   const latestGls = gls[gls.length - 1];
   const crowdSide = !latestGls ? 'unknown'
@@ -187,19 +274,18 @@ export async function getContext(symbol, { oiPoints = 48, fundingPoints = 30 } =
     : latestGls.ratio < 0.67 ? 'short'  // crowded short
     : 'neutral';
 
-  const takerAvg = taker.length ? +(taker.reduce((s, d) => s + d.buySellRatio, 0) / taker.length).toFixed(3) : null;
   const fundingFeatures = deriveFundingFeatures(funding);
   const fngNow = fng[fng.length - 1] ?? null;
   const fngAvg30 = fng.length ? +(fng.reduce((s, d) => s + d.value, 0) / fng.length).toFixed(1) : null;
+  const oiUsdNow = oi[oi.length - 1]?.oiUsd ?? null;
 
   return {
     symbol,
     fetchedAt: new Date().toISOString(),
-    oiUsdNow: last || null,
-    oiChangePct,
+    oiUsdNow,
+    ...positioningDynamics,
     crowdSide,
     crowdRatio: latestGls?.ratio ?? null,
-    takerBias: takerAvg,
     ...fundingFeatures,
     fearGreedNow: fngNow?.value ?? null,
     fearGreedLabel: fngNow?.label ?? null,
