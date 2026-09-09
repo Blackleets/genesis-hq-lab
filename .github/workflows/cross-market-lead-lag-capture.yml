@@ -1,5 +1,5 @@
-# RESEARCH_ONLY BTCUSDT spot/perpetual cross-market evidence.
-# Public read-only Binance endpoints. Never places orders or changes trading gates.
+# RESEARCH_ONLY BTC-USDT spot/perpetual cross-market evidence.
+# Public read-only OKX endpoints. Never places orders or changes trading gates.
 name: cross-market-lead-lag-capture
 
 on:
@@ -11,7 +11,9 @@ on:
     paths:
       - .github/workflows/cross-market-lead-lag-capture.yml
       - server/genesis/crossMarketLeadLagCapture.mjs
+      - server/research/crossMarketLeadLagStudy.mjs
       - server/tests/crossMarketLeadLagCapture.test.mjs
+      - server/tests/crossMarketLeadLagStudy.test.mjs
 
 permissions:
   contents: write
@@ -32,21 +34,23 @@ jobs:
         with:
           ref: capture-tape
           path: tape
-      - name: verify causal capture semantics
-        run: node --test server/tests/crossMarketLeadLagCapture.test.mjs
+      - name: verify causal capture and statistical discipline
+        run: node --test server/tests/crossMarketLeadLagCapture.test.mjs server/tests/crossMarketLeadLagStudy.test.mjs
       - name: capture aligned closed spot/perp bar
-        run: node server/genesis/crossMarketLeadLagCapture.mjs --symbol BTCUSDT --out tape/paper-tape/cross-market-latest.json --jsonl tape/paper-tape/cross-market.jsonl
+        run: node server/genesis/crossMarketLeadLagCapture.mjs --out tape/paper-tape/cross-market-latest.json --jsonl tape/paper-tape/cross-market.jsonl
+      - name: evaluate predeclared lead-lag protocol
+        run: node server/research/crossMarketLeadLagStudy.mjs tape/paper-tape/cross-market.jsonl --out tape/paper-tape/cross-market-study-latest.json
       - name: publish durable evidence
         working-directory: tape
         shell: bash
         run: |
           git config user.name "genesis-capture"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f paper-tape/cross-market-latest.json paper-tape/cross-market.jsonl
+          git add -f paper-tape/cross-market-latest.json paper-tape/cross-market.jsonl paper-tape/cross-market-study-latest.json
           if git diff --staged --quiet; then
             echo "no change"
             exit 0
           fi
-          git commit -m "cross-market capture $(date -u +%Y-%m-%dT%H:%MZ)"
+          git commit -m "cross-market capture/study $(date -u +%Y-%m-%dT%H:%MZ)"
           git pull --rebase origin capture-tape
           git push
