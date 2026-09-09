@@ -9,8 +9,6 @@ on:
   schedule:
     - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
-  # Re-arm the scheduled workflow and force one verified capture when this
-  # evidence path changes on the default Genesis research branch.
   push:
     branches: [feat/genesis-life-os]
     paths:
@@ -18,9 +16,11 @@ on:
       - server/genesis/researchStateCapture.mjs
       - server/genesis/researchProviderProbe.mjs
       - server/genesis/okxResearchContext.mjs
+      - server/research/causalMicrostructureStudy.mjs
       - server/tests/researchStateCapture.test.mjs
       - server/tests/researchProviderProbe.test.mjs
       - server/tests/okxVolatilityShock.test.mjs
+      - server/tests/causalMicrostructureStudy.test.mjs
 
 permissions:
   contents: write
@@ -42,7 +42,7 @@ jobs:
           ref: capture-tape
           path: tape
       - name: verify synchronized evidence integrity
-        run: node --test server/tests/researchStateCapture.test.mjs server/tests/researchProviderProbe.test.mjs server/tests/okxVolatilityShock.test.mjs
+        run: node --test server/tests/researchStateCapture.test.mjs server/tests/researchProviderProbe.test.mjs server/tests/okxVolatilityShock.test.mjs server/tests/causalMicrostructureStudy.test.mjs
       - name: validate redundant public research routes
         shell: bash
         run: |
@@ -63,13 +63,15 @@ jobs:
         run: node server/genesis/fundingHold.mjs --once --state tape/paper-tape/funding-latest.json
       - name: capture synchronized research state
         run: node server/genesis/researchStateCapture.mjs BTCUSDT --out tape/paper-tape/research-state-latest.json --jsonl tape/paper-tape/research-state.jsonl
+      - name: evaluate predeclared microstructure hypothesis
+        run: node server/research/causalMicrostructureStudy.mjs tape/paper-tape/research-state.jsonl --out tape/paper-tape/microstructure-study-latest.json
       - name: publish tape
         working-directory: tape
         run: |
           git config user.name "genesis-capture"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mkdir -p paper-tape
-          git add -f paper-tape/capture-latest.json paper-tape/capture.jsonl paper-tape/hz1-latest.json paper-tape/hz1.jsonl paper-tape/funding-latest.json paper-tape/research-state-latest.json paper-tape/research-state.jsonl paper-tape/provider-probe-latest.json
+          git add -f paper-tape/capture-latest.json paper-tape/capture.jsonl paper-tape/hz1-latest.json paper-tape/hz1.jsonl paper-tape/funding-latest.json paper-tape/research-state-latest.json paper-tape/research-state.jsonl paper-tape/provider-probe-latest.json paper-tape/microstructure-study-latest.json
           if git diff --staged --quiet; then
             echo "no change"
             exit 0
