@@ -12,6 +12,7 @@ import { getOkxResearchContexts } from './okxResearchContext.mjs';
 export const SOURCE_FRESHNESS_BUDGET_MS = Object.freeze({
   oi: 15 * 60 * 1000, taker: 2 * 60 * 60 * 1000, funding: 12 * 60 * 60 * 1000,
   premium: 2 * 60 * 60 * 1000, reference: 5 * 60 * 1000, perp: 5 * 60 * 1000,
+  volatility: 5 * 60 * 1000,
 });
 export const MAX_CROSS_CAPTURE_GAP_MS = 60 * 60 * 1000;
 function latestTime(rows = []) { const times = rows.map(row => Number(row?.time)).filter(Number.isFinite); return times.length ? Math.max(...times) : null; }
@@ -24,13 +25,14 @@ export function buildSynchronizedResearchState({ symbol, capturedAt = new Date()
   const capturedAtMs = Date.parse(capturedAt); if (!Number.isFinite(capturedAtMs)) throw new Error('invalid capturedAt');
   const raw = derivatives?.raw ?? {};
   const sourceAsOf = { oi: latestTime(raw.oi), taker: latestTime(raw.taker), funding: latestTime(raw.funding), premium: latestTime(raw.premium), reference: latestTime(leadLag?.raw?.spot), perp: latestTime(leadLag?.raw?.perp) };
+  if (Array.isArray(raw.volatility)) sourceAsOf.volatility = latestTime(raw.volatility);
   const sourceAgeMs = Object.fromEntries(Object.entries(sourceAsOf).map(([key, value]) => [key, ageMs(capturedAtMs, value)]));
   const futureSources = Object.entries(sourceAsOf).filter(([, value]) => Number.isFinite(value) && value > capturedAtMs).map(([key]) => key);
   const missingSources = Object.entries(sourceAsOf).filter(([, value]) => !Number.isFinite(value)).map(([key]) => key);
   const staleSources = Object.entries(sourceAgeMs).filter(([key, value]) => Number.isFinite(value) && Number.isFinite(SOURCE_FRESHNESS_BUDGET_MS[key]) && value > SOURCE_FRESHNESS_BUDGET_MS[key]).map(([key]) => key);
   const errorSources = Object.keys(sourceErrors);
   return {
-    schemaVersion: 3, mode: 'RESEARCH_ONLY', provider, symbol: String(symbol || derivatives?.symbol || leadLag?.symbol || '').toUpperCase(), capturedAt,
+    schemaVersion: 4, mode: 'RESEARCH_ONLY', provider, symbol: String(symbol || derivatives?.symbol || leadLag?.symbol || '').toUpperCase(), capturedAt,
     safeForResearch: futureSources.length === 0 && missingSources.length === 0 && staleSources.length === 0 && errorSources.length === 0,
     referenceSource: leadLag?.referenceSource ?? 'unknown', sourceAsOf, sourceAgeMs, sourceFreshnessBudgetMs: SOURCE_FRESHNESS_BUDGET_MS,
     integrity: { missingSources, futureSources, staleSources, errorSources, sourceErrors, noFutureData: futureSources.length === 0, allSourcesFresh: staleSources.length === 0 },
@@ -39,6 +41,9 @@ export function buildSynchronizedResearchState({ symbol, capturedAt = new Date()
       takerBias: derivatives?.takerBias ?? null, takerRecentBias: derivatives?.takerRecentBias ?? null, takerImpulse: derivatives?.takerImpulse ?? null, takerPressure: derivatives?.takerPressure ?? 'unknown', takerReversal: derivatives?.takerReversal ?? false,
       crowdSide: derivatives?.crowdSide ?? 'unknown', crowdRatio: derivatives?.crowdRatio ?? null, fundingRateNow: derivatives?.fundingRateNow ?? null, fundingAvg: derivatives?.fundingAvg ?? null, fundingCrowd: derivatives?.fundingCrowd ?? 'unknown',
       premiumNowBps: derivatives?.premiumNowBps ?? null, premiumRecentAvgBps: derivatives?.premiumRecentAvgBps ?? null, premiumImpulseBps: derivatives?.premiumImpulseBps ?? null,
+      volatilityBarCount: derivatives?.volatilityBarCount ?? null, realizedVolShortBps: derivatives?.realizedVolShortBps ?? null, realizedVolLongBps: derivatives?.realizedVolLongBps ?? null,
+      volatilityExpansionRatio: derivatives?.volatilityExpansionRatio ?? null, latestRangeBps: derivatives?.latestRangeBps ?? null, rangeShockRatio: derivatives?.rangeShockRatio ?? null,
+      volumeShockRatio: derivatives?.volumeShockRatio ?? null, maxAbsReturnBpsShort: derivatives?.maxAbsReturnBpsShort ?? null, volatilityState: derivatives?.volatilityState ?? 'unknown',
       spreadNowBps: leadLag?.spreadNowBps ?? null, spreadAvgBps: leadLag?.spreadAvgBps ?? null, spreadVolBps: leadLag?.spreadVolBps ?? null, returnCorr0: leadLag?.returnCorr0 ?? null,
       bestLagBars: leadLag?.bestLagBars ?? null, bestLagCorr: leadLag?.bestLagCorr ?? null, leader: leadLag?.leader ?? 'unknown', latestReturnDivergenceBps: leadLag?.latestReturnDivergenceBps ?? null,
     },
