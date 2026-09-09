@@ -67,13 +67,14 @@ jobs:
             --history tape/quant-evidence/edge-factory-history.jsonl \
             --learning tape/quant-evidence/edge-learning-latest.json \
             --learning-history tape/quant-evidence/edge-learning-history.jsonl
-      - name: Generate next hypotheses from learning
+      - name: Generate next independent hypotheses from learning
         run: |
           node server/genesis/generateEdgeHypotheses.mjs \
             --edge tape/quant-evidence/edge-factory-latest.json \
             --learning tape/quant-evidence/edge-learning-latest.json \
             --adaptive tape/quant-evidence/edge-adaptive-latest.json \
             --deep-ledger tape/quant-evidence/edge-deep-learning-ledger.json \
+            --forward tape/quant-evidence/forward-paper-latest.json \
             --out tape/quant-evidence/edge-hypotheses-latest.json \
             --history tape/quant-evidence/edge-hypotheses-history.jsonl
       - name: Verify capital boundary
