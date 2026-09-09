@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildPositioningObservation } from '../genesis/positioningDynamicsCapture.mjs';
+import { buildPositioningObservation, deriveCrossCapturePositioningFeatures } from '../genesis/positioningDynamicsCapture.mjs';
 
 const capturedAtMs = Date.parse('2026-09-09T16:30:00.000Z');
 
@@ -39,11 +39,29 @@ function closedKline(closeTime = capturedAtMs - 1_000) {
   return [capturedAtMs - 60_000, '79000', '79100', '78900', '79050', '12', closeTime, '948600', 100, '6', '474300', '0'];
 }
 
+function observation({ capturedAt = '2026-09-09T16:25:00.000Z', oi = 1_000_000, taker = 0.8, funding = 0.00008, premium = -2, close = 79000 } = {}) {
+  return {
+    schemaVersion: 3,
+    mode: 'RESEARCH_ONLY',
+    provider: 'okx_public_market_data',
+    symbol: 'BTCUSDT',
+    capturedAt,
+    price: { close },
+    positioning: {
+      openInterest: { value: oi, unit: 'CONTRACTS' },
+      takerBuySellRatioNow: taker,
+      fundingRateNow: funding,
+      premiumNowBps: premium,
+    },
+  };
+}
+
 test('builds one causal RESEARCH_ONLY envelope with source provenance and explicit OI units', () => {
   const out = buildPositioningObservation(context(), closedKline(), {
     capturedAtMs,
     openInterestUnit: 'CONTRACTS',
   });
+  assert.equal(out.schemaVersion, 3);
   assert.equal(out.mode, 'RESEARCH_ONLY');
   assert.equal(out.researchUse, 'OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING');
   assert.equal(out.price.close, 79050);
@@ -53,10 +71,48 @@ test('builds one causal RESEARCH_ONLY envelope with source provenance and explic
   assert.equal(out.positioning.takerReversal, true);
   assert.equal(out.positioning.volatilityState, 'normal');
   assert.equal(out.provenance.closedPriceBarOnly, true);
+  assert.equal(out.provenance.crossCaptureUsesStrictlyPriorDurableObservation, true);
   assert.match(out.provenance.note, /provider-native contract units/);
   assert.equal(out.provenance.agesMs.openInterest, 5 * 60_000);
   assert.equal(out.provenance.agesMs.taker, 30 * 60_000);
   assert.equal(out.provenance.agesMs.funding, 8 * 60 * 60_000);
+});
+
+test('derives real positioning dynamics only from a strictly prior durable capture', () => {
+  const previous = observation();
+  const current = observation({
+    capturedAt: '2026-09-09T16:30:00.000Z',
+    oi: 1_010_000,
+    taker: 1.05,
+    funding: 0.00009,
+    premium: -1.25,
+    close: 79158,
+  });
+  const out = deriveCrossCapturePositioningFeatures(previous, current);
+  assert.equal(out.available, true);
+  assert.equal(out.causal, true);
+  assert.equal(out.elapsedMinutes, 5);
+  assert.ok(Math.abs(out.oiChangePct - 1) < 1e-9);
+  assert.ok(Math.abs(out.takerBuySellRatioDelta - 0.25) < 1e-9);
+  assert.ok(Math.abs(out.fundingDeltaBps - 0.1) < 1e-9);
+  assert.ok(Math.abs(out.premiumDeltaBps - 0.75) < 1e-9);
+  assert.ok(out.perpReturnBps > 0);
+  assert.equal(out.researchUse, 'OBSERVATIONAL_ONLY_NOT_FOR_RANKING');
+});
+
+test('refuses non-causal or stale prior captures', () => {
+  const current = observation({ capturedAt: '2026-09-09T16:30:00.000Z' });
+  const future = observation({ capturedAt: '2026-09-09T16:31:00.000Z' });
+  const stale = observation({ capturedAt: '2026-09-09T15:00:00.000Z' });
+  assert.equal(deriveCrossCapturePositioningFeatures(future, current).reason, 'NON_CAUSAL_TIME_ORDER');
+  assert.equal(deriveCrossCapturePositioningFeatures(stale, current).reason, 'PRIOR_CAPTURE_TOO_OLD');
+});
+
+test('refuses cross-series contamination', () => {
+  const previous = observation();
+  previous.symbol = 'ETHUSDT';
+  const current = observation({ capturedAt: '2026-09-09T16:30:00.000Z' });
+  assert.equal(deriveCrossCapturePositioningFeatures(previous, current).reason, 'SERIES_MISMATCH');
 });
 
 test('fails closed on future price data', () => {
