@@ -15,6 +15,7 @@ export const SOURCE_FRESHNESS_BUDGET_MS = Object.freeze({
   volatility: 5 * 60 * 1000,
 });
 export const OKX_FIXED_TAKER_FRESHNESS_MS = 2 * 60 * 1000;
+export const OKX_FIXED_TAKER_WINDOW_MS = 60_000;
 export const MAX_CROSS_CAPTURE_GAP_MS = 60 * 60 * 1000;
 function latestTime(rows = []) { const times = rows.map(row => Number(row?.time)).filter(Number.isFinite); return times.length ? Math.max(...times) : null; }
 function latestClose(rows = []) { const valid = rows.map(row => ({ time: Number(row?.time), close: Number(row?.close) })).filter(row => Number.isFinite(row.time) && Number.isFinite(row.close) && row.close > 0).sort((a, b) => a.time - b.time); return valid.at(-1)?.close ?? null; }
@@ -33,7 +34,7 @@ export function buildSynchronizedResearchState({ symbol, capturedAt = new Date()
   const missingSources = Object.entries(sourceAsOf).filter(([, value]) => !Number.isFinite(value)).map(([key]) => key);
   const staleSources = Object.entries(sourceAgeMs).filter(([key, value]) => Number.isFinite(value) && Number.isFinite(SOURCE_FRESHNESS_BUDGET_MS[key]) && value > SOURCE_FRESHNESS_BUDGET_MS[key]).map(([key]) => key);
   const okxFixedWindowTaker = provider !== 'okx' || (
-    Number(derivatives?.takerWindowMs) === 60_000 &&
+    Number(derivatives?.takerWindowMs) === OKX_FIXED_TAKER_WINDOW_MS &&
     Number(derivatives?.takerWindowCoverageMs) >= 54_000 &&
     Number(derivatives?.takerTradeCount) > 0 &&
     derivatives?.takerSource === 'okx_public_history_trades_fixed_window' &&
@@ -71,25 +72,35 @@ export function buildSynchronizedResearchState({ symbol, capturedAt = new Date()
   };
 }
 
+function okxTakerWindowsNonOverlapping(current, previous, gapMs) {
+  if (current?.provider !== 'okx') return true;
+  const currentTakerAsOf = finite(current?.sourceAsOf?.taker);
+  const previousTakerAsOf = finite(previous?.sourceAsOf?.taker);
+  if (currentTakerAsOf !== null && previousTakerAsOf !== null) return currentTakerAsOf - previousTakerAsOf >= OKX_FIXED_TAKER_WINDOW_MS;
+  return Number.isFinite(gapMs) && gapMs >= OKX_FIXED_TAKER_WINDOW_MS;
+}
+
 export function deriveCrossCaptureFeatures(current, previous) {
   const currentMs = Date.parse(current?.capturedAt ?? '');
   const previousMs = Date.parse(previous?.capturedAt ?? '');
   const gapMs = currentMs - previousMs;
+  const takerWindowsNonOverlapping = okxTakerWindowsNonOverlapping(current, previous, gapMs);
   const compatible = Boolean(
     current?.safeForResearch && previous?.safeForResearch &&
     current?.schemaVersion === previous?.schemaVersion &&
     current?.provider && current.provider === previous?.provider &&
     current?.symbol && current.symbol === previous?.symbol &&
     current?.provenance?.takerDefinition && current.provenance.takerDefinition === previous?.provenance?.takerDefinition &&
+    takerWindowsNonOverlapping &&
     Number.isFinite(gapMs) && gapMs > 0 && gapMs <= MAX_CROSS_CAPTURE_GAP_MS
   );
   if (!compatible) return {
-    available: false, previousCapturedAt: previous?.capturedAt ?? null, gapMs: Number.isFinite(gapMs) ? gapMs : null,
+    available: false, previousCapturedAt: previous?.capturedAt ?? null, gapMs: Number.isFinite(gapMs) ? gapMs : null, takerWindowsNonOverlapping,
     oiCrossCaptureChangePct: null, takerBiasCrossCaptureChange: null, fundingCrossCaptureDeltaBps: null,
     premiumCrossCaptureDeltaBps: null, spreadCrossCaptureDeltaBps: null,
   };
   return {
-    available: true, previousCapturedAt: previous.capturedAt, gapMs,
+    available: true, previousCapturedAt: previous.capturedAt, gapMs, takerWindowsNonOverlapping,
     oiCrossCaptureChangePct: pctChange(current?.features?.oiUsdNow, previous?.features?.oiUsdNow),
     takerBiasCrossCaptureChange: difference(current?.features?.takerBias, previous?.features?.takerBias),
     fundingCrossCaptureDeltaBps: difference(finite(current?.features?.fundingRateNow) * 10000, finite(previous?.features?.fundingRateNow) * 10000),
@@ -105,7 +116,7 @@ function readPreviousCompatibleState(jsonl, current) {
     try {
       const candidate = JSON.parse(lines[i]);
       if (candidate?.provider === current?.provider && candidate?.symbol === current?.symbol && candidate?.safeForResearch && candidate?.schemaVersion === current?.schemaVersion && candidate?.provenance?.takerDefinition === current?.provenance?.takerDefinition) return candidate;
-    } catch { /* append-only tape may contain an incomplete final line after interruption; ignore it */ }
+    } catch { }
   }
   return null;
 }
@@ -126,8 +137,6 @@ export async function captureResearchState(symbol = 'BTCUSDT', { out, jsonl, int
       for (const key of Object.keys(sourceErrors)) delete sourceErrors[key];
     } catch (error) { sourceErrors.okxFallback = messageOf(error); }
   }
-  // Capture time is the envelope close, not acquisition start. This preserves strict
-  // no-future-data semantics without misclassifying observations received during network I/O.
   const capturedAt = new Date().toISOString();
   const state = buildSynchronizedResearchState({ symbol: normalizedSymbol, capturedAt, derivatives, leadLag, sourceErrors, provider });
   const previous = readPreviousCompatibleState(jsonl, state);
