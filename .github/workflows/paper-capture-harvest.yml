@@ -1,6 +1,6 @@
-# Paper-only OKX harvest. Writes to capture-tape (NOT feat/genesis-life-os)
-# so Vercel does not redeploy every tick. Never sends an order.
-# Path is paper-tape/ because /data/ is gitignored.
+# Paper-only OKX harvest plus synchronized RESEARCH_ONLY market-state evidence.
+# Writes to capture-tape (NOT feat/genesis-life-os) so Vercel does not redeploy every tick.
+# Never sends an order. Path is paper-tape/ because /data/ is gitignored.
 name: paper-capture-harvest
 
 on:
@@ -39,13 +39,15 @@ jobs:
         run: node server/genesis/harvest1hz.mjs --once --out tape/paper-tape/hz1-latest.json --jsonl tape/paper-tape/hz1.jsonl
       - name: run paper funding hold
         run: node server/genesis/fundingHold.mjs --once --state tape/paper-tape/funding-latest.json
+      - name: capture synchronized research state
+        run: node server/genesis/researchStateCapture.mjs BTCUSDT --out tape/paper-tape/research-state-latest.json --jsonl tape/paper-tape/research-state.jsonl
       - name: publish tape
         working-directory: tape
         run: |
           git config user.name "genesis-capture"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mkdir -p paper-tape
-          git add -f paper-tape/capture-latest.json paper-tape/capture.jsonl paper-tape/hz1-latest.json paper-tape/hz1.jsonl paper-tape/funding-latest.json
+          git add -f paper-tape/capture-latest.json paper-tape/capture.jsonl paper-tape/hz1-latest.json paper-tape/hz1.jsonl paper-tape/funding-latest.json paper-tape/research-state-latest.json paper-tape/research-state.jsonl
           if git diff --staged --quiet; then
             echo "no change"
             exit 0
