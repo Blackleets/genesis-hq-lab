@@ -18,6 +18,28 @@ function takerWindowMs(row) {
   return finite(row?.positioning?.takerWindowMs) ?? finite(row?.provenance?.takerWindowMs);
 }
 
+function defectCounts(rows, maxGapMinutes) {
+  let duplicateCloseTimes = 0;
+  let nonCausalSequence = 0;
+  let overlappingWindows = 0;
+  let excessiveGaps = 0;
+  const closeTimes = new Set();
+  for (let i = 0; i < rows.length; i += 1) {
+    const row = rows[i];
+    const closeTime = row?.price?.closeTime ?? null;
+    if (closeTime && closeTimes.has(closeTime)) duplicateCloseTimes += 1;
+    if (closeTime) closeTimes.add(closeTime);
+    if (i === 0) continue;
+    const prev = rows[i - 1];
+    const elapsedMs = capturedMs(row) - capturedMs(prev);
+    if (!(elapsedMs > 0)) nonCausalSequence += 1;
+    const requiredMs = Math.max(takerWindowMs(prev), takerWindowMs(row));
+    if (elapsedMs > 0 && elapsedMs < requiredMs) overlappingWindows += 1;
+    if (elapsedMs > maxGapMinutes * 60_000) excessiveGaps += 1;
+  }
+  return { duplicateCloseTimes, nonCausalSequence, overlappingWindows, excessiveGaps };
+}
+
 export function auditPositioningRows(rows = [], {
   expectedSchemaVersion = 4,
   maxGapMinutes = 60,
@@ -40,29 +62,17 @@ export function auditPositioningRows(rows = [], {
     && takerWindowMs(row) > 0,
   ).sort((a, b) => capturedMs(a) - capturedMs(b));
 
-  let duplicateCloseTimes = 0;
-  let nonCausalSequence = 0;
-  let overlappingWindows = 0;
-  let excessiveGaps = 0;
-  const closeTimes = new Set();
-
-  for (let i = 0; i < eligibleBase.length; i += 1) {
-    const row = eligibleBase[i];
-    const closeTime = row?.price?.closeTime ?? null;
-    if (closeTime && closeTimes.has(closeTime)) duplicateCloseTimes += 1;
-    if (closeTime) closeTimes.add(closeTime);
-
-    if (i === 0) continue;
-    const prev = eligibleBase[i - 1];
-    const elapsedMs = capturedMs(row) - capturedMs(prev);
-    if (!(elapsedMs > 0)) nonCausalSequence += 1;
-    const requiredMs = Math.max(takerWindowMs(prev), takerWindowMs(row));
-    if (elapsedMs > 0 && elapsedMs < requiredMs) overlappingWindows += 1;
-    if (elapsedMs > maxGapMinutes * 60_000) excessiveGaps += 1;
+  const historicalDefects = defectCounts(eligibleBase, maxGapMinutes);
+  let latestSegmentStart = 0;
+  for (let i = 1; i < eligibleBase.length; i += 1) {
+    const gapMs = capturedMs(eligibleBase[i]) - capturedMs(eligibleBase[i - 1]);
+    if (gapMs > maxGapMinutes * 60_000) latestSegmentStart = i;
   }
+  const cohort = eligibleBase.slice(latestSegmentStart);
+  const defects = defectCounts(cohort, maxGapMinutes);
 
   const independent = [];
-  for (const row of eligibleBase) {
+  for (const row of cohort) {
     const prior = independent.at(-1);
     if (!prior) {
       independent.push(row);
@@ -73,14 +83,14 @@ export function auditPositioningRows(rows = [], {
     if (elapsedMs >= requiredMs && elapsedMs <= maxGapMinutes * 60_000) independent.push(row);
   }
 
-  const rawCount = eligibleBase.length;
+  const rawCount = cohort.length;
   const independentCount = independent.length;
   const effectiveRatio = rawCount > 0 ? independentCount / rawCount : 0;
   const qualityPass = rawCount > 0
-    && duplicateCloseTimes === 0
-    && nonCausalSequence === 0
-    && overlappingWindows === 0
-    && excessiveGaps === 0
+    && defects.duplicateCloseTimes === 0
+    && defects.nonCausalSequence === 0
+    && defects.overlappingWindows === 0
+    && defects.excessiveGaps === 0
     && effectiveRatio >= 0.95;
 
   const minimumRows = Math.max(1, Math.floor(Number(minIndependentRowsForPredeclaredStudy) || 20));
@@ -88,24 +98,23 @@ export function auditPositioningRows(rows = [], {
   const readyForPredeclaredStudy = qualityPass && independentCount >= minimumRows;
 
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     mode: 'RESEARCH_ONLY',
     researchUse: 'DATA_QUALITY_ONLY_NOT_FOR_RANKING',
     expectedSchemaVersion,
     maxGapMinutes,
     rawRowCount: parsed.length,
+    historicalEligibleRowCount: eligibleBase.length,
     eligibleRowCount: rawCount,
     independentRowCount: independentCount,
     effectiveIndependentRatio: effectiveRatio,
     schemaCounts,
-    defects: {
-      duplicateCloseTimes,
-      nonCausalSequence,
-      overlappingWindows,
-      excessiveGaps,
-    },
-    firstEligibleCapturedAt: eligibleBase[0]?.capturedAt ?? null,
-    lastEligibleCapturedAt: eligibleBase.at(-1)?.capturedAt ?? null,
+    defects,
+    historicalDefects,
+    cohortResetCount: historicalDefects.excessiveGaps,
+    cohortPolicy: 'LATEST_CONTIGUOUS_SEGMENT_AFTER_EXCESSIVE_GAP',
+    firstEligibleCapturedAt: cohort[0]?.capturedAt ?? null,
+    lastEligibleCapturedAt: cohort.at(-1)?.capturedAt ?? null,
     qualityPass,
     readiness: {
       purpose: 'MINIMUM_COHORT_SIZE_TO_BEGIN_PREDECLARED_STUDY_NOT_A_TRADING_GATE',
