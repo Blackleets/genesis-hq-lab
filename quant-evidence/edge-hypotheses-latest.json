@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-09T01:01:52.256Z",
+  "completedAt": "2026-09-09T01:02:50.774Z",
   "methodology": {
     "selectionUsesHoldout": false,
     "balancedNeighborhood": true,
@@ -20,8 +20,8 @@
   },
   "sourceVerdict": "PAPER_CANDIDATE_FOUND",
   "sourcePoolSize": 120,
-  "eligibleHypotheses": 33,
-  "queueSize": 36,
+  "eligibleHypotheses": 32,
+  "queueSize": 30,
   "deepOverrides": [
     {
       "hypothesisKey": "opening_range_breakout:BTCUSDT:1h:LONDON",
@@ -459,6 +459,40 @@
           },
           "walkForward": {
             "positiveFolds": 2,
+            "requiredPositiveFolds": 3,
+            "pass": false
+          }
+        }
+      }
+    },
+    {
+      "hypothesisKey": "failed_breakout:BNBUSDT:1h:ASIA",
+      "action": "SUPPRESS_DEEP_REJECTED",
+      "ledger": {
+        "status": "DEEP_REJECTED",
+        "firstSeen": "2026-09-09T01:02:30.599Z",
+        "lastSeen": "2026-09-09T01:02:30.599Z",
+        "parentVariant": "failed_breakout:BNBUSDT:1h:ASIA:p20:ta1:sa0.75:tb8",
+        "barsPerMarket": 12000,
+        "reason": "DEEP_NEGATIVE_VALIDATION_EXPECTANCY",
+        "resetPolicy": "MATERIAL_REGIME_OR_CONTEXT_CHANGE",
+        "evidence": {
+          "train": {
+            "trades": 36,
+            "expectancyBps": 0.75,
+            "profitFactor": 1.018,
+            "tStat": 0.044,
+            "maxDrawdownPct": 5.05
+          },
+          "validation": {
+            "trades": 16,
+            "expectancyBps": -1.43,
+            "profitFactor": 0.956,
+            "tStat": -0.082,
+            "maxDrawdownPct": 2.26
+          },
+          "walkForward": {
+            "positiveFolds": 1,
             "requiredPositiveFolds": 3,
             "pass": false
           }
@@ -1413,644 +1447,6 @@
       }
     },
     {
-      "id": "failed_breakout:BNBUSDT:1h:ASIA:p20:ta1:sa0.75:tb8:control",
-      "role": "CONTROL",
-      "priority": "P1",
-      "parentVariant": "failed_breakout:BNBUSDT:1h:ASIA:p20:ta1:sa0.75:tb8",
-      "hypothesisKey": "failed_breakout:BNBUSDT:1h:ASIA",
-      "market": {
-        "pair": "BNBUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "failed_breakout",
-        "period": 20,
-        "targetAtr": 1,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "rationale": "Control replay of the best parent for this independent hypothesis. It prevents data drift from being mistaken for parameter improvement.",
-      "sentinelCritique": [
-        "TRAIN_SAMPLE_THIN",
-        "VALIDATION_SAMPLE_THIN",
-        "HOLDOUT_SAMPLE_THIN",
-        "LOW_HOLDOUT_TSTAT",
-        "WEAK_HOLDOUT_PROFIT_FACTOR",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_HOLDOUT_EXPECTANCY"
-      ],
-      "expectedFalsification": "Control must remain directionally consistent on train and validation; otherwise pause mutations and diagnose regime/data drift.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 17,
-          "expectancyBps": 1.69,
-          "profitFactor": 1.055,
-          "tStat": 0.101,
-          "maxDrawdownPct": 2.26
-        },
-        "validation": {
-          "trades": 9,
-          "expectancyBps": 7.68,
-          "profitFactor": 1.349,
-          "tStat": 0.413,
-          "maxDrawdownPct": 0.87
-        },
-        "holdout": {
-          "trades": 4,
-          "expectancyBps": -52.43,
-          "profitFactor": 0.167,
-          "tStat": -1.469,
-          "maxDrawdownPct": 2.1
-        },
-        "walkForward": {
-          "positiveFolds": 2,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    },
-    {
-      "id": "failed_breakout:BNBUSDT:1h:ASIA:p16:ta1:sa0.75:tb8",
-      "role": "MUTATION",
-      "priority": "P1",
-      "parentVariant": "failed_breakout:BNBUSDT:1h:ASIA:p20:ta1:sa0.75:tb8",
-      "hypothesisKey": "failed_breakout:BNBUSDT:1h:ASIA",
-      "market": {
-        "pair": "BNBUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "failed_breakout",
-        "period": 16,
-        "targetAtr": 1,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
-      "sentinelCritique": [
-        "TRAIN_SAMPLE_THIN",
-        "VALIDATION_SAMPLE_THIN",
-        "HOLDOUT_SAMPLE_THIN",
-        "LOW_HOLDOUT_TSTAT",
-        "WEAK_HOLDOUT_PROFIT_FACTOR",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_HOLDOUT_EXPECTANCY"
-      ],
-      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 17,
-          "expectancyBps": 1.69,
-          "profitFactor": 1.055,
-          "tStat": 0.101,
-          "maxDrawdownPct": 2.26
-        },
-        "validation": {
-          "trades": 9,
-          "expectancyBps": 7.68,
-          "profitFactor": 1.349,
-          "tStat": 0.413,
-          "maxDrawdownPct": 0.87
-        },
-        "holdout": {
-          "trades": 4,
-          "expectancyBps": -52.43,
-          "profitFactor": 0.167,
-          "tStat": -1.469,
-          "maxDrawdownPct": 2.1
-        },
-        "walkForward": {
-          "positiveFolds": 2,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    },
-    {
-      "id": "failed_breakout:BNBUSDT:1h:ASIA:p20:ta0.75:sa0.75:tb8",
-      "role": "MUTATION",
-      "priority": "P1",
-      "parentVariant": "failed_breakout:BNBUSDT:1h:ASIA:p20:ta1:sa0.75:tb8",
-      "hypothesisKey": "failed_breakout:BNBUSDT:1h:ASIA",
-      "market": {
-        "pair": "BNBUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "failed_breakout",
-        "period": 20,
-        "targetAtr": 0.75,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
-      "sentinelCritique": [
-        "TRAIN_SAMPLE_THIN",
-        "VALIDATION_SAMPLE_THIN",
-        "HOLDOUT_SAMPLE_THIN",
-        "LOW_HOLDOUT_TSTAT",
-        "WEAK_HOLDOUT_PROFIT_FACTOR",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_HOLDOUT_EXPECTANCY"
-      ],
-      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 17,
-          "expectancyBps": 1.69,
-          "profitFactor": 1.055,
-          "tStat": 0.101,
-          "maxDrawdownPct": 2.26
-        },
-        "validation": {
-          "trades": 9,
-          "expectancyBps": 7.68,
-          "profitFactor": 1.349,
-          "tStat": 0.413,
-          "maxDrawdownPct": 0.87
-        },
-        "holdout": {
-          "trades": 4,
-          "expectancyBps": -52.43,
-          "profitFactor": 0.167,
-          "tStat": -1.469,
-          "maxDrawdownPct": 2.1
-        },
-        "walkForward": {
-          "positiveFolds": 2,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    },
-    {
-      "id": "failed_breakout:BNBUSDT:1h:ASIA:p20:ta1:sa0.75:tb6",
-      "role": "MUTATION",
-      "priority": "P1",
-      "parentVariant": "failed_breakout:BNBUSDT:1h:ASIA:p20:ta1:sa0.75:tb8",
-      "hypothesisKey": "failed_breakout:BNBUSDT:1h:ASIA",
-      "market": {
-        "pair": "BNBUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "failed_breakout",
-        "period": 20,
-        "targetAtr": 1,
-        "stopAtr": 0.75,
-        "timeoutBars": 6,
-        "session": "ASIA"
-      },
-      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
-      "sentinelCritique": [
-        "TRAIN_SAMPLE_THIN",
-        "VALIDATION_SAMPLE_THIN",
-        "HOLDOUT_SAMPLE_THIN",
-        "LOW_HOLDOUT_TSTAT",
-        "WEAK_HOLDOUT_PROFIT_FACTOR",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_HOLDOUT_EXPECTANCY"
-      ],
-      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 17,
-          "expectancyBps": 1.69,
-          "profitFactor": 1.055,
-          "tStat": 0.101,
-          "maxDrawdownPct": 2.26
-        },
-        "validation": {
-          "trades": 9,
-          "expectancyBps": 7.68,
-          "profitFactor": 1.349,
-          "tStat": 0.413,
-          "maxDrawdownPct": 0.87
-        },
-        "holdout": {
-          "trades": 4,
-          "expectancyBps": -52.43,
-          "profitFactor": 0.167,
-          "tStat": -1.469,
-          "maxDrawdownPct": 2.1
-        },
-        "walkForward": {
-          "positiveFolds": 2,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    },
-    {
-      "id": "failed_breakout:BNBUSDT:1h:ASIA:p20:ta1.25:sa0.75:tb8",
-      "role": "MUTATION",
-      "priority": "P1",
-      "parentVariant": "failed_breakout:BNBUSDT:1h:ASIA:p20:ta1:sa0.75:tb8",
-      "hypothesisKey": "failed_breakout:BNBUSDT:1h:ASIA",
-      "market": {
-        "pair": "BNBUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "failed_breakout",
-        "period": 20,
-        "targetAtr": 1.25,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
-      "sentinelCritique": [
-        "TRAIN_SAMPLE_THIN",
-        "VALIDATION_SAMPLE_THIN",
-        "HOLDOUT_SAMPLE_THIN",
-        "LOW_HOLDOUT_TSTAT",
-        "WEAK_HOLDOUT_PROFIT_FACTOR",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_HOLDOUT_EXPECTANCY"
-      ],
-      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 17,
-          "expectancyBps": 1.69,
-          "profitFactor": 1.055,
-          "tStat": 0.101,
-          "maxDrawdownPct": 2.26
-        },
-        "validation": {
-          "trades": 9,
-          "expectancyBps": 7.68,
-          "profitFactor": 1.349,
-          "tStat": 0.413,
-          "maxDrawdownPct": 0.87
-        },
-        "holdout": {
-          "trades": 4,
-          "expectancyBps": -52.43,
-          "profitFactor": 0.167,
-          "tStat": -1.469,
-          "maxDrawdownPct": 2.1
-        },
-        "walkForward": {
-          "positiveFolds": 2,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    },
-    {
-      "id": "failed_breakout:BNBUSDT:1h:ASIA:p24:ta1:sa0.75:tb8",
-      "role": "MUTATION",
-      "priority": "P1",
-      "parentVariant": "failed_breakout:BNBUSDT:1h:ASIA:p20:ta1:sa0.75:tb8",
-      "hypothesisKey": "failed_breakout:BNBUSDT:1h:ASIA",
-      "market": {
-        "pair": "BNBUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "failed_breakout",
-        "period": 24,
-        "targetAtr": 1,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
-      "sentinelCritique": [
-        "TRAIN_SAMPLE_THIN",
-        "VALIDATION_SAMPLE_THIN",
-        "HOLDOUT_SAMPLE_THIN",
-        "LOW_HOLDOUT_TSTAT",
-        "WEAK_HOLDOUT_PROFIT_FACTOR",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_HOLDOUT_EXPECTANCY"
-      ],
-      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 17,
-          "expectancyBps": 1.69,
-          "profitFactor": 1.055,
-          "tStat": 0.101,
-          "maxDrawdownPct": 2.26
-        },
-        "validation": {
-          "trades": 9,
-          "expectancyBps": 7.68,
-          "profitFactor": 1.349,
-          "tStat": 0.413,
-          "maxDrawdownPct": 0.87
-        },
-        "holdout": {
-          "trades": 4,
-          "expectancyBps": -52.43,
-          "profitFactor": 0.167,
-          "tStat": -1.469,
-          "maxDrawdownPct": 2.1
-        },
-        "walkForward": {
-          "positiveFolds": 2,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    },
-    {
-      "id": "failed_breakout:BNBUSDT:1h:ASIA:p20:ta1:sa0.6:tb8",
-      "role": "MUTATION",
-      "priority": "P1",
-      "parentVariant": "failed_breakout:BNBUSDT:1h:ASIA:p20:ta1:sa0.75:tb8",
-      "hypothesisKey": "failed_breakout:BNBUSDT:1h:ASIA",
-      "market": {
-        "pair": "BNBUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "failed_breakout",
-        "period": 20,
-        "targetAtr": 1,
-        "stopAtr": 0.6,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
-      "sentinelCritique": [
-        "TRAIN_SAMPLE_THIN",
-        "VALIDATION_SAMPLE_THIN",
-        "HOLDOUT_SAMPLE_THIN",
-        "LOW_HOLDOUT_TSTAT",
-        "WEAK_HOLDOUT_PROFIT_FACTOR",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_HOLDOUT_EXPECTANCY"
-      ],
-      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 17,
-          "expectancyBps": 1.69,
-          "profitFactor": 1.055,
-          "tStat": 0.101,
-          "maxDrawdownPct": 2.26
-        },
-        "validation": {
-          "trades": 9,
-          "expectancyBps": 7.68,
-          "profitFactor": 1.349,
-          "tStat": 0.413,
-          "maxDrawdownPct": 0.87
-        },
-        "holdout": {
-          "trades": 4,
-          "expectancyBps": -52.43,
-          "profitFactor": 0.167,
-          "tStat": -1.469,
-          "maxDrawdownPct": 2.1
-        },
-        "walkForward": {
-          "positiveFolds": 2,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    },
-    {
-      "id": "failed_breakout:BNBUSDT:1h:ASIA:p20:ta1:sa0.9:tb8",
-      "role": "MUTATION",
-      "priority": "P1",
-      "parentVariant": "failed_breakout:BNBUSDT:1h:ASIA:p20:ta1:sa0.75:tb8",
-      "hypothesisKey": "failed_breakout:BNBUSDT:1h:ASIA",
-      "market": {
-        "pair": "BNBUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "failed_breakout",
-        "period": 20,
-        "targetAtr": 1,
-        "stopAtr": 0.9,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
-      "sentinelCritique": [
-        "TRAIN_SAMPLE_THIN",
-        "VALIDATION_SAMPLE_THIN",
-        "HOLDOUT_SAMPLE_THIN",
-        "LOW_HOLDOUT_TSTAT",
-        "WEAK_HOLDOUT_PROFIT_FACTOR",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_HOLDOUT_EXPECTANCY"
-      ],
-      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 17,
-          "expectancyBps": 1.69,
-          "profitFactor": 1.055,
-          "tStat": 0.101,
-          "maxDrawdownPct": 2.26
-        },
-        "validation": {
-          "trades": 9,
-          "expectancyBps": 7.68,
-          "profitFactor": 1.349,
-          "tStat": 0.413,
-          "maxDrawdownPct": 0.87
-        },
-        "holdout": {
-          "trades": 4,
-          "expectancyBps": -52.43,
-          "profitFactor": 0.167,
-          "tStat": -1.469,
-          "maxDrawdownPct": 2.1
-        },
-        "walkForward": {
-          "positiveFolds": 2,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    },
-    {
-      "id": "failed_breakout:BNBUSDT:1h:ASIA:p20:ta1:sa0.75:tb12",
-      "role": "MUTATION",
-      "priority": "P1",
-      "parentVariant": "failed_breakout:BNBUSDT:1h:ASIA:p20:ta1:sa0.75:tb8",
-      "hypothesisKey": "failed_breakout:BNBUSDT:1h:ASIA",
-      "market": {
-        "pair": "BNBUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "failed_breakout",
-        "period": 20,
-        "targetAtr": 1,
-        "stopAtr": 0.75,
-        "timeoutBars": 12,
-        "session": "ASIA"
-      },
-      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
-      "sentinelCritique": [
-        "TRAIN_SAMPLE_THIN",
-        "VALIDATION_SAMPLE_THIN",
-        "HOLDOUT_SAMPLE_THIN",
-        "LOW_HOLDOUT_TSTAT",
-        "WEAK_HOLDOUT_PROFIT_FACTOR",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_HOLDOUT_EXPECTANCY"
-      ],
-      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 17,
-          "expectancyBps": 1.69,
-          "profitFactor": 1.055,
-          "tStat": 0.101,
-          "maxDrawdownPct": 2.26
-        },
-        "validation": {
-          "trades": 9,
-          "expectancyBps": 7.68,
-          "profitFactor": 1.349,
-          "tStat": 0.413,
-          "maxDrawdownPct": 0.87
-        },
-        "holdout": {
-          "trades": 4,
-          "expectancyBps": -52.43,
-          "profitFactor": 0.167,
-          "tStat": -1.469,
-          "maxDrawdownPct": 2.1
-        },
-        "walkForward": {
-          "positiveFolds": 2,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    },
-    {
-      "id": "failed_breakout:BNBUSDT:1h:ASIA:p16:ta0.75:sa0.75:tb8",
-      "role": "MUTATION",
-      "priority": "P1",
-      "parentVariant": "failed_breakout:BNBUSDT:1h:ASIA:p20:ta1:sa0.75:tb8",
-      "hypothesisKey": "failed_breakout:BNBUSDT:1h:ASIA",
-      "market": {
-        "pair": "BNBUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "failed_breakout",
-        "period": 16,
-        "targetAtr": 0.75,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
-      "sentinelCritique": [
-        "TRAIN_SAMPLE_THIN",
-        "VALIDATION_SAMPLE_THIN",
-        "HOLDOUT_SAMPLE_THIN",
-        "LOW_HOLDOUT_TSTAT",
-        "WEAK_HOLDOUT_PROFIT_FACTOR",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_HOLDOUT_EXPECTANCY"
-      ],
-      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 17,
-          "expectancyBps": 1.69,
-          "profitFactor": 1.055,
-          "tStat": 0.101,
-          "maxDrawdownPct": 2.26
-        },
-        "validation": {
-          "trades": 9,
-          "expectancyBps": 7.68,
-          "profitFactor": 1.349,
-          "tStat": 0.413,
-          "maxDrawdownPct": 0.87
-        },
-        "holdout": {
-          "trades": 4,
-          "expectancyBps": -52.43,
-          "profitFactor": 0.167,
-          "tStat": -1.469,
-          "maxDrawdownPct": 2.1
-        },
-        "walkForward": {
-          "positiveFolds": 2,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    },
-    {
-      "id": "failed_breakout:BNBUSDT:1h:ASIA:p16:ta1:sa0.6:tb8",
-      "role": "MUTATION",
-      "priority": "P1",
-      "parentVariant": "failed_breakout:BNBUSDT:1h:ASIA:p20:ta1:sa0.75:tb8",
-      "hypothesisKey": "failed_breakout:BNBUSDT:1h:ASIA",
-      "market": {
-        "pair": "BNBUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "failed_breakout",
-        "period": 16,
-        "targetAtr": 1,
-        "stopAtr": 0.6,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
-      "sentinelCritique": [
-        "TRAIN_SAMPLE_THIN",
-        "VALIDATION_SAMPLE_THIN",
-        "HOLDOUT_SAMPLE_THIN",
-        "LOW_HOLDOUT_TSTAT",
-        "WEAK_HOLDOUT_PROFIT_FACTOR",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_HOLDOUT_EXPECTANCY"
-      ],
-      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 17,
-          "expectancyBps": 1.69,
-          "profitFactor": 1.055,
-          "tStat": 0.101,
-          "maxDrawdownPct": 2.26
-        },
-        "validation": {
-          "trades": 9,
-          "expectancyBps": 7.68,
-          "profitFactor": 1.349,
-          "tStat": 0.413,
-          "maxDrawdownPct": 0.87
-        },
-        "holdout": {
-          "trades": 4,
-          "expectancyBps": -52.43,
-          "profitFactor": 0.167,
-          "tStat": -1.469,
-          "maxDrawdownPct": 2.1
-        },
-        "walkForward": {
-          "positiveFolds": 2,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    },
-    {
       "id": "volatility_squeeze:SOLUSDT:4h:ALL:p34:ta1.5:sa0.75:tb8:control",
       "role": "CONTROL",
       "priority": "P2",
@@ -2263,6 +1659,620 @@
           "positiveFolds": 3,
           "requiredPositiveFolds": 3,
           "pass": true
+        }
+      }
+    },
+    {
+      "id": "volatility_squeeze:SOLUSDT:4h:ALL:p34:ta1.75:sa0.75:tb8",
+      "role": "MUTATION",
+      "priority": "P2",
+      "parentVariant": "volatility_squeeze:SOLUSDT:4h:ALL:p34:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:ALL",
+      "market": {
+        "pair": "SOLUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "volatility_squeeze",
+        "period": 34,
+        "targetAtr": 1.75,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis (NEGATIVE_TRAIN_EXPECTANCY).",
+      "sentinelCritique": [
+        "HOLDOUT_SAMPLE_THIN",
+        "LOW_HOLDOUT_TSTAT",
+        "NEGATIVE_TRAIN_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 50,
+          "expectancyBps": -1.72,
+          "profitFactor": 0.985,
+          "tStat": -0.047,
+          "maxDrawdownPct": 12.38
+        },
+        "validation": {
+          "trades": 15,
+          "expectancyBps": 35.03,
+          "profitFactor": 1.386,
+          "tStat": 0.546,
+          "maxDrawdownPct": 5.67
+        },
+        "holdout": {
+          "trades": 12,
+          "expectancyBps": 14.24,
+          "profitFactor": 1.224,
+          "tStat": 0.284,
+          "maxDrawdownPct": 3.27
+        },
+        "walkForward": {
+          "positiveFolds": 3,
+          "requiredPositiveFolds": 3,
+          "pass": true
+        }
+      }
+    },
+    {
+      "id": "volatility_squeeze:BTCUSDT:4h:ALL:p34:ta2:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "priority": "P2",
+      "parentVariant": "volatility_squeeze:BTCUSDT:4h:ALL:p34:ta2:sa0.75:tb8",
+      "hypothesisKey": "volatility_squeeze:BTCUSDT:4h:ALL",
+      "market": {
+        "pair": "BTCUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "volatility_squeeze",
+        "period": 34,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "rationale": "Control replay of the best parent for this independent hypothesis. It prevents data drift from being mistaken for parameter improvement.",
+      "sentinelCritique": [
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "WALK_FORWARD_UNSTABLE",
+        "NEGATIVE_TRAIN_EXPECTANCY",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Control must remain directionally consistent on train and validation; otherwise pause mutations and diagnose regime/data drift.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 48,
+          "expectancyBps": -16.6,
+          "profitFactor": 0.753,
+          "tStat": -0.815,
+          "maxDrawdownPct": 11.1
+        },
+        "validation": {
+          "trades": 15,
+          "expectancyBps": 49.15,
+          "profitFactor": 1.986,
+          "tStat": 1.149,
+          "maxDrawdownPct": 2.89
+        },
+        "holdout": {
+          "trades": 18,
+          "expectancyBps": -26.48,
+          "profitFactor": 0.567,
+          "tStat": -1.088,
+          "maxDrawdownPct": 7.72
+        },
+        "walkForward": {
+          "positiveFolds": 2,
+          "requiredPositiveFolds": 3,
+          "pass": false
+        }
+      }
+    },
+    {
+      "id": "volatility_squeeze:BTCUSDT:4h:ALL:p30:ta2:sa0.75:tb8",
+      "role": "MUTATION",
+      "priority": "P2",
+      "parentVariant": "volatility_squeeze:BTCUSDT:4h:ALL:p34:ta2:sa0.75:tb8",
+      "hypothesisKey": "volatility_squeeze:BTCUSDT:4h:ALL",
+      "market": {
+        "pair": "BTCUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "volatility_squeeze",
+        "period": 30,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis.",
+      "sentinelCritique": [
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "WALK_FORWARD_UNSTABLE",
+        "NEGATIVE_TRAIN_EXPECTANCY",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 48,
+          "expectancyBps": -16.6,
+          "profitFactor": 0.753,
+          "tStat": -0.815,
+          "maxDrawdownPct": 11.1
+        },
+        "validation": {
+          "trades": 15,
+          "expectancyBps": 49.15,
+          "profitFactor": 1.986,
+          "tStat": 1.149,
+          "maxDrawdownPct": 2.89
+        },
+        "holdout": {
+          "trades": 18,
+          "expectancyBps": -26.48,
+          "profitFactor": 0.567,
+          "tStat": -1.088,
+          "maxDrawdownPct": 7.72
+        },
+        "walkForward": {
+          "positiveFolds": 2,
+          "requiredPositiveFolds": 3,
+          "pass": false
+        }
+      }
+    },
+    {
+      "id": "volatility_squeeze:BTCUSDT:4h:ALL:p34:ta1.75:sa0.75:tb8",
+      "role": "MUTATION",
+      "priority": "P2",
+      "parentVariant": "volatility_squeeze:BTCUSDT:4h:ALL:p34:ta2:sa0.75:tb8",
+      "hypothesisKey": "volatility_squeeze:BTCUSDT:4h:ALL",
+      "market": {
+        "pair": "BTCUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "volatility_squeeze",
+        "period": 34,
+        "targetAtr": 1.75,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis.",
+      "sentinelCritique": [
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "WALK_FORWARD_UNSTABLE",
+        "NEGATIVE_TRAIN_EXPECTANCY",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 48,
+          "expectancyBps": -16.6,
+          "profitFactor": 0.753,
+          "tStat": -0.815,
+          "maxDrawdownPct": 11.1
+        },
+        "validation": {
+          "trades": 15,
+          "expectancyBps": 49.15,
+          "profitFactor": 1.986,
+          "tStat": 1.149,
+          "maxDrawdownPct": 2.89
+        },
+        "holdout": {
+          "trades": 18,
+          "expectancyBps": -26.48,
+          "profitFactor": 0.567,
+          "tStat": -1.088,
+          "maxDrawdownPct": 7.72
+        },
+        "walkForward": {
+          "positiveFolds": 2,
+          "requiredPositiveFolds": 3,
+          "pass": false
+        }
+      }
+    },
+    {
+      "id": "volatility_squeeze:BTCUSDT:4h:ALL:p34:ta2:sa0.75:tb6",
+      "role": "MUTATION",
+      "priority": "P2",
+      "parentVariant": "volatility_squeeze:BTCUSDT:4h:ALL:p34:ta2:sa0.75:tb8",
+      "hypothesisKey": "volatility_squeeze:BTCUSDT:4h:ALL",
+      "market": {
+        "pair": "BTCUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "volatility_squeeze",
+        "period": 34,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 6,
+        "session": "ALL"
+      },
+      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis.",
+      "sentinelCritique": [
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "WALK_FORWARD_UNSTABLE",
+        "NEGATIVE_TRAIN_EXPECTANCY",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 48,
+          "expectancyBps": -16.6,
+          "profitFactor": 0.753,
+          "tStat": -0.815,
+          "maxDrawdownPct": 11.1
+        },
+        "validation": {
+          "trades": 15,
+          "expectancyBps": 49.15,
+          "profitFactor": 1.986,
+          "tStat": 1.149,
+          "maxDrawdownPct": 2.89
+        },
+        "holdout": {
+          "trades": 18,
+          "expectancyBps": -26.48,
+          "profitFactor": 0.567,
+          "tStat": -1.088,
+          "maxDrawdownPct": 7.72
+        },
+        "walkForward": {
+          "positiveFolds": 2,
+          "requiredPositiveFolds": 3,
+          "pass": false
+        }
+      }
+    },
+    {
+      "id": "volatility_squeeze:BTCUSDT:4h:ALL:p34:ta2.25:sa0.75:tb8",
+      "role": "MUTATION",
+      "priority": "P2",
+      "parentVariant": "volatility_squeeze:BTCUSDT:4h:ALL:p34:ta2:sa0.75:tb8",
+      "hypothesisKey": "volatility_squeeze:BTCUSDT:4h:ALL",
+      "market": {
+        "pair": "BTCUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "volatility_squeeze",
+        "period": 34,
+        "targetAtr": 2.25,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis.",
+      "sentinelCritique": [
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "WALK_FORWARD_UNSTABLE",
+        "NEGATIVE_TRAIN_EXPECTANCY",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 48,
+          "expectancyBps": -16.6,
+          "profitFactor": 0.753,
+          "tStat": -0.815,
+          "maxDrawdownPct": 11.1
+        },
+        "validation": {
+          "trades": 15,
+          "expectancyBps": 49.15,
+          "profitFactor": 1.986,
+          "tStat": 1.149,
+          "maxDrawdownPct": 2.89
+        },
+        "holdout": {
+          "trades": 18,
+          "expectancyBps": -26.48,
+          "profitFactor": 0.567,
+          "tStat": -1.088,
+          "maxDrawdownPct": 7.72
+        },
+        "walkForward": {
+          "positiveFolds": 2,
+          "requiredPositiveFolds": 3,
+          "pass": false
+        }
+      }
+    },
+    {
+      "id": "failed_breakout:XRPUSDT:15m:ALL:p20:ta1.5:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "priority": "P2",
+      "parentVariant": "failed_breakout:XRPUSDT:15m:ALL:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "failed_breakout:XRPUSDT:15m:ALL",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "15m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "rationale": "Control replay of the best parent for this independent hypothesis. It prevents data drift from being mistaken for parameter improvement.",
+      "sentinelCritique": [
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "WALK_FORWARD_UNSTABLE",
+        "NEGATIVE_TRAIN_EXPECTANCY",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Control must remain directionally consistent on train and validation; otherwise pause mutations and diagnose regime/data drift.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 58,
+          "expectancyBps": -9.72,
+          "profitFactor": 0.517,
+          "tStat": -2.265,
+          "maxDrawdownPct": 6.15
+        },
+        "validation": {
+          "trades": 17,
+          "expectancyBps": 46.82,
+          "profitFactor": 1.967,
+          "tStat": 1.056,
+          "maxDrawdownPct": 3.02
+        },
+        "holdout": {
+          "trades": 18,
+          "expectancyBps": -35.77,
+          "profitFactor": 0.154,
+          "tStat": -3.905,
+          "maxDrawdownPct": 6.44
+        },
+        "walkForward": {
+          "positiveFolds": 1,
+          "requiredPositiveFolds": 3,
+          "pass": false
+        }
+      }
+    },
+    {
+      "id": "failed_breakout:XRPUSDT:15m:ALL:p16:ta1.5:sa0.75:tb8",
+      "role": "MUTATION",
+      "priority": "P2",
+      "parentVariant": "failed_breakout:XRPUSDT:15m:ALL:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "failed_breakout:XRPUSDT:15m:ALL",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "15m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 16,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis.",
+      "sentinelCritique": [
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "WALK_FORWARD_UNSTABLE",
+        "NEGATIVE_TRAIN_EXPECTANCY",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 58,
+          "expectancyBps": -9.72,
+          "profitFactor": 0.517,
+          "tStat": -2.265,
+          "maxDrawdownPct": 6.15
+        },
+        "validation": {
+          "trades": 17,
+          "expectancyBps": 46.82,
+          "profitFactor": 1.967,
+          "tStat": 1.056,
+          "maxDrawdownPct": 3.02
+        },
+        "holdout": {
+          "trades": 18,
+          "expectancyBps": -35.77,
+          "profitFactor": 0.154,
+          "tStat": -3.905,
+          "maxDrawdownPct": 6.44
+        },
+        "walkForward": {
+          "positiveFolds": 1,
+          "requiredPositiveFolds": 3,
+          "pass": false
+        }
+      }
+    },
+    {
+      "id": "failed_breakout:XRPUSDT:15m:ALL:p20:ta1.25:sa0.75:tb8",
+      "role": "MUTATION",
+      "priority": "P2",
+      "parentVariant": "failed_breakout:XRPUSDT:15m:ALL:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "failed_breakout:XRPUSDT:15m:ALL",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "15m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 20,
+        "targetAtr": 1.25,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis.",
+      "sentinelCritique": [
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "WALK_FORWARD_UNSTABLE",
+        "NEGATIVE_TRAIN_EXPECTANCY",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 58,
+          "expectancyBps": -9.72,
+          "profitFactor": 0.517,
+          "tStat": -2.265,
+          "maxDrawdownPct": 6.15
+        },
+        "validation": {
+          "trades": 17,
+          "expectancyBps": 46.82,
+          "profitFactor": 1.967,
+          "tStat": 1.056,
+          "maxDrawdownPct": 3.02
+        },
+        "holdout": {
+          "trades": 18,
+          "expectancyBps": -35.77,
+          "profitFactor": 0.154,
+          "tStat": -3.905,
+          "maxDrawdownPct": 6.44
+        },
+        "walkForward": {
+          "positiveFolds": 1,
+          "requiredPositiveFolds": 3,
+          "pass": false
+        }
+      }
+    },
+    {
+      "id": "failed_breakout:XRPUSDT:15m:ALL:p20:ta1.5:sa0.75:tb6",
+      "role": "MUTATION",
+      "priority": "P2",
+      "parentVariant": "failed_breakout:XRPUSDT:15m:ALL:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "failed_breakout:XRPUSDT:15m:ALL",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "15m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 6,
+        "session": "ALL"
+      },
+      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis.",
+      "sentinelCritique": [
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "WALK_FORWARD_UNSTABLE",
+        "NEGATIVE_TRAIN_EXPECTANCY",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 58,
+          "expectancyBps": -9.72,
+          "profitFactor": 0.517,
+          "tStat": -2.265,
+          "maxDrawdownPct": 6.15
+        },
+        "validation": {
+          "trades": 17,
+          "expectancyBps": 46.82,
+          "profitFactor": 1.967,
+          "tStat": 1.056,
+          "maxDrawdownPct": 3.02
+        },
+        "holdout": {
+          "trades": 18,
+          "expectancyBps": -35.77,
+          "profitFactor": 0.154,
+          "tStat": -3.905,
+          "maxDrawdownPct": 6.44
+        },
+        "walkForward": {
+          "positiveFolds": 1,
+          "requiredPositiveFolds": 3,
+          "pass": false
+        }
+      }
+    },
+    {
+      "id": "failed_breakout:XRPUSDT:15m:ALL:p20:ta1.75:sa0.75:tb8",
+      "role": "MUTATION",
+      "priority": "P2",
+      "parentVariant": "failed_breakout:XRPUSDT:15m:ALL:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "failed_breakout:XRPUSDT:15m:ALL",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "15m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 20,
+        "targetAtr": 1.75,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis.",
+      "sentinelCritique": [
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "WALK_FORWARD_UNSTABLE",
+        "NEGATIVE_TRAIN_EXPECTANCY",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 58,
+          "expectancyBps": -9.72,
+          "profitFactor": 0.517,
+          "tStat": -2.265,
+          "maxDrawdownPct": 6.15
+        },
+        "validation": {
+          "trades": 17,
+          "expectancyBps": 46.82,
+          "profitFactor": 1.967,
+          "tStat": 1.056,
+          "maxDrawdownPct": 3.02
+        },
+        "holdout": {
+          "trades": 18,
+          "expectancyBps": -35.77,
+          "profitFactor": 0.154,
+          "tStat": -3.905,
+          "maxDrawdownPct": 6.44
+        },
+        "walkForward": {
+          "positiveFolds": 1,
+          "requiredPositiveFolds": 3,
+          "pass": false
         }
       }
     }
