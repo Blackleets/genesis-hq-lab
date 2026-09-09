@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const VERSION = 'positioning_edge_factory_v2';
+const VERSION = 'positioning_edge_factory_v3';
 
 function finite(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
 function mean(xs) { return xs.length ? xs.reduce((a,b)=>a+b,0)/xs.length : null; }
@@ -39,30 +39,38 @@ function eligibleRows(rows){
     && (takerWindowMs(r)??0)>0
   ).sort((a,b)=>capturedMs(a)-capturedMs(b));
 }
-function independentRows(rows,{maxGapMinutes=60}={}){
-  const out=[];
+function segmentedIndependentRows(rows,{maxGapMinutes=60}={}){
+  const selected=[];
+  let segment=0;
   for(const row of eligibleRows(rows)){
-    const prior=out.at(-1);
-    if(!prior){ out.push(row); continue; }
-    const elapsed=capturedMs(row)-capturedMs(prior);
-    const minSep=Math.max(takerWindowMs(prior)??0,takerWindowMs(row)??0);
-    if(elapsed>=minSep && elapsed<=maxGapMinutes*60_000) out.push(row);
+    const prior=selected.at(-1);
+    if(!prior){ selected.push({row,segment}); continue; }
+    const elapsed=capturedMs(row)-capturedMs(prior.row);
+    const minSep=Math.max(takerWindowMs(prior.row)??0,takerWindowMs(row)??0);
+    if(elapsed>maxGapMinutes*60_000){
+      segment+=1;
+      selected.push({row,segment});
+      continue;
+    }
+    if(elapsed>=minSep) selected.push({row,segment});
   }
-  return out;
+  return selected;
 }
-function temporalSamples(rows,{maxForwardLabelGapMinutes=30}={}){
-  const xs=independentRows(rows);
+function temporalSamples(rows,{maxForwardLabelGapMinutes=30,maxGapMinutes=60}={}){
+  const xs=segmentedIndependentRows(rows,{maxGapMinutes});
   const samples=[];
   let rejectedForwardGaps=0;
+  let segmentBreaks=0;
   for(let i=0;i<xs.length-1;i++){
     const cur=xs[i], nxt=xs[i+1];
-    const elapsed=capturedMs(nxt)-capturedMs(cur);
+    if(cur.segment!==nxt.segment){ segmentBreaks+=1; rejectedForwardGaps+=1; continue; }
+    const elapsed=capturedMs(nxt.row)-capturedMs(cur.row);
     if(!(elapsed>0 && elapsed<=maxForwardLabelGapMinutes*60_000)){ rejectedForwardGaps+=1; continue; }
-    const px0=finite(cur.price?.close), px1=finite(nxt.price?.close);
+    const px0=finite(cur.row.price?.close), px1=finite(nxt.row.price?.close);
     if(!(px0>0&&px1>0)) continue;
-    samples.push({ row:cur, nextReturnBps:Math.log(px1/px0)*10000, forwardMinutes:elapsed/60_000 });
+    samples.push({ row:cur.row, nextReturnBps:Math.log(px1/px0)*10000, forwardMinutes:elapsed/60_000, segment:cur.segment });
   }
-  return { samples, independentRows:xs.length, rejectedForwardGaps };
+  return { samples, independentRows:xs.length, rejectedForwardGaps, segmentBreaks, segmentCount:xs.length?xs.at(-1).segment+1:0 };
 }
 
 const FAMILIES = [
@@ -115,6 +123,8 @@ export function evaluatePositioningStudy(rows, quality, {
       temporalOrderPreserved:true,
       walkForwardFolds,
       independentNonOverlappingRowsOnly:true,
+      outageStartsNewCohortSegment:true,
+      labelsNeverCrossSegmentBreaks:true,
     },
   };
   const independentCount=Number(quality?.independentRowCount??0);
@@ -127,7 +137,7 @@ export function evaluatePositioningStudy(rows, quality, {
     return {
       ...base,
       verdict:'DATA_NOT_READY',
-      dataQuality:{qualityPass:true,independentRowCount:independentCount,usableForwardSamples:samples.length,rejectedForwardGaps:temporal.rejectedForwardGaps},
+      dataQuality:{qualityPass:true,independentRowCount:independentCount,usableForwardSamples:samples.length,rejectedForwardGaps:temporal.rejectedForwardGaps,segmentBreaks:temporal.segmentBreaks,segmentCount:temporal.segmentCount},
       candidates:[],
     };
   }
@@ -171,6 +181,8 @@ export function evaluatePositioningStudy(rows, quality, {
       reconstructedIndependentRows:temporal.independentRows,
       usableForwardSamples:samples.length,
       rejectedForwardGaps:temporal.rejectedForwardGaps,
+      segmentBreaks:temporal.segmentBreaks,
+      segmentCount:temporal.segmentCount,
     },
     partitions:{
       trainSamples:train.length,
