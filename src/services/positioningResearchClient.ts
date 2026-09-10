@@ -57,6 +57,8 @@ export type PositioningEdgeSnapshot = {
     stressedCostBps: number;
     walkForwardFolds?: number;
     symbolIsolation?: boolean;
+    activeQualityCohortOnly?: boolean;
+    strictMissingNumericEvidence?: boolean;
   };
   dataQuality?: {
     qualityPass: boolean;
@@ -104,6 +106,7 @@ const ROOT = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/captur
 const QUALITY_URL = `${ROOT}/paper-tape/positioning-data-quality-latest.json`;
 const EDGE_URL = `${ROOT}/quant-evidence/positioning-edge-factory-latest.json`;
 const UNIVERSE_URL = `${ROOT}/paper-tape/positioning-universe-probe-latest.json`;
+const POSITIONING_EDGE_VERSION = 'positioning_edge_factory_v7_strict_numeric';
 
 const QUALITY_URLS: Record<string, string> = {
   BTCUSDT: QUALITY_URL,
@@ -133,13 +136,16 @@ export async function fetchPositioningResearch(signal?: AbortSignal): Promise<{ 
 
   assertQualityBoundary(quality);
   if (
-    edge.mode !== 'RESEARCH_ONLY'
+    edge.version !== POSITIONING_EDGE_VERSION
+    || edge.mode !== 'RESEARCH_ONLY'
     || edge.paperOnly !== true
     || edge.liveOrders !== false
     || edge.executionAuthority !== false
     || edge.capitalEligible !== false
     || edge.methodology?.selectionUsesHoldout !== false
     || edge.methodology?.holdoutSealed !== true
+    || edge.methodology?.activeQualityCohortOnly !== true
+    || edge.methodology?.strictMissingNumericEvidence !== true
   ) throw new Error('positioning_edge_boundary_unverified');
 
   return { quality, edge };
