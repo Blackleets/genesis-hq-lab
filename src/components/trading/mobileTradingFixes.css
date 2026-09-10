@@ -3,7 +3,8 @@
 
 /* Truthful bot activity rail. Hidden on desktop because the desktop instrument
    already exposes engine state; on mobile it receives its own non-overlay row. */
-.genesis-exchange .market-chart__bot-state {
+.genesis-exchange .market-chart__bot-state,
+.genesis-exchange .market-chart__venue--mobile {
   display: none;
 }
 
@@ -66,11 +67,10 @@
     overflow: hidden;
   }
 
-  /* The previous 100-102px mobile toolbar physically could not contain the
-     instrument, 5-digit quote, timeframe controls and status. Give every layer
-     a dedicated row so the chart starts below the header instead of under it. */
+  /* Mobile chart hierarchy is explicit: instrument -> quote -> timeframe -> bot.
+     No row shares pixels with another row and the candle canvas starts below all four. */
   .genesis-exchange .market-chart {
-    grid-template-rows: 152px clamp(340px, 52dvh, 500px) 30px !important;
+    grid-template-rows: 134px clamp(390px, 57dvh, 560px) 30px !important;
     height: auto;
   }
 
@@ -84,13 +84,14 @@
 
   .genesis-exchange .market-chart__toolbar {
     box-sizing: border-box;
-    padding: 8px 12px 7px !important;
-    display: grid;
+    padding: 7px 12px 6px !important;
+    display: grid !important;
     grid-template-columns: minmax(0, 1fr) !important;
-    grid-template-rows: 27px 38px 32px 27px !important;
-    gap: 4px !important;
+    grid-template-rows: 24px 32px 30px 24px !important;
+    gap: 3px !important;
     align-items: center;
     overflow: hidden;
+    background: #08090b !important;
   }
 
   .genesis-exchange .market-chart__instrument {
@@ -99,41 +100,49 @@
     display: flex !important;
     flex-wrap: nowrap !important;
     align-items: center;
-    gap: 8px !important;
+    gap: 7px !important;
     overflow: hidden;
   }
 
   .genesis-exchange .market-chart__instrument .coin-identity {
     min-width: 0;
-    max-width: 58%;
+    max-width: 67%;
     flex: 0 1 auto;
-    gap: 7px;
+    gap: 6px;
     overflow: hidden;
     white-space: nowrap;
   }
 
   .genesis-exchange .market-chart__instrument .coin-logo {
-    width: 24px !important;
-    height: 24px !important;
-    flex: 0 0 24px !important;
+    width: 20px !important;
+    height: 20px !important;
+    flex: 0 0 20px !important;
   }
 
   .genesis-exchange .market-chart__instrument strong {
-    font-size: 18px !important;
+    font-size: 17px !important;
     line-height: 1 !important;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .genesis-exchange .market-chart__instrument > span {
+  .genesis-exchange .market-chart__venue--desktop {
+    display: none !important;
+  }
+
+  .genesis-exchange .market-chart__venue--mobile {
     min-width: 0;
-    flex: 1 1 auto;
+    margin-left: auto;
+    display: block !important;
+    flex: 0 1 auto;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 8px !important;
     line-height: 1;
+    letter-spacing: .08em;
+    color: #47c9d4;
   }
 
   .genesis-exchange .market-chart__instrument > i {
@@ -144,20 +153,21 @@
     grid-column: 1 !important;
     grid-row: 2 !important;
     justify-self: stretch !important;
-    display: flex !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
     align-items: baseline;
-    gap: 14px;
-    overflow: visible;
+    column-gap: 12px;
+    overflow: hidden;
     text-align: left;
   }
 
   .genesis-exchange .market-chart__quote strong {
-    flex: 0 1 auto;
-    max-width: 66%;
+    min-width: 0;
+    max-width: 100%;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: clip;
-    font-size: clamp(29px, 8.4vw, 34px) !important;
+    font-size: clamp(28px, 7.9vw, 32px) !important;
     line-height: 1 !important;
     letter-spacing: -0.035em;
     font-variant-numeric: tabular-nums;
@@ -168,7 +178,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 13px !important;
+    font-size: 12px !important;
   }
 
   .genesis-exchange .market-chart__quote small {
@@ -186,26 +196,27 @@
 
   .genesis-exchange .market-chart__timeframes button {
     min-width: 0 !important;
-    min-height: 32px !important;
+    min-height: 30px !important;
+    height: 30px !important;
     padding: 0 8px !important;
     font-size: 12px !important;
   }
 
-  /* Live-looking but evidence-backed bot HUD: this is not an execution animation.
-     The dot only pulses when the verified PAPER runner is active. */
+  /* Evidence-backed bot HUD. It reports runner/decision/position state only;
+     the pulse never implies an order when no PAPER position exists. */
   .genesis-exchange .market-chart__bot-state {
     grid-column: 1 !important;
     grid-row: 4 !important;
     min-width: 0;
-    height: 27px;
-    display: grid;
+    height: 24px;
+    display: grid !important;
     grid-template-columns: auto minmax(0, auto) minmax(0, 1fr);
     align-items: center;
-    gap: 8px;
-    padding: 0 8px;
+    gap: 7px;
+    padding: 0 7px;
     overflow: hidden;
     border: 1px solid #252b33;
-    border-radius: 7px;
+    border-radius: 6px;
     background: #0d1116;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   }
@@ -321,36 +332,45 @@
   }
 
   .genesis-exchange .market-chart {
-    grid-template-rows: 148px clamp(350px, 54dvh, 510px) 30px !important;
+    grid-template-rows: 132px clamp(395px, 58dvh, 570px) 30px !important;
   }
 
   .genesis-exchange .market-chart__toolbar {
-    padding-left: 10px !important;
-    padding-right: 10px !important;
-    grid-template-rows: 25px 37px 31px 27px !important;
+    padding: 6px 10px !important;
+    grid-template-rows: 23px 31px 29px 24px !important;
+  }
+
+  .genesis-exchange .market-chart__instrument .coin-logo {
+    width: 19px !important;
+    height: 19px !important;
+    flex-basis: 19px !important;
   }
 
   .genesis-exchange .market-chart__instrument strong {
-    font-size: 17px !important;
+    font-size: 16px !important;
   }
 
-  .genesis-exchange .market-chart__instrument > span {
+  .genesis-exchange .market-chart__venue--mobile {
     font-size: 7.5px !important;
   }
 
   .genesis-exchange .market-chart__quote strong {
-    max-width: 68%;
-    font-size: clamp(28px, 8.1vw, 32px) !important;
+    font-size: clamp(27px, 7.7vw, 31px) !important;
   }
 
   .genesis-exchange .market-chart__quote span {
-    font-size: 12px !important;
+    font-size: 11.5px !important;
+  }
+
+  .genesis-exchange .market-chart__timeframes button {
+    min-height: 29px !important;
+    height: 29px !important;
   }
 
   .genesis-exchange .market-chart__bot-state {
     gap: 6px;
-    padding-left: 7px;
-    padding-right: 7px;
+    padding-left: 6px;
+    padding-right: 6px;
   }
 
   .genesis-exchange .market-chart__bot-state > small {
