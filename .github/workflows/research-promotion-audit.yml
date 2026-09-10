@@ -1,0 +1,71 @@
+name: research-promotion-audit
+
+on:
+  schedule:
+    - cron: "2,17,32,47 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - .github/workflows/research-promotion-audit.yml
+      - .github/genesis/research-promotion-trigger.txt
+      - server/research/runResearchPromotionAudit.mjs
+      - server/tests/researchPromotionAudit.test.mjs
+
+permissions:
+  contents: write
+
+concurrency:
+  group: research-promotion-audit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: code
+        uses: actions/checkout@v4
+      - name: tape
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'audit:')
+        uses: actions/checkout@v4
+        with:
+          ref: capture-tape
+          path: tape
+      - name: verify promotion policy
+        run: node --test server/tests/researchPromotionAudit.test.mjs
+      - name: run one-shot promotion auditor
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'audit:')
+        run: node server/research/runResearchPromotionAudit.mjs --root tape
+      - name: assert fail-closed promotion boundaries
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'audit:')
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const x = JSON.parse(fs.readFileSync('tape/quant-evidence/research-promotion-latest.json', 'utf8'));
+          if (x.mode !== 'RESEARCH_ONLY' || x.paperOnly !== true || x.liveOrders !== false || x.executionAuthority !== false || x.capitalEligible !== false) throw new Error('promotion capital boundary violated');
+          if (x.methodology?.oneChampionPerLaneCohort !== true || x.methodology?.championSelectedBeforeHoldout !== true) throw new Error('champion selection boundary violated');
+          if (x.methodology?.holdoutOneShot !== true || x.methodology?.sameActiveCohortCannotReopenHoldout !== true) throw new Error('one-shot holdout boundary violated');
+          if (x.methodology?.minimumUsableSamplesBeforeAudit !== 80) throw new Error('audit minimum sample weakened');
+          if (x.methodology?.baseCostBps !== 12 || x.methodology?.stressCostBps !== 18) throw new Error('stress cost policy changed');
+          if (x.methodology?.auditPassDoesNotAutoEnrollForward !== true || x.methodology?.promotionNeverAutomaticToLive !== true) throw new Error('promotion automation boundary violated');
+          if (x.boundaries?.realOrdersPlaced !== false || x.boundaries?.liveTradingEnabled !== false || x.boundaries?.forwardAutoEnrollment !== false) throw new Error('live boundary violated');
+          NODE
+      - name: publish durable promotion evidence
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'audit:')
+        working-directory: tape
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "genesis-promotion-audit"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f quant-evidence/research-promotion-ledger.json quant-evidence/research-promotion-latest.json quant-evidence/research-promotion-history.jsonl
+          if git diff --staged --quiet; then echo "no material promotion evidence change"; exit 0; fi
+          git commit -m "research promotion audit ${GITHUB_RUN_ID}"
+          for attempt in 1 2 3; do
+            git pull --rebase origin capture-tape
+            if git push origin HEAD:capture-tape; then exit 0; fi
+            sleep $((attempt * 2))
+          done
+          exit 1
