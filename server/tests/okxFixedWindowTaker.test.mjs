@@ -62,7 +62,7 @@ test('paginates public history backwards until the requested window is covered',
   const fetchImpl = async url => {
     calls.push(String(url));
     const data = responses.shift() ?? [];
-    return { ok: true, json: async () => ({ code: '0', data }) };
+    return { ok: true, status: 200, json: async () => ({ code: '0', data }) };
   };
   const out = await fetchFixedWindowTaker('BTC-USDT-SWAP', {
     windowMs: 60_000,
@@ -77,4 +77,32 @@ test('paginates public history backwards until the requested window is covered',
   assert.match(calls[1], /\/api\/v5\/market\/history-trades/);
   assert.match(calls[1], /type=2/);
   assert.equal(out.researchUse, 'OBSERVATIONAL_ONLY_NOT_FOR_RANKING');
+  assert.equal(out.transientRetryPolicy.maxAttempts, 3);
+});
+
+test('retries transient OKX rate-limit responses without weakening coverage', async () => {
+  const end = 1_800_000_000_000;
+  let calls = 0;
+  const fetchImpl = async () => {
+    calls += 1;
+    if (calls === 1) return { ok: false, status: 429, json: async () => ({}) };
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        code: '0',
+        data: [trade(end - 60_000, 'sell', 1, 1), trade(end, 'buy', 2, 2)],
+      }),
+    };
+  };
+  const out = await fetchFixedWindowTaker('BTC-USDT', {
+    windowMs: 60_000,
+    minimumCoverageRatio: 0.9,
+    maxPages: 2,
+    fetchImpl,
+  });
+  assert.equal(calls, 2);
+  assert.equal(out.available, true);
+  assert.equal(out.coverageGateRatio, 0.9);
+  assert.equal(out.transientRetryPolicy.maxAttempts, 3);
 });
