@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const VERSION = 'positioning_edge_factory_v4';
+const VERSION = 'positioning_edge_factory_v5_symbol_isolated';
 
 function finite(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
 function mean(xs) { return xs.length ? xs.reduce((a,b)=>a+b,0)/xs.length : null; }
@@ -28,22 +28,24 @@ function readJson(p){ return JSON.parse(fs.readFileSync(p,'utf8')); }
 function readJsonl(p){ if(!p || !fs.existsSync(p)) return []; return fs.readFileSync(p,'utf8').split('\n').filter(Boolean).map(JSON.parse); }
 function capturedMs(r){ const x=Date.parse(r?.capturedAt); return Number.isFinite(x)?x:null; }
 function takerWindowMs(r){ return finite(r?.positioning?.takerWindowMs) ?? finite(r?.provenance?.takerWindowMs); }
-function eligibleRows(rows){
+function eligibleRows(rows,symbol='BTCUSDT'){
+  const target=String(symbol||'').toUpperCase();
   return rows.filter(r=>
     r?.mode==='RESEARCH_ONLY'
     && r?.provider==='okx_public_market_data'
-    && r?.symbol==='BTCUSDT'
+    && r?.symbol===target
     && r?.schemaVersion===4
     && r?.crossCapture?.available===true
     && Number.isFinite(capturedMs(r))
     && (takerWindowMs(r)??0)>0
   ).sort((a,b)=>capturedMs(a)-capturedMs(b));
 }
-function eligibleDivergenceRows(rows){
+function eligibleDivergenceRows(rows,symbol='BTCUSDT'){
+  const target=String(symbol||'').toUpperCase();
   return rows.filter(r=>
     r?.mode==='RESEARCH_ONLY'
     && r?.provider==='okx_public_market_data'
-    && r?.symbol==='BTCUSDT'
+    && r?.symbol===target
     && r?.schemaVersion===1
     && r?.provenance?.fixedWindow===true
     && r?.provenance?.rawSpotVsPerpSizeComparisonForbidden===true
@@ -53,10 +55,10 @@ function eligibleDivergenceRows(rows){
     && finite(r?.divergence?.perpMinusSpotNotionalBuyFraction)!==null
   ).sort((a,b)=>capturedMs(a)-capturedMs(b));
 }
-export function joinCausalSpotPerpDivergence(rows, divergenceRows, {maxDivergenceAgeMs=30_000}={}){
-  const ds=eligibleDivergenceRows(divergenceRows);
+export function joinCausalSpotPerpDivergence(rows, divergenceRows, {maxDivergenceAgeMs=30_000,symbol='BTCUSDT'}={}){
+  const ds=eligibleDivergenceRows(divergenceRows,symbol);
   let j=0, latest=null;
-  return eligibleRows(rows).map(row=>{
+  return eligibleRows(rows,symbol).map(row=>{
     const t=capturedMs(row);
     while(j<ds.length && capturedMs(ds[j])<=t){ latest=ds[j]; j+=1; }
     const ageMs=latest ? t-capturedMs(latest) : null;
@@ -142,6 +144,7 @@ const FAMILIES = [
 ];
 
 export function evaluatePositioningStudy(rows, quality, {
+  symbol,
   minIndependentRows=20,
   stressedCostBps=12,
   maxForwardLabelGapMinutes=30,
@@ -150,8 +153,12 @@ export function evaluatePositioningStudy(rows, quality, {
   divergenceRows=[],
   maxDivergenceAgeMs=30_000,
 }={}) {
+  const targetSymbol=String(symbol ?? quality?.symbol ?? 'BTCUSDT').toUpperCase();
+  if (quality?.symbol && String(quality.symbol).toUpperCase() !== targetSymbol) {
+    throw new Error('POSITIONING_QUALITY_SYMBOL_MISMATCH');
+  }
   const base = {
-    ok:true, version:VERSION, mode:'RESEARCH_ONLY', paperOnly:true, liveOrders:false,
+    ok:true, version:VERSION, mode:'RESEARCH_ONLY', symbol:targetSymbol, paperOnly:true, liveOrders:false,
     executionAuthority:false, capitalEligible:false,
     methodology:{
       selectionUsesHoldout:false,
@@ -166,6 +173,7 @@ export function evaluatePositioningStudy(rows, quality, {
       independentNonOverlappingRowsOnly:true,
       outageStartsNewCohortSegment:true,
       labelsNeverCrossSegmentBreaks:true,
+      symbolIsolation:true,
       spotPerpJoin:'PRIOR_ASOF_ONLY',
       maxDivergenceAgeMs,
       futureDivergenceForbidden:true,
@@ -175,7 +183,7 @@ export function evaluatePositioningStudy(rows, quality, {
   const ready = quality?.qualityPass===true && independentCount>=minIndependentRows;
   if (!ready) return { ...base, verdict:'DATA_NOT_READY', dataQuality:{ qualityPass:quality?.qualityPass===true, independentRowCount:independentCount, required:minIndependentRows, defects:quality?.defects??null }, candidates:[] };
 
-  const joinedRows=joinCausalSpotPerpDivergence(rows, divergenceRows,{maxDivergenceAgeMs});
+  const joinedRows=joinCausalSpotPerpDivergence(rows, divergenceRows,{maxDivergenceAgeMs,symbol:targetSymbol});
   const temporal=temporalSamples(joinedRows,{maxForwardLabelGapMinutes});
   const samples=temporal.samples;
   if(samples.length<10){
@@ -244,9 +252,9 @@ export function evaluatePositioningStudy(rows, quality, {
 
 if (process.argv[1]?.endsWith('runPositioningEdgeFactory.mjs')) {
   const args=process.argv.slice(2); const val=f=>{const i=args.indexOf(f); return i>=0?args[i+1]:undefined;};
-  const input=val('--input'), qualityPath=val('--quality'), divergencePath=val('--divergence'), out=val('--out');
+  const input=val('--input'), qualityPath=val('--quality'), divergencePath=val('--divergence'), out=val('--out'), symbol=val('--symbol');
   if(!input||!qualityPath) throw new Error('--input and --quality are required');
-  const result=evaluatePositioningStudy(readJsonl(input),readJson(qualityPath),{divergenceRows:readJsonl(divergencePath)});
+  const result=evaluatePositioningStudy(readJsonl(input),readJson(qualityPath),{symbol,divergenceRows:readJsonl(divergencePath)});
   if(out){ fs.mkdirSync(path.dirname(out),{recursive:true}); fs.writeFileSync(out,JSON.stringify(result,null,2)+'\n'); }
   console.log(JSON.stringify(result));
 }
