@@ -1,0 +1,51 @@
+{
+  "recordedAt": "2026-09-10T00:05:00Z",
+  "mode": "RESEARCH_ONLY",
+  "scope": "cross-market-lead-lag",
+  "change": "Added a fixed expanding-train, three-fold pre-holdout walk-forward/OOS audit over exactly the 90 discovery+validation observations. All folds must pass the existing fixed validation gates before the candidate may approach the sealed holdout.",
+  "repoBranch": "feat/genesis-life-os",
+  "implementationCommits": [
+    "2d9b69f2c3fad9e56ef1d3d6323e5cbcc8273ccb",
+    "f3ec46fe14a43f63aa762bf9fba69c5ca984545f"
+  ],
+  "verification": {
+    "workflow": "cross-market-lead-lag-capture",
+    "runId": 34419703501,
+    "conclusion": "success",
+    "pushEvidenceCapture": "skipped",
+    "tests": "success",
+    "walkForward": {
+      "initialTrainCount": 30,
+      "folds": [
+        {"trainCount": 30, "oosTestCount": 15},
+        {"trainCount": 45, "oosTestCount": 15},
+        {"trainCount": 60, "oosTestCount": 30}
+      ],
+      "requiredPreHoldoutCount": 90,
+      "gatePolicy": "same existing validation gates; all OOS folds must pass"
+    }
+  },
+  "evidenceInspectedBeforeChange": {
+    "captureTapeHead": "ad1951a52d5b510decd987a701475207236c9d0a",
+    "latestStudy": {
+      "studyVersion": 1,
+      "rawSnapshotCount": 5,
+      "maturedSignalCount": 0,
+      "candidateStatus": "ACCUMULATING_DISCOVERY",
+      "holdoutStatus": "SEALED",
+      "forwardPaperEligible": false
+    }
+  },
+  "safety": {
+    "paperResearchOnly": true,
+    "liveEnabled": false,
+    "realOrdersPlaced": 0,
+    "realTradingConfirmationsChanged": false,
+    "riskGatesWeakened": false,
+    "killSwitchesWeakened": false,
+    "thresholdsLowered": false,
+    "holdoutUsedForRankingOrTuning": false,
+    "forwardPaperEnrollment": false
+  },
+  "nextBottleneck": "Accumulate independent scheduled cross-market signals to populate discovery and the fixed pre-holdout OOS folds; current evidence has zero matured signals."
+}
