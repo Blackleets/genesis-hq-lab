@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ArrowUpRight, Crosshair, Database, FlaskConical, LockKeyhole, ShieldAlert } from 'lucide-react';
 import { fetchForwardPaper, type ForwardPaperSnapshot } from '../../services/forwardPaperClient';
 import { fetchPositioningResearch, type PositioningDataQuality, type PositioningEdgeSnapshot } from '../../services/positioningResearchClient';
+import { fetchResearchLifecycle, type ResearchForwardSnapshot, type ResearchPromotionSnapshot } from '../../services/researchLifecycleClient';
 import { finite, formatMoney } from './formatters';
 import { useMarketData, useRiskState, useRunnerTelemetry } from './useTradingDesk';
 
@@ -30,6 +31,8 @@ function buildPriority({
   activeFlags,
   positioningQuality,
   positioningEdge,
+  promotion,
+  researchForward,
   forward,
   economicPnl,
 }: {
@@ -38,81 +41,40 @@ function buildPriority({
   activeFlags: string[];
   positioningQuality: PositioningDataQuality | null;
   positioningEdge: PositioningEdgeSnapshot | null;
+  promotion: ResearchPromotionSnapshot | null;
+  researchForward: ResearchForwardSnapshot | null;
   forward: ForwardPaperSnapshot | null;
   economicPnl: number | null | undefined;
 }): Priority {
   if (!runnerVerified) {
-    return {
-      label: 'RESTORE PAPER RUNNER',
-      detail: 'Execution evidence is not currently verified',
-      view: 'engine',
-      tone: 'bad',
-    };
+    return { label: 'RESTORE PAPER RUNNER', detail: 'Execution evidence is not currently verified', view: 'engine', tone: 'bad' };
   }
-
   if (['ELEVATED', 'HIGH_RISK', 'CRITICAL'].includes(riskBand) || activeFlags.length > 0) {
-    return {
-      label: 'CLEAR RISK FLAGS',
-      detail: `${activeFlags.length} active · ${riskBand.replaceAll('_', ' ')}`,
-      view: 'risk',
-      tone: riskBand === 'CRITICAL' || riskBand === 'HIGH_RISK' ? 'bad' : 'watch',
-    };
+    return { label: 'CLEAR RISK FLAGS', detail: `${activeFlags.length} active · ${riskBand.replaceAll('_', ' ')}`, view: 'risk', tone: riskBand === 'CRITICAL' || riskBand === 'HIGH_RISK' ? 'bad' : 'watch' };
   }
-
   if (positioningQuality && positioningQuality.qualityPass !== true) {
-    return {
-      label: 'RESTORE DATA QUALITY',
-      detail: 'Positioning cohort is not clean enough for research',
-      view: 'research',
-      tone: 'bad',
-    };
+    return { label: 'RESTORE DATA QUALITY', detail: 'Positioning cohort is not clean enough for research', view: 'research', tone: 'bad' };
   }
 
   const required = positioningQuality?.readiness?.minimumIndependentRows ?? positioningEdge?.methodology?.minIndependentRows ?? 20;
   const independent = positioningQuality?.independentRowCount ?? positioningEdge?.dataQuality?.independentRowCount ?? 0;
   if (positioningQuality && independent < required) {
-    return {
-      label: 'BUILD POSITIONING COHORT',
-      detail: `${independent}/${required} clean independent observations · forward runs in parallel`,
-      view: 'research',
-      tone: 'watch',
-    };
+    return { label: 'BUILD POSITIONING COHORT', detail: `${independent}/${required} clean independent observations · audit remains sealed`, view: 'research', tone: 'watch' };
   }
-
-  if (positioningEdge?.verdict === 'RESEARCH_CANDIDATE_FOUND') {
-    return {
-      label: 'AUDIT POSITIONING EDGE',
-      detail: 'Candidate exists · keep holdout discipline before Forward PAPER',
-      view: 'research',
-      tone: 'watch',
-    };
+  if (positioningEdge?.verdict === 'RESEARCH_CANDIDATE_FOUND' && (promotion?.totalForwardPaperEligible ?? 0) === 0) {
+    return { label: 'BUILD ONE-SHOT AUDIT EVIDENCE', detail: `${promotion?.waitingLanes ?? 0} lanes building · ${promotion?.methodology?.minimumUsableSamplesBeforeAudit ?? 80} samples required before holdout`, view: 'research', tone: 'watch' };
   }
-
+  if (researchForward && researchForward.enrolled > 0 && researchForward.nextStageEligible === 0) {
+    return { label: 'ACCUMULATE NEW FORWARD EVIDENCE', detail: `${researchForward.enrolled} audited lane${researchForward.enrolled === 1 ? '' : 's'} · prospective only · no backfill`, view: 'research', tone: 'watch' };
+  }
   const family = forward?.families?.[0];
   if (family && family.nextStageEligible !== true) {
-    return {
-      label: 'ACCUMULATE FORWARD EVIDENCE',
-      detail: `${family.championForward?.trades ?? 0}/20 prospective trades · LIVE remains locked`,
-      view: 'agents',
-      tone: 'watch',
-    };
+    return { label: 'ACCUMULATE FORWARD EVIDENCE', detail: `${family.championForward?.trades ?? 0}/20 prospective trades · LIVE remains locked`, view: 'agents', tone: 'watch' };
   }
-
   if (!finite(economicPnl) || economicPnl <= 0) {
-    return {
-      label: 'PROVE NET PROFIT',
-      detail: 'Truth Ledger has not proven positive net P&L',
-      view: 'truth',
-      tone: 'watch',
-    };
+    return { label: 'PROVE NET PROFIT', detail: 'Truth Ledger has not proven positive net P&L after fees', view: 'truth', tone: 'watch' };
   }
-
-  return {
-    label: 'COMPOUND PAPER EVIDENCE',
-    detail: 'Positive evidence exists · keep real capital gated',
-    view: 'truth',
-    tone: 'good',
-  };
+  return { label: 'COMPOUND PAPER EVIDENCE', detail: 'Positive evidence exists · real capital still requires cutover gates', view: 'truth', tone: 'good' };
 }
 
 export function FounderCommandBar({ onOpen }: { onOpen: (view: CommandView) => void }) {
@@ -120,6 +82,8 @@ export function FounderCommandBar({ onOpen }: { onOpen: (view: CommandView) => v
   const { runner } = useRunnerTelemetry();
   const { truth, capture } = useRiskState();
   const [forward, setForward] = useState<ForwardPaperSnapshot | null>(null);
+  const [promotion, setPromotion] = useState<ResearchPromotionSnapshot | null>(null);
+  const [researchForward, setResearchForward] = useState<ResearchForwardSnapshot | null>(null);
   const [positioningQuality, setPositioningQuality] = useState<PositioningDataQuality | null>(null);
   const [positioningEdge, setPositioningEdge] = useState<PositioningEdgeSnapshot | null>(null);
 
@@ -127,7 +91,6 @@ export function FounderCommandBar({ onOpen }: { onOpen: (view: CommandView) => v
     let disposed = false;
     let controller: AbortController | null = null;
     let pending = false;
-
     const load = async () => {
       if (pending) return;
       pending = true;
@@ -135,9 +98,10 @@ export function FounderCommandBar({ onOpen }: { onOpen: (view: CommandView) => v
       controller = new AbortController();
       const signal = controller.signal;
       try {
-        const [forwardResult, positioningResult] = await Promise.allSettled([
+        const [forwardResult, positioningResult, lifecycleResult] = await Promise.allSettled([
           fetchForwardPaper(signal),
           fetchPositioningResearch(signal),
+          fetchResearchLifecycle(signal),
         ]);
         if (disposed) return;
         setForward(forwardResult.status === 'fulfilled' && forwardResult.value.ok ? forwardResult.value : null);
@@ -148,18 +112,20 @@ export function FounderCommandBar({ onOpen }: { onOpen: (view: CommandView) => v
           setPositioningQuality(null);
           setPositioningEdge(null);
         }
+        if (lifecycleResult.status === 'fulfilled') {
+          setPromotion(lifecycleResult.value.promotion);
+          setResearchForward(lifecycleResult.value.forward);
+        } else {
+          setPromotion(null);
+          setResearchForward(null);
+        }
       } finally {
         pending = false;
       }
     };
-
     void load();
     const timer = window.setInterval(() => void load(), 60_000);
-    return () => {
-      disposed = true;
-      controller?.abort();
-      window.clearInterval(timer);
-    };
+    return () => { disposed = true; controller?.abort(); window.clearInterval(timer); };
   }, []);
 
   const runnerVerified = runner?.agentAlive === true && runner.paperOnly === true && runner.liveOrders === false;
@@ -168,14 +134,13 @@ export function FounderCommandBar({ onOpen }: { onOpen: (view: CommandView) => v
   const activeFlags = Array.isArray(risk?.activeFlags) ? risk.activeFlags : [];
   const economicPnl = capture.data?.funding?.economicPnlUsdt;
   const openPaper = runner?.stats?.openPositions ?? runner?.openPositions?.length ?? null;
-  const mission = truth.data?.founderMode?.focus?.trim()
-    || truth.data?.founderMode?.goal?.trim()
-    || 'Prove repeatable paper edge before capital cutover';
+  const mission = truth.data?.founderMode?.focus?.trim() || truth.data?.founderMode?.goal?.trim() || 'Prove repeatable paper edge before capital cutover';
 
   const family = forward?.families?.[0] ?? null;
   const forwardTrades = family?.championForward?.trades ?? 0;
   const forwardGate = family?.forwardGate?.replaceAll('_', ' ') ?? 'NOT VERIFIED';
-  const forwardTone: CommandTone = family?.nextStageEligible === true ? 'good' : family ? 'watch' : 'bad';
+  const forwardTone: CommandTone = family?.nextStageEligible === true || (researchForward?.nextStageEligible ?? 0) > 0 ? 'good' : family || researchForward ? 'watch' : 'bad';
+  const newForwardDetail = researchForward ? ` · ${researchForward.enrolled} audited lane${researchForward.enrolled === 1 ? '' : 's'}` : '';
 
   const requiredRows = positioningQuality?.readiness?.minimumIndependentRows ?? positioningEdge?.methodology?.minIndependentRows ?? 20;
   const independentRows = positioningQuality?.independentRowCount ?? positioningEdge?.dataQuality?.independentRowCount ?? null;
@@ -183,21 +148,13 @@ export function FounderCommandBar({ onOpen }: { onOpen: (view: CommandView) => v
   const dataQualityPass = positioningQuality?.qualityPass === true;
   const dataTone: CommandTone = dataReady ? 'good' : dataQualityPass ? 'watch' : positioningQuality ? 'bad' : 'neutral';
   const dataLabel = independentRows === null ? 'NOT VERIFIED' : `${independentRows}/${requiredRows} CLEAN`;
-  const dataDetail = dataReady ? 'positioning study enabled' : dataQualityPass ? 'cohort building' : positioningQuality ? 'quality gate failed' : 'evidence unavailable';
+  const dataDetail = dataReady ? `research enabled · audit ${promotion?.totalForwardPaperEligible ?? 0} eligible` : dataQualityPass ? 'cohort building' : positioningQuality ? 'quality gate failed' : 'evidence unavailable';
 
   const riskTone: CommandTone = riskBand === 'HEALTHY' ? 'good' : riskBand === 'WATCH' ? 'watch' : riskBand === 'NOT VERIFIED' ? 'neutral' : 'bad';
   const riskLabel = activeFlags[0]?.replaceAll('_', ' ') ?? (riskBand === 'HEALTHY' ? 'NO ACTIVE BLOCKER' : riskBand.replaceAll('_', ' '));
   const riskDetail = activeFlags.length > 1 ? `+${activeFlags.length - 1} additional flags` : runnerVerified ? `${openPaper ?? '—'} paper open · ${formatMoney(economicPnl)}` : 'paper runner not verified';
 
-  const priority = buildPriority({
-    runnerVerified,
-    riskBand,
-    activeFlags,
-    positioningQuality,
-    positioningEdge,
-    forward,
-    economicPnl,
-  });
+  const priority = buildPriority({ runnerVerified, riskBand, activeFlags, positioningQuality, positioningEdge, promotion, researchForward, forward, economicPnl });
 
   return (
     <section className="founder-command-bar" aria-label="Founder command layer">
@@ -216,7 +173,7 @@ export function FounderCommandBar({ onOpen }: { onOpen: (view: CommandView) => v
       <button type="button" className={`founder-command-bar__metric is-${forwardTone}`} onClick={() => onOpen('agents')}>
         <span><LockKeyhole size={11} /> FORWARD</span>
         <strong>{forwardTrades}/20 · {forwardGate}</strong>
-        <small>{family?.nextStageEligible ? 'next PAPER stage eligible' : 'LIVE LOCKED'}</small>
+        <small>{family?.nextStageEligible ? 'next PAPER stage eligible' : `LIVE LOCKED${newForwardDetail}`}</small>
       </button>
 
       <button type="button" className={`founder-command-bar__metric is-${dataTone}`} onClick={() => onOpen('research')}>
