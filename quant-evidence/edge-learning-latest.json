@@ -5,13 +5,13 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-09T21:09:36.965Z",
+  "completedAt": "2026-09-10T05:14:10.988Z",
   "summary": {
     "hypotheses": 240,
     "paperCandidates": 3,
-    "interesting": 37,
-    "regimeDivergence": 123,
-    "killed": 1
+    "interesting": 39,
+    "regimeDivergence": 126,
+    "killed": 162
   },
   "rules": [
     {
@@ -89,6 +89,18 @@
       "action": "MUTATE_AND_RETEST"
     },
     {
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:30m:LONDON",
+      "total": 4,
+      "interesting": 2,
+      "regimeDivergence": 1,
+      "paper": 0,
+      "reasons": {
+        "NEGATIVE_TRAIN_EXPECTANCY": 2
+      },
+      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
+      "action": "MUTATE_AND_RETEST"
+    },
+    {
       "hypothesisKey": "opening_range_breakout:XRPUSDT:1h:ASIA",
       "total": 4,
       "interesting": 2,
@@ -131,10 +143,9 @@
       "regimeDivergence": 0,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_TRAIN_EXPECTANCY": 1,
-        "NEGATIVE_VALIDATION_EXPECTANCY": 1
+        "NEGATIVE_VALIDATION_EXPECTANCY": 2
       },
-      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
+      "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
     },
     {
@@ -169,7 +180,7 @@
       "paper": 0,
       "reasons": {
         "NEGATIVE_TRAIN_EXPECTANCY": 2,
-        "NEGATIVE_VALIDATION_EXPECTANCY": 1
+        "WEAK_VALIDATION_PROFIT_FACTOR": 1
       },
       "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
@@ -276,18 +287,6 @@
     },
     {
       "hypothesisKey": "volatility_squeeze:XRPUSDT:30m:NY",
-      "total": 4,
-      "interesting": 0,
-      "regimeDivergence": 4,
-      "paper": 0,
-      "reasons": {
-        "NEGATIVE_TRAIN_EXPECTANCY": 4
-      },
-      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
-      "action": "RETEST_ONLY_IF_REGIME_CHANGES"
-    },
-    {
-      "hypothesisKey": "trend_pullback:SOLUSDT:15m:ASIA",
       "total": 4,
       "interesting": 0,
       "regimeDivergence": 4,

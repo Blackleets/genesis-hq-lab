@@ -1,6 +1,6 @@
 {
   "version": "edge_audit_ledger_v3_family_budget",
-  "updatedAt": "2026-09-09T21:09:13.834Z",
+  "updatedAt": "2026-09-10T05:13:53.418Z",
   "auditedIds": [
     "opening_range_breakout:BTCUSDT:1h:LONDON:p24:ta2:sa0.75:tb8",
     "opening_range_breakout:BTCUSDT:1h:LONDON:p20:ta2:sa0.75:tb6",
@@ -24,7 +24,9 @@
     "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2.25:sa0.75:tb8",
     "opening_range_breakout:BNBUSDT:4h:NY:p20:ta2:sa0.75:tb6",
     "failed_breakout:BNBUSDT:1h:ASIA:p24:ta1:sa0.75:tb8",
-    "failed_breakout:BNBUSDT:1h:ASIA:p16:ta1:sa0.75:tb8"
+    "failed_breakout:BNBUSDT:1h:ASIA:p16:ta1:sa0.75:tb8",
+    "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.9:tb8",
+    "opening_range_breakout:BNBUSDT:4h:ASIA:p24:ta1.5:sa0.75:tb8"
   ],
   "passedCandidates": {
     "opening_range_breakout:XRPUSDT:4h:LONDON:p20:ta2.25:sa0.75:tb8": {
@@ -80,6 +82,62 @@
       },
       "status": "PAPER_RESEARCH_CANDIDATE",
       "auditedAt": "2026-09-08T23:54:34.121Z"
+    },
+    "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.9:tb8": {
+      "id": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.9:tb8",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.9,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8",
+      "selectionScore": 74.25,
+      "holdout": {
+        "trades": 42,
+        "expectancyBps": 36.37,
+        "profitFactor": 1.432,
+        "tStat": 1.006,
+        "maxDrawdownPct": 10.26
+      },
+      "status": "PAPER_RESEARCH_CANDIDATE",
+      "rejectReason": null,
+      "auditedAt": "2026-09-10T05:13:53.409Z"
+    },
+    "opening_range_breakout:BNBUSDT:4h:ASIA:p24:ta1.5:sa0.75:tb8": {
+      "id": "opening_range_breakout:BNBUSDT:4h:ASIA:p24:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 24,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8",
+      "selectionScore": 56.68,
+      "holdout": {
+        "trades": 42,
+        "expectancyBps": 42.12,
+        "profitFactor": 1.557,
+        "tStat": 1.241,
+        "maxDrawdownPct": 8.34
+      },
+      "status": "PAPER_RESEARCH_CANDIDATE",
+      "rejectReason": null,
+      "auditedAt": "2026-09-10T05:13:53.417Z"
     }
   },
   "familyStats": {
@@ -144,6 +202,14 @@
       },
       "status": "OPEN",
       "updatedAt": "2026-09-09T01:01:33.607Z"
+    },
+    "opening_range_breakout:BNBUSDT:4h:ASIA": {
+      "audits": 2,
+      "passes": 2,
+      "rejects": 0,
+      "reasons": {},
+      "status": "PASSED",
+      "updatedAt": "2026-09-10T05:13:53.417Z"
     }
   }
 }

@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-09T21:09:13.729Z",
+  "completedAt": "2026-09-10T05:13:50.686Z",
   "methodology": {
     "selectionUsesHoldout": false,
     "selectionInputs": [
@@ -22,147 +22,226 @@
     "barsPerMarket": 12000
   },
   "queueMode": "HIGH_PRIORITY",
-  "sourceQueueCompletedAt": "2026-09-09T16:53:24.337Z",
+  "sourceQueueCompletedAt": "2026-09-09T21:09:37.043Z",
   "tested": 11,
   "controls": 1,
-  "promotableToAudit": 0,
-  "verdict": "NO_ADAPTIVE_EDGE_FOUND",
+  "promotableToAudit": 2,
+  "verdict": "AUDIT_CANDIDATE_FOUND",
   "bestMutation": {
-    "id": "volatility_squeeze:XRPUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb12",
+    "id": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.9:tb8",
     "role": "MUTATION",
-    "hypothesisKey": "volatility_squeeze:XRPUSDT:1h:ASIA",
-    "parentVariant": "volatility_squeeze:XRPUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8",
-    "priority": "P1",
+    "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+    "parentVariant": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8",
+    "priority": "P0",
     "market": {
-      "pair": "XRPUSDT",
-      "tf": "1h"
+      "pair": "BNBUSDT",
+      "tf": "4h"
     },
     "spec": {
-      "family": "volatility_squeeze",
+      "family": "opening_range_breakout",
       "period": 20,
       "targetAtr": 1.5,
-      "stopAtr": 0.75,
-      "timeoutBars": 12,
+      "stopAtr": 0.9,
+      "timeoutBars": 8,
       "session": "ASIA"
     },
-    "researchStatus": "REJECT",
-    "selectionScore": 10.1,
+    "researchStatus": "PROMOTABLE_TO_ONE_SHOT_AUDIT",
+    "selectionScore": 74.25,
     "train": {
-      "trades": 70,
-      "expectancyBps": 8.15,
-      "profitFactor": 1.182,
-      "tStat": 0.589,
-      "maxDrawdownPct": 9.58
+      "trades": 146,
+      "expectancyBps": 7.71,
+      "profitFactor": 1.061,
+      "tStat": 0.265,
+      "maxDrawdownPct": 42.01
     },
     "validation": {
-      "trades": 26,
-      "expectancyBps": -3.53,
-      "profitFactor": 0.896,
-      "tStat": -0.256,
-      "maxDrawdownPct": 4.3
+      "trades": 39,
+      "expectancyBps": 70.4,
+      "profitFactor": 1.93,
+      "tStat": 1.864,
+      "maxDrawdownPct": 6.93
     },
     "walkForward": {
-      "positiveFolds": 2,
+      "positiveFolds": 3,
       "requiredPositiveFolds": 3,
-      "pass": false
+      "pass": true
     }
   },
   "control": {
-    "id": "volatility_squeeze:XRPUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8:control",
+    "id": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8:control",
     "role": "CONTROL",
-    "hypothesisKey": "volatility_squeeze:XRPUSDT:1h:ASIA",
-    "parentVariant": "volatility_squeeze:XRPUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8",
-    "priority": "P1",
+    "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+    "parentVariant": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8",
+    "priority": "P0",
     "market": {
-      "pair": "XRPUSDT",
-      "tf": "1h"
+      "pair": "BNBUSDT",
+      "tf": "4h"
     },
     "spec": {
-      "family": "volatility_squeeze",
+      "family": "opening_range_breakout",
       "period": 20,
       "targetAtr": 1.5,
       "stopAtr": 0.75,
       "timeoutBars": 8,
       "session": "ASIA"
     },
-    "researchStatus": "REJECT",
-    "selectionScore": 8.5,
+    "researchStatus": "PROMOTABLE_TO_ONE_SHOT_AUDIT",
+    "selectionScore": 62.14,
     "train": {
-      "trades": 70,
-      "expectancyBps": 6.95,
-      "profitFactor": 1.157,
-      "tStat": 0.508,
-      "maxDrawdownPct": 9.58
+      "trades": 146,
+      "expectancyBps": 6.88,
+      "profitFactor": 1.059,
+      "tStat": 0.25,
+      "maxDrawdownPct": 38.42
     },
     "validation": {
-      "trades": 26,
-      "expectancyBps": -5.89,
-      "profitFactor": 0.821,
-      "tStat": -0.449,
-      "maxDrawdownPct": 3.91
+      "trades": 41,
+      "expectancyBps": 54.95,
+      "profitFactor": 1.76,
+      "tStat": 1.598,
+      "maxDrawdownPct": 6.15
     },
     "walkForward": {
-      "positiveFolds": 2,
+      "positiveFolds": 3,
       "requiredPositiveFolds": 3,
-      "pass": false
+      "pass": true
     }
   },
   "controlSet": [
     {
-      "id": "volatility_squeeze:XRPUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8:control",
+      "id": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8:control",
       "role": "CONTROL",
-      "hypothesisKey": "volatility_squeeze:XRPUSDT:1h:ASIA",
-      "parentVariant": "volatility_squeeze:XRPUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8",
-      "priority": "P1",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8",
+      "priority": "P0",
       "market": {
-        "pair": "XRPUSDT",
-        "tf": "1h"
+        "pair": "BNBUSDT",
+        "tf": "4h"
       },
       "spec": {
-        "family": "volatility_squeeze",
+        "family": "opening_range_breakout",
         "period": 20,
         "targetAtr": 1.5,
         "stopAtr": 0.75,
         "timeoutBars": 8,
         "session": "ASIA"
       },
-      "researchStatus": "REJECT",
-      "selectionScore": 8.5,
+      "researchStatus": "PROMOTABLE_TO_ONE_SHOT_AUDIT",
+      "selectionScore": 62.14,
       "train": {
-        "trades": 70,
-        "expectancyBps": 6.95,
-        "profitFactor": 1.157,
-        "tStat": 0.508,
-        "maxDrawdownPct": 9.58
+        "trades": 146,
+        "expectancyBps": 6.88,
+        "profitFactor": 1.059,
+        "tStat": 0.25,
+        "maxDrawdownPct": 38.42
       },
       "validation": {
-        "trades": 26,
-        "expectancyBps": -5.89,
-        "profitFactor": 0.821,
-        "tStat": -0.449,
-        "maxDrawdownPct": 3.91
+        "trades": 41,
+        "expectancyBps": 54.95,
+        "profitFactor": 1.76,
+        "tStat": 1.598,
+        "maxDrawdownPct": 6.15
       },
       "walkForward": {
-        "positiveFolds": 2,
+        "positiveFolds": 3,
         "requiredPositiveFolds": 3,
-        "pass": false
+        "pass": true
       }
     }
   ],
-  "auditQueue": [],
-  "top": [
+  "auditQueue": [
     {
-      "id": "volatility_squeeze:XRPUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb12",
-      "role": "MUTATION",
-      "hypothesisKey": "volatility_squeeze:XRPUSDT:1h:ASIA",
-      "parentVariant": "volatility_squeeze:XRPUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8",
-      "priority": "P1",
+      "id": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.9:tb8",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
       "market": {
-        "pair": "XRPUSDT",
-        "tf": "1h"
+        "pair": "BNBUSDT",
+        "tf": "4h"
       },
       "spec": {
-        "family": "volatility_squeeze",
+        "family": "opening_range_breakout",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.9,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8",
+      "selectionScore": 74.25,
+      "reason": "Passed train+validation+walk-forward without consulting holdout."
+    },
+    {
+      "id": "opening_range_breakout:BNBUSDT:4h:ASIA:p24:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 24,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8",
+      "selectionScore": 56.68,
+      "reason": "Passed train+validation+walk-forward without consulting holdout."
+    }
+  ],
+  "top": [
+    {
+      "id": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.9:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8",
+      "priority": "P0",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.9,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "PROMOTABLE_TO_ONE_SHOT_AUDIT",
+      "selectionScore": 74.25,
+      "train": {
+        "trades": 146,
+        "expectancyBps": 7.71,
+        "profitFactor": 1.061,
+        "tStat": 0.265,
+        "maxDrawdownPct": 42.01
+      },
+      "validation": {
+        "trades": 39,
+        "expectancyBps": 70.4,
+        "profitFactor": 1.93,
+        "tStat": 1.864,
+        "maxDrawdownPct": 6.93
+      },
+      "walkForward": {
+        "positiveFolds": 3,
+        "requiredPositiveFolds": 3,
+        "pass": true
+      }
+    },
+    {
+      "id": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb12",
+      "role": "MUTATION",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8",
+      "priority": "P0",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
         "period": 20,
         "targetAtr": 1.5,
         "stopAtr": 0.75,
@@ -170,399 +249,119 @@
         "session": "ASIA"
       },
       "researchStatus": "REJECT",
-      "selectionScore": 10.1,
+      "selectionScore": 63.45,
       "train": {
-        "trades": 70,
-        "expectancyBps": 8.15,
-        "profitFactor": 1.182,
-        "tStat": 0.589,
-        "maxDrawdownPct": 9.58
+        "trades": 145,
+        "expectancyBps": 5.13,
+        "profitFactor": 1.042,
+        "tStat": 0.183,
+        "maxDrawdownPct": 43.02
       },
       "validation": {
-        "trades": 26,
-        "expectancyBps": -3.53,
-        "profitFactor": 0.896,
-        "tStat": -0.256,
-        "maxDrawdownPct": 4.3
+        "trades": 41,
+        "expectancyBps": 57.06,
+        "profitFactor": 1.789,
+        "tStat": 1.648,
+        "maxDrawdownPct": 6.15
       },
       "walkForward": {
-        "positiveFolds": 2,
+        "positiveFolds": 3,
         "requiredPositiveFolds": 3,
-        "pass": false
+        "pass": true
       }
     },
     {
-      "id": "volatility_squeeze:XRPUSDT:1h:ASIA:p24:ta1.5:sa0.75:tb8",
-      "role": "MUTATION",
-      "hypothesisKey": "volatility_squeeze:XRPUSDT:1h:ASIA",
-      "parentVariant": "volatility_squeeze:XRPUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8",
-      "priority": "P1",
+      "id": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8",
+      "priority": "P0",
       "market": {
-        "pair": "XRPUSDT",
-        "tf": "1h"
+        "pair": "BNBUSDT",
+        "tf": "4h"
       },
       "spec": {
-        "family": "volatility_squeeze",
+        "family": "opening_range_breakout",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "PROMOTABLE_TO_ONE_SHOT_AUDIT",
+      "selectionScore": 62.14,
+      "train": {
+        "trades": 146,
+        "expectancyBps": 6.88,
+        "profitFactor": 1.059,
+        "tStat": 0.25,
+        "maxDrawdownPct": 38.42
+      },
+      "validation": {
+        "trades": 41,
+        "expectancyBps": 54.95,
+        "profitFactor": 1.76,
+        "tStat": 1.598,
+        "maxDrawdownPct": 6.15
+      },
+      "walkForward": {
+        "positiveFolds": 3,
+        "requiredPositiveFolds": 3,
+        "pass": true
+      }
+    },
+    {
+      "id": "opening_range_breakout:BNBUSDT:4h:ASIA:p24:ta1.5:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8",
+      "priority": "P0",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
         "period": 24,
         "targetAtr": 1.5,
         "stopAtr": 0.75,
         "timeoutBars": 8,
         "session": "ASIA"
       },
-      "researchStatus": "REJECT",
-      "selectionScore": 9.34,
+      "researchStatus": "PROMOTABLE_TO_ONE_SHOT_AUDIT",
+      "selectionScore": 56.68,
       "train": {
-        "trades": 66,
-        "expectancyBps": -1.25,
-        "profitFactor": 0.974,
-        "tStat": -0.088,
-        "maxDrawdownPct": 11.54
+        "trades": 141,
+        "expectancyBps": 9.5,
+        "profitFactor": 1.082,
+        "tStat": 0.335,
+        "maxDrawdownPct": 39.89
       },
       "validation": {
-        "trades": 24,
-        "expectancyBps": -0.63,
-        "profitFactor": 0.979,
-        "tStat": -0.046,
-        "maxDrawdownPct": 3.91
+        "trades": 36,
+        "expectancyBps": 48.52,
+        "profitFactor": 1.631,
+        "tStat": 1.301,
+        "maxDrawdownPct": 7.26
       },
       "walkForward": {
-        "positiveFolds": 2,
+        "positiveFolds": 3,
         "requiredPositiveFolds": 3,
-        "pass": false
+        "pass": true
       }
     },
     {
-      "id": "volatility_squeeze:XRPUSDT:1h:ASIA:p16:ta1.5:sa0.75:tb8",
+      "id": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.75:sa0.75:tb8",
       "role": "MUTATION",
-      "hypothesisKey": "volatility_squeeze:XRPUSDT:1h:ASIA",
-      "parentVariant": "volatility_squeeze:XRPUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8",
-      "priority": "P1",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8",
+      "priority": "P0",
       "market": {
-        "pair": "XRPUSDT",
-        "tf": "1h"
+        "pair": "BNBUSDT",
+        "tf": "4h"
       },
       "spec": {
-        "family": "volatility_squeeze",
-        "period": 16,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "researchStatus": "REJECT",
-      "selectionScore": 8.95,
-      "train": {
-        "trades": 72,
-        "expectancyBps": 14.86,
-        "profitFactor": 1.361,
-        "tStat": 1.097,
-        "maxDrawdownPct": 7.41
-      },
-      "validation": {
-        "trades": 28,
-        "expectancyBps": -8.66,
-        "profitFactor": 0.743,
-        "tStat": -0.704,
-        "maxDrawdownPct": 4.42
-      },
-      "walkForward": {
-        "positiveFolds": 2,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
-      "id": "volatility_squeeze:XRPUSDT:1h:ASIA:p20:ta1.5:sa0.6:tb8",
-      "role": "MUTATION",
-      "hypothesisKey": "volatility_squeeze:XRPUSDT:1h:ASIA",
-      "parentVariant": "volatility_squeeze:XRPUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8",
-      "priority": "P1",
-      "market": {
-        "pair": "XRPUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 20,
-        "targetAtr": 1.5,
-        "stopAtr": 0.6,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "researchStatus": "REJECT",
-      "selectionScore": 8.93,
-      "train": {
-        "trades": 72,
-        "expectancyBps": 9.15,
-        "profitFactor": 1.237,
-        "tStat": 0.722,
-        "maxDrawdownPct": 9.84
-      },
-      "validation": {
-        "trades": 27,
-        "expectancyBps": -6.1,
-        "profitFactor": 0.799,
-        "tStat": -0.51,
-        "maxDrawdownPct": 3.35
-      },
-      "walkForward": {
-        "positiveFolds": 2,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
-      "id": "volatility_squeeze:XRPUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8:control",
-      "role": "CONTROL",
-      "hypothesisKey": "volatility_squeeze:XRPUSDT:1h:ASIA",
-      "parentVariant": "volatility_squeeze:XRPUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8",
-      "priority": "P1",
-      "market": {
-        "pair": "XRPUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 20,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "researchStatus": "REJECT",
-      "selectionScore": 8.5,
-      "train": {
-        "trades": 70,
-        "expectancyBps": 6.95,
-        "profitFactor": 1.157,
-        "tStat": 0.508,
-        "maxDrawdownPct": 9.58
-      },
-      "validation": {
-        "trades": 26,
-        "expectancyBps": -5.89,
-        "profitFactor": 0.821,
-        "tStat": -0.449,
-        "maxDrawdownPct": 3.91
-      },
-      "walkForward": {
-        "positiveFolds": 2,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
-      "id": "volatility_squeeze:XRPUSDT:1h:ASIA:p16:ta1.5:sa0.6:tb8",
-      "role": "MUTATION",
-      "hypothesisKey": "volatility_squeeze:XRPUSDT:1h:ASIA",
-      "parentVariant": "volatility_squeeze:XRPUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8",
-      "priority": "P1",
-      "market": {
-        "pair": "XRPUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 16,
-        "targetAtr": 1.5,
-        "stopAtr": 0.6,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "researchStatus": "REJECT",
-      "selectionScore": 8.35,
-      "train": {
-        "trades": 74,
-        "expectancyBps": 11.6,
-        "profitFactor": 1.309,
-        "tStat": 0.93,
-        "maxDrawdownPct": 9.24
-      },
-      "validation": {
-        "trades": 29,
-        "expectancyBps": -8.28,
-        "profitFactor": 0.731,
-        "tStat": -0.737,
-        "maxDrawdownPct": 3.78
-      },
-      "walkForward": {
-        "positiveFolds": 2,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
-      "id": "volatility_squeeze:XRPUSDT:1h:ASIA:p20:ta1.5:sa0.9:tb8",
-      "role": "MUTATION",
-      "hypothesisKey": "volatility_squeeze:XRPUSDT:1h:ASIA",
-      "parentVariant": "volatility_squeeze:XRPUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8",
-      "priority": "P1",
-      "market": {
-        "pair": "XRPUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 20,
-        "targetAtr": 1.5,
-        "stopAtr": 0.9,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "researchStatus": "REJECT",
-      "selectionScore": 8.08,
-      "train": {
-        "trades": 69,
-        "expectancyBps": 6.83,
-        "profitFactor": 1.141,
-        "tStat": 0.467,
-        "maxDrawdownPct": 12.52
-      },
-      "validation": {
-        "trades": 26,
-        "expectancyBps": -6.59,
-        "profitFactor": 0.816,
-        "tStat": -0.469,
-        "maxDrawdownPct": 3.57
-      },
-      "walkForward": {
-        "positiveFolds": 2,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
-      "id": "volatility_squeeze:XRPUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb6",
-      "role": "MUTATION",
-      "hypothesisKey": "volatility_squeeze:XRPUSDT:1h:ASIA",
-      "parentVariant": "volatility_squeeze:XRPUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8",
-      "priority": "P1",
-      "market": {
-        "pair": "XRPUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 20,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 6,
-        "session": "ASIA"
-      },
-      "researchStatus": "REJECT",
-      "selectionScore": 7.22,
-      "train": {
-        "trades": 70,
-        "expectancyBps": 6.55,
-        "profitFactor": 1.15,
-        "tStat": 0.482,
-        "maxDrawdownPct": 9.58
-      },
-      "validation": {
-        "trades": 26,
-        "expectancyBps": -8.04,
-        "profitFactor": 0.748,
-        "tStat": -0.655,
-        "maxDrawdownPct": 3.78
-      },
-      "walkForward": {
-        "positiveFolds": 2,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
-      "id": "volatility_squeeze:XRPUSDT:1h:ASIA:p16:ta1.25:sa0.75:tb8",
-      "role": "MUTATION",
-      "hypothesisKey": "volatility_squeeze:XRPUSDT:1h:ASIA",
-      "parentVariant": "volatility_squeeze:XRPUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8",
-      "priority": "P1",
-      "market": {
-        "pair": "XRPUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 16,
-        "targetAtr": 1.25,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "researchStatus": "REJECT",
-      "selectionScore": 5.33,
-      "train": {
-        "trades": 76,
-        "expectancyBps": 8.06,
-        "profitFactor": 1.199,
-        "tStat": 0.691,
-        "maxDrawdownPct": 7.79
-      },
-      "validation": {
-        "trades": 29,
-        "expectancyBps": -12.15,
-        "profitFactor": 0.636,
-        "tStat": -1.123,
-        "maxDrawdownPct": 4.96
-      },
-      "walkForward": {
-        "positiveFolds": 2,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
-      "id": "volatility_squeeze:XRPUSDT:1h:ASIA:p20:ta1.25:sa0.75:tb8",
-      "role": "MUTATION",
-      "hypothesisKey": "volatility_squeeze:XRPUSDT:1h:ASIA",
-      "parentVariant": "volatility_squeeze:XRPUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8",
-      "priority": "P1",
-      "market": {
-        "pair": "XRPUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
-        "period": 20,
-        "targetAtr": 1.25,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "researchStatus": "REJECT",
-      "selectionScore": 4.8,
-      "train": {
-        "trades": 74,
-        "expectancyBps": 0.61,
-        "profitFactor": 1.014,
-        "tStat": 0.052,
-        "maxDrawdownPct": 9.94
-      },
-      "validation": {
-        "trades": 27,
-        "expectancyBps": -9.74,
-        "profitFactor": 0.701,
-        "tStat": -0.847,
-        "maxDrawdownPct": 4.44
-      },
-      "walkForward": {
-        "positiveFolds": 2,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
-      "id": "volatility_squeeze:XRPUSDT:1h:ASIA:p20:ta1.75:sa0.75:tb8",
-      "role": "MUTATION",
-      "hypothesisKey": "volatility_squeeze:XRPUSDT:1h:ASIA",
-      "parentVariant": "volatility_squeeze:XRPUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8",
-      "priority": "P1",
-      "market": {
-        "pair": "XRPUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "volatility_squeeze",
+        "family": "opening_range_breakout",
         "period": 20,
         "targetAtr": 1.75,
         "stopAtr": 0.75,
@@ -570,23 +369,263 @@
         "session": "ASIA"
       },
       "researchStatus": "REJECT",
-      "selectionScore": 3.02,
+      "selectionScore": 50.75,
       "train": {
-        "trades": 70,
-        "expectancyBps": -5.93,
-        "profitFactor": 0.881,
-        "tStat": -0.425,
-        "maxDrawdownPct": 15.94
+        "trades": 146,
+        "expectancyBps": 0.18,
+        "profitFactor": 1.001,
+        "tStat": 0.006,
+        "maxDrawdownPct": 42.33
       },
       "validation": {
-        "trades": 26,
-        "expectancyBps": -0.9,
-        "profitFactor": 0.973,
-        "tStat": -0.061,
-        "maxDrawdownPct": 3.64
+        "trades": 41,
+        "expectancyBps": 50.92,
+        "profitFactor": 1.635,
+        "tStat": 1.372,
+        "maxDrawdownPct": 12.5
       },
       "walkForward": {
-        "positiveFolds": 1,
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb6",
+      "role": "MUTATION",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8",
+      "priority": "P0",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 6,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 47.51,
+      "train": {
+        "trades": 146,
+        "expectancyBps": -3.03,
+        "profitFactor": 0.974,
+        "tStat": -0.122,
+        "maxDrawdownPct": 36.92
+      },
+      "validation": {
+        "trades": 41,
+        "expectancyBps": 46.3,
+        "profitFactor": 1.64,
+        "tStat": 1.374,
+        "maxDrawdownPct": 6.15
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.6:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8",
+      "priority": "P0",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.6,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 47.43,
+      "train": {
+        "trades": 148,
+        "expectancyBps": -3.45,
+        "profitFactor": 0.968,
+        "tStat": -0.135,
+        "maxDrawdownPct": 47.6
+      },
+      "validation": {
+        "trades": 42,
+        "expectancyBps": 44.96,
+        "profitFactor": 1.678,
+        "tStat": 1.416,
+        "maxDrawdownPct": 10.46
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "opening_range_breakout:BNBUSDT:4h:ASIA:p16:ta1.5:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8",
+      "priority": "P0",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 16,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 45.48,
+      "train": {
+        "trades": 156,
+        "expectancyBps": -4.2,
+        "profitFactor": 0.965,
+        "tStat": -0.161,
+        "maxDrawdownPct": 51.19
+      },
+      "validation": {
+        "trades": 42,
+        "expectancyBps": 45,
+        "profitFactor": 1.589,
+        "tStat": 1.32,
+        "maxDrawdownPct": 9.78
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.25:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8",
+      "priority": "P0",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 20,
+        "targetAtr": 1.25,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 41.81,
+      "train": {
+        "trades": 147,
+        "expectancyBps": 1.56,
+        "profitFactor": 1.014,
+        "tStat": 0.064,
+        "maxDrawdownPct": 36.11
+      },
+      "validation": {
+        "trades": 42,
+        "expectancyBps": 37.78,
+        "profitFactor": 1.532,
+        "tStat": 1.248,
+        "maxDrawdownPct": 9.29
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "opening_range_breakout:BNBUSDT:4h:ASIA:p16:ta1.5:sa0.6:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8",
+      "priority": "P0",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 16,
+        "targetAtr": 1.5,
+        "stopAtr": 0.6,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 37.74,
+      "train": {
+        "trades": 158,
+        "expectancyBps": -11.48,
+        "profitFactor": 0.896,
+        "tStat": -0.474,
+        "maxDrawdownPct": 58.86
+      },
+      "validation": {
+        "trades": 43,
+        "expectancyBps": 36.53,
+        "profitFactor": 1.526,
+        "tStat": 1.166,
+        "maxDrawdownPct": 13.64
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "opening_range_breakout:BNBUSDT:4h:ASIA:p16:ta1.25:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+      "parentVariant": "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8",
+      "priority": "P0",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 16,
+        "targetAtr": 1.25,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 32.4,
+      "train": {
+        "trades": 157,
+        "expectancyBps": -4.97,
+        "profitFactor": 0.957,
+        "tStat": -0.212,
+        "maxDrawdownPct": 43.91
+      },
+      "validation": {
+        "trades": 43,
+        "expectancyBps": 28.95,
+        "profitFactor": 1.386,
+        "tStat": 0.964,
+        "maxDrawdownPct": 12.7
+      },
+      "walkForward": {
+        "positiveFolds": 2,
         "requiredPositiveFolds": 3,
         "pass": false
       }
