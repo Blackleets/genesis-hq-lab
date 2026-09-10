@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluatePositioningStudy } from '../research/runPositioningEdgeFactory.mjs';
+import { evaluatePositioningStudy, joinCausalSpotPerpDivergence } from '../research/runPositioningEdgeFactory.mjs';
 
 function row(i,{funding=0.0002,oi=0.2,taker=-0.2,ret=10,vol=1.3,minuteStep=1}={}){
   return {
@@ -12,6 +12,15 @@ function row(i,{funding=0.0002,oi=0.2,taker=-0.2,ret=10,vol=1.3,minuteStep=1}={}
     provenance:{takerWindowMs:60000},
   };
 }
+function divergenceAt(ms,value=0.2){
+  return {
+    mode:'RESEARCH_ONLY', provider:'okx_public_market_data', symbol:'BTCUSDT', schemaVersion:1,
+    capturedAt:new Date(ms).toISOString(),
+    spot:{coverageMs:60000}, perpetual:{coverageMs:60000},
+    divergence:{perpMinusSpotNotionalBuyFraction:value},
+    provenance:{fixedWindow:true,rawSpotVsPerpSizeComparisonForbidden:true},
+  };
+}
 
 test('fails closed when positioning cohort is not ready',()=>{
   const out=evaluatePositioningStudy([row(0),row(1)],{qualityPass:false,independentRowCount:3,defects:{excessiveGaps:1}});
@@ -21,9 +30,27 @@ test('fails closed when positioning cohort is not ready',()=>{
   assert.equal(out.methodology.holdoutSealed,true);
 });
 
+test('causal divergence join accepts only prior fresh evidence and rejects future evidence',()=>{
+  const r=row(1);
+  const t=Date.parse(r.capturedAt);
+  const joined=joinCausalSpotPerpDivergence([r],[divergenceAt(t-5000,0.25),divergenceAt(t+1,0.9)]);
+  assert.equal(joined[0].researchFeatures.spotPerpTakerDivergence,0.25);
+  assert.equal(joined[0].researchFeatures.spotPerpTakerDivergenceAgeMs,5000);
+  assert.equal(joined[0].researchFeatures.spotPerpTakerDivergenceCausal,true);
+});
+
+test('stale divergence is not exposed as a research feature',()=>{
+  const r=row(1);
+  const t=Date.parse(r.capturedAt);
+  const joined=joinCausalSpotPerpDivergence([r],[divergenceAt(t-30001,0.25)]);
+  assert.equal(joined[0].researchFeatures.spotPerpTakerDivergence,null);
+  assert.equal(joined[0].researchFeatures.spotPerpTakerDivergenceCausal,false);
+});
+
 test('never opens holdout or grants execution authority when study runs',()=>{
   const rows=Array.from({length:30},(_,i)=>row(i));
-  const out=evaluatePositioningStudy(rows,{qualityPass:true,independentRowCount:30});
+  const divergences=rows.map(r=>divergenceAt(Date.parse(r.capturedAt)-5000,0.2));
+  const out=evaluatePositioningStudy(rows,{qualityPass:true,independentRowCount:30},{divergenceRows:divergences});
   assert.ok(['NO_EDGE_FOUND','RESEARCH_CANDIDATE_FOUND'].includes(out.verdict));
   assert.equal(out.holdoutOpened,false);
   assert.equal(out.partitions.holdoutOpened,false);
@@ -35,6 +62,9 @@ test('never opens holdout or grants execution authority when study runs',()=>{
   assert.equal(out.methodology.selectionUsesHoldout,false);
   assert.equal(out.methodology.temporalOrderPreserved,true);
   assert.equal(out.methodology.independentNonOverlappingRowsOnly,true);
+  assert.equal(out.methodology.spotPerpJoin,'PRIOR_ASOF_ONLY');
+  assert.equal(out.methodology.futureDivergenceForbidden,true);
+  assert.ok(out.candidates.some(x=>x.family==='spot_perp_taker_divergence_continuation'));
 });
 
 test('rejects forward labels that cross excessive time gaps',()=>{
