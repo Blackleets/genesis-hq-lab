@@ -3,18 +3,43 @@
 
 const BASE = 'https://www.okx.com';
 const ABSOLUTE_MAX_PAGES = 60;
+const MAX_TRANSIENT_ATTEMPTS = 3;
+
+function transientHttpStatus(status) {
+  return status === 429 || (status >= 500 && status <= 599);
+}
+
+async function sleep(ms) {
+  await new Promise(resolve => setTimeout(resolve, ms));
+}
 
 async function okx(path, fetchImpl = fetch) {
-  const res = await fetchImpl(`${BASE}${path}`, {
-    headers: { 'user-agent': 'genesis-hq-research-only/1.0' },
-    signal: AbortSignal.timeout(15_000),
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status} for ${path.split('?')[0]}`);
-  const payload = await res.json();
-  if (String(payload?.code ?? '') !== '0' || !Array.isArray(payload?.data)) {
-    throw new Error(`OKX ${payload?.code ?? 'invalid'} for ${path.split('?')[0]}`);
+  for (let attempt = 1; attempt <= MAX_TRANSIENT_ATTEMPTS; attempt += 1) {
+    const res = await fetchImpl(`${BASE}${path}`, {
+      headers: { 'user-agent': 'genesis-hq-research-only/1.0' },
+      signal: AbortSignal.timeout(15_000),
+    });
+
+    if (!res.ok) {
+      if (transientHttpStatus(res.status) && attempt < MAX_TRANSIENT_ATTEMPTS) {
+        await sleep(250 * attempt);
+        continue;
+      }
+      throw new Error(`HTTP ${res.status} for ${path.split('?')[0]}`);
+    }
+
+    const payload = await res.json();
+    const code = String(payload?.code ?? '');
+    if (code === '50011' && attempt < MAX_TRANSIENT_ATTEMPTS) {
+      await sleep(250 * attempt);
+      continue;
+    }
+    if (code !== '0' || !Array.isArray(payload?.data)) {
+      throw new Error(`OKX ${payload?.code ?? 'invalid'} for ${path.split('?')[0]}`);
+    }
+    return payload.data;
   }
-  return payload.data;
+  throw new Error(`Transient OKX failure for ${path.split('?')[0]}`);
 }
 
 function normalizeTrade(row) {
@@ -130,7 +155,7 @@ export async function fetchFixedWindowTaker(instId = 'BTC-USDT-SWAP', {
   const pageDelayMs = runtimePageDelayMs();
 
   while (oldestTime > cutoff && pages < pageBudget) {
-    if (pageDelayMs > 0) await new Promise(resolve => setTimeout(resolve, pageDelayMs));
+    if (pageDelayMs > 0) await sleep(pageDelayMs);
     const page = await okx(`/api/v5/market/history-trades?instId=${encodeURIComponent(instId)}&type=2&after=${oldestTime}&limit=100`, fetchImpl);
     if (!page.length) break;
     all.push(...page);
@@ -154,6 +179,12 @@ export async function fetchFixedWindowTaker(instId = 'BTC-USDT-SWAP', {
     endpointHistory: '/api/v5/market/history-trades',
     paginationType: 'timestamp',
     coverageGateRatio: minimumCoverageRatio,
+    transientRetryPolicy: {
+      maxAttempts: MAX_TRANSIENT_ATTEMPTS,
+      statuses: [429, '5xx'],
+      okxCodes: ['50011'],
+      backoffMs: [250, 500],
+    },
     researchUse: 'OBSERVATIONAL_ONLY_NOT_FOR_RANKING',
   };
 }
