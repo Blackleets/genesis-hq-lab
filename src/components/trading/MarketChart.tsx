@@ -25,7 +25,6 @@ export function MarketChart({ positionOverlay = true }: { positionOverlay?: bool
   const positions = usePaperPositions();
   const { resource: runnerResource, runner } = useRunnerTelemetry();
   const symbolPositions = (positions.data ?? []).filter((trade) => trade.pair === symbol);
-  const symbolExecutions = (executions.data ?? []).filter((trade) => trade.pair === symbol && trade.status === 'closed');
 
   const decisions = useMemo(
     () => Array.isArray(runner?.lastResult?.decisions) ? runner.lastResult.decisions : [],
