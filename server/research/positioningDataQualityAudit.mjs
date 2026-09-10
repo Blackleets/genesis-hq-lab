@@ -41,10 +41,12 @@ function defectCounts(rows, maxGapMinutes) {
 }
 
 export function auditPositioningRows(rows = [], {
+  symbol = 'BTCUSDT',
   expectedSchemaVersion = 4,
   maxGapMinutes = 60,
   minIndependentRowsForPredeclaredStudy = 20,
 } = {}) {
+  const targetSymbol = String(symbol || '').toUpperCase();
   const parsed = rows.filter(row => row && typeof row === 'object');
   const schemaCounts = {};
   for (const row of parsed) {
@@ -55,7 +57,7 @@ export function auditPositioningRows(rows = [], {
   const eligibleBase = parsed.filter(row =>
     row.mode === 'RESEARCH_ONLY'
     && row.provider === 'okx_public_market_data'
-    && row.symbol === 'BTCUSDT'
+    && row.symbol === targetSymbol
     && row.schemaVersion === expectedSchemaVersion
     && Number.isFinite(capturedMs(row))
     && Number.isFinite(takerWindowMs(row))
@@ -98,9 +100,10 @@ export function auditPositioningRows(rows = [], {
   const readyForPredeclaredStudy = qualityPass && independentCount >= minimumRows;
 
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     mode: 'RESEARCH_ONLY',
     researchUse: 'DATA_QUALITY_ONLY_NOT_FOR_RANKING',
+    symbol: targetSymbol,
     expectedSchemaVersion,
     maxGapMinutes,
     rawRowCount: parsed.length,
@@ -143,8 +146,9 @@ if (process.argv[1]?.endsWith('positioningDataQualityAudit.mjs')) {
   const valueAfter = flag => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : undefined; };
   const input = valueAfter('--input');
   const out = valueAfter('--out');
+  const symbol = valueAfter('--symbol') || 'BTCUSDT';
   if (!input) throw new Error('--input is required');
-  const report = auditPositioningRows(readJsonl(input));
+  const report = auditPositioningRows(readJsonl(input), { symbol });
   if (out) {
     fs.mkdirSync(path.dirname(out), { recursive: true });
     fs.writeFileSync(out, `${JSON.stringify(report, null, 2)}\n`);
