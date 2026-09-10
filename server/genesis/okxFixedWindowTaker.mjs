@@ -2,6 +2,7 @@
 // Public read-only endpoints only. Never places orders or alters trading gates.
 
 const BASE = 'https://www.okx.com';
+const ABSOLUTE_MAX_PAGES = 60;
 
 async function okx(path, fetchImpl = fetch) {
   const res = await fetchImpl(`${BASE}${path}`, {
@@ -24,6 +25,17 @@ function normalizeTrade(row) {
   if (!Number.isFinite(time) || !Number.isFinite(size) || size <= 0 || !Number.isFinite(price) || price <= 0) return null;
   if (side !== 'buy' && side !== 'sell') return null;
   return { time, size, price, side, tradeId: String(row?.tradeId ?? '') };
+}
+
+function runtimePageBudget(requested) {
+  const env = Number(process.env.GENESIS_TAKER_MAX_PAGES);
+  const desired = Number.isFinite(env) && env > 0 ? Math.max(requested, Math.floor(env)) : requested;
+  return Math.min(ABSOLUTE_MAX_PAGES, Math.max(1, desired));
+}
+
+function runtimePageDelayMs() {
+  const env = Number(process.env.GENESIS_TAKER_PAGE_DELAY_MS);
+  return Number.isFinite(env) && env >= 0 ? Math.min(1_000, Math.floor(env)) : 0;
 }
 
 export function aggregateFixedWindowTaker(rows = [], {
@@ -102,9 +114,9 @@ export async function fetchFixedWindowTaker(instId = 'BTC-USDT-SWAP', {
   fetchImpl = fetch,
 } = {}) {
   const all = [];
-  // OKX explicitly permits up to 500 rows on the recent-trades endpoint. Taking the full
-  // public snapshot increases fixed-window coverage without weakening the 90% evidence gate
-  // or adding pagination requests/rate-limit pressure.
+  // OKX permits up to 500 rows on recent trades. Research runs may raise the pagination
+  // budget (hard-capped at 60) when activity is too high to span the fixed 60-second window.
+  // This increases data coverage only; the 90% evidence gate is never relaxed.
   const latest = await okx(`/api/v5/market/trades?instId=${encodeURIComponent(instId)}&limit=500`, fetchImpl);
   all.push(...latest);
   const normalizedLatest = latest.map(normalizeTrade).filter(Boolean).sort((a, b) => a.time - b.time);
@@ -114,8 +126,11 @@ export async function fetchFixedWindowTaker(instId = 'BTC-USDT-SWAP', {
   const cutoff = latestTime - windowMs;
   let oldestTime = normalizedLatest.at(0).time;
   let pages = 1;
+  const pageBudget = runtimePageBudget(maxPages);
+  const pageDelayMs = runtimePageDelayMs();
 
-  while (oldestTime > cutoff && pages < maxPages) {
+  while (oldestTime > cutoff && pages < pageBudget) {
+    if (pageDelayMs > 0) await new Promise(resolve => setTimeout(resolve, pageDelayMs));
     const page = await okx(`/api/v5/market/history-trades?instId=${encodeURIComponent(instId)}&type=2&after=${oldestTime}&limit=100`, fetchImpl);
     if (!page.length) break;
     all.push(...page);
@@ -131,11 +146,14 @@ export async function fetchFixedWindowTaker(instId = 'BTC-USDT-SWAP', {
   return {
     ...out,
     pagesFetched: pages,
-    maxPages,
+    requestedMaxPages: maxPages,
+    maxPages: pageBudget,
+    pageDelayMs,
     recentLimit: 500,
     endpointLatest: '/api/v5/market/trades',
     endpointHistory: '/api/v5/market/history-trades',
     paginationType: 'timestamp',
+    coverageGateRatio: minimumCoverageRatio,
     researchUse: 'OBSERVATIONAL_ONLY_NOT_FOR_RANKING',
   };
 }
