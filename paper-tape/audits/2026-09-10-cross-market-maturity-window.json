@@ -1,0 +1,24 @@
+{
+  "kind": "RESEARCH_ONLY_AUDIT",
+  "date": "2026-09-10",
+  "scope": "cross-market lead-lag evidence collection",
+  "codeCommit": "59d866f330bc3bee0b6876a44085d8582d74a6b7",
+  "ciRunId": 34438688255,
+  "ciConclusion": "success",
+  "finding": "Branch-local explicit evidence triggers were separated by hours while the fixed protocol only accepts outcomes 10-25 minutes after signal time, leaving schema-v4 snapshots unable to mature into outcomes.",
+  "change": "Explicit evidence runs now capture a causal pair: first snapshot at signal time, then a second snapshot after 660 seconds, inside the predeclared 600000-1500000 ms maturity window. Workflow timeout increased from 5 to 20 minutes only to permit that observation interval.",
+  "unchanged": {
+    "mode": "PAPER_RESEARCH_ONLY",
+    "liveTrading": false,
+    "realOrders": 0,
+    "realTradingConfirmations": "UNCHANGED",
+    "riskGates": "UNCHANGED",
+    "killSwitches": "UNCHANGED",
+    "roundTripCostBps": 10,
+    "holdoutRanking": false,
+    "holdoutPolicy": "SEALED_UNLESS_FIXED_PRE_HOLDOUT_GATES_PASS",
+    "forwardPaperEnrollment": false
+  },
+  "expectedImpact": "Makes future branch-local evidence capable of producing causal matured outcomes without relaxing signal, cost, independence, validation, walk-forward, or holdout rules.",
+  "nextBottleneck": "Accumulate independent matured schema-v4 signals; current study had 2 raw snapshots and 0 matured signals before this collector fix."
+}
