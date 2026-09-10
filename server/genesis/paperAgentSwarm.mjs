@@ -2,8 +2,15 @@ import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path';
 import { getAllAgents } from '../agents/agentRegistry.mjs';
 import { isProviderConfigured, routeToProvider } from '../agents/providerRouter.mjs';
+import {
+  compactPortfolioRisk,
+  compactResearchLifecycleForward,
+  lifecycleForwardSummary,
+  portfolioRiskBlocker,
+  portfolioRiskSummary,
+} from './portfolioRiskAgentEvidence.mjs';
 
-const SWARM_VERSION = 'paper_agent_swarm_v3_output_firewall';
+const SWARM_VERSION = 'paper_agent_swarm_v4_portfolio_risk_evidence';
 const AGENT_IDS = ['atlas', 'nova', 'sentinel', 'curator', 'arbiter'];
 const PROVIDER_ORDER = ['openai', 'nvidia', 'groq', 'gemini', 'claude', 'custom'];
 const HARD_BOUNDARY = `
@@ -13,6 +20,7 @@ PAPER SWARM HARD BOUNDARY:
 - Never infer missing market facts. Use only the supplied evidence JSON and prior agent notes.
 - Capital eligibility is false. LIVE remains locked.
 - Forward PAPER evidence can justify more PAPER observation only, never LIVE promotion.
+- Portfolio risk evidence is advisory/research-only and cannot change production risk gates or size live capital.
 - Recommendations must be framed as PAPER observation, PAPER experiment, WAIT, SKIP, WARN, or VETO.
 - Return final conclusions only. Do not expose chain-of-thought or hidden reasoning.
 - If evidence is insufficient, say so explicitly.
@@ -55,7 +63,7 @@ function compactForward(forward) {
   })) : [];
   return { ts: forward.completedAt ?? null, mode: forward.mode ?? 'FORWARD_PAPER_RESEARCH', enrolled: finite(forward.enrolled), familyCount: finite(forward.familyCount), openShadows: finite(forward.openShadows), families };
 }
-function buildEvidence(capture, funding, hz1, forward) {
+function buildEvidence(capture, funding, hz1, forward, researchForward, portfolio) {
   if (capture?.paper !== true || capture?.liveOff !== true) throw new Error('paper_swarm_capture_boundary_failed');
   if (funding?.paper !== true || funding?.liveOff !== true) throw new Error('paper_swarm_funding_boundary_failed');
   if (hz1 && (hz1.paper !== true || hz1.liveOff !== true)) throw new Error('paper_swarm_hz1_boundary_failed');
@@ -66,6 +74,8 @@ function buildEvidence(capture, funding, hz1, forward) {
     funding: { ts: funding.ts ?? null, capitalUsdt: finite(funding.capital), realizedFundingUsdt: finite(funding.realizedFundingUsdt), realizedPricePnlUsdt: finite(funding.realizedPricePnlUsdt ?? truth.realizedPricePnlUsdt), feesUsdt: finite(funding.feesUsdt), economicPnlUsdt: finite(funding.economicPnlUsdt ?? truth.economicPnlUsdt), equityUsdt: finite(funding.equityUsdt ?? truth.equityUsdt), settledCount: finite(funding.settledCount), openHolds: Array.isArray(funding.holds) ? funding.holds.length : finite(truth.openHolds), closedCount: Array.isArray(funding.closed) ? funding.closed.length : finite(truth.closedCount), feeLock: funding.feeLock === true, feeLockReason: funding.feeLockReason ?? null, note: typeof funding.note === 'string' ? funding.note.slice(0, 500) : null },
     hz1: hz1 ? { ts: hz1.ts ?? null, preQuote: finite(hz1.preQuote), quoted: finite(hz1.quoted), filled: finite(hz1.filled), paperPnl: finite(hz1.paperPnl), reasons: topReasons(hz1.reasons) } : null,
     forwardResearch: compactForward(forward),
+    researchLifecycleForward: compactResearchLifecycleForward(researchForward),
+    portfolioRisk: compactPortfolioRisk(portfolio),
   };
 }
 function selectProvider() { const override = String(process.env.GENESIS_PAPER_AGENT_PROVIDER || '').trim().toLowerCase(); const candidates = override ? [override] : PROVIDER_ORDER; return candidates.find((p) => PROVIDER_ORDER.includes(p) && isProviderConfigured(p)) ?? null; }
@@ -73,18 +83,30 @@ function reasonSummary(evidence) { return evidence.capture.reasons.map((item) =>
 function money(value) { return value == null ? 'UNAVAILABLE' : `${value >= 0 ? '+' : ''}$${value.toFixed(2)}`; }
 function forwardSummary(evidence) {
   const family = evidence.forwardResearch?.families?.[0];
-  if (!family) return 'No forward PAPER family is enrolled.';
+  if (!family) return 'No legacy forward PAPER family is enrolled.';
   const m = family.championForward;
   return `${family.familyKey}; champion=${family.championId}; trades=${m.trades ?? 0}; expectancy=${m.expectancyBps ?? 'NA'}bps; PF=${m.profitFactor ?? 'NA'}; t=${m.tStat ?? 'NA'}; gate=${family.forwardGate ?? 'UNAVAILABLE'}`;
 }
+function forwardEligible(evidence) {
+  return evidence.forwardResearch?.families?.some((family) => family.nextStageEligible) === true
+    || Number(evidence.researchLifecycleForward?.nextStageEligible ?? 0) > 0;
+}
 function deterministicOutput(agentId, evidence) {
-  const quoted = evidence.capture.quoted ?? 0, economic = evidence.funding.economicPnlUsdt, feeLock = evidence.funding.feeLock, forward = forwardSummary(evidence), forwardEligible = evidence.forwardResearch?.families?.some((f) => f.nextStageEligible) === true;
+  const quoted = evidence.capture.quoted ?? 0;
+  const economic = evidence.funding.economicPnlUsdt;
+  const feeLock = evidence.funding.feeLock;
+  const forward = forwardSummary(evidence);
+  const lifecycle = lifecycleForwardSummary(evidence.researchLifecycleForward);
+  const portfolio = portfolioRiskSummary(evidence.portfolioRisk);
+  const eligible = forwardEligible(evidence);
+  const portfolioBlock = portfolioRiskBlocker(evidence.researchLifecycleForward, evidence.portfolioRisk);
+  const paperReviewReady = eligible && !portfolioBlock;
   switch (agentId) {
-    case 'atlas': return `VERDICT: ${forwardEligible ? 'FORWARD PAPER EVIDENCE PASSED GATE' : 'CONTINUE PAPER OBSERVATION'}\nEVIDENCE: ${evidence.capture.scored ?? 'UNAVAILABLE'} scanned, ${quoted} quoted. ${forward}.\nNEXT PAPER ACTION: Keep collecting new completed-candle evidence for the frozen champion.\nBLOCKERS: ${feeLock ? `Fee lock active (${evidence.funding.feeLockReason ?? 'reason unavailable'}).` : 'Forward sample/gate remains authoritative.'}`;
-    case 'nova': return `VERDICT: ${forwardEligible ? 'PAPER NEXT-STAGE REVIEW' : 'NO PROMOTION'}\nEVIDENCE: ${forward}.\nNEXT PAPER ACTION: Do not retune the frozen champion from forward outcomes; challengers remain correlated evidence only.\nBLOCKERS: ${forwardEligible ? 'Human review still required; LIVE remains locked.' : 'Forward gate not yet passed.'}`;
-    case 'sentinel': return `VERDICT: ${feeLock || !forwardEligible ? 'VETO' : 'WARN'}\nEVIDENCE: Economic P&L ${money(economic)}; fee lock ${feeLock ? 'ON' : 'OFF'}; ${forward}.\nNEXT PAPER ACTION: ${forwardEligible ? 'Permit PAPER-only next-stage review.' : 'Keep capital eligibility false and continue forward observation.'}\nBLOCKERS: No live capital path is authorized by this swarm.`;
-    case 'curator': return `VERDICT: LEARN\nEVIDENCE: ${forward}.\nNEXT PAPER ACTION: Preserve the champion freeze and record forward outcomes as new evidence, not parameter-selection data.\nBLOCKERS: Correlated challengers must never count as independent confirmations.`;
-    case 'arbiter': return `VERDICT: ${feeLock || !forwardEligible ? 'STAND DOWN' : 'PAPER NEXT-STAGE REVIEW ONLY'}\nEVIDENCE: ${forward}; economic P&L ${money(economic)}; live authority OFF.\nNEXT PAPER ACTION: ${forwardEligible ? 'Escalate only to the next PAPER validation stage.' : 'Continue collecting forward evidence.'}\nBLOCKERS: LIVE orders, execution authority, and capital eligibility remain false.`;
+    case 'atlas': return `VERDICT: ${paperReviewReady ? 'FORWARD PAPER EVIDENCE PASSED RISK REVIEW GATE' : 'CONTINUE PAPER OBSERVATION'}\nEVIDENCE: ${evidence.capture.scored ?? 'UNAVAILABLE'} scanned, ${quoted} quoted. ${forward}. ${lifecycle}. ${portfolio}.\nNEXT PAPER ACTION: ${portfolioBlock ? 'Accumulate or verify portfolio risk evidence before any next-stage PAPER review.' : 'Keep collecting new completed-candle evidence for frozen champions.'}\nBLOCKERS: ${portfolioBlock ?? (feeLock ? `Fee lock active (${evidence.funding.feeLockReason ?? 'reason unavailable'}).` : 'Forward and portfolio evidence remain authoritative.')}`;
+    case 'nova': return `VERDICT: ${paperReviewReady ? 'PAPER NEXT-STAGE REVIEW' : 'NO PROMOTION'}\nEVIDENCE: ${lifecycle}. ${portfolio}.\nNEXT PAPER ACTION: Do not retune frozen champions from forward or portfolio outcomes; challengers remain correlated evidence only.\nBLOCKERS: ${portfolioBlock ?? (paperReviewReady ? 'Human review still required; LIVE remains locked.' : 'Forward gate not yet passed.')}`;
+    case 'sentinel': return `VERDICT: ${feeLock || !paperReviewReady ? 'VETO' : 'WARN'}\nEVIDENCE: Economic P&L ${money(economic)}; fee lock ${feeLock ? 'ON' : 'OFF'}; ${lifecycle}; ${portfolio}.\nNEXT PAPER ACTION: ${paperReviewReady ? 'Permit PAPER-only next-stage review with portfolio evidence attached.' : 'Keep capital eligibility false and continue evidence collection.'}\nBLOCKERS: ${portfolioBlock ?? 'No live capital path is authorized by this swarm.'}`;
+    case 'curator': return `VERDICT: LEARN\nEVIDENCE: ${lifecycle}. ${portfolio}.\nNEXT PAPER ACTION: Preserve champion freeze and record forward/portfolio outcomes as new evidence, never parameter-selection data.\nBLOCKERS: Correlated challengers must never count as independent confirmations; unsupported regime sizing remains unavailable.`;
+    case 'arbiter': return `VERDICT: ${feeLock || !paperReviewReady ? 'STAND DOWN' : 'PAPER NEXT-STAGE REVIEW ONLY'}\nEVIDENCE: ${lifecycle}; ${portfolio}; economic P&L ${money(economic)}; live authority OFF.\nNEXT PAPER ACTION: ${paperReviewReady ? 'Escalate only to the next PAPER validation stage.' : 'Continue collecting verified forward and portfolio evidence.'}\nBLOCKERS: ${portfolioBlock ?? 'LIVE orders, execution authority, and capital eligibility remain false.'}`;
     default: return 'VERDICT: UNAVAILABLE\nEVIDENCE: UNAVAILABLE\nNEXT PAPER ACTION: WAIT\nBLOCKERS: Agent policy unavailable.';
   }
 }
@@ -94,8 +116,24 @@ function finalDecision(evidence) {
   if (evidence.funding.feeLock) blockers.push(evidence.funding.feeLockReason || 'FEE_LOCK');
   if (evidence.funding.economicPnlUsdt != null && evidence.funding.economicPnlUsdt < 0) blockers.push('NEGATIVE_ECONOMIC_PNL');
   const families = evidence.forwardResearch?.families ?? [];
-  if (families.length && !families.some((f) => f.nextStageEligible)) blockers.push('FORWARD_EDGE_NOT_PROVEN');
-  return { verdict: blockers.length ? 'STAND_DOWN' : 'PAPER_REVIEW_ONLY', blockers, forwardFamilies: families.length, forwardNextStageEligible: families.some((f) => f.nextStageEligible), executionAuthority: false, liveOrders: false, capitalEligible: false };
+  if (families.length && !families.some((family) => family.nextStageEligible)) blockers.push('FORWARD_EDGE_NOT_PROVEN');
+  const lifecycle = evidence.researchLifecycleForward;
+  if ((lifecycle?.enrolled ?? 0) > 0 && !(Number(lifecycle?.nextStageEligible ?? 0) > 0)) blockers.push('RESEARCH_FORWARD_EDGE_NOT_PROVEN');
+  const portfolioBlock = portfolioRiskBlocker(lifecycle, evidence.portfolioRisk);
+  if (portfolioBlock) blockers.push(portfolioBlock);
+  return {
+    verdict: blockers.length ? 'STAND_DOWN' : 'PAPER_REVIEW_ONLY',
+    blockers,
+    forwardFamilies: families.length,
+    forwardNextStageEligible: families.some((family) => family.nextStageEligible),
+    researchForwardEnrolled: finite(lifecycle?.enrolled),
+    researchForwardNextStageEligible: finite(lifecycle?.nextStageEligible),
+    portfolioRiskStatus: evidence.portfolioRisk?.status ?? null,
+    portfolioRiskReady: evidence.portfolioRisk?.status === 'PORTFOLIO_RESEARCH_READY',
+    executionAuthority: false,
+    liveOrders: false,
+    capitalEligible: false,
+  };
 }
 function clip(value, max = 1800) { const text = String(value ?? '').trim(); return text.length <= max ? text : `${text.slice(0, max)}…`; }
 function safeFinalOutput(value) {
@@ -124,14 +162,39 @@ async function runAgent(def, provider, evidence, prior) {
   }
 }
 async function main() {
-  const capturePath = arg('--capture', 'paper-tape/capture-latest.json'), fundingPath = arg('--funding', 'paper-tape/funding-latest.json'), hz1Path = arg('--hz1', 'paper-tape/hz1-latest.json'), forwardPath = arg('--forward', 'quant-evidence/forward-paper-latest.json'), outPath = arg('--out', 'paper-tape/agent-swarm-latest.json'), jsonlPath = arg('--jsonl', 'paper-tape/agent-swarm.jsonl');
-  const evidence = buildEvidence(readJson(capturePath), readJson(fundingPath), readJson(hz1Path, false), readJson(forwardPath, false));
-  const provider = selectProvider(), definitions = getAllAgents().filter((agent) => AGENT_IDS.includes(agent.id)), byId = new Map(definitions.map((agent) => [agent.id, agent])), agents = [], prior = {};
-  for (const id of AGENT_IDS) { const def = byId.get(id); if (!def) throw new Error(`paper_swarm_agent_missing:${id}`); const result = await runAgent(def, provider, evidence, prior); agents.push(result); prior[id] = result.output; }
+  const capturePath = arg('--capture', 'paper-tape/capture-latest.json');
+  const fundingPath = arg('--funding', 'paper-tape/funding-latest.json');
+  const hz1Path = arg('--hz1', 'paper-tape/hz1-latest.json');
+  const forwardPath = arg('--forward', 'quant-evidence/forward-paper-latest.json');
+  const researchForwardPath = arg('--research-forward', 'quant-evidence/research-forward-shadow-latest.json');
+  const portfolioPath = arg('--portfolio', 'quant-evidence/portfolio-risk-research-latest.json');
+  const outPath = arg('--out', 'paper-tape/agent-swarm-latest.json');
+  const jsonlPath = arg('--jsonl', 'paper-tape/agent-swarm.jsonl');
+  const evidence = buildEvidence(
+    readJson(capturePath),
+    readJson(fundingPath),
+    readJson(hz1Path, false),
+    readJson(forwardPath, false),
+    readJson(researchForwardPath, false),
+    readJson(portfolioPath, false),
+  );
+  const provider = selectProvider();
+  const definitions = getAllAgents().filter((agent) => AGENT_IDS.includes(agent.id));
+  const byId = new Map(definitions.map((agent) => [agent.id, agent]));
+  const agents = [];
+  const prior = {};
+  for (const id of AGENT_IDS) {
+    const def = byId.get(id);
+    if (!def) throw new Error(`paper_swarm_agent_missing:${id}`);
+    const result = await runAgent(def, provider, evidence, prior);
+    agents.push(result);
+    prior[id] = result.output;
+  }
   const tokens = agents.reduce((sum, agent) => ({ in: sum.in + Number(agent.tokens?.in || 0), out: sum.out + Number(agent.tokens?.out || 0) }), { in: 0, out: 0 });
   const errors = agents.filter((agent) => agent.error && agent.error !== 'Provider not configured').map((agent) => ({ agentId: agent.id, error: agent.error }));
   const snapshot = { version: SWARM_VERSION, ts: new Date().toISOString(), paperOnly: true, liveOrders: false, executionAuthority: false, capitalEligible: false, source: 'github_capture_tape', llmProvider: provider, llmActive: agents.some((agent) => agent.engine === 'llm'), providerConfigured: Boolean(provider), evidence, agents, totals: { agents: agents.length, completedLlm: agents.filter((agent) => agent.engine === 'llm').length, fallback: agents.filter((agent) => agent.engine !== 'llm').length, tokens }, final: finalDecision(evidence), errors };
-  writeJson(outPath, snapshot); appendJsonl(jsonlPath, snapshot);
-  console.log(JSON.stringify({ ok: true, version: snapshot.version, provider: snapshot.llmProvider ?? 'deterministic_guardrail', llmActive: snapshot.llmActive, verdict: snapshot.final.verdict, forwardFamilies: snapshot.final.forwardFamilies, forwardNextStageEligible: snapshot.final.forwardNextStageEligible, agents: snapshot.agents.map((agent) => ({ id: agent.id, status: agent.status, engine: agent.engine })), paperOnly: true, liveOrders: false, executionAuthority: false }));
+  writeJson(outPath, snapshot);
+  appendJsonl(jsonlPath, snapshot);
+  console.log(JSON.stringify({ ok: true, version: snapshot.version, provider: snapshot.llmProvider ?? 'deterministic_guardrail', llmActive: snapshot.llmActive, verdict: snapshot.final.verdict, forwardFamilies: snapshot.final.forwardFamilies, forwardNextStageEligible: snapshot.final.forwardNextStageEligible, researchForwardNextStageEligible: snapshot.final.researchForwardNextStageEligible, portfolioRiskStatus: snapshot.final.portfolioRiskStatus, agents: snapshot.agents.map((agent) => ({ id: agent.id, status: agent.status, engine: agent.engine })), paperOnly: true, liveOrders: false, executionAuthority: false }));
 }
 main().catch((error) => { console.error(`[paperAgentSwarm] ${error instanceof Error ? error.message : String(error)}`); process.exitCode = 1; });
