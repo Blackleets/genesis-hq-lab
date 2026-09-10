@@ -7,8 +7,8 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 
 export const CROSS_MARKET_PROTOCOL = Object.freeze({
-  studyVersion: 3,
-  hypothesis: 'A material 1m BTC spot/perpetual return disagreement predicts partial perpetual catch-up over the next 10-25m net of fixed round-trip costs.',
+  studyVersion: 4,
+  hypothesis: 'A material 1m BTC spot/perpetual return disagreement predicts partial perpetual catch-up over the next 10-25m after executable bid/ask prices and fixed additional round-trip costs.',
   signal: {
     // returnSpread1mBps = perpetualReturn - spotReturn.
     longPerpMaxSpreadBps: -2,
@@ -27,7 +27,9 @@ export const CROSS_MARKET_PROTOCOL = Object.freeze({
   validationGates: { meanNetBpsMin: 2, medianNetBpsMin: 0, winRateMin: 0.55, profitFactorMin: 1.20 },
   holdoutPolicy: 'SEALED_UNLESS_PRE_HOLDOUT_FIXED_GATES_PASS_AND_120_INDEPENDENT_MATURED_SIGNALS_EXIST; NEVER_USED_FOR_RANKING_OR_TUNING',
   rankingPolicy: 'DISCOVERY_VALIDATION_AND_PRE_HOLDOUT_WALK_FORWARD_ONLY; HOLDOUT NEVER RANKS OR TUNES',
-  provenanceRequirement: 'OKX_PUBLIC_CONFIRMED_1M_SPOT_AND_SWAP_BARS_ALIGNED_BY_OPEN_TIME',
+  provenanceRequirement: 'OKX_PUBLIC_CONFIRMED_1M_SPOT_AND_SWAP_BARS_PLUS_SCHEMA_V4_PUBLIC_PERP_TOP_OF_BOOK_WITH_EXCHANGE_SOURCE_TIMESTAMP',
+  executionPricePolicy: 'LONG_ENTRY_AT_PERP_ASK_EXIT_AT_PERP_BID; SHORT_ENTRY_AT_PERP_BID_EXIT_AT_PERP_ASK; THEN_SUBTRACT_FIXED_10BPS_ADDITIONAL_COST',
+  maxBookAgeMs: 30_000,
   researchBoundary: 'RESEARCH_ONLY_NOT_IN_H1_NOT_FORWARD_PAPER',
 });
 
@@ -43,11 +45,29 @@ function finite(v) { const n=Number(v); return Number.isFinite(n) ? n : null; }
 function round(v,d=4) { return Number.isFinite(v) ? Number(v.toFixed(d)) : null; }
 function median(xs) { if (!xs.length) return null; const a=[...xs].sort((x,y)=>x-y); const m=Math.floor(a.length/2); return a.length%2?a[m]:(a[m-1]+a[m])/2; }
 
-export function parseCrossMarketJsonl(text='') {
+function hasFreshExecutablePerpBook(row, protocol=CROSS_MARKET_PROTOCOL) {
+  const book=row?.features?.executionFriction?.futures;
+  const capturedMs=Date.parse(row?.capturedAt);
+  const sourceMs=Date.parse(book?.sourceAsOf);
+  const bid=finite(book?.bid);
+  const ask=finite(book?.ask);
+  return row?.schemaVersion >= 4
+    && row?.features?.executionFriction?.available === true
+    && book?.available === true
+    && Number.isFinite(capturedMs)
+    && Number.isFinite(sourceMs)
+    && sourceMs <= capturedMs
+    && capturedMs-sourceMs <= protocol.maxBookAgeMs
+    && bid > 0
+    && ask > bid;
+}
+
+export function parseCrossMarketJsonl(text='', protocol=CROSS_MARKET_PROTOCOL) {
   return text.split(/\r?\n/).filter(Boolean).map(line=>JSON.parse(line))
-    .filter(r => r?.schemaVersion >= 1 && r?.mode === 'RESEARCH_ONLY' && r?.provider === 'okx_public_market_data'
+    .filter(r => r?.schemaVersion >= 4 && r?.mode === 'RESEARCH_ONLY' && r?.provider === 'okx_public_market_data'
       && r?.provenance?.confirmedBarsOnly === true && Number.isFinite(Date.parse(r?.capturedAt))
-      && finite(r?.features?.futuresClose) > 0 && finite(r?.features?.returnSpread1mBps) !== null)
+      && finite(r?.features?.futuresClose) > 0 && finite(r?.features?.returnSpread1mBps) !== null
+      && hasFreshExecutablePerpBook(r,protocol))
     .sort((a,b)=>Date.parse(a.capturedAt)-Date.parse(b.capturedAt));
 }
 
@@ -56,13 +76,21 @@ export function buildMaturedCrossMarketObservations(rows, protocol=CROSS_MARKET_
   const [minGap,maxGap]=protocol.maturityWindowMs;
   for (let i=0;i<rows.length;i++) {
     const entry=rows[i];
+    if (!hasFreshExecutablePerpBook(entry,protocol)) continue;
     const spread=finite(entry.features.returnSpread1mBps);
     const side=spread <= protocol.signal.longPerpMaxSpreadBps ? 'LONG_PERP' : spread >= protocol.signal.shortPerpMinSpreadBps ? 'SHORT_PERP' : null;
     if (!side) continue;
     const entryMs=Date.parse(entry.capturedAt);
-    const exit=rows.slice(i+1).find(r => { const gap=Date.parse(r.capturedAt)-entryMs; return gap>=minGap && gap<=maxGap; });
+    const exit=rows.slice(i+1).find(r => {
+      const gap=Date.parse(r.capturedAt)-entryMs;
+      return gap>=minGap && gap<=maxGap && hasFreshExecutablePerpBook(r,protocol);
+    });
     if (!exit) continue;
-    const entryPx=finite(entry.features.futuresClose); const exitPx=finite(exit.features.futuresClose);
+    const entryBook=entry.features.executionFriction.futures;
+    const exitBook=exit.features.executionFriction.futures;
+    const entryPx=finite(side==='LONG_PERP'?entryBook.ask:entryBook.bid);
+    const exitPx=finite(side==='LONG_PERP'?exitBook.bid:exitBook.ask);
+    if (!(entryPx>0) || !(exitPx>0)) continue;
     const gross=((exitPx/entryPx)-1)*10000*(side==='LONG_PERP'?1:-1);
     const net=gross-protocol.roundTripCostBps;
     out.push({
@@ -70,6 +98,10 @@ export function buildMaturedCrossMarketObservations(rows, protocol=CROSS_MARKET_
       gapMs:Date.parse(exit.capturedAt)-entryMs, side,
       entryReturnSpread1mBps:spread, entryBasisBps:finite(entry.features.basisBps),
       entryPerpPrice:entryPx, exitPerpPrice:exitPx,
+      entryPriceSource:side==='LONG_PERP'?'PERP_ASK_AT_CAPTURE':'PERP_BID_AT_CAPTURE',
+      exitPriceSource:side==='LONG_PERP'?'PERP_BID_AT_CAPTURE':'PERP_ASK_AT_CAPTURE',
+      entryBookSourceAsOf:entryBook.sourceAsOf, exitBookSourceAsOf:exitBook.sourceAsOf,
+      fixedAdditionalCostBps:protocol.roundTripCostBps,
       grossBps:round(gross), netBps:round(net),
     });
   }
