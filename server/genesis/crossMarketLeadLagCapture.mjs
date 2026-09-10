@@ -114,9 +114,38 @@ export function parseTopOfBook(book) {
   };
 }
 
+export function parseBookImbalance(book, depth = BOOK_DEPTH) {
+  const bids = Array.isArray(book?.bids) ? book.bids.slice(0, depth) : [];
+  const asks = Array.isArray(book?.asks) ? book.asks.slice(0, depth) : [];
+  if (bids.length !== depth || asks.length !== depth) {
+    return { available: false, depth, bidSize: null, askSize: null, imbalance: null };
+  }
+  const bidSizes = bids.map(level => Number(level?.[1]));
+  const askSizes = asks.map(level => Number(level?.[1]));
+  const valid = bidSizes.every(size => Number.isFinite(size) && size >= 0)
+    && askSizes.every(size => Number.isFinite(size) && size >= 0);
+  if (!valid) return { available: false, depth, bidSize: null, askSize: null, imbalance: null };
+  const bidSize = bidSizes.reduce((sum, size) => sum + size, 0);
+  const askSize = askSizes.reduce((sum, size) => sum + size, 0);
+  const total = bidSize + askSize;
+  if (!(total > 0)) return { available: false, depth, bidSize, askSize, imbalance: null };
+  return {
+    available: true,
+    depth,
+    bidSize: +bidSize.toFixed(8),
+    askSize: +askSize.toFixed(8),
+    imbalance: +((bidSize - askSize) / total).toFixed(6),
+  };
+}
+
 export function buildExecutionFriction(spotBook, futuresBook) {
   const spot = parseTopOfBook(spotBook);
   const futures = parseTopOfBook(futuresBook);
+  const spotBookImbalance = parseBookImbalance(spotBook);
+  const futuresBookImbalance = parseBookImbalance(futuresBook);
+  const bookImbalanceDivergence = spotBookImbalance.available && futuresBookImbalance.available
+    ? +(futuresBookImbalance.imbalance - spotBookImbalance.imbalance).toFixed(6)
+    : null;
   return {
     available: spot.available && futures.available,
     spot,
@@ -124,7 +153,14 @@ export function buildExecutionFriction(spotBook, futuresBook) {
     conservativeRoundTripTopOfBookBps: spot.available && futures.available
       ? +(2 * Math.max(spot.spreadBps, futures.spreadBps)).toFixed(4)
       : null,
-    policy: 'OBSERVATIONAL_TOP_OF_BOOK_ONLY_NO_SLIPPAGE_MODEL_NO_GATE_OR_RANKING_USE',
+    bookDepthImbalance: {
+      available: spotBookImbalance.available && futuresBookImbalance.available,
+      spot: spotBookImbalance,
+      futures: futuresBookImbalance,
+      futuresMinusSpot: bookImbalanceDivergence,
+      interpretation: 'WITHIN_INSTRUMENT_NORMALIZED_SIZE_IMBALANCE_ONLY_DO_NOT_COMPARE_RAW_SPOT_AND_SWAP_SIZE_UNITS',
+    },
+    policy: 'OBSERVATIONAL_TOP_OF_BOOK_AND_DEPTH5_IMBALANCE_NO_SLIPPAGE_MODEL_NO_GATE_OR_RANKING_USE',
   };
 }
 
@@ -149,7 +185,7 @@ export function buildCrossMarketObservation(spotRows, futuresRows, {
     : null;
 
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     mode: 'RESEARCH_ONLY',
     provider: 'okx_public_market_data',
     symbol,
@@ -183,7 +219,8 @@ export function buildCrossMarketObservation(spotRows, futuresRows, {
       futuresInstId: 'BTC-USDT-SWAP',
       confirmedBarsOnly: true,
       volatilityBaselinePolicy: 'CURRENT_CLOSED_1M_RETURN_VS_PRECEDING_15_CLOSED_ALIGNED_1M_RETURNS_RMS',
-      executionFrictionPolicy: 'CURRENT_PUBLIC_TOP_OF_BOOK_SNAPSHOT_WITH_EXCHANGE_SOURCE_TIMESTAMP_OBSERVATIONAL_ONLY',
+      executionFrictionPolicy: 'CURRENT_PUBLIC_TOP_OF_BOOK_PLUS_DEPTH5_WITH_EXCHANGE_SOURCE_TIMESTAMP_OBSERVATIONAL_ONLY',
+      bookImbalancePolicy: 'SUM_SIZE_FIRST_5_BID_ASK_LEVELS_THEN_NORMALIZE_WITHIN_EACH_INSTRUMENT_RAW_SIZE_UNITS_NEVER_CROSS_COMPARED',
       securityType: 'PUBLIC_READ_ONLY_NO_API_KEY',
     },
     researchUse: 'OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING',
