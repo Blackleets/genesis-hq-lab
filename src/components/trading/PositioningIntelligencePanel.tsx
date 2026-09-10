@@ -120,12 +120,15 @@ export function PositioningIntelligencePanel() {
   const waitingLanes = promotion?.waitingLanes ?? null;
   const forwardEnrolled = researchForward?.enrolled ?? 0;
   const forwardNextStage = researchForward?.nextStageEligible ?? 0;
+  const lastEligibleMs = quality?.lastEligibleCapturedAt ? Date.parse(quality.lastEligibleCapturedAt) : NaN;
+  const evidenceAgeMinutes = Number.isFinite(lastEligibleMs) ? Math.max(0, Math.floor((Date.now() - lastEligibleMs) / 60_000)) : null;
+  const evidenceStale = evidenceAgeMinutes != null && evidenceAgeMinutes > 60;
 
   return (
     <section className="positioning-intelligence" aria-label="Positioning intelligence" data-source="CAPTURE TAPE · POSITIONING RESEARCH">
       <header className="positioning-intelligence__header">
         <div><Radar size={14} /><span><strong>POSITIONING INTELLIGENCE</strong><small>FUNDING · OPEN INTEREST · TAKER FLOW · CROSS-MARKET</small></span></div>
-        <strong className={positive ? 'is-positive' : ready ? 'is-warning' : ''}>{state === 'loading' ? 'LEYENDO EVIDENCIA' : state === 'error' ? 'EVIDENCIA NO DISPONIBLE' : verdictLabel(edge?.verdict)}</strong>
+        <strong className={evidenceStale ? 'is-negative' : positive ? 'is-positive' : ready ? 'is-warning' : ''}>{state === 'loading' ? 'LEYENDO EVIDENCIA' : state === 'error' ? 'EVIDENCIA NO DISPONIBLE' : evidenceStale ? 'EVIDENCIA STALE' : verdictLabel(edge?.verdict)}</strong>
       </header>
 
       {state === 'loading' ? <div className="positioning-intelligence__empty"><Activity size={13} className="animate-pulse" /> SINCRONIZANDO DATA PLANE...</div> : null}
@@ -133,7 +136,7 @@ export function PositioningIntelligencePanel() {
 
       {state === 'ready' && quality && edge ? <>
         <div className="positioning-intelligence__metrics">
-          <div><span>DATA QUALITY · BTC</span><strong className={quality.qualityPass ? 'is-positive' : 'is-negative'}>{quality.qualityPass ? 'PASS' : 'FAIL'}</strong><small>{defectCount} defectos en cohort activo</small></div>
+          <div><span>DATA QUALITY · BTC</span><strong className={evidenceStale ? 'is-negative' : quality.qualityPass ? 'is-positive' : 'is-negative'}>{evidenceStale ? 'STALE' : quality.qualityPass ? 'PASS' : 'FAIL'}</strong><small>{evidenceStale ? `${evidenceAgeMinutes} min sin evidencia elegible fresca` : `${defectCount} defectos en cohort activo`}</small></div>
           <div><span>MUESTRA · BTC</span><strong>{independent} / {required}</strong><small>{remaining ? `faltan ${remaining}` : 'cohort listo'}</small></div>
           <div><span>EDGE STUDY</span><strong>{verdictLabel(edge.verdict)}</strong><small>{ready ? 'ranking habilitado por calidad' : 'ranking bloqueado hasta readiness'}</small></div>
           <div><span>ONE-SHOT AUDIT</span><strong className={auditEligible > 0 ? 'is-positive' : ''}>{promotion ? (auditEligible > 0 ? `${auditEligible} ELIGIBLE` : `${waitingLanes ?? 0} BUILDING`) : 'NOT VERIFIED'}</strong><small>{auditRequired} samples · {promotion?.methodology?.stressCostBps ?? 18}bps stress</small></div>
@@ -143,7 +146,7 @@ export function PositioningIntelligencePanel() {
 
         <div className="positioning-intelligence__meaning">
           <Database size={13} />
-          <span><strong>QUÉ SIGNIFICA</strong><small>{!quality.qualityPass ? 'La calidad del cohort no permite estudiar edge.' : !ready ? `La captura BTC es limpia, pero todavía necesitamos ${remaining} observaciones independientes antes de rankear hipótesis. El holdout sigue sellado.` : positive ? `Hay una hipótesis de research. Antes de Forward PAPER necesita champion freeze, stress a ${promotion?.methodology?.stressCostBps ?? 18} bps y one-shot holdout; no existe promoción automática a LIVE.` : 'La cohorte permite investigación; Genesis evalúa familias predeclaradas sin usar holdout para ranking.'}</small></span>
+          <span><strong>QUÉ SIGNIFICA</strong><small>{evidenceStale ? `La última evidencia BTC elegible tiene ${evidenceAgeMinutes} min. No debe interpretarse un PASS de calidad como frescura operativa; la investigación permanece bloqueada hasta recuperar captura causal reciente.` : !quality.qualityPass ? 'La calidad del cohort no permite estudiar edge.' : !ready ? `La captura BTC es limpia, pero todavía necesitamos ${remaining} observaciones independientes antes de rankear hipótesis. El holdout sigue sellado.` : positive ? `Hay una hipótesis de research. Antes de Forward PAPER necesita champion freeze, stress a ${promotion?.methodology?.stressCostBps ?? 18} bps y one-shot holdout; no existe promoción automática a LIVE.` : 'La cohorte permite investigación; Genesis evalúa familias predeclaradas sin usar holdout para ranking.'}</small></span>
         </div>
 
         <div className="positioning-intelligence__universe" aria-label="Positioning universe readiness">
