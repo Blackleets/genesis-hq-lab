@@ -1,0 +1,31 @@
+{
+  "mode": "RESEARCH_ONLY",
+  "scope": "cross-market-lead-lag",
+  "changeCommit": "7d8e7cf52bbe09420d752eb19e0ecbe80d41e527",
+  "workflowRunId": 34439542749,
+  "workflow": "cross-market-lead-lag-capture",
+  "validatedAt": "2026-09-10T05:04:00Z",
+  "validation": {
+    "causalAndStatisticalTests": "SUCCESS",
+    "exchangeClockPreflight": "SUCCESS",
+    "maturityPairAtEvidenceWrite": "IN_PROGRESS",
+    "policy": "FAIL_CLOSED_BEFORE_MARKET_CAPTURE_IF_RUNNER_VS_EXCHANGE_CLOCK_SKEW_EXCEEDS_5S",
+    "endpoint": "https://www.okx.com/api/v5/public/time",
+    "securityType": "PUBLIC_READ_ONLY_NO_API_KEY"
+  },
+  "researchDiscipline": {
+    "holdoutUsedForRanking": false,
+    "gatesChanged": false,
+    "costsReduced": false,
+    "forwardPaperEnrollmentChanged": false
+  },
+  "safety": {
+    "paperOnly": true,
+    "liveEnabled": false,
+    "realOrdersPlaced": false,
+    "realTradingConfirmationsChanged": false,
+    "killSwitchesChanged": false,
+    "riskGatesWeakened": false
+  },
+  "purpose": "Prevent runner clock drift from corrupting order-book freshness checks or the predeclared 10-25 minute causal maturity window."
+}
