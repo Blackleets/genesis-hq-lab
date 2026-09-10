@@ -1,0 +1,129 @@
+/* Mobile trading hotfixes derived from real handset rendering.
+   Presentation only: no trading, risk, runner, data, or execution semantics. */
+
+@media (max-width: 780px) {
+  /* The execution inspector was auto-rendering over the candle field on phones.
+     Keep execution traces on the chart, but reserve the full inspector for larger screens. */
+  .genesis-exchange .quant-bot-inspector {
+    display: none !important;
+  }
+
+  .genesis-exchange .quant-chart-crosshair-tooltip {
+    max-width: calc(100% - 20px);
+    overflow-wrap: anywhere;
+  }
+
+  /* Mobile ticker cards: identity and quote must never compete for one row. */
+  .genesis-exchange .market-selector-mobile__item {
+    width: 138px;
+    min-height: 74px;
+    padding: 8px 10px 9px;
+    overflow: hidden;
+  }
+
+  .genesis-exchange .market-selector-mobile .market-watchlist__primary {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 5px;
+    align-items: start;
+  }
+
+  .genesis-exchange .market-selector-mobile .market-watchlist__primary > *,
+  .genesis-exchange .market-selector-mobile .coin-identity,
+  .genesis-exchange .market-selector-mobile .coin-identity__name,
+  .genesis-exchange .market-selector-mobile .market-watchlist__secondary {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .genesis-exchange .market-selector-mobile .coin-identity__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .genesis-exchange .market-selector-mobile .market-watchlist__primary b {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px !important;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .genesis-exchange .market-selector-mobile .market-watchlist__secondary {
+    overflow: hidden;
+  }
+
+  /* Keep instrument/quote rows inside the viewport even with five-digit BTC prices. */
+  .genesis-exchange .market-chart__toolbar,
+  .genesis-exchange .market-chart__toolbar > *,
+  .genesis-exchange .market-chart__instrument,
+  .genesis-exchange .market-chart__quote {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .genesis-exchange .market-chart__instrument {
+    overflow: hidden;
+  }
+
+  .genesis-exchange .market-chart__instrument .coin-identity {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .genesis-exchange .market-chart__quote {
+    overflow: hidden;
+  }
+
+  .genesis-exchange .market-chart__quote strong {
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: clip;
+    font-size: clamp(27px, 8vw, 32px) !important;
+    line-height: 1.05;
+    letter-spacing: -0.035em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .genesis-exchange .market-chart__quote span {
+    white-space: nowrap;
+  }
+
+  /* Founder cards should clip whole fields, never paint across neighboring columns. */
+  .genesis-exchange .founder-command-bar > *,
+  .genesis-exchange .founder-command-bar__metric,
+  .genesis-exchange .founder-command-bar__priority {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .genesis-exchange .founder-command-bar__metric strong,
+  .genesis-exchange .founder-command-bar__metric small,
+  .genesis-exchange .founder-command-bar__priority strong,
+  .genesis-exchange .founder-command-bar__priority small {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 430px) {
+  .genesis-exchange .market-selector-mobile__item {
+    width: 128px;
+    min-height: 72px;
+  }
+
+  .genesis-exchange .market-selector-mobile .market-watchlist__primary b {
+    font-size: 11.5px !important;
+  }
+
+  .genesis-exchange .market-chart__quote strong {
+    font-size: clamp(25px, 7.6vw, 29px) !important;
+  }
+}
