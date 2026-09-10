@@ -137,9 +137,8 @@
   .founder-command-bar > *:nth-last-child(-n+3) { border-bottom: 0; }
 }
 
-/* Mobile command layer: only the three decisions that deserve permanent
-   screen space stay visible. Forward/data remain one tap away in their
-   dedicated views, while the chart gets the vertical budget. */
+/* Mobile command layer: one premium decision band above the chart.
+   Forward/data live in their dedicated views; the trading surface owns the viewport. */
 @media (max-width: 780px) {
   .genesis-exchange {
     max-width: 100%;
@@ -150,14 +149,14 @@
     width: auto;
     max-width: none;
     min-height: 0;
-    margin: 9px 12px 8px;
+    margin: 7px 10px 6px;
     display: grid;
     grid-template-columns: minmax(0, 1.12fr) minmax(0, .86fr) minmax(0, 1.22fr);
     overflow: hidden;
     border: 1px solid #2b2f36;
-    border-radius: 16px;
+    border-radius: 15px;
     background: linear-gradient(180deg, #101318 0%, #0b0e12 100%);
-    box-shadow: 0 10px 24px rgb(0 0 0 / 22%), inset 0 1px rgb(255 255 255 / 2%);
+    box-shadow: 0 8px 20px rgb(0 0 0 / 20%), inset 0 1px rgb(255 255 255 / 2%);
   }
 
   .founder-command-bar__mission,
@@ -174,8 +173,8 @@
     width: 100%;
     min-width: 0;
     max-width: 100%;
-    min-height: 82px;
-    padding: 11px 11px;
+    min-height: 74px;
+    padding: 9px 10px;
     border: 0;
     border-right: 1px solid #272b31;
     overflow: hidden;
@@ -184,7 +183,7 @@
 
   .founder-command-bar__priority {
     grid-column: auto;
-    padding-right: 28px;
+    padding-right: 26px;
     border-right: 0;
   }
 
@@ -209,8 +208,8 @@
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-    font-size: 11px;
-    line-height: 1.2;
+    font-size: 10.5px;
+    line-height: 1.18;
     letter-spacing: -.01em;
   }
 
@@ -220,74 +219,72 @@
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-    font-size: 8px;
-    line-height: 1.2;
+    font-size: 7.5px;
+    line-height: 1.15;
   }
 
   .founder-command-bar__desktop-value { display: none; }
   .founder-command-bar__mobile-value { display: inline; }
 
   .founder-command-bar__priority > svg {
-    right: 9px;
+    right: 8px;
     width: 12px;
     height: 12px;
   }
 
-  /* Market strip is context, not the product hero. Keep it compact. */
   .genesis-exchange .market-selector-mobile {
     border-bottom-color: #20242a;
     background: #08090b;
   }
 
   .genesis-exchange .market-selector-mobile__track {
-    gap: 8px;
-    padding: 8px 12px 9px;
+    gap: 7px;
+    padding: 6px 10px 7px;
   }
 
   .genesis-exchange .market-selector-mobile__item {
-    width: 136px;
-    min-height: 70px;
-    padding: 8px 10px;
-    border-radius: 13px;
+    width: 130px;
+    min-height: 62px;
+    padding: 7px 9px;
+    border-radius: 12px;
     background: #111419;
   }
 
   .genesis-exchange .market-selector-mobile__item .coin-logo {
-    width: 26px;
-    height: 26px;
-    flex: 0 0 26px;
+    width: 24px;
+    height: 24px;
+    flex: 0 0 24px;
   }
 
   .genesis-exchange .market-selector-mobile__item .coin-identity {
-    gap: 7px;
+    gap: 6px;
   }
 
   .genesis-exchange .market-selector-mobile__item .coin-identity__name,
   .genesis-exchange .market-selector-mobile__item .market-watchlist__primary strong {
-    font-size: 12px;
+    font-size: 11px;
   }
 
   .genesis-exchange .market-selector-mobile__item .coin-identity__name small {
-    font-size: 8px;
+    font-size: 7px;
   }
 
   .genesis-exchange .market-selector-mobile__item .market-watchlist__primary b {
-    font-size: 12px;
+    font-size: 11px;
   }
 
   .genesis-exchange .market-selector-mobile__item .market-watchlist__secondary span {
-    font-size: 9px;
+    font-size: 8px;
   }
 
-  /* Give the chart more vertical territory and tighten its chrome. */
   .genesis-exchange .market-chart {
-    grid-template-rows: 108px clamp(330px, 50dvh, 500px) 28px;
+    grid-template-rows: 102px clamp(350px, 54dvh, 520px) 26px;
   }
 
   .genesis-exchange .market-chart__toolbar {
-    padding: 10px 12px 8px;
-    gap: 6px;
-    grid-template-rows: auto auto 34px;
+    padding: 9px 11px 7px;
+    gap: 5px;
+    grid-template-rows: auto auto 32px;
   }
 
   .genesis-exchange .market-chart__instrument strong {
@@ -295,20 +292,20 @@
   }
 
   .genesis-exchange .market-chart__quote strong {
-    font-size: 30px;
+    font-size: 29px;
   }
 
   .genesis-exchange .market-chart__timeframes button {
-    min-width: 48px;
-    min-height: 34px;
-    font-size: 13px;
+    min-width: 46px;
+    min-height: 32px;
+    font-size: 12px;
   }
 }
 
 @media (max-width: 430px) {
   .founder-command-bar {
-    margin-left: 10px;
-    margin-right: 10px;
+    margin-left: 9px;
+    margin-right: 9px;
     grid-template-columns: minmax(0, 1.08fr) minmax(0, .82fr) minmax(0, 1.18fr);
   }
 
@@ -317,25 +314,25 @@
   .founder-command-bar__priority,
   .founder-command-bar__metric--edge:is(button),
   .founder-command-bar__metric--risk:is(button) {
-    min-height: 78px;
-    padding-left: 9px;
-    padding-right: 9px;
+    min-height: 70px;
+    padding-left: 8px;
+    padding-right: 8px;
   }
 
-  .founder-command-bar__priority { padding-right: 24px; }
+  .founder-command-bar__priority { padding-right: 22px; }
 
   .founder-command-bar__metric strong,
-  .founder-command-bar__priority strong { font-size: 10px; }
+  .founder-command-bar__priority strong { font-size: 9.5px; }
 
   .founder-command-bar__metric small,
-  .founder-command-bar__priority small { font-size: 7.5px; }
+  .founder-command-bar__priority small { font-size: 7px; }
 
   .genesis-exchange .market-selector-mobile__item {
-    width: 128px;
-    min-height: 66px;
+    width: 122px;
+    min-height: 60px;
   }
 
   .genesis-exchange .market-chart {
-    grid-template-rows: 104px clamp(340px, 52dvh, 510px) 28px;
+    grid-template-rows: 100px clamp(360px, 56dvh, 530px) 26px;
   }
 }
