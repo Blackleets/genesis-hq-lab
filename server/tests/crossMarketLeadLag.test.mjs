@@ -25,6 +25,13 @@ test('aligns only a prior BTC leader observation to an alt label',()=>{
   assert.ok(Date.parse(out.samples[0].labelCapturedAt)>Date.parse(out.samples[0].observedAt));
 });
 
+test('missing numeric price evidence cannot become an aligned label',()=>{
+  const btc=[row('BTCUSDT',2)];
+  const alt=[row('ETHUSDT',5,{close:null}),row('ETHUSDT',20,{close:101})];
+  const out=alignBtcLeaderToAlt(btc,alt,{altSymbol:'ETHUSDT',maxLeaderAgeMinutes:8,maxAltForwardMinutes:30});
+  assert.equal(out.samples.length,0);
+});
+
 test('rejects stale BTC leaders instead of carrying them forward',()=>{
   const btc=[row('BTCUSDT',0)];
   const alt=[row('SOLUSDT',10,{close:100}),row('SOLUSDT',25,{close:101})];
@@ -38,6 +45,7 @@ test('fails closed until both leader and alt quality cohorts reach the fixed min
   assert.equal(out.verdict,'DATA_NOT_READY');
   assert.equal(out.candidates.length,0);
   assert.equal(out.methodology.holdoutSealed,true);
+  assert.equal(out.methodology.strictMissingNumericEvidence,true);
   assert.equal(out.capitalEligible,false);
 });
 
@@ -61,6 +69,7 @@ test('never opens holdout or grants execution authority after enough aligned dat
   assert.equal(out.methodology.futureLeaderForbidden,true);
   assert.equal(out.methodology.symbolIsolation,true);
   assert.equal(out.methodology.activeQualityCohortsOnly,true);
+  assert.equal(out.methodology.strictMissingNumericEvidence,true);
   assert.equal(out.holdoutOpened,false);
   assert.equal(out.partitions.holdoutOpened,false);
   assert.equal(out.partitions.holdoutMetricsComputed,false);
@@ -91,6 +100,7 @@ test('uses only active quality cohorts after historical resets',()=>{
   });
   assert.ok(['NO_EDGE_FOUND','RESEARCH_CANDIDATE_FOUND'].includes(out.verdict));
   assert.equal(out.methodology.activeQualityCohortsOnly,true);
+  assert.equal(out.methodology.strictMissingNumericEvidence,true);
   assert.equal(out.methodology.btcQualityCohortStart,btcStart);
   assert.equal(out.methodology.altQualityCohortStart,altStart);
   assert.equal(out.dataQuality.activeBtcRows,30);
