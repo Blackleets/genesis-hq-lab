@@ -11,12 +11,14 @@ on:
       - .github/workflows/positioning-branch-capture.yml
       - .github/genesis/positioning-capture-trigger.txt
       - server/genesis/positioningDynamicsCapture.mjs
+      - server/genesis/spotPerpTakerDivergenceCapture.mjs
       - server/genesis/okxFixedWindowTaker.mjs
       - server/genesis/okxResearchContext.mjs
       - server/genesis/derivativesContext.mjs
       - server/research/positioningDataQualityAudit.mjs
       - server/research/runPositioningEdgeFactory.mjs
       - server/tests/positioningDynamicsCapture.test.mjs
+      - server/tests/spotPerpTakerDivergenceCapture.test.mjs
       - server/tests/okxFixedWindowTaker.test.mjs
       - server/tests/positioningDataQualityAudit.test.mjs
       - server/tests/positioningEdgeFactory.test.mjs
@@ -43,10 +45,13 @@ jobs:
           ref: capture-tape
           path: tape
       - name: verify causal positioning and audit discipline
-        run: node --test server/tests/positioningDynamicsCapture.test.mjs server/tests/okxFixedWindowTaker.test.mjs server/tests/positioningDataQualityAudit.test.mjs server/tests/positioningEdgeFactory.test.mjs
+        run: node --test server/tests/positioningDynamicsCapture.test.mjs server/tests/spotPerpTakerDivergenceCapture.test.mjs server/tests/okxFixedWindowTaker.test.mjs server/tests/positioningDataQualityAudit.test.mjs server/tests/positioningEdgeFactory.test.mjs
       - name: capture synchronized OI funding taker premium volatility evidence
         if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
         run: node server/genesis/positioningDynamicsCapture.mjs --symbol BTCUSDT --out tape/paper-tape/positioning-dynamics-latest.json --jsonl tape/paper-tape/positioning-dynamics.jsonl
+      - name: capture normalized spot-perp taker divergence evidence
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
+        run: node server/genesis/spotPerpTakerDivergenceCapture.mjs --out tape/paper-tape/spot-perp-taker-divergence-latest.json --jsonl tape/paper-tape/spot-perp-taker-divergence.jsonl
       - name: audit effective independent evidence
         if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
         run: node server/research/positioningDataQualityAudit.mjs --input tape/paper-tape/positioning-dynamics.jsonl --out tape/paper-tape/positioning-data-quality-latest.json
@@ -60,12 +65,17 @@ jobs:
           node - <<'NODE'
           const fs = require('fs');
           const x = JSON.parse(fs.readFileSync('tape/paper-tape/positioning-dynamics-latest.json', 'utf8'));
+          const s = JSON.parse(fs.readFileSync('tape/paper-tape/spot-perp-taker-divergence-latest.json', 'utf8'));
           const q = JSON.parse(fs.readFileSync('tape/paper-tape/positioning-data-quality-latest.json', 'utf8'));
           const e = JSON.parse(fs.readFileSync('tape/quant-evidence/positioning-edge-factory-latest.json', 'utf8'));
           if (x.mode !== 'RESEARCH_ONLY') throw new Error('capture mode must remain RESEARCH_ONLY');
           if (x.researchUse !== 'OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING') throw new Error('capture ranking boundary missing');
           if (!x.provenance?.closedPriceBarOnly || !x.provenance?.fixedWindowTakerFlow) throw new Error('causal provenance missing');
           if (x.positioning?.takerWindowMs !== 60000 || !(x.positioning?.takerWindowCoverageMs >= 54000)) throw new Error('fixed-window taker discipline violated');
+          if (s.mode !== 'RESEARCH_ONLY' || s.researchUse !== 'OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING') throw new Error('spot-perp ranking boundary missing');
+          if (!s.provenance?.fixedWindow || s.provenance?.rawSpotVsPerpSizeComparisonForbidden !== true) throw new Error('spot-perp normalization provenance missing');
+          if (!(s.spot?.coverageMs >= 54000) || !(s.perpetual?.coverageMs >= 54000)) throw new Error('spot-perp fixed-window coverage violated');
+          if (!(s.provenance?.windowEndSkewMs <= s.provenance?.maxWindowEndSkewMs)) throw new Error('spot-perp synchronization violated');
           if (q.mode !== 'RESEARCH_ONLY' || q.researchUse !== 'DATA_QUALITY_ONLY_NOT_FOR_RANKING') throw new Error('quality boundary missing');
           if (q.boundaries?.holdoutUsedForRanking !== false || q.boundaries?.liveTradingEnabled !== false || q.boundaries?.realOrdersPlaced !== false) throw new Error('quality safety boundary violated');
           if (e.mode !== 'RESEARCH_ONLY' || e.paperOnly !== true || e.liveOrders !== false || e.executionAuthority !== false || e.capitalEligible !== false) throw new Error('edge factory capital boundary violated');
@@ -80,7 +90,7 @@ jobs:
           git config user.name "genesis-capture"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mkdir -p paper-tape quant-evidence
-          git add -f paper-tape/positioning-dynamics-latest.json paper-tape/positioning-dynamics.jsonl paper-tape/positioning-data-quality-latest.json quant-evidence/positioning-edge-factory-latest.json
+          git add -f paper-tape/positioning-dynamics-latest.json paper-tape/positioning-dynamics.jsonl paper-tape/spot-perp-taker-divergence-latest.json paper-tape/spot-perp-taker-divergence.jsonl paper-tape/positioning-data-quality-latest.json quant-evidence/positioning-edge-factory-latest.json
           if git diff --staged --quiet; then
             echo "no material evidence change"
             exit 0
