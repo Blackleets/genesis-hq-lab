@@ -1,6 +1,6 @@
 {
-  "version": "paper_agent_swarm_v3_output_firewall",
-  "ts": "2026-09-10T13:02:19.907Z",
+  "version": "paper_agent_swarm_v4_portfolio_risk_evidence",
+  "ts": "2026-09-10T17:11:29.265Z",
   "paperOnly": true,
   "liveOrders": false,
   "executionAuthority": false,
@@ -170,7 +170,7 @@
       ]
     },
     "forwardResearch": {
-      "ts": "2026-09-10T09:46:56.253Z",
+      "ts": "2026-09-10T14:28:37.125Z",
       "mode": "FORWARD_PAPER_RESEARCH",
       "enrolled": 7,
       "familyCount": 2,
@@ -211,6 +211,56 @@
           "liveEligible": false
         }
       ]
+    },
+    "researchLifecycleForward": {
+      "ts": "2026-09-10T14:28:46.461Z",
+      "version": "research_forward_shadow_v1",
+      "mode": "FORWARD_PAPER_RESEARCH",
+      "registeredEligible": 0,
+      "enrolled": 0,
+      "openSignals": 0,
+      "nextStageEligible": 0,
+      "candidates": []
+    },
+    "portfolioRisk": {
+      "ts": "2026-09-10T17:00:50.846Z",
+      "version": "portfolio_risk_research_v1",
+      "mode": "PORTFOLIO_RISK_RESEARCH",
+      "status": "NO_FORWARD_GATE_PASS_CANDIDATES",
+      "admittedCandidates": 0,
+      "base": {
+        "trades": 0,
+        "portfolioReturnPct": 0,
+        "maxDrawdownPct": 0
+      },
+      "stressed": {
+        "trades": 0,
+        "portfolioReturnPct": 0,
+        "maxDrawdownPct": 0
+      },
+      "concurrency": {
+        "peakConcurrentCandidates": 0,
+        "peakGrossExposurePct": 0,
+        "peakSymbolExposurePct": 0,
+        "peakFamilyExposurePct": 0
+      },
+      "covariance": {
+        "bucketCount": 0,
+        "portfolioBucketStdBps": null,
+        "status": null
+      },
+      "openScenarios": {
+        "status": "NO_ADMITTED_CANDIDATES",
+        "openSignals": 0,
+        "scenarios": []
+      },
+      "regimeSizing": {
+        "status": "UNAVAILABLE",
+        "usedForSizing": false
+      },
+      "liveEligible": false,
+      "executionAuthority": false,
+      "capitalEligible": false
     }
   },
   "agents": [
@@ -221,15 +271,15 @@
       "status": "fallback_complete",
       "engine": "deterministic_guardrail",
       "provider": "nvidia",
-      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "model": null,
       "tokens": {
-        "in": 2008,
-        "out": 350
+        "in": 0,
+        "out": 0
       },
-      "startedAt": "2026-09-10T12:59:52.487Z",
-      "completedAt": "2026-09-10T13:00:02.490Z",
-      "output": "VERDICT: CONTINUE PAPER OBSERVATION\nEVIDENCE: 40 scanned, 0 quoted. opening_range_breakout:XRPUSDT:4h:LONDON; champion=opening_range_breakout:XRPUSDT:4h:LONDON:p20:ta2:sa0.6:tb8; trades=0; expectancy=NAbps; PF=NA; t=NA; gate=FORWARD_GATE_BUILDING.\nNEXT PAPER ACTION: Keep collecting new completed-candle evidence for the frozen champion.\nBLOCKERS: Forward sample/gate remains authoritative.",
-      "error": "llm_output_rejected_by_firewall"
+      "startedAt": "2026-09-10T17:08:39.807Z",
+      "completedAt": "2026-09-10T17:09:24.811Z",
+      "output": "VERDICT: CONTINUE PAPER OBSERVATION\nEVIDENCE: 40 scanned, 0 quoted. opening_range_breakout:XRPUSDT:4h:LONDON; champion=opening_range_breakout:XRPUSDT:4h:LONDON:p20:ta2:sa0.6:tb8; trades=0; expectancy=NAbps; PF=NA; t=NA; gate=FORWARD_GATE_BUILDING. Issue-72 forward: enrolled=0; nextStageEligible=0; openSignals=0. Portfolio risk: status=NO_FORWARD_GATE_PASS_CANDIDATES; admitted=0; trades=0; return=0%; DD=0%; stressReturn=0%; covarianceBuckets=0.\nNEXT PAPER ACTION: Keep collecting new completed-candle evidence for frozen champions.\nBLOCKERS: Forward and portfolio evidence remain authoritative.",
+      "error": "This operation was aborted"
     },
     {
       "id": "nova",
@@ -240,12 +290,12 @@
       "provider": "nvidia",
       "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
       "tokens": {
-        "in": 2153,
+        "in": 2578,
         "out": 350
       },
-      "startedAt": "2026-09-10T13:00:02.490Z",
-      "completedAt": "2026-09-10T13:00:29.333Z",
-      "output": "VERDICT: NO PROMOTION\nEVIDENCE: opening_range_breakout:XRPUSDT:4h:LONDON; champion=opening_range_breakout:XRPUSDT:4h:LONDON:p20:ta2:sa0.6:tb8; trades=0; expectancy=NAbps; PF=NA; t=NA; gate=FORWARD_GATE_BUILDING.\nNEXT PAPER ACTION: Do not retune the frozen champion from forward outcomes; challengers remain correlated evidence only.\nBLOCKERS: Forward gate not yet passed.",
+      "startedAt": "2026-09-10T17:09:24.812Z",
+      "completedAt": "2026-09-10T17:09:54.811Z",
+      "output": "VERDICT: NO PROMOTION\nEVIDENCE: Issue-72 forward: enrolled=0; nextStageEligible=0; openSignals=0. Portfolio risk: status=NO_FORWARD_GATE_PASS_CANDIDATES; admitted=0; trades=0; return=0%; DD=0%; stressReturn=0%; covarianceBuckets=0.\nNEXT PAPER ACTION: Do not retune frozen champions from forward or portfolio outcomes; challengers remain correlated evidence only.\nBLOCKERS: Forward gate not yet passed.",
       "error": "llm_output_rejected_by_firewall"
     },
     {
@@ -257,12 +307,12 @@
       "provider": "nvidia",
       "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
       "tokens": {
-        "in": 2316,
+        "in": 2729,
         "out": 350
       },
-      "startedAt": "2026-09-10T13:00:29.333Z",
-      "completedAt": "2026-09-10T13:00:55.848Z",
-      "output": "VERDICT: VETO\nEVIDENCE: Economic P&L UNAVAILABLE; fee lock OFF; opening_range_breakout:XRPUSDT:4h:LONDON; champion=opening_range_breakout:XRPUSDT:4h:LONDON:p20:ta2:sa0.6:tb8; trades=0; expectancy=NAbps; PF=NA; t=NA; gate=FORWARD_GATE_BUILDING.\nNEXT PAPER ACTION: Keep capital eligibility false and continue forward observation.\nBLOCKERS: No live capital path is authorized by this swarm.",
+      "startedAt": "2026-09-10T17:09:54.811Z",
+      "completedAt": "2026-09-10T17:10:24.782Z",
+      "output": "VERDICT: VETO\nEVIDENCE: Economic P&L UNAVAILABLE; fee lock OFF; Issue-72 forward: enrolled=0; nextStageEligible=0; openSignals=0; Portfolio risk: status=NO_FORWARD_GATE_PASS_CANDIDATES; admitted=0; trades=0; return=0%; DD=0%; stressReturn=0%; covarianceBuckets=0.\nNEXT PAPER ACTION: Keep capital eligibility false and continue evidence collection.\nBLOCKERS: No live capital path is authorized by this swarm.",
       "error": "llm_output_rejected_by_firewall"
     },
     {
@@ -272,15 +322,15 @@
       "status": "fallback_complete",
       "engine": "deterministic_guardrail",
       "provider": "nvidia",
-      "model": null,
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
       "tokens": {
-        "in": 0,
-        "out": 0
+        "in": 2860,
+        "out": 350
       },
-      "startedAt": "2026-09-10T13:00:55.848Z",
-      "completedAt": "2026-09-10T13:01:40.849Z",
-      "output": "VERDICT: LEARN\nEVIDENCE: opening_range_breakout:XRPUSDT:4h:LONDON; champion=opening_range_breakout:XRPUSDT:4h:LONDON:p20:ta2:sa0.6:tb8; trades=0; expectancy=NAbps; PF=NA; t=NA; gate=FORWARD_GATE_BUILDING.\nNEXT PAPER ACTION: Preserve the champion freeze and record forward outcomes as new evidence, not parameter-selection data.\nBLOCKERS: Correlated challengers must never count as independent confirmations.",
-      "error": "This operation was aborted"
+      "startedAt": "2026-09-10T17:10:24.782Z",
+      "completedAt": "2026-09-10T17:10:53.666Z",
+      "output": "VERDICT: LEARN\nEVIDENCE: Issue-72 forward: enrolled=0; nextStageEligible=0; openSignals=0. Portfolio risk: status=NO_FORWARD_GATE_PASS_CANDIDATES; admitted=0; trades=0; return=0%; DD=0%; stressReturn=0%; covarianceBuckets=0.\nNEXT PAPER ACTION: Preserve champion freeze and record forward/portfolio outcomes as new evidence, never parameter-selection data.\nBLOCKERS: Correlated challengers must never count as independent confirmations; unsupported regime sizing remains unavailable.",
+      "error": "llm_output_rejected_by_firewall"
     },
     {
       "id": "arbiter",
@@ -291,12 +341,12 @@
       "provider": "nvidia",
       "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
       "tokens": {
-        "in": 2596,
+        "in": 2992,
         "out": 350
       },
-      "startedAt": "2026-09-10T13:01:40.849Z",
-      "completedAt": "2026-09-10T13:02:19.907Z",
-      "output": "VERDICT: STAND DOWN\nEVIDENCE: opening_range_breakout:XRPUSDT:4h:LONDON; champion=opening_range_breakout:XRPUSDT:4h:LONDON:p20:ta2:sa0.6:tb8; trades=0; expectancy=NAbps; PF=NA; t=NA; gate=FORWARD_GATE_BUILDING; economic P&L UNAVAILABLE; live authority OFF.\nNEXT PAPER ACTION: Continue collecting forward evidence.\nBLOCKERS: LIVE orders, execution authority, and capital eligibility remain false.",
+      "startedAt": "2026-09-10T17:10:53.666Z",
+      "completedAt": "2026-09-10T17:11:29.265Z",
+      "output": "VERDICT: STAND DOWN\nEVIDENCE: Issue-72 forward: enrolled=0; nextStageEligible=0; openSignals=0; Portfolio risk: status=NO_FORWARD_GATE_PASS_CANDIDATES; admitted=0; trades=0; return=0%; DD=0%; stressReturn=0%; covarianceBuckets=0; economic P&L UNAVAILABLE; live authority OFF.\nNEXT PAPER ACTION: Continue collecting verified forward and portfolio evidence.\nBLOCKERS: LIVE orders, execution authority, and capital eligibility remain false.",
       "error": "llm_output_rejected_by_firewall"
     }
   ],
@@ -305,7 +355,7 @@
     "completedLlm": 0,
     "fallback": 5,
     "tokens": {
-      "in": 9073,
+      "in": 11159,
       "out": 1400
     }
   },
@@ -317,6 +367,10 @@
     ],
     "forwardFamilies": 2,
     "forwardNextStageEligible": false,
+    "researchForwardEnrolled": 0,
+    "researchForwardNextStageEligible": 0,
+    "portfolioRiskStatus": "NO_FORWARD_GATE_PASS_CANDIDATES",
+    "portfolioRiskReady": false,
     "executionAuthority": false,
     "liveOrders": false,
     "capitalEligible": false
@@ -324,7 +378,7 @@
   "errors": [
     {
       "agentId": "atlas",
-      "error": "llm_output_rejected_by_firewall"
+      "error": "This operation was aborted"
     },
     {
       "agentId": "nova",
@@ -336,7 +390,7 @@
     },
     {
       "agentId": "curator",
-      "error": "This operation was aborted"
+      "error": "llm_output_rejected_by_firewall"
     },
     {
       "agentId": "arbiter",
