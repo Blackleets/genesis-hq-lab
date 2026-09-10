@@ -1,0 +1,53 @@
+{
+  "auditType": "CROSS_MARKET_EXECUTABLE_PRICE_DISCIPLINE",
+  "mode": "RESEARCH_ONLY",
+  "paperOnly": true,
+  "liveEnabled": false,
+  "realOrdersPlaced": 0,
+  "codeBranch": "feat/genesis-life-os",
+  "codeHead": "9d7bdaced61f2bfb77c2609db4e8c111c1df5ffc",
+  "implementationCommits": [
+    "9608d58b6bd5068f3f40786aef9b2e11a9d61132",
+    "9d7bdaced61f2bfb77c2609db4e8c111c1df5ffc"
+  ],
+  "ci": {
+    "workflow": "cross-market-lead-lag-capture",
+    "runId": 34431599933,
+    "conclusion": "success",
+    "event": "push",
+    "evidenceProducingStepsOnPush": "skipped_by_workflow_policy"
+  },
+  "materialIssue": "Study v3 computed entry/exit PnL from the latest confirmed candle close even though the signal is only available at capturedAt. This can make historical returns optimistic because that candle close is not an executable price available at the research decision timestamp.",
+  "change": {
+    "studyVersion": 4,
+    "minimumSchemaVersion": 4,
+    "freshPerpBookRequired": true,
+    "maxBookAgeMs": 30000,
+    "futureDatedBookRejected": true,
+    "longExecution": "entry at perpetual ask observed at capture; exit at perpetual bid observed at later capture",
+    "shortExecution": "entry at perpetual bid observed at capture; exit at perpetual ask observed at later capture",
+    "additionalFixedRoundTripCostBps": 10,
+    "costGateLowered": false,
+    "validationGatesChanged": false,
+    "holdoutRankingUse": false,
+    "forwardPaperEnrollment": false
+  },
+  "expectedImpact": "More conservative and causally executable cross-market PnL estimates; spread is paid explicitly through bid/ask while the pre-existing fixed 10 bps remains an additional stress cost. Stale, legacy, or future-dated quote rows fail closed instead of entering the study.",
+  "testsAdded": [
+    "schema-v4 and fresh executable quote provenance required",
+    "stale quote rejected",
+    "legacy schema rejected",
+    "long uses ask-to-bid executable path",
+    "short uses bid-to-ask executable path",
+    "holdout remains sealed unless pre-holdout fixed gates pass"
+  ],
+  "boundaries": {
+    "LIVE": false,
+    "REAL_TRADING_confirmations": "unchanged",
+    "killSwitches": "unchanged",
+    "riskGates": "unchanged",
+    "holdout": "never used for ranking or tuning",
+    "promotion": "none"
+  },
+  "nextBottleneck": "Accumulate enough homogeneous schema-v4 scheduled observations with fresh executable quotes to form independent 10-25 minute outcomes and populate pre-holdout discovery/validation/walk-forward folds."
+}
