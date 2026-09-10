@@ -1,0 +1,113 @@
+# RESEARCH_ONLY scheduled positioning capture for admitted alt symbols.
+# BTC remains owned by paper-capture-harvest. This workflow only collects ETH/SOL/XRP/BNB
+# to avoid duplicate BTC captures. Public read-only OKX data only; no execution authority.
+name: positioning-alt-capture
+
+on:
+  schedule:
+    - cron: "10,25,40,55 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - .github/workflows/positioning-alt-capture.yml
+      - server/genesis/positioningDynamicsCapture.mjs
+      - server/genesis/okxFixedWindowTaker.mjs
+      - server/genesis/okxResearchContext.mjs
+      - server/research/positioningDataQualityAudit.mjs
+      - server/research/runPositioningEdgeFactory.mjs
+      - server/tests/positioningDynamicsCapture.test.mjs
+      - server/tests/okxFixedWindowTaker.test.mjs
+      - server/tests/positioningDataQualityAudit.test.mjs
+      - server/tests/positioningEdgeFactory.test.mjs
+
+permissions:
+  contents: write
+
+concurrency:
+  group: positioning-alt-capture
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      GENESIS_TAKER_MAX_PAGES: '50'
+      GENESIS_TAKER_PAGE_DELAY_MS: '125'
+    steps:
+      - name: code
+        uses: actions/checkout@v4
+      - name: tape
+        if: github.event_name != 'push'
+        uses: actions/checkout@v4
+        with:
+          ref: capture-tape
+          path: tape
+      - name: verify multi-asset isolation and quality discipline
+        run: node --test server/tests/positioningDynamicsCapture.test.mjs server/tests/okxFixedWindowTaker.test.mjs server/tests/positioningDataQualityAudit.test.mjs server/tests/positioningEdgeFactory.test.mjs server/tests/okxVolatilityShock.test.mjs
+      - name: capture admitted alt positioning cohorts
+        if: github.event_name != 'push'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for symbol in ETHUSDT SOLUSDT XRPUSDT BNBUSDT; do
+            key="${symbol,,}"
+            node server/genesis/positioningDynamicsCapture.mjs \
+              --symbol "$symbol" \
+              --out "tape/paper-tape/positioning-${key}-latest.json" \
+              --jsonl "tape/paper-tape/positioning-${key}.jsonl"
+            node server/research/positioningDataQualityAudit.mjs \
+              --symbol "$symbol" \
+              --input "tape/paper-tape/positioning-${key}.jsonl" \
+              --out "tape/paper-tape/positioning-data-quality-${key}-latest.json"
+            node server/research/runPositioningEdgeFactory.mjs \
+              --symbol "$symbol" \
+              --input "tape/paper-tape/positioning-${key}.jsonl" \
+              --quality "tape/paper-tape/positioning-data-quality-${key}-latest.json" \
+              --out "tape/quant-evidence/positioning-edge-${key}-latest.json"
+          done
+      - name: assert isolated PAPER boundaries
+        if: github.event_name != 'push'
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs = require('fs');
+          for (const symbol of ['ETHUSDT','SOLUSDT','XRPUSDT','BNBUSDT']) {
+            const key = symbol.toLowerCase();
+            const capture = JSON.parse(fs.readFileSync(`tape/paper-tape/positioning-${key}-latest.json`, 'utf8'));
+            const quality = JSON.parse(fs.readFileSync(`tape/paper-tape/positioning-data-quality-${key}-latest.json`, 'utf8'));
+            const edge = JSON.parse(fs.readFileSync(`tape/quant-evidence/positioning-edge-${key}-latest.json`, 'utf8'));
+            const expectedInstrument = `${symbol.slice(0,-4)}-USDT-SWAP`;
+            if (capture.mode !== 'RESEARCH_ONLY' || capture.symbol !== symbol) throw new Error(`${symbol} capture identity violated`);
+            if (capture.provenance?.instrument !== expectedInstrument) throw new Error(`${symbol} instrument provenance violated`);
+            if (capture.researchUse !== 'OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING') throw new Error(`${symbol} ranking boundary violated`);
+            if (capture.positioning?.takerWindowMs !== 60000 || !(capture.positioning?.takerWindowCoverageMs >= 54000)) throw new Error(`${symbol} taker coverage violated`);
+            if (quality.mode !== 'RESEARCH_ONLY' || quality.symbol !== symbol || quality.boundaries?.holdoutUsedForRanking !== false) throw new Error(`${symbol} quality boundary violated`);
+            if (quality.boundaries?.liveTradingEnabled !== false || quality.boundaries?.realOrdersPlaced !== false) throw new Error(`${symbol} live boundary violated`);
+            if (edge.mode !== 'RESEARCH_ONLY' || edge.symbol !== symbol || edge.paperOnly !== true || edge.liveOrders !== false || edge.executionAuthority !== false || edge.capitalEligible !== false) throw new Error(`${symbol} edge boundary violated`);
+            if (edge.methodology?.selectionUsesHoldout !== false || edge.methodology?.holdoutSealed !== true || edge.methodology?.symbolIsolation !== true) throw new Error(`${symbol} research boundary violated`);
+          }
+          NODE
+      - name: publish durable alt evidence
+        if: github.event_name != 'push'
+        working-directory: tape
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "genesis-alt-capture"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f \
+            paper-tape/positioning-ethusdt-latest.json paper-tape/positioning-ethusdt.jsonl paper-tape/positioning-data-quality-ethusdt-latest.json quant-evidence/positioning-edge-ethusdt-latest.json \
+            paper-tape/positioning-solusdt-latest.json paper-tape/positioning-solusdt.jsonl paper-tape/positioning-data-quality-solusdt-latest.json quant-evidence/positioning-edge-solusdt-latest.json \
+            paper-tape/positioning-xrpusdt-latest.json paper-tape/positioning-xrpusdt.jsonl paper-tape/positioning-data-quality-xrpusdt-latest.json quant-evidence/positioning-edge-xrpusdt-latest.json \
+            paper-tape/positioning-bnbusdt-latest.json paper-tape/positioning-bnbusdt.jsonl paper-tape/positioning-data-quality-bnbusdt-latest.json quant-evidence/positioning-edge-bnbusdt-latest.json
+          if git diff --staged --quiet; then echo "no material evidence change"; exit 0; fi
+          git commit -m "positioning alt capture ${GITHUB_RUN_ID}"
+          for attempt in 1 2 3; do
+            git pull --rebase origin capture-tape
+            if git push origin HEAD:capture-tape; then exit 0; fi
+            sleep $((attempt * 2))
+          done
+          exit 1
