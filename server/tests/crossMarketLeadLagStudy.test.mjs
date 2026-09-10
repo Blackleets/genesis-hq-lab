@@ -6,6 +6,7 @@ import {
   parseCrossMarketJsonl,
   buildMaturedCrossMarketObservations,
   selectIndependentCrossMarketObservations,
+  evaluatePreHoldoutWalkForward,
   evaluateCrossMarketStudy,
 } from '../research/crossMarketLeadLagStudy.mjs';
 
@@ -17,12 +18,23 @@ function row(ts,{spread=0,perp=100,spot=100,basis=0,confirmed=true}={}) {
   };
 }
 
+function observation(i,netBps=5) {
+  return {
+    entryCapturedAt:new Date(Date.UTC(2026,8,1)+i*30*60_000).toISOString(),
+    exitCapturedAt:new Date(Date.UTC(2026,8,1)+i*30*60_000+15*60_000).toISOString(),
+    netBps,
+  };
+}
+
 test('protocol is explicit, hashed, holdout-sealed, and never forward-paper eligible by default',()=>{
+  assert.equal(CROSS_MARKET_PROTOCOL.studyVersion,2);
   assert.equal(CROSS_MARKET_PROTOCOL.sequentialSplits.discovery,60);
   assert.equal(CROSS_MARKET_PROTOCOL.sequentialSplits.validation,30);
   assert.equal(CROSS_MARKET_PROTOCOL.sequentialSplits.holdout,30);
+  assert.deepEqual(CROSS_MARKET_PROTOCOL.walkForward.testCounts,[15,15,30]);
   assert.equal(CROSS_MARKET_PROTOCOL.roundTripCostBps,10);
   assert.match(CROSS_MARKET_PROTOCOL.holdoutPolicy,/NEVER_USED_FOR_RANKING_OR_TUNING/);
+  assert.match(CROSS_MARKET_PROTOCOL.rankingPolicy,/HOLDOUT NEVER RANKS OR TUNES/);
   assert.match(CROSS_MARKET_PROTOCOL_SHA256,/^[a-f0-9]{64}$/);
   const report=evaluateCrossMarketStudy([]);
   assert.equal(report.holdout.status,'SEALED');
@@ -65,6 +77,24 @@ test('25m embargo prevents overlapping forward windows from inflating effective 
   assert.equal(selected.accepted.length,2);
   assert.equal(selected.rejected.length,1);
   assert.equal(selected.rejected[0].reason,'OVERLAPPING_FORWARD_WINDOW');
+});
+
+test('walk-forward uses only the 90 pre-holdout observations in expanding OOS folds',()=>{
+  const preHoldout=Array.from({length:90},(_,i)=>observation(i,5));
+  const audit=evaluatePreHoldoutWalkForward(preHoldout);
+  assert.equal(audit.requiredPreHoldoutCount,90);
+  assert.equal(audit.complete,true);
+  assert.equal(audit.allFoldsPass,true);
+  assert.deepEqual(audit.folds.map(f=>[f.trainCount,f.testCount]),[[30,15],[45,15],[60,30]]);
+});
+
+test('walk-forward fails closed when any pre-holdout OOS fold is negative without consulting holdout',()=>{
+  const preHoldout=Array.from({length:90},(_,i)=>observation(i,(i>=45&&i<60)?-5:5));
+  const audit=evaluatePreHoldoutWalkForward(preHoldout);
+  assert.equal(audit.complete,true);
+  assert.equal(audit.folds[1].pass,false);
+  assert.equal(audit.allFoldsPass,false);
+  assert.equal(audit.folds.length,3);
 });
 
 test('holdout remains sealed before all 120 independent matured signals',()=>{
