@@ -25,6 +25,21 @@ function compactChampion(id: string | undefined) {
   return `${pair} · ${tf} · ${session}`;
 }
 
+function compactChampionMobile(id: string | undefined) {
+  if (!id) return 'NO EDGE';
+  const parts = id.split(':');
+  const pair = (parts[1] ?? '?').replace('USDT', '/USDT');
+  const tf = (parts[2] ?? '?').toUpperCase();
+  return `${pair} · ${tf}`;
+}
+
+function compactRiskFlag(flag: string | undefined) {
+  if (!flag) return null;
+  const value = flag.replaceAll('_', ' ').trim().toUpperCase();
+  if (value === 'RENDER UNAVAILABLE') return 'VERIFY SYSTEM';
+  return value;
+}
+
 function buildPriority({
   runnerVerified,
   riskBand,
@@ -151,7 +166,7 @@ export function FounderCommandBar({ onOpen }: { onOpen: (view: CommandView) => v
   const dataDetail = dataReady ? `research enabled · audit ${promotion?.totalForwardPaperEligible ?? 0} eligible` : dataQualityPass ? 'cohort building' : positioningQuality ? 'quality gate failed' : 'evidence unavailable';
 
   const riskTone: CommandTone = riskBand === 'HEALTHY' ? 'good' : riskBand === 'WATCH' ? 'watch' : riskBand === 'NOT VERIFIED' ? 'neutral' : 'bad';
-  const riskLabel = activeFlags[0]?.replaceAll('_', ' ') ?? (riskBand === 'HEALTHY' ? 'NO ACTIVE BLOCKER' : riskBand.replaceAll('_', ' '));
+  const riskLabel = compactRiskFlag(activeFlags[0]) ?? (riskBand === 'HEALTHY' ? 'NO ACTIVE BLOCKER' : riskBand.replaceAll('_', ' '));
   const riskDetail = activeFlags.length > 1 ? `+${activeFlags.length - 1} additional flags` : runnerVerified ? `${openPaper ?? '—'} paper open · ${formatMoney(economicPnl)}` : 'paper runner not verified';
 
   const priority = buildPriority({ runnerVerified, riskBand, activeFlags, positioningQuality, positioningEdge, promotion, researchForward, forward, economicPnl });
@@ -164,26 +179,32 @@ export function FounderCommandBar({ onOpen }: { onOpen: (view: CommandView) => v
         <small>{symbol.replace('USDT', '')}/USDT · {timeframe} · verified desk context</small>
       </div>
 
-      <button type="button" className={`founder-command-bar__metric is-${family ? 'watch' : 'neutral'}`} onClick={() => onOpen('agents')}>
+      <button type="button" className={`founder-command-bar__metric founder-command-bar__metric--edge is-${family ? 'watch' : 'neutral'}`} onClick={() => onOpen('agents')}>
         <span><FlaskConical size={11} /> ACTIVE EDGE</span>
-        <strong>{compactChampion(family?.championId)}</strong>
-        <small>{family ? `${family.independentEvidenceUnits} independent evidence unit` : 'awaiting verified forward family'}</small>
+        <strong>
+          <span className="founder-command-bar__desktop-value">{compactChampion(family?.championId)}</span>
+          <span className="founder-command-bar__mobile-value">{compactChampionMobile(family?.championId)}</span>
+        </strong>
+        <small>
+          <span className="founder-command-bar__desktop-value">{family ? `${family.independentEvidenceUnits} independent evidence unit` : 'awaiting verified forward family'}</span>
+          <span className="founder-command-bar__mobile-value">{family ? `${family.independentEvidenceUnits} evidence unit` : 'awaiting evidence'}</span>
+        </small>
       </button>
 
-      <button type="button" className={`founder-command-bar__metric is-${forwardTone}`} onClick={() => onOpen('agents')}>
+      <button type="button" className={`founder-command-bar__metric founder-command-bar__metric--forward is-${forwardTone}`} onClick={() => onOpen('agents')}>
         <span><LockKeyhole size={11} /> FORWARD</span>
         <strong>{forwardTrades}/20 · {forwardGate}</strong>
         <small>{family?.nextStageEligible ? 'next PAPER stage eligible' : `LIVE LOCKED${newForwardDetail}`}</small>
       </button>
 
-      <button type="button" className={`founder-command-bar__metric is-${dataTone}`} onClick={() => onOpen('research')}>
+      <button type="button" className={`founder-command-bar__metric founder-command-bar__metric--data is-${dataTone}`} onClick={() => onOpen('research')}>
         <span><Database size={11} /> DATA READINESS</span>
         <strong>{dataLabel}</strong>
         <small>{dataDetail}</small>
       </button>
 
-      <button type="button" className={`founder-command-bar__metric is-${riskTone}`} onClick={() => onOpen('risk')}>
-        <span><ShieldAlert size={11} /> RISK BLOCKER</span>
+      <button type="button" className={`founder-command-bar__metric founder-command-bar__metric--risk is-${riskTone}`} onClick={() => onOpen('risk')}>
+        <span><ShieldAlert size={11} /> RISK</span>
         <strong>{riskLabel}</strong>
         <small>{riskDetail}</small>
       </button>
