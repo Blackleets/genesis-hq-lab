@@ -1,0 +1,81 @@
+name: cross-market-lead-lag
+
+on:
+  schedule:
+    - cron: "13,28,43,58 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - .github/workflows/cross-market-lead-lag.yml
+      - server/research/runCrossMarketLeadLag.mjs
+      - server/tests/crossMarketLeadLag.test.mjs
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cross-market-lead-lag
+  cancel-in-progress: true
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - name: code
+        uses: actions/checkout@v4
+      - name: tape
+        if: github.event_name != 'push'
+        uses: actions/checkout@v4
+        with:
+          ref: capture-tape
+          path: tape
+      - name: verify causal lead-lag discipline
+        run: node --test server/tests/crossMarketLeadLag.test.mjs
+      - name: evaluate BTC to alt lead-lag lanes
+        if: github.event_name != 'push'
+        run: |
+          node server/research/runCrossMarketLeadLag.mjs \
+            --btc-input tape/paper-tape/positioning-dynamics.jsonl \
+            --btc-quality tape/paper-tape/positioning-data-quality-latest.json \
+            --ethusdt-input tape/paper-tape/positioning-ethusdt.jsonl \
+            --ethusdt-quality tape/paper-tape/positioning-data-quality-ethusdt-latest.json \
+            --solusdt-input tape/paper-tape/positioning-solusdt.jsonl \
+            --solusdt-quality tape/paper-tape/positioning-data-quality-solusdt-latest.json \
+            --xrpusdt-input tape/paper-tape/positioning-xrpusdt.jsonl \
+            --xrpusdt-quality tape/paper-tape/positioning-data-quality-xrpusdt-latest.json \
+            --bnbusdt-input tape/paper-tape/positioning-bnbusdt.jsonl \
+            --bnbusdt-quality tape/paper-tape/positioning-data-quality-bnbusdt-latest.json \
+            --out tape/quant-evidence/cross-market-lead-lag-latest.json
+      - name: assert research boundaries
+        if: github.event_name != 'push'
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const x=JSON.parse(fs.readFileSync('tape/quant-evidence/cross-market-lead-lag-latest.json','utf8'));
+          if(x.mode!=='RESEARCH_ONLY'||x.paperOnly!==true||x.liveOrders!==false||x.executionAuthority!==false||x.capitalEligible!==false) throw new Error('capital boundary violated');
+          if(x.methodology?.selectionUsesHoldout!==false||x.methodology?.holdoutSealed!==true) throw new Error('holdout boundary violated');
+          if(x.methodology?.causalPriorLeaderOnly!==true||x.methodology?.futureLeaderForbidden!==true||x.methodology?.symbolIsolation!==true) throw new Error('causal boundary violated');
+          for(const lane of Object.values(x.lanes||{})){
+            if(lane.methodology?.selectionUsesHoldout!==false||lane.methodology?.holdoutSealed!==true||lane.methodology?.causalPriorLeaderOnly!==true||lane.methodology?.futureLeaderForbidden!==true) throw new Error('lane boundary violated');
+          }
+          NODE
+      - name: publish durable cross-market evidence
+        if: github.event_name != 'push'
+        working-directory: tape
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "genesis-cross-market"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f quant-evidence/cross-market-lead-lag-latest.json
+          if git diff --staged --quiet; then echo "no material evidence change"; exit 0; fi
+          git commit -m "cross market research ${GITHUB_RUN_ID}"
+          for attempt in 1 2 3; do
+            git pull --rebase origin capture-tape
+            if git push origin HEAD:capture-tape; then exit 0; fi
+            sleep $((attempt*2))
+          done
+          exit 1
