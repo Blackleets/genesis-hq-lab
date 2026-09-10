@@ -64,6 +64,7 @@ test('never opens holdout or grants execution authority when study runs',()=>{
   assert.equal(out.methodology.temporalOrderPreserved,true);
   assert.equal(out.methodology.independentNonOverlappingRowsOnly,true);
   assert.equal(out.methodology.symbolIsolation,true);
+  assert.equal(out.methodology.activeQualityCohortOnly,true);
   assert.equal(out.methodology.spotPerpJoin,'PRIOR_ASOF_ONLY');
   assert.equal(out.methodology.futureDivergenceForbidden,true);
   assert.ok(out.candidates.some(x=>x.family==='spot_perp_taker_divergence_continuation'));
@@ -105,4 +106,19 @@ test('quality symbol mismatch fails closed',()=>{
     ()=>evaluatePositioningStudy([row(0,{symbol:'ETHUSDT'})],{symbol:'BTCUSDT',qualityPass:true,independentRowCount:20},{symbol:'ETHUSDT'}),
     /POSITIONING_QUALITY_SYMBOL_MISMATCH/,
   );
+});
+
+test('uses only the active quality cohort after a historical reset',()=>{
+  const rows=Array.from({length:60},(_,i)=>row(i));
+  const activeStart=rows[30].capturedAt;
+  const activeEnd=rows[59].capturedAt;
+  const out=evaluatePositioningStudy(rows,{
+    symbol:'BTCUSDT',qualityPass:true,independentRowCount:30,
+    firstEligibleCapturedAt:activeStart,lastEligibleCapturedAt:activeEnd,
+  });
+  assert.ok(['NO_EDGE_FOUND','RESEARCH_CANDIDATE_FOUND'].includes(out.verdict));
+  assert.equal(out.methodology.activeQualityCohortOnly,true);
+  assert.equal(out.methodology.qualityCohortStart,activeStart);
+  assert.equal(out.methodology.qualityCohortEnd,activeEnd);
+  assert.equal(out.dataQuality.reconstructedIndependentRows,30);
 });
