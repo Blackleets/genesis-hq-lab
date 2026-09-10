@@ -53,7 +53,7 @@ test('never opens holdout or grants execution authority after enough aligned dat
     btc.push(row('BTCUSDT',base+2,{ret:12,taker:0.2,oi:0.2}));
     alt.push(row('BNBUSDT',base+5,{close:100+i}));
   }
-  const out=evaluateCrossMarketLane({btcRows:btc,altRows:alt,btaQuality:quality('BTCUSDT',30),btcQuality:quality('BTCUSDT',30),altQuality:quality('BNBUSDT',30),altSymbol:'BNBUSDT'});
+  const out=evaluateCrossMarketLane({btcRows:btc,altRows:alt,btcQuality:quality('BTCUSDT',30),altQuality:quality('BNBUSDT',30),altSymbol:'BNBUSDT'});
   assert.ok(['NO_EDGE_FOUND','RESEARCH_CANDIDATE_FOUND'].includes(out.verdict));
   assert.equal(out.methodology.selectionUsesHoldout,false);
   assert.equal(out.methodology.holdoutSealed,true);
