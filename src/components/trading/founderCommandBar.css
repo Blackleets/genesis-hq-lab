@@ -116,6 +116,8 @@
   padding: 11px 14px;
 }
 
+.founder-command-bar__mobile-value { display: none; }
+
 .founder-command-bar .is-good strong { color: #86efac; }
 .founder-command-bar .is-watch strong { color: #f5d58a; }
 .founder-command-bar .is-bad strong { color: #f5a3a3; }
@@ -135,9 +137,9 @@
   .founder-command-bar > *:nth-last-child(-n+3) { border-bottom: 0; }
 }
 
-/* Mobile is intentionally a deterministic grid rather than a shrinking flex strip.
-   The founder mission is already represented by the header, so it is removed here
-   to keep the decision layer readable at 360–430px widths. */
+/* Mobile command layer: only the three decisions that deserve permanent
+   screen space stay visible. Forward/data remain one tap away in their
+   dedicated views, while the chart gets the vertical budget. */
 @media (max-width: 780px) {
   .genesis-exchange {
     max-width: 100%;
@@ -145,42 +147,45 @@
   }
 
   .founder-command-bar {
-    width: 100%;
-    max-width: 100vw;
+    width: auto;
+    max-width: none;
     min-height: 0;
+    margin: 9px 12px 8px;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1.12fr) minmax(0, .86fr) minmax(0, 1.22fr);
     overflow: hidden;
-    border-top: 1px solid #25282e;
-    background: #0b0d10;
+    border: 1px solid #2b2f36;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #101318 0%, #0b0e12 100%);
+    box-shadow: 0 10px 24px rgb(0 0 0 / 22%), inset 0 1px rgb(255 255 255 / 2%);
   }
 
-  .founder-command-bar__mission {
-    display: none;
+  .founder-command-bar__mission,
+  .founder-command-bar__metric--forward,
+  .founder-command-bar__metric--data {
+    display: none !important;
   }
 
-  .founder-command-bar__metric,
-  .founder-command-bar__metric:is(button),
-  .founder-command-bar__priority {
+  .founder-command-bar__metric--edge,
+  .founder-command-bar__metric--risk,
+  .founder-command-bar__priority,
+  .founder-command-bar__metric--edge:is(button),
+  .founder-command-bar__metric--risk:is(button) {
     width: 100%;
     min-width: 0;
     max-width: 100%;
-    min-height: 66px;
-    padding: 9px 10px;
-    border-right: 1px solid #25282e;
-    border-bottom: 1px solid #25282e;
+    min-height: 82px;
+    padding: 11px 11px;
+    border: 0;
+    border-right: 1px solid #272b31;
     overflow: hidden;
-  }
-
-  .founder-command-bar__metric:nth-of-type(3) {
-    border-right: 0;
+    background: transparent;
   }
 
   .founder-command-bar__priority {
-    grid-column: span 2;
-    padding-right: 32px;
+    grid-column: auto;
+    padding-right: 28px;
     border-right: 0;
-    border-bottom: 0;
   }
 
   .founder-command-bar__metric > span,
@@ -189,20 +194,24 @@
     white-space: nowrap;
     text-overflow: ellipsis;
     font-size: 7px;
-    letter-spacing: .07em;
+    letter-spacing: .085em;
+    color: #7e8793;
+  }
+
+  .founder-command-bar__metric > span svg,
+  .founder-command-bar__priority > span svg {
+    flex: 0 0 auto;
   }
 
   .founder-command-bar__metric strong,
   .founder-command-bar__priority strong {
-    display: -webkit-box;
+    display: block;
     overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    white-space: normal;
+    white-space: nowrap;
     text-overflow: ellipsis;
-    overflow-wrap: anywhere;
-    font-size: 10px;
+    font-size: 11px;
     line-height: 1.2;
+    letter-spacing: -.01em;
   }
 
   .founder-command-bar__metric small,
@@ -212,46 +221,121 @@
     white-space: nowrap;
     text-overflow: ellipsis;
     font-size: 8px;
+    line-height: 1.2;
   }
+
+  .founder-command-bar__desktop-value { display: none; }
+  .founder-command-bar__mobile-value { display: inline; }
 
   .founder-command-bar__priority > svg {
     right: 9px;
     width: 12px;
     height: 12px;
   }
+
+  /* Market strip is context, not the product hero. Keep it compact. */
+  .genesis-exchange .market-selector-mobile {
+    border-bottom-color: #20242a;
+    background: #08090b;
+  }
+
+  .genesis-exchange .market-selector-mobile__track {
+    gap: 8px;
+    padding: 8px 12px 9px;
+  }
+
+  .genesis-exchange .market-selector-mobile__item {
+    width: 136px;
+    min-height: 70px;
+    padding: 8px 10px;
+    border-radius: 13px;
+    background: #111419;
+  }
+
+  .genesis-exchange .market-selector-mobile__item .coin-logo {
+    width: 26px;
+    height: 26px;
+    flex: 0 0 26px;
+  }
+
+  .genesis-exchange .market-selector-mobile__item .coin-identity {
+    gap: 7px;
+  }
+
+  .genesis-exchange .market-selector-mobile__item .coin-identity__name,
+  .genesis-exchange .market-selector-mobile__item .market-watchlist__primary strong {
+    font-size: 12px;
+  }
+
+  .genesis-exchange .market-selector-mobile__item .coin-identity__name small {
+    font-size: 8px;
+  }
+
+  .genesis-exchange .market-selector-mobile__item .market-watchlist__primary b {
+    font-size: 12px;
+  }
+
+  .genesis-exchange .market-selector-mobile__item .market-watchlist__secondary span {
+    font-size: 9px;
+  }
+
+  /* Give the chart more vertical territory and tighten its chrome. */
+  .genesis-exchange .market-chart {
+    grid-template-rows: 108px clamp(330px, 50dvh, 500px) 28px;
+  }
+
+  .genesis-exchange .market-chart__toolbar {
+    padding: 10px 12px 8px;
+    gap: 6px;
+    grid-template-rows: auto auto 34px;
+  }
+
+  .genesis-exchange .market-chart__instrument strong {
+    font-size: 20px;
+  }
+
+  .genesis-exchange .market-chart__quote strong {
+    font-size: 30px;
+  }
+
+  .genesis-exchange .market-chart__timeframes button {
+    min-width: 48px;
+    min-height: 34px;
+    font-size: 13px;
+  }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 430px) {
   .founder-command-bar {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-left: 10px;
+    margin-right: 10px;
+    grid-template-columns: minmax(0, 1.08fr) minmax(0, .82fr) minmax(0, 1.18fr);
   }
 
-  .founder-command-bar__metric,
-  .founder-command-bar__metric:is(button) {
-    min-height: 64px;
+  .founder-command-bar__metric--edge,
+  .founder-command-bar__metric--risk,
+  .founder-command-bar__priority,
+  .founder-command-bar__metric--edge:is(button),
+  .founder-command-bar__metric--risk:is(button) {
+    min-height: 78px;
+    padding-left: 9px;
+    padding-right: 9px;
   }
 
-  .founder-command-bar__metric:nth-of-type(3) {
-    border-right: 1px solid #25282e;
-  }
-
-  .founder-command-bar__metric:nth-of-type(even) {
-    border-right: 0;
-  }
-
-  .founder-command-bar__priority {
-    grid-column: 1 / -1;
-    min-height: 66px;
-    border-top: 1px solid #25282e;
-  }
-
-  .founder-command-bar__metric > span,
-  .founder-command-bar__priority > span {
-    font-size: 7px;
-  }
+  .founder-command-bar__priority { padding-right: 24px; }
 
   .founder-command-bar__metric strong,
-  .founder-command-bar__priority strong {
-    font-size: 10px;
+  .founder-command-bar__priority strong { font-size: 10px; }
+
+  .founder-command-bar__metric small,
+  .founder-command-bar__priority small { font-size: 7.5px; }
+
+  .genesis-exchange .market-selector-mobile__item {
+    width: 128px;
+    min-height: 66px;
+  }
+
+  .genesis-exchange .market-chart {
+    grid-template-rows: 104px clamp(340px, 52dvh, 510px) 28px;
   }
 }
