@@ -1,12 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCrossMarketObservation, buildExecutionFriction, parseTopOfBook } from '../genesis/crossMarketLeadLagCapture.mjs';
+import { buildCrossMarketObservation, buildExecutionFriction, parseBookImbalance, parseTopOfBook } from '../genesis/crossMarketLeadLagCapture.mjs';
 
 const row = (t, close, quote, confirm = '1') => [
   String(t), String(close - 1), String(close + 1), String(close - 2), String(close),
   '10', '20', String(quote), confirm,
 ];
-const book = (ts, bid, ask) => ({ ts: String(ts), bids: [[String(bid), '1', '0', '1']], asks: [[String(ask), '1', '0', '1']] });
+const book = (ts, bid, ask, bidSizes = [1, 1, 1, 1, 1], askSizes = [1, 1, 1, 1, 1]) => ({
+  ts: String(ts),
+  bids: bidSizes.map((size, i) => [String(bid - i * 0.01), String(size), '0', '1']),
+  asks: askSizes.map((size, i) => [String(ask + i * 0.01), String(size), '0', '1']),
+});
 
 test('aligns only confirmed OKX spot/perp bars and derives causal cross-market features', () => {
   const t0 = Date.UTC(2026, 8, 9, 12, 0, 0);
@@ -14,9 +18,12 @@ test('aligns only confirmed OKX spot/perp bars and derives causal cross-market f
   const t2 = t1 + 60_000;
   const spot = [row(t2, 999, 1, '0'), row(t1, 101, 1200), row(t0, 100, 1000)];
   const fut = [row(t2, 1, 1, '0'), row(t1, 101.2, 2400), row(t0, 100.1, 2000)];
-  const out = buildCrossMarketObservation(spot, fut, { spotBook: book(t2, 100.99, 101.01), futuresBook: book(t2 + 5, 101.18, 101.22) });
+  const out = buildCrossMarketObservation(spot, fut, {
+    spotBook: book(t2, 100.99, 101.01, [3, 3, 2, 1, 1], [1, 1, 1, 1, 1]),
+    futuresBook: book(t2 + 5, 101.18, 101.22, [1, 1, 1, 1, 1], [3, 3, 2, 1, 1]),
+  });
 
-  assert.equal(out.schemaVersion, 3);
+  assert.equal(out.schemaVersion, 4);
   assert.equal(out.mode, 'RESEARCH_ONLY');
   assert.equal(out.provider, 'okx_public_market_data');
   assert.equal(out.researchUse, 'OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING');
@@ -28,6 +35,10 @@ test('aligns only confirmed OKX spot/perp bars and derives causal cross-market f
   assert.equal(out.features.futuresToSpotQuoteVolumeRatio, 2);
   assert.equal(out.features.volatility.available, false);
   assert.equal(out.features.executionFriction.available, true);
+  assert.equal(out.features.executionFriction.bookDepthImbalance.available, true);
+  assert.ok(out.features.executionFriction.bookDepthImbalance.spot.imbalance > 0);
+  assert.ok(out.features.executionFriction.bookDepthImbalance.futures.imbalance < 0);
+  assert.ok(out.features.executionFriction.bookDepthImbalance.futuresMinusSpot < 0);
   assert.ok(out.features.executionFriction.spot.spreadBps > 0);
   assert.ok(out.features.executionFriction.futures.spreadBps > 0);
   assert.ok(out.features.basisBps > 0);
@@ -37,6 +48,7 @@ test('aligns only confirmed OKX spot/perp bars and derives causal cross-market f
   assert.equal(out.provenance.orderBookDepth, 5);
   assert.match(out.provenance.volatilityBaselinePolicy, /PRECEDING_15_CLOSED_ALIGNED_1M_RETURNS_RMS/);
   assert.match(out.provenance.executionFrictionPolicy, /OBSERVATIONAL_ONLY/);
+  assert.match(out.provenance.bookImbalancePolicy, /WITHIN_EACH_INSTRUMENT/);
 });
 
 test('top-of-book execution friction requires valid bid/ask and preserves exchange source timestamp', () => {
@@ -52,7 +64,21 @@ test('top-of-book execution friction requires valid bid/ask and preserves exchan
   const friction = buildExecutionFriction(book(ts, 100, 100.1), null);
   assert.equal(friction.available, false);
   assert.equal(friction.conservativeRoundTripTopOfBookBps, null);
+  assert.equal(friction.bookDepthImbalance.available, false);
   assert.match(friction.policy, /NO_GATE_OR_RANKING_USE/);
+});
+
+test('depth-5 imbalance is normalized within instrument and fails closed on incomplete depth', () => {
+  const ts = Date.UTC(2026, 8, 9, 12, 3, 1, 123);
+  const parsed = parseBookImbalance(book(ts, 100, 100.1, [4, 3, 2, 1, 0], [1, 1, 1, 1, 1]));
+  assert.equal(parsed.available, true);
+  assert.equal(parsed.depth, 5);
+  assert.equal(parsed.bidSize, 10);
+  assert.equal(parsed.askSize, 5);
+  assert.equal(parsed.imbalance, 0.333333);
+
+  const incomplete = { ...book(ts, 100, 100.1), asks: [['100.1', '1', '0', '1']] };
+  assert.equal(parseBookImbalance(incomplete).available, false);
 });
 
 test('volatility shock compares current closed return only with the preceding 15 closed returns', () => {
