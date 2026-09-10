@@ -1,7 +1,8 @@
-import { BarChart3, Database, FlaskConical, LockKeyhole, Radar, ShieldAlert } from 'lucide-react';
+import { BarChart3, Database, FlaskConical, LockKeyhole, Radar, ShieldAlert, TestTube2 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { fetchForwardPaper, type ForwardPaperSnapshot } from '../../services/forwardPaperClient';
 import { fetchPositioningResearch, type PositioningDataQuality, type PositioningEdgeSnapshot } from '../../services/positioningResearchClient';
+import { fetchResearchLifecycle, type ResearchForwardSnapshot, type ResearchPromotionSnapshot } from '../../services/researchLifecycleClient';
 import { useRiskState } from './useTradingDesk';
 import { finite, formatMoney } from './formatters';
 
@@ -41,7 +42,9 @@ export function ProfitEngineRail({ onOpen }: { onOpen: (view: ProfitView) => voi
   const { truth, capture, founder } = useRiskState();
   const [quality, setQuality] = useState<PositioningDataQuality | null>(null);
   const [positioning, setPositioning] = useState<PositioningEdgeSnapshot | null>(null);
-  const [forward, setForward] = useState<ForwardPaperSnapshot | null>(null);
+  const [legacyForward, setLegacyForward] = useState<ForwardPaperSnapshot | null>(null);
+  const [promotion, setPromotion] = useState<ResearchPromotionSnapshot | null>(null);
+  const [researchForward, setResearchForward] = useState<ResearchForwardSnapshot | null>(null);
 
   useEffect(() => {
     let disposed = false;
@@ -54,16 +57,21 @@ export function ProfitEngineRail({ onOpen }: { onOpen: (view: ProfitView) => voi
       controller?.abort();
       controller = new AbortController();
       try {
-        const [researchResult, forwardResult] = await Promise.allSettled([
+        const [researchResult, forwardResult, lifecycleResult] = await Promise.allSettled([
           fetchPositioningResearch(controller.signal),
           fetchForwardPaper(controller.signal),
+          fetchResearchLifecycle(controller.signal),
         ]);
         if (disposed) return;
         if (researchResult.status === 'fulfilled') {
           setQuality(researchResult.value.quality);
           setPositioning(researchResult.value.edge);
         }
-        if (forwardResult.status === 'fulfilled' && forwardResult.value.ok) setForward(forwardResult.value);
+        if (forwardResult.status === 'fulfilled' && forwardResult.value.ok) setLegacyForward(forwardResult.value);
+        if (lifecycleResult.status === 'fulfilled') {
+          setPromotion(lifecycleResult.value.promotion);
+          setResearchForward(lifecycleResult.value.forward);
+        }
       } finally {
         pending = false;
       }
@@ -87,10 +95,25 @@ export function ProfitEngineRail({ onOpen }: { onOpen: (view: ProfitView) => voi
   const dataReady = quality?.qualityPass === true && quality?.readiness?.readyForPredeclaredStudy === true;
   const researchCandidate = positioning?.verdict === 'RESEARCH_CANDIDATE_FOUND';
 
-  const family = forward?.families?.[0];
-  const forwardTrades = family?.championForward?.trades ?? 0;
-  const forwardEligible = family?.nextStageEligible === true;
-  const forwardState: GateState = forwardEligible ? 'ready' : family ? 'watch' : 'blocked';
+  const waitingAudits = promotion?.waitingLanes ?? null;
+  const auditEligible = promotion?.totalForwardPaperEligible ?? 0;
+  const auditState: GateState = auditEligible > 0 ? 'ready' : promotion ? 'watch' : 'blocked';
+  const auditValue = promotion ? (auditEligible > 0 ? `${auditEligible} FORWARD ELIGIBLE` : `${waitingAudits ?? 0} BUILDING`) : 'NOT VERIFIED';
+  const auditDetail = promotion
+    ? `${promotion.methodology?.minimumUsableSamplesBeforeAudit ?? 80} samples · one-shot holdout · ${promotion.methodology?.stressCostBps ?? 18}bps stress`
+    : 'promotion ledger unavailable';
+
+  const family = legacyForward?.families?.[0];
+  const legacyTrades = family?.championForward?.trades ?? 0;
+  const newForwardEnrolled = researchForward?.enrolled ?? 0;
+  const newNextStage = researchForward?.nextStageEligible ?? 0;
+  const forwardState: GateState = newNextStage > 0 || family?.nextStageEligible === true ? 'ready' : (family || researchForward) ? 'watch' : 'blocked';
+  const forwardValue = family ? shortChampion(family.championId) : researchForward ? `${newForwardEnrolled} RESEARCH LANES` : 'NOT VERIFIED';
+  const forwardDetail = family
+    ? `${legacyTrades}/20 XRP champion · ${newForwardEnrolled} new lane${newForwardEnrolled === 1 ? '' : 's'} enrolled`
+    : researchForward
+      ? `${newForwardEnrolled} enrolled · ${newNextStage} next-stage eligible · no backfill`
+      : 'no verified forward evidence';
 
   const risk = truth.data?.execution?.globalRisk ?? truth.data?.globalRisk ?? null;
   const riskBand = risk?.band ?? 'NOT VERIFIED';
@@ -126,16 +149,24 @@ export function ProfitEngineRail({ onOpen }: { onOpen: (view: ProfitView) => voi
           onClick={() => onOpen('research')}
         />
         <Gate
+          icon={<TestTube2 size={15} />}
+          label="3 · AUDIT"
+          value={auditValue}
+          detail={auditDetail}
+          state={auditState}
+          onClick={() => onOpen('research')}
+        />
+        <Gate
           icon={<Radar size={15} />}
-          label="3 · FORWARD"
-          value={family ? shortChampion(family.championId) : 'NOT VERIFIED'}
-          detail={family ? `${forwardTrades} / 20 new trades · ${family.forwardGate.replaceAll('_', ' ')}` : 'no verified forward family'}
+          label="4 · FORWARD"
+          value={forwardValue}
+          detail={forwardDetail}
           state={forwardState}
           onClick={() => onOpen('strategies')}
         />
         <Gate
           icon={<ShieldAlert size={15} />}
-          label="4 · RISK"
+          label="5 · RISK"
           value={riskBand.replaceAll('_', ' ')}
           detail={activeFlags.length ? `${activeFlags.length} active blocker${activeFlags.length === 1 ? '' : 's'}` : riskClear ? 'no active blockers' : 'risk evidence incomplete'}
           state={riskState}
@@ -143,7 +174,7 @@ export function ProfitEngineRail({ onOpen }: { onOpen: (view: ProfitView) => voi
         />
         <Gate
           icon={<BarChart3 size={15} />}
-          label="5 · TRUTH"
+          label="6 · TRUTH"
           value={truthReady ? formatMoney(economicPnl) : 'NOT VERIFIED'}
           detail="economic P&L · Truth Ledger v2"
           state={profitProven ? 'ready' : truthReady ? 'watch' : 'blocked'}
@@ -151,9 +182,9 @@ export function ProfitEngineRail({ onOpen }: { onOpen: (view: ProfitView) => voi
         />
         <Gate
           icon={<LockKeyhole size={15} />}
-          label="6 · CAPITAL"
+          label="7 · CAPITAL"
           value={cutoverLocked ? 'LOCKED' : 'NOT VERIFIED'}
-          detail="human approval + evidence gates required"
+          detail="positive evidence + risk gates + human cutover required"
           state="blocked"
           onClick={() => onOpen('risk')}
         />
