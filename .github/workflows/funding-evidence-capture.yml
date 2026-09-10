@@ -1,0 +1,137 @@
+# RESEARCH_ONLY BTC-USDT perpetual funding/premium evidence.
+# Public read-only OKX endpoints only. Never places orders or changes trading gates.
+name: funding-evidence-capture
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - .github/workflows/funding-evidence-capture.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: funding-evidence-capture
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: code
+        uses: actions/checkout@v4
+
+      - name: tape
+        uses: actions/checkout@v4
+        with:
+          ref: capture-tape
+          path: tape
+
+      - name: capture and validate public OKX funding context
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p tape/paper-tape
+          local_before=$(date +%s%3N)
+          clock=$(curl --fail --silent --show-error --max-time 15 'https://www.okx.com/api/v5/public/time')
+          funding=$(curl --fail --silent --show-error --max-time 15 'https://www.okx.com/api/v5/public/funding-rate?instId=BTC-USDT-SWAP')
+          local_after=$(date +%s%3N)
+          LOCAL_BEFORE="$local_before" LOCAL_AFTER="$local_after" CLOCK="$clock" FUNDING="$funding" node <<'NODE'
+          const fs = require('node:fs');
+          const clock = JSON.parse(process.env.CLOCK);
+          const body = JSON.parse(process.env.FUNDING);
+          const exchangeMs = Number(clock?.data?.[0]?.ts);
+          const row = body?.data?.find(x => x?.instId === 'BTC-USDT-SWAP');
+          const sourceMs = Number(row?.ts);
+          const fundingTimeMs = Number(row?.fundingTime);
+          const nextFundingTimeMs = Number(row?.nextFundingTime);
+          const fundingRate = Number(row?.fundingRate);
+          const premium = Number(row?.premium);
+          const interestRate = Number(row?.interestRate);
+          const minFundingRate = Number(row?.minFundingRate);
+          const maxFundingRate = Number(row?.maxFundingRate);
+          const settledFundingRate = row?.settFundingRate === '' ? null : Number(row?.settFundingRate);
+          const before = Number(process.env.LOCAL_BEFORE);
+          const after = Number(process.env.LOCAL_AFTER);
+          if (String(clock?.code) !== '0' || !Number.isFinite(exchangeMs)) throw new Error('Invalid OKX public time response');
+          if (String(body?.code) !== '0' || !row) throw new Error(`Invalid OKX funding response: ${body?.code ?? 'unknown'} ${body?.msg ?? ''}`.trim());
+          if (row.instType !== 'SWAP') throw new Error(`Unexpected instType ${row.instType}`);
+          if (![sourceMs, fundingTimeMs, nextFundingTimeMs, fundingRate, premium, interestRate, minFundingRate, maxFundingRate].every(Number.isFinite)) {
+            throw new Error('Non-finite required funding fields');
+          }
+          if (settledFundingRate !== null && !Number.isFinite(settledFundingRate)) throw new Error('Invalid settled funding rate');
+          if (minFundingRate > fundingRate || fundingRate > maxFundingRate) throw new Error('Funding rate outside exchange-advertised bounds');
+          const localMidpointMs = Math.round((before + after) / 2);
+          const clockSkewMs = localMidpointMs - exchangeMs;
+          const sourceAgeMs = exchangeMs - sourceMs;
+          const maxAbsClockSkewMs = 5_000;
+          const maxSourceAgeMs = 30_000;
+          if (Math.abs(clockSkewMs) > maxAbsClockSkewMs) throw new Error(`Runner/OKX clock skew ${clockSkewMs}ms exceeds ${maxAbsClockSkewMs}ms`);
+          if (sourceAgeMs < -5_000 || sourceAgeMs > maxSourceAgeMs) throw new Error(`Funding source age ${sourceAgeMs}ms outside accepted freshness window`);
+          if (nextFundingTimeMs <= fundingTimeMs) throw new Error('Invalid funding schedule ordering');
+          const payload = {
+            schemaVersion: 1,
+            mode: 'RESEARCH_ONLY',
+            provider: 'okx_public_data',
+            instrument: 'BTC-USDT-SWAP',
+            capturedAt: new Date(after).toISOString(),
+            sourceAsOf: new Date(sourceMs).toISOString(),
+            features: {
+              fundingRate,
+              premium,
+              interestRate,
+              settledFundingRate,
+              fundingTime: new Date(fundingTimeMs).toISOString(),
+              nextFundingTime: new Date(nextFundingTimeMs).toISOString(),
+              minFundingRate,
+              maxFundingRate,
+            },
+            quality: {
+              available: true,
+              sourceAgeMs,
+              maxSourceAgeMs,
+              runnerVsExchangeClockSkewMs: clockSkewMs,
+              maxAbsClockSkewMs,
+              pass: true,
+            },
+            provenance: {
+              endpoint: 'https://www.okx.com/api/v5/public/funding-rate',
+              request: { instId: 'BTC-USDT-SWAP' },
+              clockEndpoint: 'https://www.okx.com/api/v5/public/time',
+              fields: ['fundingRate','premium','interestRate','settFundingRate','fundingTime','nextFundingTime','minFundingRate','maxFundingRate','ts'],
+              securityType: 'PUBLIC_READ_ONLY_NO_API_KEY',
+              policy: 'EXACT_INSTRUMENT_FINITE_FIELDS_EXCHANGE_BOUNDS_VALID_SCHEDULE_TIMESTAMP_MAX_30S_AGE_RUNNER_CLOCK_SKEW_MAX_5S',
+            },
+            researchUse: 'OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING_NOT_FOR_HOLDOUT_TUNING',
+            paperBoundary: 'PAPER_RESEARCH_ONLY_NO_ORDER_PATH',
+          };
+          const latest = 'tape/paper-tape/funding-latest.json';
+          const jsonl = 'tape/paper-tape/funding.jsonl';
+          fs.writeFileSync(latest, `${JSON.stringify(payload, null, 2)}\n`);
+          let duplicate = false;
+          try {
+            const last = fs.readFileSync(jsonl, 'utf8').trim().split('\n').at(-1);
+            duplicate = Boolean(last && JSON.parse(last).sourceAsOf === payload.sourceAsOf);
+          } catch { /* first capture */ }
+          if (!duplicate) fs.appendFileSync(jsonl, `${JSON.stringify(payload)}\n`);
+          console.log(JSON.stringify(payload));
+          NODE
+
+      - name: publish durable evidence
+        working-directory: tape
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "genesis-capture"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f paper-tape/funding-latest.json paper-tape/funding.jsonl
+          if git diff --staged --quiet; then
+            echo "no change"
+            exit 0
+          fi
+          git commit -m "funding evidence run ${GITHUB_RUN_ID}"
+          git pull --rebase origin capture-tape
+          git push
