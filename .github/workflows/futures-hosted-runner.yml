@@ -1,13 +1,13 @@
 name: Hosted Futures Runner
 
-# Ticks the Supabase genesis-runner edge function every 5 min.
-# NEVER fails the job on a non-2xx response — a transient 503/timeout from
-# the edge function must not spam the repo owner with "workflow failed"
-# emails. The status is logged for visibility instead.
+# Manual recovery probe only.
+# The canonical hosted futures schedule lives in Supabase pg_cron and calls
+# genesis-futures-runner. Keeping a second 5-minute GitHub schedule here caused
+# duplicate Edge invocations and unnecessary egress. Use workflow_dispatch only
+# when an operator wants to probe the legacy genesis-runner endpoint explicitly.
+# No live order authority is granted by this workflow.
 
 on:
-  schedule:
-    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -21,11 +21,11 @@ env:
   GENESIS_RUNNER_TOKEN: ${{ secrets.GENESIS_RUNNER_TOKEN }}
 
 jobs:
-  futures-tick:
+  recovery-probe:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Run Supabase hosted futures tick
+      - name: Probe legacy Supabase runner
         run: |
           RESP=$(curl --silent --show-error --max-time 25 \
             -H "x-genesis-runner-token: $GENESIS_RUNNER_TOKEN" \
@@ -35,5 +35,8 @@ jobs:
           BODY=$(echo "$RESP" | sed '$d')
           echo "genesis-runner status: $STATUS"
           echo "body: $BODY"
-          # Always succeed — never email the owner over a transient backend error.
+          if [ "$STATUS" = "402" ]; then
+            echo "::warning::Supabase Edge is restricted by project egress quota. Canonical paper capture remains separate; do not infer runner liveness from this probe."
+          fi
+          # A recovery probe never changes trading authority and does not page the owner.
           exit 0

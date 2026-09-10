@@ -27,6 +27,11 @@ export interface RunnerTrade {
   tradeType: string | null;
   leverage: number | null;
   capitalUsed: number | null;
+  strategyVersionId?: string | null;
+  entryRegime?: string | null;
+  entrySession?: string | null;
+  runnerVersion?: string | null;
+  validationStatus?: string | null;
 }
 
 export interface SystemTruth {

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - research/binance-vision-oi
+      - feat/genesis-life-os
     paths:
       - research/cta_futures_native_v2.py
       - research/cta_futures_native_v2_manifest.json
@@ -11,7 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
@@ -19,6 +20,12 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+
+      - name: Checkout durable capture tape
+        uses: actions/checkout@v4
+        with:
+          ref: capture-tape
+          path: capture-tape
 
       - uses: actions/setup-python@v5
         with:
@@ -100,3 +107,62 @@ jobs:
               print('ILLEGAL_AUTHORITY_ESCALATION')
               sys.exit(4)
           PY
+
+      - name: Persist compact verdict to capture tape
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os, pathlib, shutil
+          src = pathlib.Path('evidence-cta-v2')
+          report_path = src / 'cta_futures_native_v2_report.json'
+          out = pathlib.Path('capture-tape/research-tape/cta-futures-native-v2')
+          out.mkdir(parents=True, exist_ok=True)
+          sha = os.environ.get('GITHUB_SHA', 'unknown')
+          run_id = os.environ.get('GITHUB_RUN_ID', 'unknown')
+          if report_path.exists():
+              report = json.loads(report_path.read_text())
+              durable = {
+                  'schemaVersion': 1,
+                  'researchOnly': True,
+                  'paperOnly': True,
+                  'sourceCommit': sha,
+                  'workflowRunId': run_id,
+                  'engineVersion': report.get('engineVersion'),
+                  'strategyVersion': report.get('strategyVersion'),
+                  'proposalId': report.get('proposalId'),
+                  'hypothesisFingerprint': report.get('hypothesisFingerprint'),
+                  'verdict': report.get('verdict'),
+                  'validation': report.get('validation'),
+                  'validationGate': report.get('validationGate'),
+                  'holdoutState': report.get('holdoutState'),
+                  'holdout': report.get('holdout'),
+                  'executionAuthority': report.get('executionAuthority'),
+                  'capitalEligible': report.get('capitalEligible'),
+                  'liveOrders': report.get('liveOrders'),
+                  'sourceEvidenceHashSha256': report.get('sourceEvidenceHashSha256'),
+                  'coverage': report.get('coverage'),
+              }
+              payload = json.dumps(durable, indent=2, sort_keys=True) + '\n'
+              (out / 'latest.json').write_text(payload)
+              (out / f'{sha}.json').write_text(payload)
+              with (out / 'history.jsonl').open('a') as f:
+                  f.write(json.dumps(durable, sort_keys=True) + '\n')
+          for name in ('provenance.log', 'SHA256SUMS'):
+              p = src / name
+              if p.exists():
+                  shutil.copyfile(p, out / f'{sha}-{name}')
+          PY
+          cd capture-tape
+          git config user.name "genesis-research"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f research-tape/cta-futures-native-v2/
+          if git diff --staged --quiet; then
+            echo "no durable verdict change"
+            exit 0
+          fi
+          git commit -m "research verdict ${GITHUB_SHA:0:12}"
+          # capture-tape is append-heavy and may advance while this run computes.
+          # Rebase our isolated evidence commit before push instead of losing the verdict.
+          git pull --rebase origin capture-tape
+          git push origin HEAD:capture-tape

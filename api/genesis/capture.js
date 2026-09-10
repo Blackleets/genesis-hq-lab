@@ -23,6 +23,7 @@ const CONC = 8;
 const TAPE_URL = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/capture-tape/paper-tape/capture-latest.json';
 const HZ1_URL = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/capture-tape/paper-tape/hz1-latest.json';
 const FUNDING_URL = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/capture-tape/paper-tape/funding-latest.json';
+const AGENT_SWARM_URL = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/capture-tape/paper-tape/agent-swarm-latest.json';
 
 async function loadHz1() {
   try {
@@ -47,24 +48,35 @@ async function loadHz1() {
   }
 }
 
+function finiteNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
 async function loadFunding() {
   try {
     const r = await fetch(FUNDING_URL, { cache: 'no-store', signal: AbortSignal.timeout(2500) });
     if (!r.ok) return null;
     const j = await r.json();
-    if (!j || j.paper !== true) return null;
+    if (!j || j.paper !== true || j.liveOff === false || j.go === true) return null;
     const holds = Array.isArray(j.holds) ? j.holds.slice(0, 8).map((h) => ({
       instId: h.instId,
       side: h.side,
-      predictedBps: h.predictedBps,
-      lastRealizedBps: h.lastRealizedBps,
-      nextFundingTime: h.nextFundingTime,
-      realizedFundingUsdt: h.realizedFundingUsdt,
-      mtmUsdt: h.mtmUsdt,
+      predictedBps: finiteNumber(h.predictedBps),
+      lastRealizedBps: finiteNumber(h.lastRealizedBps),
+      meanFundingBps: finiteNumber(h.meanFundingBps),
+      nextFundingTime: finiteNumber(h.nextFundingTime),
+      expectedSettles: finiteNumber(h.expectedSettles),
+      settledCount: finiteNumber(h.settledCount),
+      projectedGrossFundingBps: finiteNumber(h.projectedGrossFundingBps),
+      projectedExecutionCostBps: finiteNumber(h.projectedExecutionCostBps),
+      projectedNetEdgeBps: finiteNumber(h.projectedNetEdgeBps),
+      economicsGate: typeof h.economicsGate === 'string' ? h.economicsGate : null,
+      realizedFundingUsdt: finiteNumber(h.realizedFundingUsdt),
+      mtmUsdt: finiteNumber(h.mtmUsdt),
       halt: !!h.halt,
     })) : [];
-    // closed[] is required for Truth Ledger v2. Legacy snapshots did not expose
-    // realizedPricePnlUsdt at top level, so the API reconstructs it from closes.
     const closed = Array.isArray(j.closed) ? j.closed.map((h) => ({
       instId: h.instId,
       side: h.side,
@@ -77,14 +89,30 @@ async function loadFunding() {
       realizedPricePnlUsdt: h.realizedPricePnlUsdt,
       realizedFundingUsdt: h.realizedFundingUsdt,
       mtmUsdt: h.mtmUsdt,
+      settledCount: h.settledCount,
+      expectedSettles: h.expectedSettles,
+      projectedNetEdgeBps: h.projectedNetEdgeBps,
+      economicsGate: h.economicsGate,
       haltReason: h.haltReason,
       closedTs: h.closedTs,
     })) : [];
-    const settledCount = Number.isFinite(+j.settledCount) ? +j.settledCount : 0;
-    const realizedFundingUsdt = Number.isFinite(+j.realizedFundingUsdt) ? +j.realizedFundingUsdt : 0;
-    const mtmUsdt = Number.isFinite(+j.mtmUsdt) ? +j.mtmUsdt : 0;
-    const feesUsdt = Number.isFinite(+j.feesUsdt) ? +j.feesUsdt : 0;
-    const capital = Number.isFinite(+j.capital) ? +j.capital : 10000;
+    const settledCount = finiteNumber(j.settledCount) ?? 0;
+    const realizedFundingUsdt = finiteNumber(j.realizedFundingUsdt) ?? 0;
+    const mtmUsdt = finiteNumber(j.mtmUsdt) ?? 0;
+    const feesUsdt = finiteNumber(j.feesUsdt) ?? 0;
+    const capital = finiteNumber(j.capital) ?? 10000;
+    const rawPolicy = j.unitEconomicsPolicy && typeof j.unitEconomicsPolicy === 'object' ? j.unitEconomicsPolicy : null;
+    const unitEconomicsPolicy = rawPolicy ? {
+      version: typeof rawPolicy.version === 'string' ? rawPolicy.version : 'UNVERIFIED',
+      roundTripFeeBps: finiteNumber(rawPolicy.roundTripFeeBps),
+      expectedSettles: finiteNumber(rawPolicy.expectedSettles),
+      executionBufferBps: finiteNumber(rawPolicy.executionBufferBps),
+      minimumNetEdgeBps: finiteNumber(rawPolicy.minimumNetEdgeBps),
+      ranking: typeof rawPolicy.ranking === 'string' ? rawPolicy.ranking : null,
+      exitAfterTargetSettles: rawPolicy.exitAfterTargetSettles === true,
+      realizedExitUsesExecutableQuote: rawPolicy.realizedExitUsesExecutableQuote === true,
+      realizedPricePnlPersisted: rawPolicy.realizedPricePnlPersisted === true,
+    } : null;
     const scorecard = buildFundingScorecard({
       paper: true,
       liveOff: true,
@@ -113,6 +141,9 @@ async function loadFunding() {
       closedCount: perf.closedCount,
       ledgerVersion: perf.ledgerVersion,
       holds,
+      unitEconomicsPolicy,
+      feeLock: j.feeLock === true,
+      feeLockReason: typeof j.feeLockReason === 'string' ? j.feeLockReason : null,
       liveOff: true,
       go: false,
       scorecard,
@@ -138,6 +169,90 @@ async function loadTape() {
       quotedNames: names,
       liveOff: true,
       go: false,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function clipSwarmText(value, max = 2600) {
+  const text = typeof value === 'string' ? value.trim() : '';
+  if (!text) return null;
+  return text.length <= max ? text : `${text.slice(0, max)}…`;
+}
+
+async function loadAgentSwarm() {
+  try {
+    const r = await fetch(AGENT_SWARM_URL, { cache: 'no-store', signal: AbortSignal.timeout(2500) });
+    if (!r.ok) return null;
+    const j = await r.json();
+    const boundaryVerified = j?.paperOnly === true
+      && j?.liveOrders === false
+      && j?.executionAuthority === false
+      && j?.capitalEligible === false;
+    if (!boundaryVerified) return null;
+    const agents = Array.isArray(j.agents) ? j.agents.slice(0, 8).map((agent) => ({
+      id: typeof agent?.id === 'string' ? agent.id : 'unknown',
+      name: typeof agent?.name === 'string' ? agent.name : 'Unknown',
+      role: typeof agent?.role === 'string' ? agent.role : 'UNAVAILABLE',
+      status: typeof agent?.status === 'string' ? agent.status : 'unavailable',
+      engine: agent?.engine === 'llm' ? 'llm' : 'deterministic_guardrail',
+      provider: typeof agent?.provider === 'string' ? agent.provider : null,
+      model: typeof agent?.model === 'string' ? agent.model : null,
+      tokens: {
+        in: Number.isFinite(Number(agent?.tokens?.in)) ? Number(agent.tokens.in) : 0,
+        out: Number.isFinite(Number(agent?.tokens?.out)) ? Number(agent.tokens.out) : 0,
+      },
+      startedAt: typeof agent?.startedAt === 'string' ? agent.startedAt : null,
+      completedAt: typeof agent?.completedAt === 'string' ? agent.completedAt : null,
+      output: clipSwarmText(agent?.output),
+      error: clipSwarmText(agent?.error, 500),
+    })) : [];
+    const capture = j?.evidence?.capture ?? {};
+    const funding = j?.evidence?.funding ?? {};
+    return {
+      ok: true,
+      version: typeof j.version === 'string' ? j.version : 'unavailable',
+      updatedAt: typeof j.ts === 'string' ? j.ts : null,
+      paperOnly: true,
+      liveOrders: false,
+      executionAuthority: false,
+      capitalEligible: false,
+      source: 'github_capture_tape',
+      llmProvider: typeof j.llmProvider === 'string' ? j.llmProvider : null,
+      llmActive: j.llmActive === true,
+      providerConfigured: j.providerConfigured === true,
+      agents,
+      totals: {
+        agents: Number.isFinite(Number(j?.totals?.agents)) ? Number(j.totals.agents) : agents.length,
+        completedLlm: Number.isFinite(Number(j?.totals?.completedLlm)) ? Number(j.totals.completedLlm) : agents.filter((agent) => agent.engine === 'llm').length,
+        fallback: Number.isFinite(Number(j?.totals?.fallback)) ? Number(j.totals.fallback) : agents.filter((agent) => agent.engine !== 'llm').length,
+        tokens: {
+          in: Number.isFinite(Number(j?.totals?.tokens?.in)) ? Number(j.totals.tokens.in) : 0,
+          out: Number.isFinite(Number(j?.totals?.tokens?.out)) ? Number(j.totals.tokens.out) : 0,
+        },
+      },
+      final: {
+        verdict: typeof j?.final?.verdict === 'string' ? j.final.verdict : 'UNAVAILABLE',
+        blockers: Array.isArray(j?.final?.blockers) ? j.final.blockers.filter((item) => typeof item === 'string').slice(0, 8) : [],
+      },
+      evidence: {
+        capture: {
+          ts: capture.ts ?? null,
+          venue: capture.venue ?? null,
+          scored: Number.isFinite(Number(capture.scored)) ? Number(capture.scored) : null,
+          quoted: Number.isFinite(Number(capture.quoted)) ? Number(capture.quoted) : null,
+          reasons: Array.isArray(capture.reasons) ? capture.reasons.slice(0, 6) : [],
+        },
+        funding: {
+          ts: funding.ts ?? null,
+          economicPnlUsdt: Number.isFinite(Number(funding.economicPnlUsdt)) ? Number(funding.economicPnlUsdt) : null,
+          equityUsdt: Number.isFinite(Number(funding.equityUsdt)) ? Number(funding.equityUsdt) : null,
+          feesUsdt: Number.isFinite(Number(funding.feesUsdt)) ? Number(funding.feesUsdt) : null,
+          feeLock: funding.feeLock === true,
+          feeLockReason: typeof funding.feeLockReason === 'string' ? funding.feeLockReason : null,
+        },
+      },
     };
   } catch {
     return null;
@@ -240,6 +355,21 @@ function pendingRow(u) {
 export default async function handler(req, res) {
   if (req.method !== 'GET') return sendMethodNotAllowed(res);
   const url = new URL(req.url, `http://${req.headers.host}`);
+  if (url.searchParams.get('view') === 'agent-swarm') {
+    const agentSwarm = await loadAgentSwarm();
+    return sendJson(res, 200, agentSwarm ?? {
+      ok: false,
+      updatedAt: null,
+      paperOnly: true,
+      liveOrders: false,
+      executionAuthority: false,
+      capitalEligible: false,
+      source: 'github_capture_tape',
+      agents: [],
+      final: { verdict: 'UNAVAILABLE', blockers: [] },
+      error: 'paper_swarm_unavailable',
+    });
+  }
   const limit = clampLimit(url.searchParams.get('limit'));
   const emptyLedger = {
     paperBalanceUSDT: PAPER_CAPITAL,

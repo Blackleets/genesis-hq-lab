@@ -1,0 +1,65 @@
+name: positioning-edge-factory
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - .github/workflows/positioning-edge-factory.yml
+      - server/research/runPositioningEdgeFactory.mjs
+      - server/tests/positioningEdgeFactory.test.mjs
+
+permissions:
+  contents: write
+
+concurrency:
+  group: positioning-edge-factory
+  cancel-in-progress: true
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: code
+        uses: actions/checkout@v4
+      - name: tape
+        uses: actions/checkout@v4
+        with:
+          ref: capture-tape
+          path: tape
+      - name: Configure Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Test positioning edge gates
+        run: node --test server/tests/positioningEdgeFactory.test.mjs
+      - name: Run positioning edge factory
+        run: |
+          node server/research/runPositioningEdgeFactory.mjs \
+            --input tape/paper-tape/positioning-dynamics.jsonl \
+            --quality tape/paper-tape/positioning-data-quality-latest.json \
+            --out tape/quant-evidence/positioning-edge-factory-latest.json
+      - name: Assert PAPER boundary
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const x=JSON.parse(fs.readFileSync('tape/quant-evidence/positioning-edge-factory-latest.json','utf8'));
+          if(x.mode!=='RESEARCH_ONLY'||x.paperOnly!==true||x.liveOrders!==false||x.executionAuthority!==false||x.capitalEligible!==false) throw new Error('capital boundary violated');
+          if(x.methodology?.selectionUsesHoldout!==false||x.methodology?.holdoutSealed!==true) throw new Error('holdout boundary violated');
+          NODE
+      - name: Publish research evidence
+        working-directory: tape
+        shell: bash
+        run: |
+          git config user.name "genesis-positioning-research"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f quant-evidence/positioning-edge-factory-latest.json
+          if git diff --staged --quiet; then echo "no change"; exit 0; fi
+          git commit -m "positioning edge research $(date -u +%Y-%m-%dT%H:%MZ)"
+          for attempt in 1 2 3; do
+            git pull --rebase origin capture-tape
+            if git push origin HEAD:capture-tape; then exit 0; fi
+            sleep $((attempt*2))
+          done
+          exit 1

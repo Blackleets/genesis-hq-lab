@@ -27,7 +27,7 @@ export async function fetchFounderSnapshot(signal?: AbortSignal, sameOrigin = fa
   // explicitly uses the deployed same-origin function so it cannot drift to a
   // different backend account through VITE_API_BASE.
   const endpoint = sameOrigin ? '/api/genesis/founder' : apiUrl('/api/genesis/founder');
-  const res = await fetch(endpoint, { cache: 'no-store', credentials: 'omit', signal });
+  const res = await fetch(endpoint, { cache: 'no-store', credentials: sameOrigin ? 'same-origin' : 'omit', signal });
   if (!res.ok) throw new Error('Founder readiness unavailable');
   const data = await res.json() as FounderSnapshot;
   if (data?.ok !== true || !['BLOCKED', 'READY_FOR_EXTERNAL_CUTOVER'].includes(data.readiness)

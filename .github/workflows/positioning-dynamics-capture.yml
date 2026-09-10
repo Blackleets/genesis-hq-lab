@@ -1,0 +1,82 @@
+# RESEARCH_ONLY synchronized BTCUSDT derivatives-positioning evidence.
+# Public read-only market data. Never places orders or changes trading gates.
+# Scheduled market capture is owned by paper-capture-harvest to avoid duplicate/overlapping samples.
+name: positioning-dynamics-capture
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - .github/workflows/positioning-dynamics-capture.yml
+      - server/genesis/positioningDynamicsCapture.mjs
+      - server/genesis/okxFixedWindowTaker.mjs
+      - server/genesis/derivativesContext.mjs
+      - server/research/positioningDataQualityAudit.mjs
+      - server/tests/positioningDynamicsCapture.test.mjs
+      - server/tests/okxFixedWindowTaker.test.mjs
+      - server/tests/derivativesContext.test.mjs
+      - server/tests/positioningDataQualityAudit.test.mjs
+
+permissions:
+  contents: write
+
+concurrency:
+  group: positioning-dynamics-capture
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: code
+        uses: actions/checkout@v4
+      - name: tape
+        if: github.event_name != 'push'
+        uses: actions/checkout@v4
+        with:
+          ref: capture-tape
+          path: tape
+      - name: verify causal capture, fixed-window taker and evidence-quality discipline
+        run: node --test server/tests/positioningDynamicsCapture.test.mjs server/tests/okxFixedWindowTaker.test.mjs server/tests/derivativesContext.test.mjs server/tests/positioningDataQualityAudit.test.mjs
+      - name: capture synchronized closed-price + funding + OI + fixed-window taker evidence
+        if: github.event_name != 'push'
+        run: node server/genesis/positioningDynamicsCapture.mjs --symbol BTCUSDT --out tape/paper-tape/positioning-dynamics-latest.json --jsonl tape/paper-tape/positioning-dynamics.jsonl
+      - name: audit effective independent positioning evidence
+        if: github.event_name != 'push'
+        run: node server/research/positioningDataQualityAudit.mjs --input tape/paper-tape/positioning-dynamics.jsonl --out tape/paper-tape/positioning-data-quality-latest.json
+      - name: assert RESEARCH_ONLY boundary
+        if: github.event_name != 'push'
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const x = JSON.parse(fs.readFileSync('tape/paper-tape/positioning-dynamics-latest.json', 'utf8'));
+          const q = JSON.parse(fs.readFileSync('tape/paper-tape/positioning-data-quality-latest.json', 'utf8'));
+          if (x.mode !== 'RESEARCH_ONLY') throw new Error('mode must remain RESEARCH_ONLY');
+          if (x.researchUse !== 'OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING') throw new Error('ranking boundary missing');
+          if (!x.provenance?.closedPriceBarOnly) throw new Error('causal closed-bar provenance missing');
+          if (!x.provenance?.fixedWindowTakerFlow) throw new Error('fixed-window taker provenance missing');
+          if (x.positioning?.takerWindowMs !== 60000) throw new Error('taker window must remain fixed at one minute');
+          if (!(x.positioning?.takerWindowCoverageMs >= 54000)) throw new Error('taker window coverage below 90%');
+          if (q.mode !== 'RESEARCH_ONLY') throw new Error('quality audit must remain RESEARCH_ONLY');
+          if (q.researchUse !== 'DATA_QUALITY_ONLY_NOT_FOR_RANKING') throw new Error('quality audit ranking boundary missing');
+          if (q.boundaries?.holdoutUsedForRanking !== false) throw new Error('holdout ranking boundary violated');
+          if (q.boundaries?.liveTradingEnabled !== false || q.boundaries?.realOrdersPlaced !== false) throw new Error('live boundary violated');
+          NODE
+      - name: publish durable evidence
+        if: github.event_name != 'push'
+        working-directory: tape
+        shell: bash
+        run: |
+          git config user.name "genesis-capture"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f paper-tape/positioning-dynamics-latest.json paper-tape/positioning-dynamics.jsonl paper-tape/positioning-data-quality-latest.json
+          if git diff --staged --quiet; then
+            echo "no change"
+            exit 0
+          fi
+          git commit -m "positioning dynamics capture $(date -u +%Y-%m-%dT%H:%MZ)"
+          git pull --rebase origin capture-tape
+          git push

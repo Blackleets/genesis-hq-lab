@@ -1,0 +1,67 @@
+name: Forward Paper Research
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - 'server/genesis/runForwardPaperResearch.mjs'
+      - '.github/workflows/forward-paper-research.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: forward-paper-research-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  forward-paper:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout Genesis HQ
+        uses: actions/checkout@v4
+      - name: Checkout durable evidence tape
+        uses: actions/checkout@v4
+        with:
+          ref: capture-tape
+          path: tape
+      - name: Configure Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Run forward paper shadow
+        run: |
+          node server/genesis/runForwardPaperResearch.mjs \
+            --audit tape/quant-evidence/edge-audit-latest.json \
+            --audit-ledger tape/quant-evidence/edge-audit-ledger.json \
+            --ledger tape/quant-evidence/forward-paper-ledger.json \
+            --out tape/quant-evidence/forward-paper-latest.json \
+            --history tape/quant-evidence/forward-paper-history.jsonl
+      - name: Verify capital boundary
+        run: |
+          node -e "for (const p of ['./tape/quant-evidence/forward-paper-ledger.json','./tape/quant-evidence/forward-paper-latest.json']) { const x=require(p); if(x.paperOnly!==true||x.liveOrders!==false||x.executionAuthority!==false||x.capitalEligible!==false) process.exit(1) }"
+      - name: Publish forward paper evidence
+        working-directory: tape
+        run: |
+          git config user.name "genesis-forward-paper"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f quant-evidence/forward-paper-ledger.json quant-evidence/forward-paper-latest.json quant-evidence/forward-paper-history.jsonl
+          if git diff --staged --quiet; then
+            echo "no forward paper evidence change"
+            exit 0
+          fi
+          git commit -m "forward paper shadow $(date -u +%Y-%m-%dT%H:%MZ)"
+          for attempt in 1 2 3; do
+            git pull --rebase origin capture-tape
+            if git push origin HEAD:capture-tape; then
+              exit 0
+            fi
+            echo "capture-tape advanced during forward publish; retry ${attempt}/3"
+            sleep $((attempt * 2))
+          done
+          echo "failed to publish forward paper evidence after retries"
+          exit 1

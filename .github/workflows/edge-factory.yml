@@ -1,0 +1,105 @@
+name: Edge Factory
+
+on:
+  schedule:
+    - cron: '43 */6 * * *'
+  workflow_dispatch:
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - 'server/genesis/runEdgeFactoryFast.mjs'
+      - 'server/genesis/generateEdgeHypotheses.mjs'
+      - 'server/genesis/runAdaptiveEdgeLoop.mjs'
+      - 'server/genesis/runEdgeOneShotAudit.mjs'
+      - 'server/genesis/updateDeepLearningLedger.mjs'
+      - '.github/workflows/edge-factory.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: edge-factory-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout Genesis HQ
+        uses: actions/checkout@v4
+      - name: Checkout durable evidence tape
+        uses: actions/checkout@v4
+        with:
+          ref: capture-tape
+          path: tape
+      - name: Configure Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Test previous adaptive hypothesis queue
+        env:
+          GENESIS_EDGE_BARS: 12000
+        run: |
+          node server/genesis/runAdaptiveEdgeLoop.mjs \
+            --queue tape/quant-evidence/edge-hypotheses-latest.json \
+            --out tape/quant-evidence/edge-adaptive-latest.json \
+            --history tape/quant-evidence/edge-adaptive-history.jsonl
+      - name: Persist deep learning
+        run: |
+          node server/genesis/updateDeepLearningLedger.mjs \
+            --adaptive tape/quant-evidence/edge-adaptive-latest.json \
+            --queue tape/quant-evidence/edge-hypotheses-latest.json \
+            --audit-ledger tape/quant-evidence/edge-audit-ledger.json \
+            --ledger tape/quant-evidence/edge-deep-learning-ledger.json
+      - name: One-shot audit new research candidates
+        env:
+          GENESIS_EDGE_BARS: 12000
+        run: |
+          node server/genesis/runEdgeOneShotAudit.mjs \
+            --adaptive tape/quant-evidence/edge-adaptive-latest.json \
+            --ledger tape/quant-evidence/edge-audit-ledger.json \
+            --out tape/quant-evidence/edge-audit-latest.json \
+            --history tape/quant-evidence/edge-audit-history.jsonl
+      - name: Run fast selective edge factory
+        run: |
+          node server/genesis/runEdgeFactoryFast.mjs \
+            --out tape/quant-evidence/edge-factory-latest.json \
+            --history tape/quant-evidence/edge-factory-history.jsonl \
+            --learning tape/quant-evidence/edge-learning-latest.json \
+            --learning-history tape/quant-evidence/edge-learning-history.jsonl
+      - name: Generate next independent hypotheses from learning
+        run: |
+          node server/genesis/generateEdgeHypotheses.mjs \
+            --edge tape/quant-evidence/edge-factory-latest.json \
+            --learning tape/quant-evidence/edge-learning-latest.json \
+            --adaptive tape/quant-evidence/edge-adaptive-latest.json \
+            --deep-ledger tape/quant-evidence/edge-deep-learning-ledger.json \
+            --audit-ledger tape/quant-evidence/edge-audit-ledger.json \
+            --forward tape/quant-evidence/forward-paper-latest.json \
+            --out tape/quant-evidence/edge-hypotheses-latest.json \
+            --history tape/quant-evidence/edge-hypotheses-history.jsonl
+      - name: Verify capital boundary
+        run: |
+          node -e "for (const p of ['./tape/quant-evidence/edge-adaptive-latest.json','./tape/quant-evidence/edge-audit-latest.json','./tape/quant-evidence/edge-deep-learning-ledger.json','./tape/quant-evidence/edge-factory-latest.json','./tape/quant-evidence/edge-learning-latest.json','./tape/quant-evidence/edge-hypotheses-latest.json']) { const x=require(p); if(x.paperOnly!==true||x.liveOrders!==false||x.executionAuthority!==false||x.capitalEligible!==false) process.exit(1) }"
+      - name: Publish edge evidence
+        working-directory: tape
+        run: |
+          git config user.name "genesis-edge-factory"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f quant-evidence/edge-adaptive-latest.json quant-evidence/edge-adaptive-history.jsonl quant-evidence/edge-audit-latest.json quant-evidence/edge-audit-history.jsonl quant-evidence/edge-audit-ledger.json quant-evidence/edge-deep-learning-ledger.json quant-evidence/edge-factory-latest.json quant-evidence/edge-factory-history.jsonl quant-evidence/edge-learning-latest.json quant-evidence/edge-learning-history.jsonl quant-evidence/edge-hypotheses-latest.json quant-evidence/edge-hypotheses-history.jsonl
+          if git diff --staged --quiet; then
+            echo "no edge evidence change"
+            exit 0
+          fi
+          git commit -m "edge factory durable learning $(date -u +%Y-%m-%dT%H:%MZ)"
+          for attempt in 1 2 3; do
+            git pull --rebase origin capture-tape
+            if git push origin HEAD:capture-tape; then
+              exit 0
+            fi
+            echo "capture-tape advanced during publish; retry ${attempt}/3"
+            sleep $((attempt * 2))
+          done
+          echo "failed to publish edge evidence after retries"
+          exit 1

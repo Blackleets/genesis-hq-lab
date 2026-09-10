@@ -1,13 +1,53 @@
-# Paper-only OKX harvest. Writes to capture-tape (NOT feat/genesis-life-os)
-# so Vercel does not redeploy every tick. Never sends an order.
-# Path is paper-tape/ because /data/ is gitignored.
+# Paper-only OKX harvest plus synchronized RESEARCH_ONLY market-state evidence.
+# Writes to capture-tape (NOT feat/genesis-life-os) so Vercel does not redeploy every tick.
+# Never sends an order. Path is paper-tape/ because /data/ is gitignored.
+# If a market-data host is unavailable, partial evidence fails closed for research.
 name: paper-capture-harvest
+
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - .github/workflows/paper-capture-harvest.yml
+      - server/genesis/fundingHold.mjs
+      - server/genesis/researchStateCapture.mjs
+      - server/genesis/researchProviderProbe.mjs
+      - server/genesis/okxResearchContext.mjs
+      - server/genesis/okxRpiOrderBook.mjs
+      - server/genesis/rpiOrderBookCapture.mjs
+      - server/genesis/positioningDynamicsCapture.mjs
+      - server/genesis/okxFixedWindowTaker.mjs
+      - server/genesis/derivativesContext.mjs
+      - server/research/causalMicrostructureStudy.mjs
+      - server/research/observationIndependenceAudit.mjs
+      - server/research/rpiDepthImbalanceStudy.mjs
+      - server/research/positioningDataQualityAudit.mjs
+      - server/research/runPositioningEdgeFactory.mjs
+      - server/tests/fundingHoldEconomics.test.mjs
+      - server/tests/researchStateCapture.test.mjs
+      - server/tests/researchProviderProbe.test.mjs
+      - server/tests/okxVolatilityShock.test.mjs
+      - server/tests/okxRpiOrderBook.test.mjs
+      - server/tests/rpiOrderBookCapture.test.mjs
+      - server/tests/positioningDynamicsCapture.test.mjs
+      - server/tests/okxFixedWindowTaker.test.mjs
+      - server/tests/derivativesContext.test.mjs
+      - server/tests/positioningDataQualityAudit.test.mjs
+      - server/tests/positioningEdgeFactory.test.mjs
+      - server/tests/causalMicrostructureStudy.test.mjs
+      - server/tests/observationIndependenceAudit.test.mjs
+      - server/tests/rpiDepthImbalanceStudy.test.mjs
+
 permissions:
   contents: write
+
+concurrency:
+  group: paper-capture-harvest
+  cancel-in-progress: true
+
 jobs:
   harvest:
     runs-on: ubuntu-latest
@@ -20,22 +60,114 @@ jobs:
         with:
           ref: capture-tape
           path: tape
+      - name: verify synchronized evidence and funding economics
+        run: node --test server/tests/fundingHoldEconomics.test.mjs server/tests/researchStateCapture.test.mjs server/tests/researchProviderProbe.test.mjs server/tests/okxVolatilityShock.test.mjs server/tests/okxRpiOrderBook.test.mjs server/tests/rpiOrderBookCapture.test.mjs server/tests/positioningDynamicsCapture.test.mjs server/tests/okxFixedWindowTaker.test.mjs server/tests/derivativesContext.test.mjs server/tests/positioningDataQualityAudit.test.mjs server/tests/positioningEdgeFactory.test.mjs server/tests/causalMicrostructureStudy.test.mjs server/tests/observationIndependenceAudit.test.mjs server/tests/rpiDepthImbalanceStudy.test.mjs
+      - name: validate redundant public research routes
+        if: github.event_name != 'push'
+        shell: bash
+        run: |
+          set +e
+          node server/genesis/researchProviderProbe.mjs --out tape/paper-tape/provider-probe-latest.json
+          status=$?
+          set -e
+          if [ "$status" -eq 1 ]; then
+            echo "provider probe crashed"
+            exit 1
+          fi
+          test -s tape/paper-tape/provider-probe-latest.json
+      - name: capture OKX RPI liquidity context
+        if: github.event_name != 'push'
+        run: node server/genesis/rpiOrderBookCapture.mjs --inst BTC-USDT-SWAP --depth 20 --out tape/paper-tape/rpi-orderbook-latest.json --jsonl tape/paper-tape/rpi-orderbook.jsonl
       - name: run paper harvest
+        if: github.event_name != 'push'
         run: node server/genesis/harvestWorker.mjs --once --out tape/paper-tape/capture-latest.json --jsonl tape/paper-tape/capture.jsonl
       - name: run 1Hz paper tick
+        if: github.event_name != 'push'
         run: node server/genesis/harvest1hz.mjs --once --out tape/paper-tape/hz1-latest.json --jsonl tape/paper-tape/hz1.jsonl
-      - name: run paper funding hold
+      - name: run paper funding hold with positive unit economics hurdle
+        if: github.event_name != 'push'
         run: node server/genesis/fundingHold.mjs --once --state tape/paper-tape/funding-latest.json
+      - name: assert funding PAPER and unit economics boundaries
+        if: github.event_name != 'push'
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const x = JSON.parse(fs.readFileSync('tape/paper-tape/funding-latest.json', 'utf8'));
+          if (x.paper !== true || x.liveOff !== true || x.go !== false) throw new Error('funding live boundary violated');
+          const p = x.unitEconomicsPolicy;
+          if (p?.version !== 'funding_unit_economics_v2_target_settles') throw new Error('funding economics policy missing');
+          if (!(p.roundTripFeeBps >= 10) || !(p.expectedSettles >= 2) || !(p.executionBufferBps >= 0) || !(p.minimumNetEdgeBps > 0)) throw new Error('funding economics hurdle weakened');
+          if (p.exitAfterTargetSettles !== true || p.realizedExitUsesExecutableQuote !== true || p.realizedPricePnlPersisted !== true) throw new Error('funding lifecycle parity missing');
+          for (const h of x.holds || []) {
+            if (h.economicsGate && (h.economicsGate !== 'PASS' || !(h.projectedNetEdgeBps >= p.minimumNetEdgeBps) || h.expectedSettles !== p.expectedSettles)) throw new Error('new funding hold bypassed economics hurdle');
+          }
+          for (const c of x.closed || []) {
+            if (c.haltReason === 'TARGET_SETTLES_REACHED' && (!Number.isFinite(Number(c.exitFeeUsdt)) || !Number.isFinite(Number(c.realizedPricePnlUsdt)))) throw new Error('target-settle close missing truth accounting');
+          }
+          NODE
+      - name: capture synchronized research state
+        if: github.event_name != 'push'
+        run: node server/genesis/researchStateCapture.mjs BTCUSDT --out tape/paper-tape/research-state-latest.json --jsonl tape/paper-tape/research-state.jsonl
+      - name: capture synchronized positioning dynamics
+        if: github.event_name != 'push'
+        run: node server/genesis/positioningDynamicsCapture.mjs --symbol BTCUSDT --out tape/paper-tape/positioning-dynamics-latest.json --jsonl tape/paper-tape/positioning-dynamics.jsonl
+      - name: audit effective independent positioning evidence
+        if: github.event_name != 'push'
+        run: node server/research/positioningDataQualityAudit.mjs --input tape/paper-tape/positioning-dynamics.jsonl --out tape/paper-tape/positioning-data-quality-latest.json
+      - name: run fail-closed positioning edge factory
+        if: github.event_name != 'push'
+        run: |
+          node server/research/runPositioningEdgeFactory.mjs \
+            --input tape/paper-tape/positioning-dynamics.jsonl \
+            --quality tape/paper-tape/positioning-data-quality-latest.json \
+            --out tape/quant-evidence/positioning-edge-factory-latest.json
+      - name: assert positioning RESEARCH_ONLY boundary
+        if: github.event_name != 'push'
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const x = JSON.parse(fs.readFileSync('tape/paper-tape/positioning-dynamics-latest.json', 'utf8'));
+          const q = JSON.parse(fs.readFileSync('tape/paper-tape/positioning-data-quality-latest.json', 'utf8'));
+          const e = JSON.parse(fs.readFileSync('tape/quant-evidence/positioning-edge-factory-latest.json', 'utf8'));
+          if (x.mode !== 'RESEARCH_ONLY') throw new Error('mode must remain RESEARCH_ONLY');
+          if (x.researchUse !== 'OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING') throw new Error('ranking boundary missing');
+          if (!x.provenance?.closedPriceBarOnly || !x.provenance?.fixedWindowTakerFlow) throw new Error('causal provenance missing');
+          if (x.positioning?.takerWindowMs !== 60000 || !(x.positioning?.takerWindowCoverageMs >= 54000)) throw new Error('fixed-window taker discipline violated');
+          if (q.mode !== 'RESEARCH_ONLY' || q.researchUse !== 'DATA_QUALITY_ONLY_NOT_FOR_RANKING') throw new Error('quality boundary missing');
+          if (q.boundaries?.holdoutUsedForRanking !== false) throw new Error('holdout ranking boundary violated');
+          if (q.boundaries?.liveTradingEnabled !== false || q.boundaries?.realOrdersPlaced !== false) throw new Error('live boundary violated');
+          if (e.mode !== 'RESEARCH_ONLY' || e.paperOnly !== true || e.liveOrders !== false || e.executionAuthority !== false || e.capitalEligible !== false) throw new Error('positioning edge capital boundary violated');
+          if (e.methodology?.selectionUsesHoldout !== false || e.methodology?.holdoutSealed !== true || e.methodology?.strictMissingNumericEvidence !== true) throw new Error('positioning edge methodology boundary violated');
+          NODE
+      - name: evaluate locked predeclared microstructure hypothesis
+        if: github.event_name != 'push'
+        run: node server/research/causalMicrostructureStudy.mjs tape/paper-tape/research-state.jsonl --protocol tape/paper-tape/microstructure-study-v2-protocol.json --out tape/paper-tape/microstructure-study-latest.json
+      - name: audit independent observation count
+        if: github.event_name != 'push'
+        run: node server/research/observationIndependenceAudit.mjs tape/paper-tape/microstructure-study-latest.json --out tape/paper-tape/microstructure-independence-audit-latest.json
+      - name: evaluate predeclared RPI depth-imbalance study
+        if: github.event_name != 'push'
+        run: node server/research/rpiDepthImbalanceStudy.mjs tape/paper-tape/rpi-orderbook.jsonl --out tape/paper-tape/rpi-depth-imbalance-study-latest.json
       - name: publish tape
+        if: github.event_name != 'push'
         working-directory: tape
         run: |
           git config user.name "genesis-capture"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          mkdir -p paper-tape
-          git add -f paper-tape/capture-latest.json paper-tape/capture.jsonl paper-tape/hz1-latest.json paper-tape/hz1.jsonl paper-tape/funding-latest.json
+          mkdir -p paper-tape quant-evidence
+          git add -f paper-tape/capture-latest.json paper-tape/capture.jsonl paper-tape/hz1-latest.json paper-tape/hz1.jsonl paper-tape/funding-latest.json paper-tape/research-state-latest.json paper-tape/research-state.jsonl paper-tape/provider-probe-latest.json paper-tape/rpi-orderbook-latest.json paper-tape/rpi-orderbook.jsonl paper-tape/rpi-depth-imbalance-study-latest.json paper-tape/microstructure-study-latest.json paper-tape/microstructure-study-v2-protocol.json paper-tape/microstructure-independence-audit-latest.json paper-tape/positioning-dynamics-latest.json paper-tape/positioning-dynamics.jsonl paper-tape/positioning-data-quality-latest.json quant-evidence/positioning-edge-factory-latest.json
           if git diff --staged --quiet; then
             echo "no change"
             exit 0
           fi
           git commit -m "paper harvest $(date -u +%Y-%m-%dT%H:%MZ)"
-          git push
+          for attempt in 1 2 3; do
+            git pull --rebase origin capture-tape
+            if git push origin HEAD:capture-tape; then exit 0; fi
+            echo "capture-tape advanced during publish; retry ${attempt}/3"
+            sleep $((attempt * 2))
+          done
+          echo "failed to publish capture evidence after retries"
+          exit 1
