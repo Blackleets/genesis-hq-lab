@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowUpRight, Crosshair, Database, FlaskConical, LockKeyhole, ShieldAlert } from 'lucide-react';
 import { fetchForwardPaper, type ForwardPaperSnapshot } from '../../services/forwardPaperClient';
+import { fetchPortfolioRiskResearch, type PortfolioRiskResearchSnapshot } from '../../services/portfolioRiskResearchClient';
 import { fetchPositioningResearch, type PositioningDataQuality, type PositioningEdgeSnapshot } from '../../services/positioningResearchClient';
 import { fetchResearchLifecycle, type ResearchForwardSnapshot, type ResearchPromotionSnapshot } from '../../services/researchLifecycleClient';
 import { finite, formatMoney } from './formatters';
@@ -48,6 +49,7 @@ function buildPriority({
   positioningEdge,
   promotion,
   researchForward,
+  portfolioRisk,
   forward,
   economicPnl,
 }: {
@@ -58,6 +60,7 @@ function buildPriority({
   positioningEdge: PositioningEdgeSnapshot | null;
   promotion: ResearchPromotionSnapshot | null;
   researchForward: ResearchForwardSnapshot | null;
+  portfolioRisk: PortfolioRiskResearchSnapshot | null;
   forward: ForwardPaperSnapshot | null;
   economicPnl: number | null | undefined;
 }): Priority {
@@ -82,6 +85,21 @@ function buildPriority({
   if (researchForward && researchForward.enrolled > 0 && researchForward.nextStageEligible === 0) {
     return { label: 'ACCUMULATE NEW FORWARD EVIDENCE', detail: `${researchForward.enrolled} audited lane${researchForward.enrolled === 1 ? '' : 's'} · prospective only · no backfill`, view: 'research', tone: 'watch' };
   }
+  if ((researchForward?.nextStageEligible ?? 0) > 0) {
+    if (!portfolioRisk) {
+      return { label: 'VERIFY PORTFOLIO RISK EVIDENCE', detail: 'Forward gate passed but the portfolio research snapshot is not verified', view: 'risk', tone: 'bad' };
+    }
+    if (portfolioRisk.status === 'NO_FORWARD_GATE_PASS_CANDIDATES') {
+      return { label: 'SYNC PORTFOLIO RISK EVIDENCE', detail: 'Forward evidence advanced ahead of the portfolio research cycle', view: 'risk', tone: 'watch' };
+    }
+    if (portfolioRisk.status === 'PORTFOLIO_EVIDENCE_BUILDING') {
+      return { label: 'BUILD PORTFOLIO RISK EVIDENCE', detail: `${portfolioRisk.source.admittedCandidates} admitted · ${portfolioRisk.covariance.bucketCount} aligned covariance buckets · equal-weight PAPER only`, view: 'risk', tone: 'watch' };
+    }
+    if (portfolioRisk.status === 'PORTFOLIO_RESEARCH_READY') {
+      return { label: 'RUN PAPER AGENT RISK REVIEW', detail: `${portfolioRisk.source.admittedCandidates} admitted · ${portfolioRisk.realized.base12Bps.tradeCount} forward trades · portfolio DD ${portfolioRisk.realized.base12Bps.maxDrawdownPct.toFixed(2)}%`, view: 'agents', tone: 'good' };
+    }
+    return { label: 'VERIFY PORTFOLIO RISK EVIDENCE', detail: portfolioRisk.status.replaceAll('_', ' '), view: 'risk', tone: 'watch' };
+  }
   const family = forward?.families?.[0];
   if (family && family.nextStageEligible !== true) {
     return { label: 'ACCUMULATE FORWARD EVIDENCE', detail: `${family.championForward?.trades ?? 0}/20 prospective trades · LIVE remains locked`, view: 'agents', tone: 'watch' };
@@ -99,6 +117,7 @@ export function FounderCommandBar({ onOpen }: { onOpen: (view: CommandView) => v
   const [forward, setForward] = useState<ForwardPaperSnapshot | null>(null);
   const [promotion, setPromotion] = useState<ResearchPromotionSnapshot | null>(null);
   const [researchForward, setResearchForward] = useState<ResearchForwardSnapshot | null>(null);
+  const [portfolioRisk, setPortfolioRisk] = useState<PortfolioRiskResearchSnapshot | null>(null);
   const [positioningQuality, setPositioningQuality] = useState<PositioningDataQuality | null>(null);
   const [positioningEdge, setPositioningEdge] = useState<PositioningEdgeSnapshot | null>(null);
 
@@ -113,10 +132,11 @@ export function FounderCommandBar({ onOpen }: { onOpen: (view: CommandView) => v
       controller = new AbortController();
       const signal = controller.signal;
       try {
-        const [forwardResult, positioningResult, lifecycleResult] = await Promise.allSettled([
+        const [forwardResult, positioningResult, lifecycleResult, portfolioResult] = await Promise.allSettled([
           fetchForwardPaper(signal),
           fetchPositioningResearch(signal),
           fetchResearchLifecycle(signal),
+          fetchPortfolioRiskResearch(signal),
         ]);
         if (disposed) return;
         setForward(forwardResult.status === 'fulfilled' && forwardResult.value.ok ? forwardResult.value : null);
@@ -134,6 +154,7 @@ export function FounderCommandBar({ onOpen }: { onOpen: (view: CommandView) => v
           setPromotion(null);
           setResearchForward(null);
         }
+        setPortfolioRisk(portfolioResult.status === 'fulfilled' && portfolioResult.value.ok ? portfolioResult.value : null);
       } finally {
         pending = false;
       }
@@ -169,7 +190,7 @@ export function FounderCommandBar({ onOpen }: { onOpen: (view: CommandView) => v
   const riskLabel = compactRiskFlag(activeFlags[0]) ?? (riskBand === 'HEALTHY' ? 'NO ACTIVE BLOCKER' : riskBand.replaceAll('_', ' '));
   const riskDetail = activeFlags.length > 1 ? `+${activeFlags.length - 1} additional flags` : runnerVerified ? `${openPaper ?? '—'} paper open · ${formatMoney(economicPnl)}` : 'paper runner not verified';
 
-  const priority = buildPriority({ runnerVerified, riskBand, activeFlags, positioningQuality, positioningEdge, promotion, researchForward, forward, economicPnl });
+  const priority = buildPriority({ runnerVerified, riskBand, activeFlags, positioningQuality, positioningEdge, promotion, researchForward, portfolioRisk, forward, economicPnl });
 
   return (
     <section className="founder-command-bar" aria-label="Founder command layer">
