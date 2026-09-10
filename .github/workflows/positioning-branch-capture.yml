@@ -1,0 +1,94 @@
+# RESEARCH_ONLY branch-local synchronized positioning evidence.
+# GitHub scheduled workflows only execute from the default branch; this feature branch
+# therefore supports explicit `capture:` pushes while ordinary pushes remain tests-only.
+# Public read-only OKX data only. Never places orders or changes trading/risk gates.
+name: positioning-branch-capture
+
+on:
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - .github/workflows/positioning-branch-capture.yml
+      - .github/genesis/positioning-capture-trigger.txt
+      - server/genesis/positioningDynamicsCapture.mjs
+      - server/genesis/okxFixedWindowTaker.mjs
+      - server/genesis/okxResearchContext.mjs
+      - server/genesis/derivativesContext.mjs
+      - server/research/positioningDataQualityAudit.mjs
+      - server/research/runPositioningEdgeFactory.mjs
+      - server/tests/positioningDynamicsCapture.test.mjs
+      - server/tests/okxFixedWindowTaker.test.mjs
+      - server/tests/positioningDataQualityAudit.test.mjs
+      - server/tests/positioningEdgeFactory.test.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: positioning-branch-capture
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: code
+        uses: actions/checkout@v4
+      - name: tape
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
+        uses: actions/checkout@v4
+        with:
+          ref: capture-tape
+          path: tape
+      - name: verify causal positioning and audit discipline
+        run: node --test server/tests/positioningDynamicsCapture.test.mjs server/tests/okxFixedWindowTaker.test.mjs server/tests/positioningDataQualityAudit.test.mjs server/tests/positioningEdgeFactory.test.mjs
+      - name: capture synchronized OI funding taker premium volatility evidence
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
+        run: node server/genesis/positioningDynamicsCapture.mjs --symbol BTCUSDT --out tape/paper-tape/positioning-dynamics-latest.json --jsonl tape/paper-tape/positioning-dynamics.jsonl
+      - name: audit effective independent evidence
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
+        run: node server/research/positioningDataQualityAudit.mjs --input tape/paper-tape/positioning-dynamics.jsonl --out tape/paper-tape/positioning-data-quality-latest.json
+      - name: evaluate fail-closed positioning candidates
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
+        run: node server/research/runPositioningEdgeFactory.mjs --input tape/paper-tape/positioning-dynamics.jsonl --quality tape/paper-tape/positioning-data-quality-latest.json --out tape/quant-evidence/positioning-edge-factory-latest.json
+      - name: assert PAPER RESEARCH_ONLY boundaries
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const x = JSON.parse(fs.readFileSync('tape/paper-tape/positioning-dynamics-latest.json', 'utf8'));
+          const q = JSON.parse(fs.readFileSync('tape/paper-tape/positioning-data-quality-latest.json', 'utf8'));
+          const e = JSON.parse(fs.readFileSync('tape/quant-evidence/positioning-edge-factory-latest.json', 'utf8'));
+          if (x.mode !== 'RESEARCH_ONLY') throw new Error('capture mode must remain RESEARCH_ONLY');
+          if (x.researchUse !== 'OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING') throw new Error('capture ranking boundary missing');
+          if (!x.provenance?.closedPriceBarOnly || !x.provenance?.fixedWindowTakerFlow) throw new Error('causal provenance missing');
+          if (x.positioning?.takerWindowMs !== 60000 || !(x.positioning?.takerWindowCoverageMs >= 54000)) throw new Error('fixed-window taker discipline violated');
+          if (q.mode !== 'RESEARCH_ONLY' || q.researchUse !== 'DATA_QUALITY_ONLY_NOT_FOR_RANKING') throw new Error('quality boundary missing');
+          if (q.boundaries?.holdoutUsedForRanking !== false || q.boundaries?.liveTradingEnabled !== false || q.boundaries?.realOrdersPlaced !== false) throw new Error('quality safety boundary violated');
+          if (e.mode !== 'RESEARCH_ONLY' || e.paperOnly !== true || e.liveOrders !== false || e.executionAuthority !== false || e.capitalEligible !== false) throw new Error('edge factory capital boundary violated');
+          if (e.methodology?.selectionUsesHoldout !== false || e.methodology?.holdoutSealed !== true) throw new Error('holdout boundary violated');
+          NODE
+      - name: publish durable evidence
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
+        working-directory: tape
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "genesis-capture"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p paper-tape quant-evidence
+          git add -f paper-tape/positioning-dynamics-latest.json paper-tape/positioning-dynamics.jsonl paper-tape/positioning-data-quality-latest.json quant-evidence/positioning-edge-factory-latest.json
+          if git diff --staged --quiet; then
+            echo "no material evidence change"
+            exit 0
+          fi
+          git commit -m "positioning branch capture ${GITHUB_RUN_ID}"
+          for attempt in 1 2 3; do
+            git pull --rebase origin capture-tape
+            if git push origin HEAD:capture-tape; then exit 0; fi
+            sleep $((attempt * 2))
+          done
+          exit 1
