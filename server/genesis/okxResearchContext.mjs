@@ -6,6 +6,7 @@ import { deriveFundingFeatures, derivePremiumFeatures, derivePositioningDynamics
 import { deriveSpotPerpLeadLag } from './spotPerpLeadLag.mjs';
 
 const BASE = 'https://www.okx.com';
+const SUPPORTED_BASES = new Set(['BTC', 'ETH', 'SOL', 'XRP', 'BNB']);
 
 async function okx(path, fetchImpl = fetch) {
   const res = await fetchImpl(`${BASE}${path}`, {
@@ -20,10 +21,12 @@ async function okx(path, fetchImpl = fetch) {
   return payload.data;
 }
 
-function ids(symbol) {
+export function okxInstrumentIds(symbol) {
   const s = String(symbol || '').toUpperCase();
-  if (s !== 'BTCUSDT') throw new Error(`OKX research fallback currently supports BTCUSDT only: ${s}`);
-  return { spot: 'BTC-USDT', perp: 'BTC-USDT-SWAP', ccy: 'BTC' };
+  if (!s.endsWith('USDT')) throw new Error(`Unsupported OKX research symbol: ${s}`);
+  const base = s.slice(0, -4);
+  if (!SUPPORTED_BASES.has(base)) throw new Error(`Unsupported OKX research symbol: ${s}`);
+  return { spot: `${base}-USDT`, perp: `${base}-USDT-SWAP`, ccy: base };
 }
 
 function candles(rows = []) {
@@ -131,7 +134,7 @@ function premiumFromCandles(spotRows, perpRows) {
 }
 
 export async function getOkxResearchContexts(symbol = 'BTCUSDT', { points = 120, fetchImpl = fetch } = {}) {
-  const { spot, perp } = ids(symbol);
+  const { spot, perp } = okxInstrumentIds(symbol);
   const limit = Math.max(20, Math.min(Number(points) || 120, 300));
   const [fundingRaw, oiRaw, perpRaw, spotRaw, tradesRaw] = await Promise.all([
     okx(`/api/v5/public/funding-rate-history?instId=${perp}&limit=30`, fetchImpl),
