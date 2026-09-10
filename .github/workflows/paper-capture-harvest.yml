@@ -1,9 +1,7 @@
 # Paper-only OKX harvest plus synchronized RESEARCH_ONLY market-state evidence.
 # Writes to capture-tape (NOT feat/genesis-life-os) so Vercel does not redeploy every tick.
 # Never sends an order. Path is paper-tape/ because /data/ is gitignored.
-# The synchronized capture labels Binance Spot vs USDⓈ-M index fallback explicitly.
-# If a market-data host is geo-blocked, the partial snapshot is persisted unsafe-for-research rather than dropped.
-# The scheduled/manual path is the only owner of durable market captures; push is regression-tests only.
+# If a market-data host is unavailable, partial evidence fails closed for research.
 name: paper-capture-harvest
 
 on:
@@ -14,6 +12,7 @@ on:
     branches: [feat/genesis-life-os]
     paths:
       - .github/workflows/paper-capture-harvest.yml
+      - server/genesis/fundingHold.mjs
       - server/genesis/researchStateCapture.mjs
       - server/genesis/researchProviderProbe.mjs
       - server/genesis/okxResearchContext.mjs
@@ -27,6 +26,7 @@ on:
       - server/research/rpiDepthImbalanceStudy.mjs
       - server/research/positioningDataQualityAudit.mjs
       - server/research/runPositioningEdgeFactory.mjs
+      - server/tests/fundingHoldEconomics.test.mjs
       - server/tests/researchStateCapture.test.mjs
       - server/tests/researchProviderProbe.test.mjs
       - server/tests/okxVolatilityShock.test.mjs
@@ -60,8 +60,8 @@ jobs:
         with:
           ref: capture-tape
           path: tape
-      - name: verify synchronized evidence integrity
-        run: node --test server/tests/researchStateCapture.test.mjs server/tests/researchProviderProbe.test.mjs server/tests/okxVolatilityShock.test.mjs server/tests/okxRpiOrderBook.test.mjs server/tests/rpiOrderBookCapture.test.mjs server/tests/positioningDynamicsCapture.test.mjs server/tests/okxFixedWindowTaker.test.mjs server/tests/derivativesContext.test.mjs server/tests/positioningDataQualityAudit.test.mjs server/tests/positioningEdgeFactory.test.mjs server/tests/causalMicrostructureStudy.test.mjs server/tests/observationIndependenceAudit.test.mjs server/tests/rpiDepthImbalanceStudy.test.mjs
+      - name: verify synchronized evidence and funding economics
+        run: node --test server/tests/fundingHoldEconomics.test.mjs server/tests/researchStateCapture.test.mjs server/tests/researchProviderProbe.test.mjs server/tests/okxVolatilityShock.test.mjs server/tests/okxRpiOrderBook.test.mjs server/tests/rpiOrderBookCapture.test.mjs server/tests/positioningDynamicsCapture.test.mjs server/tests/okxFixedWindowTaker.test.mjs server/tests/derivativesContext.test.mjs server/tests/positioningDataQualityAudit.test.mjs server/tests/positioningEdgeFactory.test.mjs server/tests/causalMicrostructureStudy.test.mjs server/tests/observationIndependenceAudit.test.mjs server/tests/rpiDepthImbalanceStudy.test.mjs
       - name: validate redundant public research routes
         if: github.event_name != 'push'
         shell: bash
@@ -84,9 +84,24 @@ jobs:
       - name: run 1Hz paper tick
         if: github.event_name != 'push'
         run: node server/genesis/harvest1hz.mjs --once --out tape/paper-tape/hz1-latest.json --jsonl tape/paper-tape/hz1.jsonl
-      - name: run paper funding hold
+      - name: run paper funding hold with positive unit economics hurdle
         if: github.event_name != 'push'
         run: node server/genesis/fundingHold.mjs --once --state tape/paper-tape/funding-latest.json
+      - name: assert funding PAPER and unit economics boundaries
+        if: github.event_name != 'push'
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const x = JSON.parse(fs.readFileSync('tape/paper-tape/funding-latest.json', 'utf8'));
+          if (x.paper !== true || x.liveOff !== true || x.go !== false) throw new Error('funding live boundary violated');
+          const p = x.unitEconomicsPolicy;
+          if (p?.version !== 'funding_unit_economics_v1') throw new Error('funding economics policy missing');
+          if (!(p.roundTripFeeBps >= 10) || !(p.expectedSettles >= 2) || !(p.executionBufferBps >= 0) || !(p.minimumNetEdgeBps > 0)) throw new Error('funding economics hurdle weakened');
+          for (const h of x.holds || []) {
+            if (h.economicsGate && (h.economicsGate !== 'PASS' || !(h.projectedNetEdgeBps >= p.minimumNetEdgeBps))) throw new Error('new funding hold bypassed economics hurdle');
+          }
+          NODE
       - name: capture synchronized research state
         if: github.event_name != 'push'
         run: node server/genesis/researchStateCapture.mjs BTCUSDT --out tape/paper-tape/research-state-latest.json --jsonl tape/paper-tape/research-state.jsonl
@@ -120,7 +135,7 @@ jobs:
           if (q.boundaries?.holdoutUsedForRanking !== false) throw new Error('holdout ranking boundary violated');
           if (q.boundaries?.liveTradingEnabled !== false || q.boundaries?.realOrdersPlaced !== false) throw new Error('live boundary violated');
           if (e.mode !== 'RESEARCH_ONLY' || e.paperOnly !== true || e.liveOrders !== false || e.executionAuthority !== false || e.capitalEligible !== false) throw new Error('positioning edge capital boundary violated');
-          if (e.methodology?.selectionUsesHoldout !== false || e.methodology?.holdoutSealed !== true) throw new Error('positioning edge holdout boundary violated');
+          if (e.methodology?.selectionUsesHoldout !== false || e.methodology?.holdoutSealed !== true || e.methodology?.strictMissingNumericEvidence !== true) throw new Error('positioning edge methodology boundary violated');
           NODE
       - name: evaluate locked predeclared microstructure hypothesis
         if: github.event_name != 'push'
