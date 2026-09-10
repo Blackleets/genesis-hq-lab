@@ -8,13 +8,17 @@ on:
       - package.json
       - package-lock.json
       - tsconfig*.json
+      - api/genesis/capture.js
+      - src/services/captureClient.ts
       - src/services/researchLifecycleClient.ts
       - src/services/positioningResearchClient.ts
       - src/services/forwardPaperClient.ts
       - src/components/trading/FounderCommandBar.tsx
       - src/components/trading/ProfitEngineRail.tsx
       - src/components/trading/PositioningIntelligencePanel.tsx
+      - src/components/trading/EconomicTruthPanel.tsx
       - src/components/trading/positioningIntelligence.css
+      - src/components/trading/economicTruth.css
       - src/components/trading/TradingWorkspace.tsx
   workflow_dispatch:
 
@@ -39,6 +43,8 @@ jobs:
           cache: npm
       - name: install
         run: npm ci
+      - name: capture API syntax
+        run: node --check api/genesis/capture.js
       - name: typecheck
         run: npm run typecheck
       - name: build
