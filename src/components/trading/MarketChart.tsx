@@ -123,16 +123,17 @@ export function MarketChart({ positionOverlay = true }: { positionOverlay?: bool
     <section className="market-chart" aria-label="Main trading chart" data-source="MARKET DATA">
       <div className="market-chart__toolbar">
         <div className="market-chart__instrument">
-          <strong className="coin-identity"><CoinLogo symbol={symbol} />{symbol.replace('USDT', '/USDT')}</strong>
-          <span>BINANCE SPOT REFERENCE</span>
+          <strong className="coin-identity market-chart__symbol"><CoinLogo symbol={symbol} />{symbol.replace('USDT', '/USDT')}</strong>
+          <span className="market-chart__venue market-chart__venue--desktop">BINANCE SPOT REFERENCE</span>
+          <span className="market-chart__venue market-chart__venue--mobile">BINANCE · SPOT</span>
           <i className={botState.tone === 'active' ? 'is-bot-active' : ''}>{botState.title}</i>
-        </div>
-        <div className="market-chart__timeframes" aria-label="Chart timeframe">
-          {TRADING_TIMEFRAMES.map((item) => <button key={item} type="button" onClick={() => setTimeframe(item)} className={timeframe === item ? 'is-active' : ''} aria-pressed={timeframe === item}>{item}</button>)}
         </div>
         <div className="market-chart__quote">
           <strong>{formatPrice(market.data?.lastPrice)}</strong>
           <span className={change == null ? 'text-zinc-600' : change >= 0 ? 'text-emerald-300' : 'text-red-300'}>{formatPercent(change)} <small>{timeframe} WINDOW</small></span>
+        </div>
+        <div className="market-chart__timeframes" aria-label="Chart timeframe">
+          {TRADING_TIMEFRAMES.map((item) => <button key={item} type="button" onClick={() => setTimeframe(item)} className={timeframe === item ? 'is-active' : ''} aria-pressed={timeframe === item}>{item}</button>)}
         </div>
         <div className={`market-chart__bot-state market-chart__bot-state--${botState.tone}`} data-source="SYSTEM / DECISION DATA" aria-live="polite">
           <span><Activity size={11} aria-hidden="true" /> BOT</span>
