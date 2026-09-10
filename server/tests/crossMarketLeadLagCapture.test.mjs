@@ -17,6 +17,7 @@ test('aligns only confirmed OKX spot/perp bars and derives causal cross-market f
   const fut = [row(t2, 1, 1, '0'), row(t1, 101.2, 2400), row(t0, 100.1, 2000)];
   const out = buildCrossMarketObservation(spot, fut);
 
+  assert.equal(out.schemaVersion, 2);
   assert.equal(out.mode, 'RESEARCH_ONLY');
   assert.equal(out.provider, 'okx_public_market_data');
   assert.equal(out.researchUse, 'OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING');
@@ -25,9 +26,38 @@ test('aligns only confirmed OKX spot/perp bars and derives causal cross-market f
   assert.equal(out.features.futuresClose, 101.2);
   assert.equal(out.features.spotQuoteVolume, 1200);
   assert.equal(out.features.futuresQuoteVolume, 2400);
+  assert.equal(out.features.futuresToSpotQuoteVolumeRatio, 2);
+  assert.equal(out.features.volatility.available, false);
   assert.ok(out.features.basisBps > 0);
   assert.ok(out.features.spotReturn1mBps > 0);
   assert.equal(out.provenance.confirmedBarsOnly, true);
+  assert.equal(out.provenance.requestLimit, 20);
+  assert.match(out.provenance.volatilityBaselinePolicy, /PRECEDING_15_CLOSED_ALIGNED_1M_RETURNS_RMS/);
+});
+
+test('volatility shock compares current closed return only with the preceding 15 closed returns', () => {
+  const t0 = Date.UTC(2026, 8, 9, 12, 0, 0);
+  const spot = [];
+  const fut = [];
+  for (let i = 0; i < 17; i += 1) {
+    const t = t0 + i * 60_000;
+    const quietClose = 100 + i * 0.01;
+    spot.push(row(t, i === 16 ? quietClose + 1 : quietClose, 1000 + i));
+    fut.push(row(t, i === 16 ? quietClose + 1.2 : quietClose + 0.05, 2000 + i));
+  }
+  // An unconfirmed extreme future bar must never leak into the volatility baseline.
+  spot.push(row(t0 + 17 * 60_000, 1000, 9999, '0'));
+  fut.push(row(t0 + 17 * 60_000, 1, 9999, '0'));
+
+  const out = buildCrossMarketObservation(spot.reverse(), fut.reverse());
+  assert.equal(out.features.volatility.available, true);
+  assert.equal(out.features.volatility.baselineReturnCount, 15);
+  assert.equal(out.features.volatility.baselineWindowMinutes, 15);
+  assert.ok(out.features.volatility.spotRms15mBps > 0);
+  assert.ok(out.features.volatility.futuresRms15mBps > 0);
+  assert.ok(out.features.volatility.spotShockRatio > 10);
+  assert.ok(out.features.volatility.futuresShockRatio > 10);
+  assert.equal(out.barOpenTime, new Date(t0 + 16 * 60_000).toISOString());
 });
 
 test('requires two aligned confirmed bars', () => {
