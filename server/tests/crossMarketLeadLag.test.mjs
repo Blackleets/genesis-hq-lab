@@ -13,7 +13,7 @@ function row(symbol, minute, { close=100, ret=10, taker=0.2, oi=0.2 }={}) {
   };
 }
 
-function quality(symbol,count=30){return {symbol,qualityPass:true,independentRowCount:count};}
+function quality(symbol,count=30,extra={}){return {symbol,qualityPass:true,independentRowCount:count,...extra};}
 
 test('aligns only a prior BTC leader observation to an alt label',()=>{
   const btc=[row('BTCUSDT',2),row('BTCUSDT',17),row('BTCUSDT',32)];
@@ -53,13 +53,14 @@ test('never opens holdout or grants execution authority after enough aligned dat
     btc.push(row('BTCUSDT',base+2,{ret:12,taker:0.2,oi:0.2}));
     alt.push(row('BNBUSDT',base+5,{close:100+i}));
   }
-  const out=evaluateCrossMarketLane({btcRows:btc,altRows:alt,btcQuality:quality('BTCUSDT',30),altQuality:quality('BNBUSDT',30),altSymbol:'BNBUSDT'});
+  const out=evaluateCrossMarketLane({btcRows:btc,altRows:alt,btaQuality:quality('BTCUSDT',30),btcQuality:quality('BTCUSDT',30),altQuality:quality('BNBUSDT',30),altSymbol:'BNBUSDT'});
   assert.ok(['NO_EDGE_FOUND','RESEARCH_CANDIDATE_FOUND'].includes(out.verdict));
   assert.equal(out.methodology.selectionUsesHoldout,false);
   assert.equal(out.methodology.holdoutSealed,true);
   assert.equal(out.methodology.causalPriorLeaderOnly,true);
   assert.equal(out.methodology.futureLeaderForbidden,true);
   assert.equal(out.methodology.symbolIsolation,true);
+  assert.equal(out.methodology.activeQualityCohortsOnly,true);
   assert.equal(out.holdoutOpened,false);
   assert.equal(out.partitions.holdoutOpened,false);
   assert.equal(out.partitions.holdoutMetricsComputed,false);
@@ -71,4 +72,27 @@ test('never opens holdout or grants execution authority after enough aligned dat
 
 test('unsupported alt symbols are rejected before study',()=>{
   assert.throws(()=>alignBtcLeaderToAlt([],[],{altSymbol:'DOGEUSDT'}),/UNSUPPORTED_ALT_SYMBOL/);
+});
+
+test('uses only active quality cohorts after historical resets',()=>{
+  const btc=[]; const alt=[];
+  for(let i=0;i<50;i++){
+    const base=i*15;
+    btc.push(row('BTCUSDT',base+2,{ret:i<20?-50:12,taker:i<20?-0.9:0.2,oi:0.2}));
+    alt.push(row('ETHUSDT',base+5,{close:100+i}));
+  }
+  const btcStart=btc[20].capturedAt, altStart=alt[20].capturedAt;
+  const out=evaluateCrossMarketLane({
+    btcRows:btc,
+    altRows:alt,
+    btcQuality:quality('BTCUSDT',30,{firstEligibleCapturedAt:btcStart,lastEligibleCapturedAt:btc[49].capturedAt}),
+    altQuality:quality('ETHUSDT',30,{firstEligibleCapturedAt:altStart,lastEligibleCapturedAt:alt[49].capturedAt}),
+    altSymbol:'ETHUSDT',
+  });
+  assert.ok(['NO_EDGE_FOUND','RESEARCH_CANDIDATE_FOUND'].includes(out.verdict));
+  assert.equal(out.methodology.activeQualityCohortsOnly,true);
+  assert.equal(out.methodology.btcQualityCohortStart,btcStart);
+  assert.equal(out.methodology.altQualityCohortStart,altStart);
+  assert.equal(out.dataQuality.activeBtcRows,30);
+  assert.equal(out.dataQuality.activeAltRows,30);
 });
