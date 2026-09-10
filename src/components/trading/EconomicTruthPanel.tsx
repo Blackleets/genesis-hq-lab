@@ -56,6 +56,14 @@ export function EconomicTruthPanel() {
   const futuresReady = resource.state === 'ready' && runner?.paperOnly === true && runner.liveOrders === false;
   const fundingReady = capture.state === 'ready' && funding != null;
   const captureReady = capture.state === 'ready' && captureLedger != null;
+  const fundingPolicy = funding?.unitEconomicsPolicy ?? null;
+  const fundingPolicyReady = fundingPolicy?.version === 'funding_unit_economics_v2_target_settles'
+    && fundingPolicy.exitAfterTargetSettles === true
+    && fundingPolicy.realizedExitUsesExecutableQuote === true
+    && fundingPolicy.realizedPricePnlPersisted === true;
+  const activeFundingHold = funding?.holds?.[0] ?? null;
+  const projectedNetEdgeBps = activeFundingHold?.projectedNetEdgeBps ?? null;
+  const hurdleBps = fundingPolicy?.minimumNetEdgeBps ?? null;
 
   return (
     <section className="economic-truth" data-source="SLEEVE-SCOPED VERIFIED ECONOMICS" aria-label="Genesis economic truth by sleeve">
@@ -81,12 +89,15 @@ export function EconomicTruthPanel() {
         </article>
 
         <article className="economic-truth__card">
-          <header><div><strong>FUNDING / BASIS</strong><span>TRUTH LEDGER v{funding?.ledgerVersion ?? '—'}</span></div><i className={fundingReady ? 'is-ready' : ''}>{fundingReady ? 'VERIFIED PAPER' : stateLabel(capture.state)}</i></header>
+          <header><div><strong>FUNDING / BASIS</strong><span>TRUTH LEDGER v{funding?.ledgerVersion ?? '—'} · POST-COST ENTRY</span></div><i className={fundingReady ? 'is-ready' : ''}>{fundingReady ? 'VERIFIED PAPER' : stateLabel(capture.state)}</i></header>
           <dl>
             <Metric label="ECONOMIC P&L" value={formatMoney(funding?.economicPnlUsdt)} tone={pnlTone(funding?.economicPnlUsdt)} />
             <Metric label="PRICE REALIZED" value={formatMoney(funding?.realizedPricePnlUsdt)} tone={pnlTone(funding?.realizedPricePnlUsdt)} />
             <Metric label="FUNDING COLLECTED" value={formatMoney(funding?.realizedFundingUsdt)} tone={pnlTone(funding?.realizedFundingUsdt)} />
             <Metric label="FEES" value={formatMoney(funding?.feesUsdt)} tone={finite(funding?.feesUsdt) && funding!.feesUsdt > 0 ? 'warn' : undefined} />
+            <Metric label="UNIT ECONOMICS" value={fundingPolicyReady ? `ACTIVE · ≥${hurdleBps ?? '—'} bps NET` : 'NOT VERIFIED'} tone={fundingPolicyReady ? 'good' : 'warn'} />
+            <Metric label="ACTIVE TICKET EDGE" value={finite(projectedNetEdgeBps) ? `${projectedNetEdgeBps!.toFixed(2)} bps` : activeFundingHold ? 'LEGACY / UNVERIFIED' : 'NO OPEN TICKET'} tone={finite(projectedNetEdgeBps) ? projectedNetEdgeBps! >= (hurdleBps ?? Infinity) ? 'good' : 'bad' : undefined} />
+            <Metric label="FEE LOCK" value={funding?.feeLock ? funding.feeLockReason ?? 'LOCKED' : fundingReady ? 'CLEAR' : 'UNAVAILABLE'} tone={funding?.feeLock ? 'bad' : fundingReady ? 'good' : undefined} />
             <Metric label="SLEEVE EQUITY" value={formatMoney(funding?.equityUsdt)} />
             <Metric label="SETTLES / CLOSED" value={funding ? `${funding.settledCount} / ${funding.closedCount}` : 'UNAVAILABLE'} />
           </dl>
