@@ -1,50 +1,34 @@
 {
-  "schemaVersion": 1,
-  "mode": "RESEARCH_ONLY",
-  "provider": "okx_public_data",
-  "instrument": "BTC-USDT-SWAP",
-  "capturedAt": "2026-09-10T06:15:06.070Z",
-  "sourceAsOf": "2026-09-10T06:14:24.657Z",
-  "features": {
-    "fundingRate": 0.0000814068232044,
-    "premium": -0.0005082527216423,
-    "interestRate": 0.0001,
-    "settledFundingRate": 0.0000494967424739,
-    "fundingTime": "2026-09-10T08:00:00.000Z",
-    "nextFundingTime": "2026-09-10T16:00:00.000Z",
-    "minFundingRate": -0.00375,
-    "maxFundingRate": 0.00375
-  },
-  "quality": {
-    "available": true,
-    "sourceAgeMs": 41127,
-    "maxSourceAgeMs": 120000,
-    "runnerVsExchangeClockSkewMs": 30,
-    "maxAbsClockSkewMs": 5000,
-    "pass": true
-  },
-  "provenance": {
-    "endpoint": "https://www.okx.com/api/v5/public/funding-rate",
-    "request": {
-      "instId": "BTC-USDT-SWAP"
-    },
-    "clockEndpoint": "https://www.okx.com/api/v5/public/time",
-    "requiredFields": [
-      "fundingRate",
-      "fundingTime",
-      "ts"
-    ],
-    "optionalFields": [
-      "premium",
-      "interestRate",
-      "settFundingRate",
-      "nextFundingTime",
-      "minFundingRate",
-      "maxFundingRate"
-    ],
-    "securityType": "PUBLIC_READ_ONLY_NO_API_KEY",
-    "policy": "EXACT_INSTRUMENT_REQUIRED_FIELDS_FINITE_OPTIONALS_VALID_IF_PRESENT_EXCHANGE_BOUNDS_IF_PRESENT_TIMESTAMP_MAX_120S_AGE_RUNNER_CLOCK_SKEW_MAX_5S"
-  },
-  "researchUse": "OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING_NOT_FOR_HOLDOUT_TUNING",
-  "paperBoundary": "PAPER_RESEARCH_ONLY_NO_ORDER_PATH"
+  "paper": true,
+  "liveOff": true,
+  "go": false,
+  "ts": "2026-09-10T09:38:01.933Z",
+  "capital": 10000,
+  "realizedFundingUsdt": 0,
+  "feesUsdt": 1.25,
+  "mtmUsdt": -0.11333756460272179,
+  "settledCount": 0,
+  "holds": [
+    {
+      "instId": "IOST-USDT-SWAP",
+      "side": "long",
+      "qty": 2266751.2920482364,
+      "entryPx": 0.0011029,
+      "entryTs": "2026-09-10T09:38:01.932Z",
+      "notional": 2500,
+      "feeUsdt": 1.25,
+      "predictedBps": -11.945832607439,
+      "lastRealizedBps": -6.199810887721,
+      "nextFundingTime": 1789041600000,
+      "lastSettledTime": 0,
+      "realizedFundingUsdt": 0,
+      "mtmUsdt": -0.11333756460272179,
+      "mid": 0.0011028499999999998,
+      "halt": false
+    }
+  ],
+  "closed": [],
+  "note": "paper hold IOST long. cobrado 0.00 USDT en 0 settles. a mercado -0.11. fees 1.25. live off. no es un GO.",
+  "feeLock": false,
+  "feeLockReason": null
 }
