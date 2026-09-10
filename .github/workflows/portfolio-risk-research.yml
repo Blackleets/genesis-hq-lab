@@ -1,0 +1,74 @@
+name: portfolio-risk-research
+
+on:
+  schedule:
+    - cron: "8,23,38,53 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - .github/workflows/portfolio-risk-research.yml
+      - .github/genesis/portfolio-risk-trigger.txt
+      - server/research/runPortfolioRiskResearch.mjs
+      - server/tests/portfolioRiskResearch.test.mjs
+
+permissions:
+  contents: write
+
+concurrency:
+  group: portfolio-risk-research
+  cancel-in-progress: true
+
+jobs:
+  portfolio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: code
+        uses: actions/checkout@v4
+      - name: tape
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'portfolio-research:')
+        uses: actions/checkout@v4
+        with:
+          ref: capture-tape
+          path: tape
+      - name: verify portfolio research semantics
+        run: node --test server/tests/portfolioRiskResearch.test.mjs
+      - name: run portfolio risk research
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'portfolio-research:')
+        run: node server/research/runPortfolioRiskResearch.mjs --root tape
+      - name: assert portfolio research boundaries
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'portfolio-research:')
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const x = JSON.parse(fs.readFileSync('tape/quant-evidence/portfolio-risk-research-latest.json', 'utf8'));
+          if (x.mode !== 'PORTFOLIO_RISK_RESEARCH' || x.paperOnly !== true || x.liveOrders !== false || x.executionAuthority !== false || x.capitalEligible !== false) throw new Error('portfolio capital boundary violated');
+          if (x.methodology?.weighting !== 'EQUAL_WEIGHT_ACROSS_ADMITTED_CANDIDATES_NO_OPTIMIZATION') throw new Error('portfolio optimization boundary violated');
+          if (x.methodology?.cumulativeTradeReturnIsNotPortfolioReturn !== true) throw new Error('portfolio return semantics violated');
+          if (x.methodology?.baseCostBps !== 12 || x.methodology?.stressCostBps !== 18) throw new Error('portfolio cost policy changed');
+          if (x.methodology?.changesProductionRiskGates !== false || x.methodology?.optimizationOrRanking !== false) throw new Error('risk gate boundary violated');
+          if (x.regimeSizing?.usedForSizing !== false) throw new Error('unsupported regime sizing enabled');
+          if (x.boundaries?.realOrdersPlaced !== false || x.boundaries?.liveTradingEnabled !== false || x.boundaries?.changesRiskGates !== false || x.boundaries?.writesExecutionState !== false || x.boundaries?.grantsCapitalEligibility !== false) throw new Error('real capital boundary violated');
+          for (const candidate of x.universe ?? []) {
+            if (candidate.liveEligible !== false || candidate.executionAuthority !== false || candidate.capitalEligible !== false) throw new Error('portfolio candidate authority boundary violated');
+          }
+          NODE
+      - name: publish durable portfolio evidence
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'portfolio-research:')
+        working-directory: tape
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "genesis-portfolio-research"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f quant-evidence/portfolio-risk-research-latest.json quant-evidence/portfolio-risk-research-history.jsonl
+          if git diff --staged --quiet; then echo "no material portfolio research evidence change"; exit 0; fi
+          git commit -m "portfolio risk research ${GITHUB_RUN_ID}"
+          for attempt in 1 2 3; do
+            git pull --rebase origin capture-tape
+            if git push origin HEAD:capture-tape; then exit 0; fi
+            sleep $((attempt * 2))
+          done
+          exit 1
