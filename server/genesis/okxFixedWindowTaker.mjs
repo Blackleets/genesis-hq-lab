@@ -102,7 +102,10 @@ export async function fetchFixedWindowTaker(instId = 'BTC-USDT-SWAP', {
   fetchImpl = fetch,
 } = {}) {
   const all = [];
-  const latest = await okx(`/api/v5/market/trades?instId=${encodeURIComponent(instId)}&limit=100`, fetchImpl);
+  // OKX explicitly permits up to 500 rows on the recent-trades endpoint. Taking the full
+  // public snapshot increases fixed-window coverage without weakening the 90% evidence gate
+  // or adding pagination requests/rate-limit pressure.
+  const latest = await okx(`/api/v5/market/trades?instId=${encodeURIComponent(instId)}&limit=500`, fetchImpl);
   all.push(...latest);
   const normalizedLatest = latest.map(normalizeTrade).filter(Boolean).sort((a, b) => a.time - b.time);
   if (!normalizedLatest.length) return { available: false, reason: 'NO_VALID_TRADES' };
@@ -129,6 +132,7 @@ export async function fetchFixedWindowTaker(instId = 'BTC-USDT-SWAP', {
     ...out,
     pagesFetched: pages,
     maxPages,
+    recentLimit: 500,
     endpointLatest: '/api/v5/market/trades',
     endpointHistory: '/api/v5/market/history-trades',
     paginationType: 'timestamp',
