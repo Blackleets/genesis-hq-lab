@@ -8,6 +8,11 @@ import {
   type PositioningEdgeSnapshot,
   type PositioningUniverseRow,
 } from '../../services/positioningResearchClient';
+import {
+  fetchResearchLifecycle,
+  type ResearchForwardSnapshot,
+  type ResearchPromotionSnapshot,
+} from '../../services/researchLifecycleClient';
 import './positioningIntelligence.css';
 
 type LoadState = 'loading' | 'ready' | 'error';
@@ -60,6 +65,8 @@ export function PositioningIntelligencePanel() {
   const [quality, setQuality] = useState<PositioningDataQuality | null>(null);
   const [edge, setEdge] = useState<PositioningEdgeSnapshot | null>(null);
   const [universe, setUniverse] = useState<PositioningUniverseRow[]>([]);
+  const [promotion, setPromotion] = useState<ResearchPromotionSnapshot | null>(null);
+  const [researchForward, setResearchForward] = useState<ResearchForwardSnapshot | null>(null);
 
   useEffect(() => {
     let disposed = false;
@@ -68,9 +75,10 @@ export function PositioningIntelligencePanel() {
       controller?.abort();
       controller = new AbortController();
       try {
-        const [researchResult, universeResult] = await Promise.allSettled([
+        const [researchResult, universeResult, lifecycleResult] = await Promise.allSettled([
           fetchPositioningResearch(controller.signal),
           fetchPositioningUniverseReadiness(controller.signal),
+          fetchResearchLifecycle(controller.signal),
         ]);
         if (disposed) return;
         if (researchResult.status === 'fulfilled') {
@@ -81,6 +89,13 @@ export function PositioningIntelligencePanel() {
           setState('error');
         }
         setUniverse(universeResult.status === 'fulfilled' ? universeResult.value.rows : []);
+        if (lifecycleResult.status === 'fulfilled') {
+          setPromotion(lifecycleResult.value.promotion);
+          setResearchForward(lifecycleResult.value.forward);
+        } else {
+          setPromotion(null);
+          setResearchForward(null);
+        }
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return;
         if (!disposed) setState('error');
@@ -100,11 +115,16 @@ export function PositioningIntelligencePanel() {
   const ready = quality?.readiness?.readyForPredeclaredStudy === true;
   const positive = edge?.verdict === 'RESEARCH_CANDIDATE_FOUND';
   const admitted = universe.filter(item => item.admitted).length;
+  const auditRequired = promotion?.methodology?.minimumUsableSamplesBeforeAudit ?? 80;
+  const auditEligible = promotion?.totalForwardPaperEligible ?? 0;
+  const waitingLanes = promotion?.waitingLanes ?? null;
+  const forwardEnrolled = researchForward?.enrolled ?? 0;
+  const forwardNextStage = researchForward?.nextStageEligible ?? 0;
 
   return (
     <section className="positioning-intelligence" aria-label="Positioning intelligence" data-source="CAPTURE TAPE · POSITIONING RESEARCH">
       <header className="positioning-intelligence__header">
-        <div><Radar size={14} /><span><strong>POSITIONING INTELLIGENCE</strong><small>FUNDING · OPEN INTEREST · TAKER FLOW · VOLATILITY</small></span></div>
+        <div><Radar size={14} /><span><strong>POSITIONING INTELLIGENCE</strong><small>FUNDING · OPEN INTEREST · TAKER FLOW · CROSS-MARKET</small></span></div>
         <strong className={positive ? 'is-positive' : ready ? 'is-warning' : ''}>{state === 'loading' ? 'LEYENDO EVIDENCIA' : state === 'error' ? 'EVIDENCIA NO DISPONIBLE' : verdictLabel(edge?.verdict)}</strong>
       </header>
 
@@ -116,14 +136,14 @@ export function PositioningIntelligencePanel() {
           <div><span>DATA QUALITY · BTC</span><strong className={quality.qualityPass ? 'is-positive' : 'is-negative'}>{quality.qualityPass ? 'PASS' : 'FAIL'}</strong><small>{defectCount} defectos en cohort activo</small></div>
           <div><span>MUESTRA · BTC</span><strong>{independent} / {required}</strong><small>{remaining ? `faltan ${remaining}` : 'cohort listo'}</small></div>
           <div><span>EDGE STUDY</span><strong>{verdictLabel(edge.verdict)}</strong><small>{ready ? 'ranking habilitado por calidad' : 'ranking bloqueado hasta readiness'}</small></div>
-          <div><span>COST STRESS</span><strong>{fmt(edge.methodology?.stressedCostBps, 0)} BPS</strong><small>incluido antes de promover</small></div>
-          <div><span>HOLDOUT</span><strong>SEALED</strong><small>no usado para ranking</small></div>
-          <div><span>CAPITAL</span><strong>BLOQUEADO</strong><small>RESEARCH_ONLY · PAPER</small></div>
+          <div><span>ONE-SHOT AUDIT</span><strong className={auditEligible > 0 ? 'is-positive' : ''}>{promotion ? (auditEligible > 0 ? `${auditEligible} ELIGIBLE` : `${waitingLanes ?? 0} BUILDING`) : 'NOT VERIFIED'}</strong><small>{auditRequired} samples · {promotion?.methodology?.stressCostBps ?? 18}bps stress</small></div>
+          <div><span>PROSPECTIVE FORWARD</span><strong className={forwardNextStage > 0 ? 'is-positive' : ''}>{researchForward ? `${forwardEnrolled} ENROLLED` : 'NOT VERIFIED'}</strong><small>{researchForward ? `${forwardNextStage} next-stage · no backfill` : 'forward ledger unavailable'}</small></div>
+          <div><span>CAPITAL</span><strong>BLOQUEADO</strong><small>evidence gates + human cutover</small></div>
         </div>
 
         <div className="positioning-intelligence__meaning">
           <Database size={13} />
-          <span><strong>QUÉ SIGNIFICA</strong><small>{!quality.qualityPass ? 'La calidad del cohort no permite estudiar edge.' : !ready ? `La captura BTC es limpia, pero todavía necesitamos ${remaining} observaciones independientes antes de rankear hipótesis.` : positive ? 'Hay una hipótesis que sobrevivió train, validation y walk-forward; todavía necesita auditoría posterior antes de Forward PAPER.' : 'La cohorte ya permite investigación; Genesis está evaluando las familias predeclaradas sin abrir holdout.'}</small></span>
+          <span><strong>QUÉ SIGNIFICA</strong><small>{!quality.qualityPass ? 'La calidad del cohort no permite estudiar edge.' : !ready ? `La captura BTC es limpia, pero todavía necesitamos ${remaining} observaciones independientes antes de rankear hipótesis. El holdout sigue sellado.` : positive ? `Hay una hipótesis de research. Antes de Forward PAPER necesita champion freeze, stress a ${promotion?.methodology?.stressCostBps ?? 18} bps y one-shot holdout; no existe promoción automática a LIVE.` : 'La cohorte permite investigación; Genesis evalúa familias predeclaradas sin usar holdout para ranking.'}</small></span>
         </div>
 
         <div className="positioning-intelligence__universe" aria-label="Positioning universe readiness">
@@ -136,7 +156,7 @@ export function PositioningIntelligencePanel() {
           {candidates.map(item => <CandidateRow key={item.family} item={item} />)}
         </div> : null}
 
-        <footer><div><ShieldCheck size={12}/> PAPER · CAPITAL REAL BLOQUEADO</div><small>{quality.lastEligibleCapturedAt ? `ÚLTIMO COHORT BTC ${new Date(quality.lastEligibleCapturedAt).toLocaleString()}` : 'TIMESTAMP NO DISPONIBLE'}</small></footer>
+        <footer><div><ShieldCheck size={12}/> PAPER · LIVE LOCKED · HOLDOUT ONE-SHOT</div><small>{quality.lastEligibleCapturedAt ? `ÚLTIMO COHORT BTC ${new Date(quality.lastEligibleCapturedAt).toLocaleString()}` : 'TIMESTAMP NO DISPONIBLE'}</small></footer>
       </> : null}
     </section>
   );
