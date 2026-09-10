@@ -17,7 +17,11 @@ const MIN_AUDIT_SAMPLES = 80;
 const HOLDOUT_FRACTION = 0.2;
 const MIN_HOLDOUT_TRADES = 5;
 
-function finite(value) { const n = Number(value); return Number.isFinite(n) ? n : null; }
+function finite(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
 function timeMs(row) { const n = Date.parse(row?.capturedAt); return Number.isFinite(n) ? n : null; }
 function boundaryMs(value) { if (!value) return null; const n = Date.parse(value); return Number.isFinite(n) ? n : null; }
 function mean(xs) { return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null; }
