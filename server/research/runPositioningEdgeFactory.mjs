@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const VERSION = 'positioning_edge_factory_v5_symbol_isolated';
+const VERSION = 'positioning_edge_factory_v6_active_cohort';
 
 function finite(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
 function mean(xs) { return xs.length ? xs.reduce((a,b)=>a+b,0)/xs.length : null; }
@@ -28,17 +28,22 @@ function readJson(p){ return JSON.parse(fs.readFileSync(p,'utf8')); }
 function readJsonl(p){ if(!p || !fs.existsSync(p)) return []; return fs.readFileSync(p,'utf8').split('\n').filter(Boolean).map(JSON.parse); }
 function capturedMs(r){ const x=Date.parse(r?.capturedAt); return Number.isFinite(x)?x:null; }
 function takerWindowMs(r){ return finite(r?.positioning?.takerWindowMs) ?? finite(r?.provenance?.takerWindowMs); }
-function eligibleRows(rows,symbol='BTCUSDT'){
+function boundaryMs(value){ if(!value) return null; const n=Date.parse(value); return Number.isFinite(n)?n:null; }
+function eligibleRows(rows,symbol='BTCUSDT',{minCapturedAt=null,maxCapturedAt=null}={}){
   const target=String(symbol||'').toUpperCase();
-  return rows.filter(r=>
-    r?.mode==='RESEARCH_ONLY'
-    && r?.provider==='okx_public_market_data'
-    && r?.symbol===target
-    && r?.schemaVersion===4
-    && r?.crossCapture?.available===true
-    && Number.isFinite(capturedMs(r))
-    && (takerWindowMs(r)??0)>0
-  ).sort((a,b)=>capturedMs(a)-capturedMs(b));
+  const minMs=boundaryMs(minCapturedAt), maxMs=boundaryMs(maxCapturedAt);
+  return rows.filter(r=>{
+    const t=capturedMs(r);
+    return r?.mode==='RESEARCH_ONLY'
+      && r?.provider==='okx_public_market_data'
+      && r?.symbol===target
+      && r?.schemaVersion===4
+      && r?.crossCapture?.available===true
+      && Number.isFinite(t)
+      && (minMs===null || t>=minMs)
+      && (maxMs===null || t<=maxMs)
+      && (takerWindowMs(r)??0)>0;
+  }).sort((a,b)=>capturedMs(a)-capturedMs(b));
 }
 function eligibleDivergenceRows(rows,symbol='BTCUSDT'){
   const target=String(symbol||'').toUpperCase();
@@ -55,10 +60,10 @@ function eligibleDivergenceRows(rows,symbol='BTCUSDT'){
     && finite(r?.divergence?.perpMinusSpotNotionalBuyFraction)!==null
   ).sort((a,b)=>capturedMs(a)-capturedMs(b));
 }
-export function joinCausalSpotPerpDivergence(rows, divergenceRows, {maxDivergenceAgeMs=30_000,symbol='BTCUSDT'}={}){
+export function joinCausalSpotPerpDivergence(rows, divergenceRows, {maxDivergenceAgeMs=30_000,symbol='BTCUSDT',minCapturedAt=null,maxCapturedAt=null}={}){
   const ds=eligibleDivergenceRows(divergenceRows,symbol);
   let j=0, latest=null;
-  return eligibleRows(rows,symbol).map(row=>{
+  return eligibleRows(rows,symbol,{minCapturedAt,maxCapturedAt}).map(row=>{
     const t=capturedMs(row);
     while(j<ds.length && capturedMs(ds[j])<=t){ latest=ds[j]; j+=1; }
     const ageMs=latest ? t-capturedMs(latest) : null;
@@ -157,6 +162,8 @@ export function evaluatePositioningStudy(rows, quality, {
   if (quality?.symbol && String(quality.symbol).toUpperCase() !== targetSymbol) {
     throw new Error('POSITIONING_QUALITY_SYMBOL_MISMATCH');
   }
+  const cohortStart=quality?.firstEligibleCapturedAt ?? null;
+  const cohortEnd=quality?.lastEligibleCapturedAt ?? null;
   const base = {
     ok:true, version:VERSION, mode:'RESEARCH_ONLY', symbol:targetSymbol, paperOnly:true, liveOrders:false,
     executionAuthority:false, capitalEligible:false,
@@ -174,6 +181,9 @@ export function evaluatePositioningStudy(rows, quality, {
       outageStartsNewCohortSegment:true,
       labelsNeverCrossSegmentBreaks:true,
       symbolIsolation:true,
+      activeQualityCohortOnly:true,
+      qualityCohortStart:cohortStart,
+      qualityCohortEnd:cohortEnd,
       spotPerpJoin:'PRIOR_ASOF_ONLY',
       maxDivergenceAgeMs,
       futureDivergenceForbidden:true,
@@ -183,14 +193,14 @@ export function evaluatePositioningStudy(rows, quality, {
   const ready = quality?.qualityPass===true && independentCount>=minIndependentRows;
   if (!ready) return { ...base, verdict:'DATA_NOT_READY', dataQuality:{ qualityPass:quality?.qualityPass===true, independentRowCount:independentCount, required:minIndependentRows, defects:quality?.defects??null }, candidates:[] };
 
-  const joinedRows=joinCausalSpotPerpDivergence(rows, divergenceRows,{maxDivergenceAgeMs,symbol:targetSymbol});
+  const joinedRows=joinCausalSpotPerpDivergence(rows, divergenceRows,{maxDivergenceAgeMs,symbol:targetSymbol,minCapturedAt:cohortStart,maxCapturedAt:cohortEnd});
   const temporal=temporalSamples(joinedRows,{maxForwardLabelGapMinutes});
   const samples=temporal.samples;
   if(samples.length<10){
     return {
       ...base,
       verdict:'DATA_NOT_READY',
-      dataQuality:{qualityPass:true,independentRowCount:independentCount,usableForwardSamples:samples.length,rejectedForwardGaps:temporal.rejectedForwardGaps,segmentBreaks:temporal.segmentBreaks,segmentCount:temporal.segmentCount},
+      dataQuality:{qualityPass:true,independentRowCount:independentCount,reconstructedIndependentRows:temporal.independentRows,usableForwardSamples:samples.length,rejectedForwardGaps:temporal.rejectedForwardGaps,segmentBreaks:temporal.segmentBreaks,segmentCount:temporal.segmentCount},
       candidates:[],
     };
   }
