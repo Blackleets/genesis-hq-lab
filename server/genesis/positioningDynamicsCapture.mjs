@@ -1,9 +1,9 @@
-// RESEARCH_ONLY synchronized derivatives-positioning capture for BTCUSDT.
+// RESEARCH_ONLY synchronized derivatives-positioning capture.
 // Public read-only OKX data only. Never places orders or changes trading gates.
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { getOkxResearchContexts } from './okxResearchContext.mjs';
+import { getOkxResearchContexts, okxInstrumentIds } from './okxResearchContext.mjs';
 import { fetchFixedWindowTaker } from './okxFixedWindowTaker.mjs';
 
 const OKX = 'https://www.okx.com';
@@ -116,6 +116,7 @@ export function deriveCrossCapturePositioningFeatures(previous, current, { maxGa
 export function buildPositioningObservation(context, closedKline, {
   capturedAtMs = Date.now(),
   symbol = 'BTCUSDT',
+  instrument = 'BTC-USDT-SWAP',
   provider = 'okx_public_market_data',
   endpoints = OKX_ENDPOINTS,
   openInterestUnit = 'SOURCE_NATIVE_UNITS',
@@ -144,8 +145,6 @@ export function buildPositioningObservation(context, closedKline, {
   };
   const agesMs = Object.fromEntries(Object.entries(sourceTimes).map(([key, value]) => [key, ageMs(capturedAtMs, value)]));
 
-  // Fail closed on impossible/future or materially stale observations. These ceilings reflect
-  // native series cadence and evidence quality only; they are not trading/promotion thresholds.
   const maxAgeMs = {
     price: 5 * 60_000,
     openInterest: 15 * 60_000,
@@ -198,7 +197,7 @@ export function buildPositioningObservation(context, closedKline, {
     provenance: {
       securityType: 'PUBLIC_READ_ONLY_NO_API_KEY',
       endpoints,
-      instrument: 'BTC-USDT-SWAP',
+      instrument,
       sourceTimes: Object.fromEntries(Object.entries(sourceTimes).map(([key, value]) => [key, new Date(value).toISOString()])),
       agesMs,
       maxAgeMs,
@@ -230,12 +229,13 @@ function readLastJsonlObservation(jsonl) {
 
 export async function capturePositioning({ symbol = 'BTCUSDT', out, jsonl } = {}) {
   const upper = symbol.toUpperCase();
+  const { perp } = okxInstrumentIds(upper);
   const contexts = await getOkxResearchContexts(upper, { points: 120 });
   const context = contexts.derivatives;
   const bar = context?.raw?.volatility?.at(-1);
   if (!bar) throw new Error('No confirmed OKX 1m perpetual bar available');
 
-  const fixedTaker = await fetchFixedWindowTaker('BTC-USDT-SWAP', {
+  const fixedTaker = await fetchFixedWindowTaker(perp, {
     windowMs: 60_000,
     minimumCoverageRatio: 0.9,
     maxPages: 20,
@@ -259,6 +259,7 @@ export async function capturePositioning({ symbol = 'BTCUSDT', out, jsonl } = {}
   const payload = buildPositioningObservation(fixedContext, kline, {
     capturedAtMs: Date.now(),
     symbol: upper,
+    instrument: perp,
     provider: 'okx_public_market_data',
     endpoints: OKX_ENDPOINTS,
     openInterestUnit: 'CONTRACTS',
