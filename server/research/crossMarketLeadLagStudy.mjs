@@ -7,7 +7,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 
 export const CROSS_MARKET_PROTOCOL = Object.freeze({
-  studyVersion: 1,
+  studyVersion: 2,
   hypothesis: 'A material 1m BTC spot/perpetual return disagreement predicts partial perpetual catch-up over the next 10-25m net of fixed round-trip costs.',
   signal: {
     // returnSpread1mBps = perpetualReturn - spotReturn.
@@ -19,9 +19,14 @@ export const CROSS_MARKET_PROTOCOL = Object.freeze({
   independencePolicy: 'ACCEPT_FIRST_MATURED_SIGNAL_THEN_EMBARGO_NEW_ENTRIES_FOR_FULL_MAX_FORWARD_WINDOW',
   roundTripCostBps: 10,
   sequentialSplits: { discovery: 60, validation: 30, holdout: 30 },
+  walkForward: {
+    initialTrainCount: 30,
+    testCounts: [15, 15, 30],
+    policy: 'EXPANDING_TRAIN_FIXED_RULE_THREE_PRE_HOLDOUT_OOS_FOLDS_REQUIRE_ALL_TO_PASS_SAME_FIXED_GATES',
+  },
   validationGates: { meanNetBpsMin: 2, medianNetBpsMin: 0, winRateMin: 0.55, profitFactorMin: 1.20 },
   holdoutPolicy: 'SEALED_UNTIL_120_INDEPENDENT_MATURED_SIGNALS_AND_NEVER_USED_FOR_RANKING_OR_TUNING',
-  rankingPolicy: 'DISCOVERY_AND_VALIDATION_ONLY; HOLDOUT NEVER RANKS OR TUNES',
+  rankingPolicy: 'DISCOVERY_VALIDATION_AND_PRE_HOLDOUT_WALK_FORWARD_ONLY; HOLDOUT NEVER RANKS OR TUNES',
   provenanceRequirement: 'OKX_PUBLIC_CONFIRMED_1M_SPOT_AND_SWAP_BARS_ALIGNED_BY_OPEN_TIME',
   researchBoundary: 'RESEARCH_ONLY_NOT_IN_H1_NOT_FORWARD_PAPER',
 });
@@ -99,22 +104,67 @@ function passes(summary,gates) {
     && summary.winRate>=gates.winRateMin && (summary.profitFactor==='Infinity' || summary.profitFactor>=gates.profitFactorMin);
 }
 
+export function evaluatePreHoldoutWalkForward(observations=[], protocol=CROSS_MARKET_PROTOCOL) {
+  const initialTrainCount=Number(protocol.walkForward?.initialTrainCount);
+  const testCounts=protocol.walkForward?.testCounts ?? [];
+  const requiredCount=initialTrainCount+testCounts.reduce((sum,count)=>sum+Number(count),0);
+  if (!Number.isInteger(initialTrainCount) || initialTrainCount<=0 || !testCounts.length || testCounts.some(count=>!Number.isInteger(Number(count)) || Number(count)<=0)) {
+    throw new Error('invalid walkForward protocol');
+  }
+  if (requiredCount !== protocol.sequentialSplits.discovery + protocol.sequentialSplits.validation) {
+    throw new Error('walkForward must consume exactly the pre-holdout allocation');
+  }
+
+  const folds=[];
+  let testStart=initialTrainCount;
+  for (let i=0;i<testCounts.length;i++) {
+    const testCount=Number(testCounts[i]);
+    const train=observations.slice(0,testStart);
+    const test=observations.slice(testStart,testStart+testCount);
+    const summary=summarizeCrossMarket(test);
+    const complete=test.length===testCount;
+    folds.push({
+      fold:i+1,
+      trainCount:train.length,
+      testCount:test.length,
+      requiredTestCount:testCount,
+      complete,
+      testStartIndex:testStart,
+      testEndIndexExclusive:testStart+testCount,
+      summary,
+      pass:complete && passes(summary,protocol.validationGates),
+    });
+    testStart+=testCount;
+  }
+  const complete=observations.length>=requiredCount && folds.every(fold=>fold.complete);
+  return {
+    policy:protocol.walkForward.policy,
+    requiredPreHoldoutCount:requiredCount,
+    complete,
+    allFoldsPass:complete && folds.every(fold=>fold.pass),
+    folds,
+  };
+}
+
 export function evaluateCrossMarketStudy(rows, protocol=CROSS_MARKET_PROTOCOL) {
   const raw=buildMaturedCrossMarketObservations(rows,protocol);
   const independence=selectIndependentCrossMarketObservations(raw,protocol); const matured=independence.accepted;
   const dN=protocol.sequentialSplits.discovery,vN=protocol.sequentialSplits.validation,hN=protocol.sequentialSplits.holdout;
   const discovery=matured.slice(0,dN); const validation=matured.slice(dN,dN+vN);
+  const preHoldout=matured.slice(0,dN+vN);
+  const walkForward=evaluatePreHoldoutWalkForward(preHoldout,protocol);
   const holdoutEligible=matured.length>=dN+vN+hN; const holdout=holdoutEligible?matured.slice(dN+vN,dN+vN+hN):[];
   const discoverySummary=summarizeCrossMarket(discovery); const validationSummary=summarizeCrossMarket(validation);
   const discoveryPass=discovery.length===dN && passes(discoverySummary,protocol.validationGates);
   const validationPass=validation.length===vN && passes(validationSummary,protocol.validationGates);
-  const candidateStatus=matured.length<dN?'ACCUMULATING_DISCOVERY':matured.length<dN+vN?'DISCOVERY_COMPLETE_AWAITING_VALIDATION':(!discoveryPass||!validationPass?'REJECTED_PRE_HOLDOUT':holdoutEligible?'HOLDOUT_READY_FOR_ONE_TIME_AUDIT':'VALIDATION_PASS_HOLDOUT_SEALED');
+  const preHoldoutPass=discoveryPass && validationPass && walkForward.allFoldsPass;
+  const candidateStatus=matured.length<dN?'ACCUMULATING_DISCOVERY':matured.length<dN+vN?'DISCOVERY_COMPLETE_AWAITING_VALIDATION':(!preHoldoutPass?'REJECTED_PRE_HOLDOUT':holdoutEligible?'HOLDOUT_READY_FOR_ONE_TIME_AUDIT':'VALIDATION_AND_WALK_FORWARD_PASS_HOLDOUT_SEALED');
   return {
     studyVersion:protocol.studyVersion,mode:'RESEARCH_ONLY',protocolSha256:CROSS_MARKET_PROTOCOL_SHA256,protocol,
     rawSnapshotCount:rows.length,rawMaturedSignalCount:raw.length,maturedSignalCount:matured.length,
     independence:{policy:protocol.independencePolicy,embargoMs:independence.embargoMs,acceptedCount:matured.length,rejectedOverlapCount:independence.rejected.length,rejected:independence.rejected},
     sequentialAllocation:{discoveryCount:discovery.length,validationCount:validation.length,holdoutCount:holdout.length},
-    discovery:discoverySummary,validation:validationSummary,
+    discovery:discoverySummary,validation:validationSummary,walkForward,
     holdout:{status:holdoutEligible?'AVAILABLE_ONE_TIME_AUDIT_NOT_FOR_RANKING':'SEALED',count:holdout.length,metrics:holdoutEligible?summarizeCrossMarket(holdout):null},
     candidateStatus,forwardPaperEligible:false,observations:matured,
   };
