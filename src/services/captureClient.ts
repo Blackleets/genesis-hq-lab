@@ -66,7 +66,36 @@ export interface CaptureReport {
     feesUsdt: number;
     closedCount: number;
     ledgerVersion: number;
-    holds: { instId: string; side: string; predictedBps?: number; lastRealizedBps?: number; nextFundingTime?: number; realizedFundingUsdt?: number; mtmUsdt?: number; halt?: boolean }[];
+    feeLock?: boolean;
+    feeLockReason?: string | null;
+    unitEconomicsPolicy?: {
+      version: string;
+      roundTripFeeBps: number | null;
+      expectedSettles: number | null;
+      executionBufferBps: number | null;
+      minimumNetEdgeBps: number | null;
+      ranking: string | null;
+      exitAfterTargetSettles: boolean;
+      realizedExitUsesExecutableQuote: boolean;
+      realizedPricePnlPersisted: boolean;
+    } | null;
+    holds: {
+      instId: string;
+      side: string;
+      predictedBps?: number | null;
+      lastRealizedBps?: number | null;
+      meanFundingBps?: number | null;
+      nextFundingTime?: number | null;
+      expectedSettles?: number | null;
+      settledCount?: number | null;
+      projectedGrossFundingBps?: number | null;
+      projectedExecutionCostBps?: number | null;
+      projectedNetEdgeBps?: number | null;
+      economicsGate?: string | null;
+      realizedFundingUsdt?: number | null;
+      mtmUsdt?: number | null;
+      halt?: boolean;
+    }[];
     liveOff: boolean;
     go: boolean;
     note?: string | null;
