@@ -1,6 +1,12 @@
 /* Mobile trading hotfixes derived from real handset rendering.
    Presentation only: no trading, risk, runner, data, or execution semantics. */
 
+/* Truthful bot activity rail. Hidden on desktop because the desktop instrument
+   already exposes engine state; on mobile it receives its own non-overlay row. */
+.genesis-exchange .market-chart__bot-state {
+  display: none;
+}
+
 @media (max-width: 780px) {
   /* The execution inspector was auto-rendering over the candle field on phones.
      Keep execution traces on the chart, but reserve the full inspector for larger screens. */
@@ -60,7 +66,14 @@
     overflow: hidden;
   }
 
-  /* Keep instrument/quote rows inside the viewport even with five-digit BTC prices. */
+  /* The previous 100-102px mobile toolbar physically could not contain the
+     instrument, 5-digit quote, timeframe controls and status. Give every layer
+     a dedicated row so the chart starts below the header instead of under it. */
+  .genesis-exchange .market-chart {
+    grid-template-rows: 152px clamp(340px, 52dvh, 500px) 30px !important;
+    height: auto;
+  }
+
   .genesis-exchange .market-chart__toolbar,
   .genesis-exchange .market-chart__toolbar > *,
   .genesis-exchange .market-chart__instrument,
@@ -69,32 +82,205 @@
     max-width: 100%;
   }
 
+  .genesis-exchange .market-chart__toolbar {
+    box-sizing: border-box;
+    padding: 8px 12px 7px !important;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: 27px 38px 32px 27px !important;
+    gap: 4px !important;
+    align-items: center;
+    overflow: hidden;
+  }
+
   .genesis-exchange .market-chart__instrument {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center;
+    gap: 8px !important;
     overflow: hidden;
   }
 
   .genesis-exchange .market-chart__instrument .coin-identity {
     min-width: 0;
-    max-width: 100%;
+    max-width: 58%;
+    flex: 0 1 auto;
+    gap: 7px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .genesis-exchange .market-chart__instrument .coin-logo {
+    width: 24px !important;
+    height: 24px !important;
+    flex: 0 0 24px !important;
+  }
+
+  .genesis-exchange .market-chart__instrument strong {
+    font-size: 18px !important;
+    line-height: 1 !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .genesis-exchange .market-chart__instrument > span {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 8px !important;
+    line-height: 1;
+  }
+
+  .genesis-exchange .market-chart__instrument > i {
+    display: none !important;
   }
 
   .genesis-exchange .market-chart__quote {
-    overflow: hidden;
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    justify-self: stretch !important;
+    display: flex !important;
+    align-items: baseline;
+    gap: 14px;
+    overflow: visible;
+    text-align: left;
   }
 
   .genesis-exchange .market-chart__quote strong {
-    max-width: 100%;
+    flex: 0 1 auto;
+    max-width: 66%;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: clip;
-    font-size: clamp(27px, 8vw, 32px) !important;
-    line-height: 1.05;
+    font-size: clamp(29px, 8.4vw, 34px) !important;
+    line-height: 1 !important;
     letter-spacing: -0.035em;
     font-variant-numeric: tabular-nums;
   }
 
   .genesis-exchange .market-chart__quote span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
+    font-size: 13px !important;
+  }
+
+  .genesis-exchange .market-chart__quote small {
+    display: none;
+  }
+
+  .genesis-exchange .market-chart__timeframes {
+    grid-column: 1 !important;
+    grid-row: 3 !important;
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px !important;
+  }
+
+  .genesis-exchange .market-chart__timeframes button {
+    min-width: 0 !important;
+    min-height: 32px !important;
+    padding: 0 8px !important;
+    font-size: 12px !important;
+  }
+
+  /* Live-looking but evidence-backed bot HUD: this is not an execution animation.
+     The dot only pulses when the verified PAPER runner is active. */
+  .genesis-exchange .market-chart__bot-state {
+    grid-column: 1 !important;
+    grid-row: 4 !important;
+    min-width: 0;
+    height: 27px;
+    display: grid;
+    grid-template-columns: auto minmax(0, auto) minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    padding: 0 8px;
+    overflow: hidden;
+    border: 1px solid #252b33;
+    border-radius: 7px;
+    background: #0d1116;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  .genesis-exchange .market-chart__bot-state > span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: #8b95a3;
+    font-size: 7px;
+    letter-spacing: .09em;
+    white-space: nowrap;
+  }
+
+  .genesis-exchange .market-chart__bot-state > strong,
+  .genesis-exchange .market-chart__bot-state > small {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .genesis-exchange .market-chart__bot-state > strong {
+    font-size: 8px;
+    letter-spacing: .035em;
+    color: #d7dde6;
+  }
+
+  .genesis-exchange .market-chart__bot-state > small {
+    font-size: 7px;
+    color: #788392;
+  }
+
+  .genesis-exchange .market-chart__bot-state--active {
+    border-color: rgb(52 211 153 / 35%);
+    background: rgb(6 78 59 / 12%);
+  }
+
+  .genesis-exchange .market-chart__bot-state--active > span,
+  .genesis-exchange .market-chart__bot-state--active > strong {
+    color: #86efac;
+  }
+
+  .genesis-exchange .market-chart__bot-state--active svg {
+    animation: genesis-bot-heartbeat 1.2s ease-in-out infinite;
+  }
+
+  .genesis-exchange .market-chart__bot-state--watch > span,
+  .genesis-exchange .market-chart__bot-state--watch > strong {
+    color: #f5d58a;
+  }
+
+  .genesis-exchange .market-chart__bot-state--offline > span,
+  .genesis-exchange .market-chart__bot-state--offline > strong {
+    color: #f5a3a3;
+  }
+
+  /* Keep TradingView attribution and our trace legend from occupying the same pixels. */
+  .genesis-exchange .market-chart__legend {
+    left: 58px !important;
+    bottom: 8px !important;
+    max-width: calc(100% - 70px);
+    overflow: hidden;
+    gap: 7px;
+    border: 0;
+    padding: 4px 6px;
+  }
+
+  .genesis-exchange .market-chart__legend b {
+    display: none !important;
+  }
+
+  .genesis-exchange .market-chart__legend span {
+    flex: 0 0 auto;
+    font-size: 8px !important;
   }
 
   /* Founder cards should clip whole fields, never paint across neighboring columns. */
@@ -113,6 +299,17 @@
   }
 }
 
+@keyframes genesis-bot-heartbeat {
+  0%, 100% { opacity: .55; transform: scale(.9); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .genesis-exchange .market-chart__bot-state--active svg {
+    animation: none;
+  }
+}
+
 @media (max-width: 430px) {
   .genesis-exchange .market-selector-mobile__item {
     width: 128px;
@@ -123,7 +320,40 @@
     font-size: 11.5px !important;
   }
 
+  .genesis-exchange .market-chart {
+    grid-template-rows: 148px clamp(350px, 54dvh, 510px) 30px !important;
+  }
+
+  .genesis-exchange .market-chart__toolbar {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    grid-template-rows: 25px 37px 31px 27px !important;
+  }
+
+  .genesis-exchange .market-chart__instrument strong {
+    font-size: 17px !important;
+  }
+
+  .genesis-exchange .market-chart__instrument > span {
+    font-size: 7.5px !important;
+  }
+
   .genesis-exchange .market-chart__quote strong {
-    font-size: clamp(25px, 7.6vw, 29px) !important;
+    max-width: 68%;
+    font-size: clamp(28px, 8.1vw, 32px) !important;
+  }
+
+  .genesis-exchange .market-chart__quote span {
+    font-size: 12px !important;
+  }
+
+  .genesis-exchange .market-chart__bot-state {
+    gap: 6px;
+    padding-left: 7px;
+    padding-right: 7px;
+  }
+
+  .genesis-exchange .market-chart__bot-state > small {
+    font-size: 6.5px;
   }
 }
