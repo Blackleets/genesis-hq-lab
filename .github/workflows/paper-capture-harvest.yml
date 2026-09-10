@@ -96,10 +96,14 @@ jobs:
           const x = JSON.parse(fs.readFileSync('tape/paper-tape/funding-latest.json', 'utf8'));
           if (x.paper !== true || x.liveOff !== true || x.go !== false) throw new Error('funding live boundary violated');
           const p = x.unitEconomicsPolicy;
-          if (p?.version !== 'funding_unit_economics_v1') throw new Error('funding economics policy missing');
+          if (p?.version !== 'funding_unit_economics_v2_target_settles') throw new Error('funding economics policy missing');
           if (!(p.roundTripFeeBps >= 10) || !(p.expectedSettles >= 2) || !(p.executionBufferBps >= 0) || !(p.minimumNetEdgeBps > 0)) throw new Error('funding economics hurdle weakened');
+          if (p.exitAfterTargetSettles !== true || p.realizedExitUsesExecutableQuote !== true || p.realizedPricePnlPersisted !== true) throw new Error('funding lifecycle parity missing');
           for (const h of x.holds || []) {
-            if (h.economicsGate && (h.economicsGate !== 'PASS' || !(h.projectedNetEdgeBps >= p.minimumNetEdgeBps))) throw new Error('new funding hold bypassed economics hurdle');
+            if (h.economicsGate && (h.economicsGate !== 'PASS' || !(h.projectedNetEdgeBps >= p.minimumNetEdgeBps) || h.expectedSettles !== p.expectedSettles)) throw new Error('new funding hold bypassed economics hurdle');
+          }
+          for (const c of x.closed || []) {
+            if (c.haltReason === 'TARGET_SETTLES_REACHED' && (!Number.isFinite(Number(c.exitFeeUsdt)) || !Number.isFinite(Number(c.realizedPricePnlUsdt)))) throw new Error('target-settle close missing truth accounting');
           }
           NODE
       - name: capture synchronized research state
