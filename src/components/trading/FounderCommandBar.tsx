@@ -1,8 +1,11 @@
-import { ArrowUpRight, Crosshair, LockKeyhole, ShieldAlert } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowUpRight, Crosshair, Database, FlaskConical, LockKeyhole, ShieldAlert } from 'lucide-react';
+import { fetchForwardPaper, type ForwardPaperSnapshot } from '../../services/forwardPaperClient';
+import { fetchPositioningResearch, type PositioningDataQuality, type PositioningEdgeSnapshot } from '../../services/positioningResearchClient';
 import { finite, formatMoney } from './formatters';
 import { useMarketData, useRiskState, useRunnerTelemetry } from './useTradingDesk';
 
-type CommandView = 'strategies' | 'truth' | 'risk' | 'engine';
+type CommandView = 'strategies' | 'truth' | 'risk' | 'engine' | 'research' | 'agents';
 type CommandTone = 'good' | 'watch' | 'bad' | 'neutral';
 
 type Priority = {
@@ -12,17 +15,30 @@ type Priority = {
   tone: CommandTone;
 };
 
+function compactChampion(id: string | undefined) {
+  if (!id) return 'NO VERIFIED EDGE';
+  const parts = id.split(':');
+  const pair = (parts[1] ?? '?').replace('USDT', '/USDT');
+  const tf = (parts[2] ?? '?').toUpperCase();
+  const session = (parts[3] ?? '?').toUpperCase();
+  return `${pair} · ${tf} · ${session}`;
+}
+
 function buildPriority({
   runnerVerified,
   riskBand,
   activeFlags,
-  edgeStatus,
+  positioningQuality,
+  positioningEdge,
+  forward,
   economicPnl,
 }: {
   runnerVerified: boolean;
   riskBand: string;
   activeFlags: string[];
-  edgeStatus: string;
+  positioningQuality: PositioningDataQuality | null;
+  positioningEdge: PositioningEdgeSnapshot | null;
+  forward: ForwardPaperSnapshot | null;
   economicPnl: number | null | undefined;
 }): Priority {
   if (!runnerVerified) {
@@ -43,11 +59,41 @@ function buildPriority({
     };
   }
 
-  if (edgeStatus !== 'RESEARCH_GO') {
+  if (positioningQuality && positioningQuality.qualityPass !== true) {
     return {
-      label: 'VALIDATE EDGE',
-      detail: edgeStatus.replaceAll('_', ' '),
-      view: 'strategies',
+      label: 'RESTORE DATA QUALITY',
+      detail: 'Positioning cohort is not clean enough for research',
+      view: 'research',
+      tone: 'bad',
+    };
+  }
+
+  const required = positioningQuality?.readiness?.minimumIndependentRows ?? positioningEdge?.methodology?.minIndependentRows ?? 20;
+  const independent = positioningQuality?.independentRowCount ?? positioningEdge?.dataQuality?.independentRowCount ?? 0;
+  if (positioningQuality && independent < required) {
+    return {
+      label: 'BUILD POSITIONING COHORT',
+      detail: `${independent}/${required} clean independent observations · forward runs in parallel`,
+      view: 'research',
+      tone: 'watch',
+    };
+  }
+
+  if (positioningEdge?.verdict === 'RESEARCH_CANDIDATE_FOUND') {
+    return {
+      label: 'AUDIT POSITIONING EDGE',
+      detail: 'Candidate exists · keep holdout discipline before Forward PAPER',
+      view: 'research',
+      tone: 'watch',
+    };
+  }
+
+  const family = forward?.families?.[0];
+  if (family && family.nextStageEligible !== true) {
+    return {
+      label: 'ACCUMULATE FORWARD EVIDENCE',
+      detail: `${family.championForward?.trades ?? 0}/20 prospective trades · LIVE remains locked`,
+      view: 'agents',
       tone: 'watch',
     };
   }
@@ -72,23 +118,86 @@ function buildPriority({
 export function FounderCommandBar({ onOpen }: { onOpen: (view: CommandView) => void }) {
   const { symbol, timeframe } = useMarketData();
   const { runner } = useRunnerTelemetry();
-  const { truth, capture, founder } = useRiskState();
+  const { truth, capture } = useRiskState();
+  const [forward, setForward] = useState<ForwardPaperSnapshot | null>(null);
+  const [positioningQuality, setPositioningQuality] = useState<PositioningDataQuality | null>(null);
+  const [positioningEdge, setPositioningEdge] = useState<PositioningEdgeSnapshot | null>(null);
+
+  useEffect(() => {
+    let disposed = false;
+    let controller: AbortController | null = null;
+    let pending = false;
+
+    const load = async () => {
+      if (pending) return;
+      pending = true;
+      controller?.abort();
+      controller = new AbortController();
+      const signal = controller.signal;
+      try {
+        const [forwardResult, positioningResult] = await Promise.allSettled([
+          fetchForwardPaper(signal),
+          fetchPositioningResearch(signal),
+        ]);
+        if (disposed) return;
+        setForward(forwardResult.status === 'fulfilled' && forwardResult.value.ok ? forwardResult.value : null);
+        if (positioningResult.status === 'fulfilled') {
+          setPositioningQuality(positioningResult.value.quality);
+          setPositioningEdge(positioningResult.value.edge);
+        } else {
+          setPositioningQuality(null);
+          setPositioningEdge(null);
+        }
+      } finally {
+        pending = false;
+      }
+    };
+
+    void load();
+    const timer = window.setInterval(() => void load(), 60_000);
+    return () => {
+      disposed = true;
+      controller?.abort();
+      window.clearInterval(timer);
+    };
+  }, []);
 
   const runnerVerified = runner?.agentAlive === true && runner.paperOnly === true && runner.liveOrders === false;
   const risk = truth.data?.execution?.globalRisk ?? truth.data?.globalRisk ?? null;
   const riskBand = risk?.band ?? 'NOT VERIFIED';
   const activeFlags = Array.isArray(risk?.activeFlags) ? risk.activeFlags : [];
   const economicPnl = capture.data?.funding?.economicPnlUsdt;
-  const edgeStatus = capture.data?.funding?.scorecard?.edgeEvidence?.status ?? 'NO EVIDENCE';
   const openPaper = runner?.stats?.openPositions ?? runner?.openPositions?.length ?? null;
   const mission = truth.data?.founderMode?.focus?.trim()
     || truth.data?.founderMode?.goal?.trim()
     || 'Prove repeatable paper edge before capital cutover';
-  const priority = buildPriority({ runnerVerified, riskBand, activeFlags, edgeStatus, economicPnl });
-  const externalCutoverReady = founder.state === 'ready' && founder.data?.readiness === 'READY_FOR_EXTERNAL_CUTOVER';
-  const cutoverLocked = founder.state === 'ready' && founder.data?.cutover.canExecute === false;
-  const capitalLabel = externalCutoverReady ? 'EXTERNAL REVIEW READY' : cutoverLocked ? 'LOCKED' : 'NOT VERIFIED';
-  const capitalTone: CommandTone = externalCutoverReady ? 'watch' : cutoverLocked ? 'good' : 'bad';
+
+  const family = forward?.families?.[0] ?? null;
+  const forwardTrades = family?.championForward?.trades ?? 0;
+  const forwardGate = family?.forwardGate?.replaceAll('_', ' ') ?? 'NOT VERIFIED';
+  const forwardTone: CommandTone = family?.nextStageEligible === true ? 'good' : family ? 'watch' : 'bad';
+
+  const requiredRows = positioningQuality?.readiness?.minimumIndependentRows ?? positioningEdge?.methodology?.minIndependentRows ?? 20;
+  const independentRows = positioningQuality?.independentRowCount ?? positioningEdge?.dataQuality?.independentRowCount ?? null;
+  const dataReady = positioningQuality?.readiness?.readyForPredeclaredStudy === true;
+  const dataQualityPass = positioningQuality?.qualityPass === true;
+  const dataTone: CommandTone = dataReady ? 'good' : dataQualityPass ? 'watch' : positioningQuality ? 'bad' : 'neutral';
+  const dataLabel = independentRows === null ? 'NOT VERIFIED' : `${independentRows}/${requiredRows} CLEAN`;
+  const dataDetail = dataReady ? 'positioning study enabled' : dataQualityPass ? 'cohort building' : positioningQuality ? 'quality gate failed' : 'evidence unavailable';
+
+  const riskTone: CommandTone = riskBand === 'HEALTHY' ? 'good' : riskBand === 'WATCH' ? 'watch' : riskBand === 'NOT VERIFIED' ? 'neutral' : 'bad';
+  const riskLabel = activeFlags[0]?.replaceAll('_', ' ') ?? (riskBand === 'HEALTHY' ? 'NO ACTIVE BLOCKER' : riskBand.replaceAll('_', ' '));
+  const riskDetail = activeFlags.length > 1 ? `+${activeFlags.length - 1} additional flags` : runnerVerified ? `${openPaper ?? '—'} paper open · ${formatMoney(economicPnl)}` : 'paper runner not verified';
+
+  const priority = buildPriority({
+    runnerVerified,
+    riskBand,
+    activeFlags,
+    positioningQuality,
+    positioningEdge,
+    forward,
+    economicPnl,
+  });
 
   return (
     <section className="founder-command-bar" aria-label="Founder command layer">
@@ -98,24 +207,36 @@ export function FounderCommandBar({ onOpen }: { onOpen: (view: CommandView) => v
         <small>{symbol.replace('USDT', '')}/USDT · {timeframe} · verified desk context</small>
       </div>
 
+      <button type="button" className={`founder-command-bar__metric is-${family ? 'watch' : 'neutral'}`} onClick={() => onOpen('agents')}>
+        <span><FlaskConical size={11} /> ACTIVE EDGE</span>
+        <strong>{compactChampion(family?.championId)}</strong>
+        <small>{family ? `${family.independentEvidenceUnits} independent evidence unit` : 'awaiting verified forward family'}</small>
+      </button>
+
+      <button type="button" className={`founder-command-bar__metric is-${forwardTone}`} onClick={() => onOpen('agents')}>
+        <span><LockKeyhole size={11} /> FORWARD</span>
+        <strong>{forwardTrades}/20 · {forwardGate}</strong>
+        <small>{family?.nextStageEligible ? 'next PAPER stage eligible' : 'LIVE LOCKED'}</small>
+      </button>
+
+      <button type="button" className={`founder-command-bar__metric is-${dataTone}`} onClick={() => onOpen('research')}>
+        <span><Database size={11} /> DATA READINESS</span>
+        <strong>{dataLabel}</strong>
+        <small>{dataDetail}</small>
+      </button>
+
+      <button type="button" className={`founder-command-bar__metric is-${riskTone}`} onClick={() => onOpen('risk')}>
+        <span><ShieldAlert size={11} /> RISK BLOCKER</span>
+        <strong>{riskLabel}</strong>
+        <small>{riskDetail}</small>
+      </button>
+
       <button type="button" className={`founder-command-bar__priority is-${priority.tone}`} onClick={() => onOpen(priority.view)}>
-        <span>NEXT VERIFIED PRIORITY</span>
+        <span>NEXT ACTION</span>
         <strong>{priority.label}</strong>
         <small>{priority.detail}</small>
         <ArrowUpRight size={14} aria-hidden="true" />
       </button>
-
-      <button type="button" className={`founder-command-bar__metric is-${riskBand === 'HEALTHY' ? 'good' : riskBand === 'WATCH' ? 'watch' : 'bad'}`} onClick={() => onOpen('risk')}>
-        <span><ShieldAlert size={11} /> RISK GATE</span>
-        <strong>{riskBand.replaceAll('_', ' ')}</strong>
-        <small>{activeFlags.length === 0 ? '0 active flags' : `${activeFlags.length} active flags`}</small>
-      </button>
-
-      <div className={`founder-command-bar__metric is-${capitalTone}`}>
-        <span><LockKeyhole size={11} /> CAPITAL</span>
-        <strong>{capitalLabel}</strong>
-        <small>{runnerVerified ? `${openPaper ?? '—'} paper open · ${formatMoney(economicPnl)}` : 'paper execution not verified'}</small>
-      </div>
     </section>
   );
 }
