@@ -1,10 +1,10 @@
 {
-  "studyVersion": 3,
+  "studyVersion": 4,
   "mode": "RESEARCH_ONLY",
-  "protocolSha256": "b1010c4e461984033c707794f6e92fcd8f29fd6a507d1fdb0e09989c16d72409",
+  "protocolSha256": "c49990852fbeeae1b838f1ad56ed466f028dc0d7a69b6d34894d5168035ff7b6",
   "protocol": {
-    "studyVersion": 3,
-    "hypothesis": "A material 1m BTC spot/perpetual return disagreement predicts partial perpetual catch-up over the next 10-25m net of fixed round-trip costs.",
+    "studyVersion": 4,
+    "hypothesis": "A material 1m BTC spot/perpetual return disagreement predicts partial perpetual catch-up over the next 10-25m after executable bid/ask prices and fixed additional round-trip costs.",
     "signal": {
       "longPerpMaxSpreadBps": -2,
       "shortPerpMinSpreadBps": 2
@@ -38,10 +38,12 @@
     },
     "holdoutPolicy": "SEALED_UNLESS_PRE_HOLDOUT_FIXED_GATES_PASS_AND_120_INDEPENDENT_MATURED_SIGNALS_EXIST; NEVER_USED_FOR_RANKING_OR_TUNING",
     "rankingPolicy": "DISCOVERY_VALIDATION_AND_PRE_HOLDOUT_WALK_FORWARD_ONLY; HOLDOUT NEVER RANKS OR TUNES",
-    "provenanceRequirement": "OKX_PUBLIC_CONFIRMED_1M_SPOT_AND_SWAP_BARS_ALIGNED_BY_OPEN_TIME",
+    "provenanceRequirement": "OKX_PUBLIC_CONFIRMED_1M_SPOT_AND_SWAP_BARS_PLUS_SCHEMA_V4_PUBLIC_PERP_TOP_OF_BOOK_WITH_EXCHANGE_SOURCE_TIMESTAMP",
+    "executionPricePolicy": "LONG_ENTRY_AT_PERP_ASK_EXIT_AT_PERP_BID; SHORT_ENTRY_AT_PERP_BID_EXIT_AT_PERP_ASK; THEN_SUBTRACT_FIXED_10BPS_ADDITIONAL_COST",
+    "maxBookAgeMs": 30000,
     "researchBoundary": "RESEARCH_ONLY_NOT_IN_H1_NOT_FORWARD_PAPER"
   },
-  "rawSnapshotCount": 6,
+  "rawSnapshotCount": 1,
   "rawMaturedSignalCount": 0,
   "maturedSignalCount": 0,
   "independence": {
