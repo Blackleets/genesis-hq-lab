@@ -48,24 +48,35 @@ async function loadHz1() {
   }
 }
 
+function finiteNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
 async function loadFunding() {
   try {
     const r = await fetch(FUNDING_URL, { cache: 'no-store', signal: AbortSignal.timeout(2500) });
     if (!r.ok) return null;
     const j = await r.json();
-    if (!j || j.paper !== true) return null;
+    if (!j || j.paper !== true || j.liveOff === false || j.go === true) return null;
     const holds = Array.isArray(j.holds) ? j.holds.slice(0, 8).map((h) => ({
       instId: h.instId,
       side: h.side,
-      predictedBps: h.predictedBps,
-      lastRealizedBps: h.lastRealizedBps,
-      nextFundingTime: h.nextFundingTime,
-      realizedFundingUsdt: h.realizedFundingUsdt,
-      mtmUsdt: h.mtmUsdt,
+      predictedBps: finiteNumber(h.predictedBps),
+      lastRealizedBps: finiteNumber(h.lastRealizedBps),
+      meanFundingBps: finiteNumber(h.meanFundingBps),
+      nextFundingTime: finiteNumber(h.nextFundingTime),
+      expectedSettles: finiteNumber(h.expectedSettles),
+      settledCount: finiteNumber(h.settledCount),
+      projectedGrossFundingBps: finiteNumber(h.projectedGrossFundingBps),
+      projectedExecutionCostBps: finiteNumber(h.projectedExecutionCostBps),
+      projectedNetEdgeBps: finiteNumber(h.projectedNetEdgeBps),
+      economicsGate: typeof h.economicsGate === 'string' ? h.economicsGate : null,
+      realizedFundingUsdt: finiteNumber(h.realizedFundingUsdt),
+      mtmUsdt: finiteNumber(h.mtmUsdt),
       halt: !!h.halt,
     })) : [];
-    // closed[] is required for Truth Ledger v2. Legacy snapshots did not expose
-    // realizedPricePnlUsdt at top level, so the API reconstructs it from closes.
     const closed = Array.isArray(j.closed) ? j.closed.map((h) => ({
       instId: h.instId,
       side: h.side,
@@ -78,14 +89,30 @@ async function loadFunding() {
       realizedPricePnlUsdt: h.realizedPricePnlUsdt,
       realizedFundingUsdt: h.realizedFundingUsdt,
       mtmUsdt: h.mtmUsdt,
+      settledCount: h.settledCount,
+      expectedSettles: h.expectedSettles,
+      projectedNetEdgeBps: h.projectedNetEdgeBps,
+      economicsGate: h.economicsGate,
       haltReason: h.haltReason,
       closedTs: h.closedTs,
     })) : [];
-    const settledCount = Number.isFinite(+j.settledCount) ? +j.settledCount : 0;
-    const realizedFundingUsdt = Number.isFinite(+j.realizedFundingUsdt) ? +j.realizedFundingUsdt : 0;
-    const mtmUsdt = Number.isFinite(+j.mtmUsdt) ? +j.mtmUsdt : 0;
-    const feesUsdt = Number.isFinite(+j.feesUsdt) ? +j.feesUsdt : 0;
-    const capital = Number.isFinite(+j.capital) ? +j.capital : 10000;
+    const settledCount = finiteNumber(j.settledCount) ?? 0;
+    const realizedFundingUsdt = finiteNumber(j.realizedFundingUsdt) ?? 0;
+    const mtmUsdt = finiteNumber(j.mtmUsdt) ?? 0;
+    const feesUsdt = finiteNumber(j.feesUsdt) ?? 0;
+    const capital = finiteNumber(j.capital) ?? 10000;
+    const rawPolicy = j.unitEconomicsPolicy && typeof j.unitEconomicsPolicy === 'object' ? j.unitEconomicsPolicy : null;
+    const unitEconomicsPolicy = rawPolicy ? {
+      version: typeof rawPolicy.version === 'string' ? rawPolicy.version : 'UNVERIFIED',
+      roundTripFeeBps: finiteNumber(rawPolicy.roundTripFeeBps),
+      expectedSettles: finiteNumber(rawPolicy.expectedSettles),
+      executionBufferBps: finiteNumber(rawPolicy.executionBufferBps),
+      minimumNetEdgeBps: finiteNumber(rawPolicy.minimumNetEdgeBps),
+      ranking: typeof rawPolicy.ranking === 'string' ? rawPolicy.ranking : null,
+      exitAfterTargetSettles: rawPolicy.exitAfterTargetSettles === true,
+      realizedExitUsesExecutableQuote: rawPolicy.realizedExitUsesExecutableQuote === true,
+      realizedPricePnlPersisted: rawPolicy.realizedPricePnlPersisted === true,
+    } : null;
     const scorecard = buildFundingScorecard({
       paper: true,
       liveOff: true,
@@ -114,6 +141,9 @@ async function loadFunding() {
       closedCount: perf.closedCount,
       ledgerVersion: perf.ledgerVersion,
       holds,
+      unitEconomicsPolicy,
+      feeLock: j.feeLock === true,
+      feeLockReason: typeof j.feeLockReason === 'string' ? j.feeLockReason : null,
       liveOff: true,
       go: false,
       scorecard,
