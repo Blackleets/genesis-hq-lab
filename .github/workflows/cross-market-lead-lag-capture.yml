@@ -29,7 +29,7 @@ concurrency:
 jobs:
   capture:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     steps:
       - name: code
         uses: actions/checkout@v4
@@ -41,9 +41,16 @@ jobs:
           path: tape
       - name: verify causal capture and statistical discipline
         run: node --test server/tests/crossMarketLeadLagCapture.test.mjs server/tests/crossMarketLeadLagStudy.test.mjs
-      - name: capture aligned closed spot/perp bar
+      - name: capture causal maturity pair
         if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
-        run: node server/genesis/crossMarketLeadLagCapture.mjs --out tape/paper-tape/cross-market-latest.json --jsonl tape/paper-tape/cross-market.jsonl
+        shell: bash
+        run: |
+          # First observation is the signal-time snapshot. The second is deliberately
+          # delayed into the predeclared 10-25m maturity window so outcomes can mature
+          # causally even when branch-local trigger commits are hours apart.
+          node server/genesis/crossMarketLeadLagCapture.mjs --out tape/paper-tape/cross-market-latest.json --jsonl tape/paper-tape/cross-market.jsonl
+          sleep 660
+          node server/genesis/crossMarketLeadLagCapture.mjs --out tape/paper-tape/cross-market-latest.json --jsonl tape/paper-tape/cross-market.jsonl
       - name: evaluate predeclared lead-lag protocol
         if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
         run: node server/research/crossMarketLeadLagStudy.mjs tape/paper-tape/cross-market.jsonl --out tape/paper-tape/cross-market-study-latest.json
