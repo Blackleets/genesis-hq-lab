@@ -189,6 +189,7 @@ export function FounderCommandBar({ onOpen }: { onOpen: (view: CommandView) => v
   const riskTone: CommandTone = riskBand === 'HEALTHY' ? 'good' : riskBand === 'WATCH' ? 'watch' : riskBand === 'NOT VERIFIED' ? 'neutral' : 'bad';
   const riskLabel = compactRiskFlag(activeFlags[0]) ?? (riskBand === 'HEALTHY' ? 'NO ACTIVE BLOCKER' : riskBand.replaceAll('_', ' '));
   const riskDetail = activeFlags.length > 1 ? `+${activeFlags.length - 1} additional flags` : runnerVerified ? `${openPaper ?? '—'} paper open · ${formatMoney(economicPnl)}` : 'paper runner not verified';
+  const riskDetailMobile = activeFlags.length > 1 ? `+${activeFlags.length - 1} FLAGS` : runnerVerified ? `${openPaper ?? '—'} OPEN · ${finite(economicPnl) ? formatMoney(economicPnl, 0) : 'P&L N/A'}` : 'RUNNER UNVERIFIED';
 
   const priority = buildPriority({ runnerVerified, riskBand, activeFlags, positioningQuality, positioningEdge, promotion, researchForward, portfolioRisk, forward, economicPnl });
 
@@ -227,7 +228,10 @@ export function FounderCommandBar({ onOpen }: { onOpen: (view: CommandView) => v
       <button type="button" className={`founder-command-bar__metric founder-command-bar__metric--risk is-${riskTone}`} onClick={() => onOpen('risk')}>
         <span><ShieldAlert size={11} /> RISK</span>
         <strong>{riskLabel}</strong>
-        <small>{riskDetail}</small>
+        <small>
+          <span className="founder-command-bar__desktop-value">{riskDetail}</span>
+          <span className="founder-command-bar__mobile-value">{riskDetailMobile}</span>
+        </small>
       </button>
 
       <button type="button" className={`founder-command-bar__priority is-${priority.tone}`} onClick={() => onOpen(priority.view)}>
