@@ -2,6 +2,7 @@ export type PositioningDataQuality = {
   schemaVersion: number;
   mode: 'RESEARCH_ONLY';
   researchUse: string;
+  symbol?: string;
   eligibleRowCount: number;
   independentRowCount: number;
   effectiveIndependentRatio: number;
@@ -43,6 +44,7 @@ export type PositioningEdgeSnapshot = {
   ok: boolean;
   version: string;
   mode: 'RESEARCH_ONLY';
+  symbol?: string;
   paperOnly: true;
   liveOrders: false;
   executionAuthority: false;
@@ -54,6 +56,7 @@ export type PositioningEdgeSnapshot = {
     minIndependentRows: number;
     stressedCostBps: number;
     walkForwardFolds?: number;
+    symbolIsolation?: boolean;
   };
   dataQuality?: {
     qualityPass: boolean;
@@ -66,13 +69,60 @@ export type PositioningEdgeSnapshot = {
   holdoutOpened?: boolean;
 };
 
-const QUALITY_URL = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/capture-tape/paper-tape/positioning-data-quality-latest.json';
-const EDGE_URL = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/capture-tape/quant-evidence/positioning-edge-factory-latest.json';
+export type PositioningUniverseProbe = {
+  schemaVersion: number;
+  mode: 'RESEARCH_ONLY';
+  provider: string;
+  requestedSymbols: string[];
+  usableSymbols: string[];
+  excludedSymbols: string[];
+  completedAt: string | null;
+  policy: {
+    missingDimensionExcludesSymbol: true;
+    substitutionsAllowed: false;
+    admissionDoesNotImplyEdge: true;
+  };
+  boundaries: {
+    executionAuthority: false;
+    liveTrading: false;
+    realOrders: false;
+    candidatePromotion: false;
+    holdoutRanking: false;
+  };
+};
+
+export type PositioningUniverseRow = {
+  symbol: string;
+  admitted: boolean;
+  qualityPass: boolean | null;
+  independentRowCount: number | null;
+  required: number | null;
+  ready: boolean | null;
+};
+
+const ROOT = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/capture-tape';
+const QUALITY_URL = `${ROOT}/paper-tape/positioning-data-quality-latest.json`;
+const EDGE_URL = `${ROOT}/quant-evidence/positioning-edge-factory-latest.json`;
+const UNIVERSE_URL = `${ROOT}/paper-tape/positioning-universe-probe-latest.json`;
+
+const QUALITY_URLS: Record<string, string> = {
+  BTCUSDT: QUALITY_URL,
+  ETHUSDT: `${ROOT}/paper-tape/positioning-data-quality-ethusdt-latest.json`,
+  SOLUSDT: `${ROOT}/paper-tape/positioning-data-quality-solusdt-latest.json`,
+  XRPUSDT: `${ROOT}/paper-tape/positioning-data-quality-xrpusdt-latest.json`,
+  BNBUSDT: `${ROOT}/paper-tape/positioning-data-quality-bnbusdt-latest.json`,
+};
 
 async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(`${url}?t=${Date.now()}`, { cache: 'no-store', signal });
   if (!response.ok) throw new Error(`positioning_research_http_${response.status}`);
   return response.json() as Promise<T>;
+}
+
+function assertQualityBoundary(quality: PositioningDataQuality) {
+  if (quality.mode !== 'RESEARCH_ONLY' || quality.readiness?.rankingAllowed === true) {
+    throw new Error('positioning_quality_boundary_unverified');
+  }
 }
 
 export async function fetchPositioningResearch(signal?: AbortSignal): Promise<{ quality: PositioningDataQuality; edge: PositioningEdgeSnapshot }> {
@@ -81,7 +131,7 @@ export async function fetchPositioningResearch(signal?: AbortSignal): Promise<{ 
     fetchJson<PositioningEdgeSnapshot>(EDGE_URL, signal),
   ]);
 
-  if (quality.mode !== 'RESEARCH_ONLY') throw new Error('positioning_quality_boundary_unverified');
+  assertQualityBoundary(quality);
   if (
     edge.mode !== 'RESEARCH_ONLY'
     || edge.paperOnly !== true
@@ -93,4 +143,43 @@ export async function fetchPositioningResearch(signal?: AbortSignal): Promise<{ 
   ) throw new Error('positioning_edge_boundary_unverified');
 
   return { quality, edge };
+}
+
+export async function fetchPositioningUniverseReadiness(signal?: AbortSignal): Promise<{ probe: PositioningUniverseProbe; rows: PositioningUniverseRow[] }> {
+  const probe = await fetchJson<PositioningUniverseProbe>(UNIVERSE_URL, signal);
+  if (
+    probe.mode !== 'RESEARCH_ONLY'
+    || probe.policy?.missingDimensionExcludesSymbol !== true
+    || probe.policy?.substitutionsAllowed !== false
+    || probe.boundaries?.executionAuthority !== false
+    || probe.boundaries?.liveTrading !== false
+    || probe.boundaries?.realOrders !== false
+    || probe.boundaries?.candidatePromotion !== false
+    || probe.boundaries?.holdoutRanking !== false
+  ) throw new Error('positioning_universe_boundary_unverified');
+
+  const symbols = Array.isArray(probe.requestedSymbols) ? probe.requestedSymbols : Object.keys(QUALITY_URLS);
+  const results = await Promise.allSettled(symbols.map(async symbol => {
+    const url = QUALITY_URLS[symbol];
+    if (!url) return null;
+    const quality = await fetchJson<PositioningDataQuality>(url, signal);
+    assertQualityBoundary(quality);
+    if (quality.symbol && quality.symbol !== symbol) throw new Error('positioning_quality_symbol_mismatch');
+    return quality;
+  }));
+
+  const rows = symbols.map((symbol, index) => {
+    const result = results[index];
+    const quality = result?.status === 'fulfilled' ? result.value : null;
+    return {
+      symbol,
+      admitted: probe.usableSymbols?.includes(symbol) === true,
+      qualityPass: quality ? quality.qualityPass === true : null,
+      independentRowCount: quality ? quality.independentRowCount : null,
+      required: quality?.readiness?.minimumIndependentRows ?? null,
+      ready: quality ? quality.readiness?.readyForPredeclaredStudy === true : null,
+    } satisfies PositioningUniverseRow;
+  });
+
+  return { probe, rows };
 }
