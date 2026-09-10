@@ -57,9 +57,9 @@ jobs:
           const x=JSON.parse(fs.readFileSync('tape/quant-evidence/cross-market-lead-lag-latest.json','utf8'));
           if(x.mode!=='RESEARCH_ONLY'||x.paperOnly!==true||x.liveOrders!==false||x.executionAuthority!==false||x.capitalEligible!==false) throw new Error('capital boundary violated');
           if(x.methodology?.selectionUsesHoldout!==false||x.methodology?.holdoutSealed!==true) throw new Error('holdout boundary violated');
-          if(x.methodology?.causalPriorLeaderOnly!==true||x.methodology?.futureLeaderForbidden!==true||x.methodology?.symbolIsolation!==true) throw new Error('causal boundary violated');
+          if(x.methodology?.causalPriorLeaderOnly!==true||x.methodology?.futureLeaderForbidden!==true||x.methodology?.symbolIsolation!==true||x.methodology?.activeQualityCohortsOnly!==true) throw new Error('causal cohort boundary violated');
           for(const lane of Object.values(x.lanes||{})){
-            if(lane.methodology?.selectionUsesHoldout!==false||lane.methodology?.holdoutSealed!==true||lane.methodology?.causalPriorLeaderOnly!==true||lane.methodology?.futureLeaderForbidden!==true) throw new Error('lane boundary violated');
+            if(lane.methodology?.selectionUsesHoldout!==false||lane.methodology?.holdoutSealed!==true||lane.methodology?.causalPriorLeaderOnly!==true||lane.methodology?.futureLeaderForbidden!==true||lane.methodology?.activeQualityCohortsOnly!==true) throw new Error('lane boundary violated');
           }
           NODE
       - name: publish durable cross-market evidence
