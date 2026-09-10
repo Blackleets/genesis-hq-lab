@@ -5,10 +5,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const VERSION = 'research_promotion_audit_v1';
+const VERSION = 'research_promotion_audit_v2_strict_sources';
 const LEDGER_VERSION = 'research_promotion_ledger_v1';
-const POSITIONING_FACTORY_VERSION = 'positioning_edge_factory_v6_active_cohort';
-const CROSS_MARKET_VERSION = 'cross_market_lead_lag_v2_active_cohort';
+const POSITIONING_FACTORY_VERSION = 'positioning_edge_factory_v7_strict_numeric';
+const CROSS_MARKET_VERSION = 'cross_market_lead_lag_v3_strict_numeric';
 const SYMBOLS = Object.freeze(['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'BNBUSDT']);
 const ALT_SYMBOLS = Object.freeze(['ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'BNBUSDT']);
 const BASE_COST_BPS = 12;
@@ -270,7 +270,7 @@ function buildPositioningIntake(root, symbol) {
   const p = positioningPaths(root, symbol), edge = readJson(p.edge), quality = readJson(p.quality), rows = readJsonl(p.rows), divergenceRows = p.divergence ? readJsonl(p.divergence) : [];
   if (!edge || !quality) return { laneType: 'POSITIONING', symbol, state: 'SOURCE_UNAVAILABLE' };
   if (edge.version !== POSITIONING_FACTORY_VERSION) return { laneType: 'POSITIONING', symbol, state: 'SOURCE_VERSION_UNSUPPORTED', sourceVersion: edge.version };
-  if (edge.mode !== 'RESEARCH_ONLY' || edge.paperOnly !== true || edge.liveOrders !== false || edge.executionAuthority !== false || edge.capitalEligible !== false || edge.methodology?.selectionUsesHoldout !== false || edge.methodology?.holdoutSealed !== true || edge.methodology?.activeQualityCohortOnly !== true) return { laneType: 'POSITIONING', symbol, state: 'SOURCE_BOUNDARY_UNVERIFIED' };
+  if (edge.mode !== 'RESEARCH_ONLY' || edge.paperOnly !== true || edge.liveOrders !== false || edge.executionAuthority !== false || edge.capitalEligible !== false || edge.methodology?.selectionUsesHoldout !== false || edge.methodology?.holdoutSealed !== true || edge.methodology?.activeQualityCohortOnly !== true || edge.methodology?.strictMissingNumericEvidence !== true) return { laneType: 'POSITIONING', symbol, state: 'SOURCE_BOUNDARY_UNVERIFIED' };
   const usableSamples = Number(edge?.dataQuality?.usableForwardSamples ?? 0), survivors = edge.survivors ?? [];
   if (usableSamples < MIN_AUDIT_SAMPLES) return { laneType: 'POSITIONING', symbol, state: 'AUDIT_SAMPLE_BUILDING', usableSamples, required: MIN_AUDIT_SAMPLES, laneKey: laneKeyPositioning(symbol, quality) };
   const champion = selectLaneChampion(survivors, { baseCostBps: edge.methodology.stressedCostBps ?? BASE_COST_BPS, stressCostBps: STRESS_COST_BPS });
@@ -282,11 +282,12 @@ function buildCrossIntakes(root) {
   const cross = readJson(path.join(root, 'quant-evidence/cross-market-lead-lag-latest.json'));
   if (!cross) return ALT_SYMBOLS.map(altSymbol => ({ laneType: 'CROSS_MARKET', altSymbol, state: 'SOURCE_UNAVAILABLE' }));
   if (cross.version !== CROSS_MARKET_VERSION) return ALT_SYMBOLS.map(altSymbol => ({ laneType: 'CROSS_MARKET', altSymbol, state: 'SOURCE_VERSION_UNSUPPORTED', sourceVersion: cross.version }));
-  if (cross.mode !== 'RESEARCH_ONLY' || cross.paperOnly !== true || cross.liveOrders !== false || cross.executionAuthority !== false || cross.capitalEligible !== false || cross.methodology?.selectionUsesHoldout !== false || cross.methodology?.holdoutSealed !== true || cross.methodology?.activeQualityCohortsOnly !== true) return ALT_SYMBOLS.map(altSymbol => ({ laneType: 'CROSS_MARKET', altSymbol, state: 'SOURCE_BOUNDARY_UNVERIFIED' }));
+  if (cross.mode !== 'RESEARCH_ONLY' || cross.paperOnly !== true || cross.liveOrders !== false || cross.executionAuthority !== false || cross.capitalEligible !== false || cross.methodology?.selectionUsesHoldout !== false || cross.methodology?.holdoutSealed !== true || cross.methodology?.activeQualityCohortsOnly !== true || cross.methodology?.strictMissingNumericEvidence !== true) return ALT_SYMBOLS.map(altSymbol => ({ laneType: 'CROSS_MARKET', altSymbol, state: 'SOURCE_BOUNDARY_UNVERIFIED' }));
   const btcP = positioningPaths(root, 'BTCUSDT'), btcRows = readJsonl(btcP.rows), btcQuality = readJson(btcP.quality);
   return ALT_SYMBOLS.map(altSymbol => {
     const altP = positioningPaths(root, altSymbol), altRows = readJsonl(altP.rows), altQuality = readJson(altP.quality), lane = cross.lanes?.[altSymbol];
     if (!lane || !btcQuality || !altQuality) return { laneType: 'CROSS_MARKET', altSymbol, state: 'LANE_SOURCE_UNAVAILABLE' };
+    if (lane.methodology?.strictMissingNumericEvidence !== true) return { laneType: 'CROSS_MARKET', altSymbol, state: 'LANE_BOUNDARY_UNVERIFIED' };
     const alignedSamples = Number(lane?.dataQuality?.alignedSamples ?? 0), survivors = lane.survivors ?? [];
     const key = laneKeyCross(altSymbol, btcQuality, altQuality);
     if (alignedSamples < MIN_AUDIT_SAMPLES) return { laneType: 'CROSS_MARKET', altSymbol, state: 'AUDIT_SAMPLE_BUILDING', usableSamples: alignedSamples, required: MIN_AUDIT_SAMPLES, laneKey: key };
@@ -373,6 +374,9 @@ export function runPromotionAudit({ root = '.', ledgerPath, outPath, historyPath
       championSelection: 'WORST_TRAIN_VALIDATION_EXPECTANCY_AT_18BPS',
       holdoutOneShot: true,
       sameActiveCohortCannotReopenHoldout: true,
+      strictSourceNumericsRequired: true,
+      requiredPositioningSourceVersion: POSITIONING_FACTORY_VERSION,
+      requiredCrossMarketSourceVersion: CROSS_MARKET_VERSION,
       minimumUsableSamplesBeforeAudit: MIN_AUDIT_SAMPLES,
       holdoutFraction: HOLDOUT_FRACTION,
       baseCostBps: BASE_COST_BPS,
