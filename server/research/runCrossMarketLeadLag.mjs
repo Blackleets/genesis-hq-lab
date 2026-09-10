@@ -5,11 +5,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const VERSION = 'cross_market_lead_lag_v1';
+const VERSION = 'cross_market_lead_lag_v2_active_cohort';
 const ALT_SYMBOLS = Object.freeze(['ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'BNBUSDT']);
 
 function finite(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
 function timeMs(row) { const n = Date.parse(row?.capturedAt); return Number.isFinite(n) ? n : null; }
+function boundaryMs(value) { if(!value) return null; const n=Date.parse(value); return Number.isFinite(n)?n:null; }
 function readJson(file) { return JSON.parse(fs.readFileSync(file, 'utf8')); }
 function readJsonl(file) { if (!file || !fs.existsSync(file)) return []; return fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).map(JSON.parse); }
 function mean(xs) { return xs.length ? xs.reduce((a,b)=>a+b,0)/xs.length : null; }
@@ -40,15 +41,28 @@ function validPositioningRow(row, symbol) {
     && finite(row?.price?.close) > 0;
 }
 
+function activeRows(rows,symbol,{minCapturedAt=null,maxCapturedAt=null}={}){
+  const min=boundaryMs(minCapturedAt), max=boundaryMs(maxCapturedAt);
+  return rows.filter(row=>{
+    if(!validPositioningRow(row,symbol)) return false;
+    const t=timeMs(row);
+    return (min===null||t>=min)&&(max===null||t<=max);
+  }).sort((a,b)=>timeMs(a)-timeMs(b));
+}
+
 export function alignBtcLeaderToAlt(btcRows=[], altRows=[], {
   altSymbol,
   maxLeaderAgeMinutes=8,
   maxAltForwardMinutes=30,
+  btcMinCapturedAt=null,
+  btcMaxCapturedAt=null,
+  altMinCapturedAt=null,
+  altMaxCapturedAt=null,
 }={}) {
   const symbol=String(altSymbol||'').toUpperCase();
   if (!ALT_SYMBOLS.includes(symbol)) throw new Error(`UNSUPPORTED_ALT_SYMBOL:${symbol}`);
-  const btc=btcRows.filter(r=>validPositioningRow(r,'BTCUSDT')).sort((a,b)=>timeMs(a)-timeMs(b));
-  const alt=altRows.filter(r=>validPositioningRow(r,symbol)).sort((a,b)=>timeMs(a)-timeMs(b));
+  const btc=activeRows(btcRows,'BTCUSDT',{minCapturedAt:btcMinCapturedAt,maxCapturedAt:btcMaxCapturedAt});
+  const alt=activeRows(altRows,symbol,{minCapturedAt:altMinCapturedAt,maxCapturedAt:altMaxCapturedAt});
   const samples=[];
   let j=0, latestBtc=null, rejectedLeaderAge=0, rejectedForwardGap=0;
 
@@ -120,6 +134,10 @@ export function evaluateCrossMarketLane({ btcRows=[], altRows=[], btcQuality={},
   if (btcQuality?.symbol && btcQuality.symbol !== 'BTCUSDT') throw new Error('BTC_QUALITY_SYMBOL_MISMATCH');
   if (altQuality?.symbol && altQuality.symbol !== symbol) throw new Error('ALT_QUALITY_SYMBOL_MISMATCH');
 
+  const btcCohortStart=btcQuality?.firstEligibleCapturedAt??null;
+  const btcCohortEnd=btcQuality?.lastEligibleCapturedAt??null;
+  const altCohortStart=altQuality?.firstEligibleCapturedAt??null;
+  const altCohortEnd=altQuality?.lastEligibleCapturedAt??null;
   const base={
     ok:true, version:VERSION, mode:'RESEARCH_ONLY', leaderSymbol:'BTCUSDT', altSymbol:symbol,
     paperOnly:true, liveOrders:false, executionAuthority:false, capitalEligible:false,
@@ -130,6 +148,9 @@ export function evaluateCrossMarketLane({ btcRows=[], altRows=[], btcQuality={},
       selectionUsesHoldout:false,
       holdoutSealed:true,
       symbolIsolation:true,
+      activeQualityCohortsOnly:true,
+      btcQualityCohortStart:btcCohortStart,
+      altQualityCohortStart:altCohortStart,
       minIndependentRows,
       maxLeaderAgeMinutes,
       maxAltForwardMinutes,
@@ -146,9 +167,13 @@ export function evaluateCrossMarketLane({ btcRows=[], altRows=[], btcQuality={},
     return {...base,verdict:'DATA_NOT_READY',dataQuality:{btcQualityPass:btcQuality?.qualityPass===true,altQualityPass:altQuality?.qualityPass===true,btcIndependentRows:btcCount,altIndependentRows:altCount,required:minIndependentRows},candidates:[],holdoutOpened:false};
   }
 
-  const alignment=alignBtcLeaderToAlt(btcRows,altRows,{altSymbol:symbol,maxLeaderAgeMinutes,maxAltForwardMinutes});
+  const alignment=alignBtcLeaderToAlt(btcRows,altRows,{
+    altSymbol:symbol,maxLeaderAgeMinutes,maxAltForwardMinutes,
+    btcMinCapturedAt:btcCohortStart,btcMaxCapturedAt:btcCohortEnd,
+    altMinCapturedAt:altCohortStart,altMaxCapturedAt:altCohortEnd,
+  });
   if(alignment.samples.length<minIndependentRows){
-    return {...base,verdict:'DATA_NOT_READY',dataQuality:{btcQualityPass:true,altQualityPass:true,btcIndependentRows:btcCount,altIndependentRows:altCount,required:minIndependentRows,alignedSamples:alignment.samples.length,rejectedLeaderAge:alignment.rejectedLeaderAge,rejectedForwardGap:alignment.rejectedForwardGap},candidates:[],holdoutOpened:false};
+    return {...base,verdict:'DATA_NOT_READY',dataQuality:{btcQualityPass:true,altQualityPass:true,btcIndependentRows:btcCount,altIndependentRows:altCount,activeBtcRows:alignment.btcRows,activeAltRows:alignment.altRows,required:minIndependentRows,alignedSamples:alignment.samples.length,rejectedLeaderAge:alignment.rejectedLeaderAge,rejectedForwardGap:alignment.rejectedForwardGap},candidates:[],holdoutOpened:false};
   }
 
   const samples=alignment.samples;
@@ -167,7 +192,7 @@ export function evaluateCrossMarketLane({ btcRows=[], altRows=[], btcQuality={},
   return {
     ...base,
     verdict:survivors.length?'RESEARCH_CANDIDATE_FOUND':'NO_EDGE_FOUND',
-    dataQuality:{btcQualityPass:true,altQualityPass:true,btcIndependentRows:btcCount,altIndependentRows:altCount,alignedSamples:samples.length,rejectedLeaderAge:alignment.rejectedLeaderAge,rejectedForwardGap:alignment.rejectedForwardGap},
+    dataQuality:{btcQualityPass:true,altQualityPass:true,btcIndependentRows:btcCount,altIndependentRows:altCount,activeBtcRows:alignment.btcRows,activeAltRows:alignment.altRows,alignedSamples:samples.length,rejectedLeaderAge:alignment.rejectedLeaderAge,rejectedForwardGap:alignment.rejectedForwardGap},
     partitions:{trainSamples:train.length,validationSamples:validation.length,sealedHoldoutSamples:sealedHoldout.length,holdoutOpened:false,holdoutMetricsComputed:false},
     candidates,survivors,holdoutOpened:false,
   };
@@ -182,7 +207,7 @@ export function runCrossMarketReport({btcRows,btcQuality,altInputs},{options={}}
   return {
     ok:true,version:VERSION,mode:'RESEARCH_ONLY',paperOnly:true,liveOrders:false,executionAuthority:false,capitalEligible:false,
     completedAt:new Date().toISOString(),leaderSymbol:'BTCUSDT',verdict:survivors.length?'RESEARCH_CANDIDATE_FOUND':Object.values(lanes).some(l=>l.verdict!=='DATA_NOT_READY')?'NO_EDGE_FOUND':'DATA_NOT_READY',
-    methodology:{selectionUsesHoldout:false,holdoutSealed:true,causalPriorLeaderOnly:true,futureLeaderForbidden:true,symbolIsolation:true},
+    methodology:{selectionUsesHoldout:false,holdoutSealed:true,causalPriorLeaderOnly:true,futureLeaderForbidden:true,symbolIsolation:true,activeQualityCohortsOnly:true},
     lanes,survivors,
   };
 }
