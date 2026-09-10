@@ -1,0 +1,70 @@
+{
+  "auditType": "CROSS_MARKET_EXECUTION_FRICTION_CONTEXT",
+  "mode": "RESEARCH_ONLY",
+  "createdAt": "2026-09-10T02:10:40Z",
+  "branch": "feat/genesis-life-os",
+  "baseCommit": "53ec3c86035d7e749ba663d1476c100d3e95c9bd",
+  "implementationCommits": [
+    "0705461ef11ae22ae715f6ccdf62108da28220bf",
+    "a9c8f3056c44b5800a8435e580a7759f795405b9"
+  ],
+  "verification": {
+    "githubActionsRunId": 34428385897,
+    "githubActionsConclusion": "success",
+    "localNodeTests": {
+      "pass": 4,
+      "fail": 0
+    },
+    "pushEvidencePolicy": "push run tests only; market capture/evaluation/publish remain skipped on push"
+  },
+  "dataSource": {
+    "provider": "OKX",
+    "endpoint": "/api/v5/market/books",
+    "authentication": "PUBLIC_READ_ONLY_NO_API_KEY",
+    "depthPerSide": 5,
+    "instruments": ["BTC-USDT", "BTC-USDT-SWAP"],
+    "availabilityValidation": "official OKX Market Data documentation plus live public BTC-USDT response code=0",
+    "sourceTimestampPreserved": true
+  },
+  "change": {
+    "schemaVersion": 3,
+    "feature": "executionFriction",
+    "fields": [
+      "spot.bid",
+      "spot.ask",
+      "spot.mid",
+      "spot.spreadBps",
+      "spot.sourceAsOf",
+      "futures.bid",
+      "futures.ask",
+      "futures.mid",
+      "futures.spreadBps",
+      "futures.sourceAsOf",
+      "conservativeRoundTripTopOfBookBps"
+    ],
+    "researchUse": "OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING",
+    "costModelEffect": "NONE; fixed protocol roundTripCostBps remains 10",
+    "candidateGateEffect": "NONE",
+    "holdoutEffect": "NONE"
+  },
+  "studyStateBeforeChange": {
+    "rawSnapshotCount": 6,
+    "rawMaturedSignalCount": 0,
+    "maturedSignalCount": 0,
+    "candidateStatus": "ACCUMULATING_DISCOVERY",
+    "holdout": "SEALED",
+    "forwardPaperEligible": false
+  },
+  "safety": {
+    "paperResearchOnly": true,
+    "liveEnabled": false,
+    "realOrdersPlaced": 0,
+    "realTradingConfirmationsChanged": false,
+    "killSwitchesChanged": false,
+    "riskGatesChanged": false,
+    "gatesLowered": false,
+    "holdoutUsedForRanking": false,
+    "forwardPaperEnrollment": false
+  },
+  "nextBottleneck": "Accumulate homogeneous schema-v3 scheduled snapshots and only then test whether observed spread/friction materially explains net OOS edge or invalidates the fixed 10 bps cost assumption; do not rank on holdout."
+}
