@@ -43,7 +43,7 @@ jobs:
       - name: verify RPI evidence path
         run: node --test server/tests/okxRpiOrderBook.test.mjs server/tests/rpiOrderBookCapture.test.mjs server/tests/rpiDepthImbalanceStudy.test.mjs
       - name: capture OKX RPI liquidity context
-        run: node server/genesis/rpi/rpiOrderBookCapture.mjs --inst BTC-USDT-SWAP --depth 20 --out tape/paper-tape/rpi-orderbook-latest.json --jsonl tape/paper-tape/rpi-orderbook.jsonl
+        run: node server/genesis/rpiOrderBookCapture.mjs --inst BTC-USDT-SWAP --depth 20 --out tape/paper-tape/rpi-orderbook-latest.json --jsonl tape/paper-tape/rpi-orderbook.jsonl
       - name: evaluate locked RPI depth-imbalance study
         run: node server/research/rpiDepthImbalanceStudy.mjs tape/paper-tape/rpi-orderbook.jsonl --out tape/paper-tape/rpi-depth-imbalance-study-latest.json
       - name: publish durable RPI evidence
