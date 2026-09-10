@@ -1,5 +1,8 @@
 # RESEARCH_ONLY BTC-USDT spot/perpetual cross-market evidence.
 # Public read-only OKX endpoints. Never places orders or changes trading gates.
+# NOTE: GitHub cron schedules only run from the default branch. This workflow lives
+# on feat/genesis-life-os, so an explicit `capture:` trigger commit is supported
+# for branch-local evidence collection while ordinary code pushes remain tests-only.
 name: cross-market-lead-lag-capture
 
 on:
@@ -10,6 +13,7 @@ on:
     branches: [feat/genesis-life-os]
     paths:
       - .github/workflows/cross-market-lead-lag-capture.yml
+      - .github/genesis/cross-market-capture-trigger.txt
       - server/genesis/crossMarketLeadLagCapture.mjs
       - server/research/crossMarketLeadLagStudy.mjs
       - server/tests/crossMarketLeadLagCapture.test.mjs
@@ -30,7 +34,7 @@ jobs:
       - name: code
         uses: actions/checkout@v4
       - name: tape
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
         uses: actions/checkout@v4
         with:
           ref: capture-tape
@@ -38,13 +42,13 @@ jobs:
       - name: verify causal capture and statistical discipline
         run: node --test server/tests/crossMarketLeadLagCapture.test.mjs server/tests/crossMarketLeadLagStudy.test.mjs
       - name: capture aligned closed spot/perp bar
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
         run: node server/genesis/crossMarketLeadLagCapture.mjs --out tape/paper-tape/cross-market-latest.json --jsonl tape/paper-tape/cross-market.jsonl
       - name: evaluate predeclared lead-lag protocol
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
         run: node server/research/crossMarketLeadLagStudy.mjs tape/paper-tape/cross-market.jsonl --out tape/paper-tape/cross-market-study-latest.json
       - name: publish durable evidence
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
         working-directory: tape
         shell: bash
         run: |
