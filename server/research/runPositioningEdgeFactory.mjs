@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const VERSION = 'positioning_edge_factory_v3';
+const VERSION = 'positioning_edge_factory_v4';
 
 function finite(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
 function mean(xs) { return xs.length ? xs.reduce((a,b)=>a+b,0)/xs.length : null; }
@@ -25,7 +25,7 @@ function metrics(returnsBps=[]) {
   };
 }
 function readJson(p){ return JSON.parse(fs.readFileSync(p,'utf8')); }
-function readJsonl(p){ if(!fs.existsSync(p)) return []; return fs.readFileSync(p,'utf8').split('\n').filter(Boolean).map(JSON.parse); }
+function readJsonl(p){ if(!p || !fs.existsSync(p)) return []; return fs.readFileSync(p,'utf8').split('\n').filter(Boolean).map(JSON.parse); }
 function capturedMs(r){ const x=Date.parse(r?.capturedAt); return Number.isFinite(x)?x:null; }
 function takerWindowMs(r){ return finite(r?.positioning?.takerWindowMs) ?? finite(r?.provenance?.takerWindowMs); }
 function eligibleRows(rows){
@@ -39,10 +39,43 @@ function eligibleRows(rows){
     && (takerWindowMs(r)??0)>0
   ).sort((a,b)=>capturedMs(a)-capturedMs(b));
 }
+function eligibleDivergenceRows(rows){
+  return rows.filter(r=>
+    r?.mode==='RESEARCH_ONLY'
+    && r?.provider==='okx_public_market_data'
+    && r?.symbol==='BTCUSDT'
+    && r?.schemaVersion===1
+    && r?.provenance?.fixedWindow===true
+    && r?.provenance?.rawSpotVsPerpSizeComparisonForbidden===true
+    && (finite(r?.spot?.coverageMs)??0)>=54_000
+    && (finite(r?.perpetual?.coverageMs)??0)>=54_000
+    && Number.isFinite(capturedMs(r))
+    && finite(r?.divergence?.perpMinusSpotNotionalBuyFraction)!==null
+  ).sort((a,b)=>capturedMs(a)-capturedMs(b));
+}
+export function joinCausalSpotPerpDivergence(rows, divergenceRows, {maxDivergenceAgeMs=30_000}={}){
+  const ds=eligibleDivergenceRows(divergenceRows);
+  let j=0, latest=null;
+  return eligibleRows(rows).map(row=>{
+    const t=capturedMs(row);
+    while(j<ds.length && capturedMs(ds[j])<=t){ latest=ds[j]; j+=1; }
+    const ageMs=latest ? t-capturedMs(latest) : null;
+    const usable=latest && ageMs>=0 && ageMs<=maxDivergenceAgeMs;
+    return {
+      ...row,
+      researchFeatures:{
+        ...(row.researchFeatures??{}),
+        spotPerpTakerDivergence: usable ? finite(latest.divergence.perpMinusSpotNotionalBuyFraction) : null,
+        spotPerpTakerDivergenceAgeMs: usable ? ageMs : null,
+        spotPerpTakerDivergenceCausal: Boolean(usable),
+      },
+    };
+  });
+}
 function segmentedIndependentRows(rows,{maxGapMinutes=60}={}){
   const selected=[];
   let segment=0;
-  for(const row of eligibleRows(rows)){
+  for(const row of rows){
     const prior=selected.at(-1);
     if(!prior){ selected.push({row,segment}); continue; }
     const elapsed=capturedMs(row)-capturedMs(prior.row);
@@ -100,6 +133,12 @@ const FAMILIES = [
     signal:r=> (finite(r.positioning?.volatilityExpansionRatio)??0)>=1.2 && Math.abs(finite(r.crossCapture?.takerBuySellRatioDelta)??0)>=0.12,
     direction:r=> Math.sign(finite(r.crossCapture?.takerBuySellRatioDelta)??0),
   },
+  {
+    id:'spot_perp_taker_divergence_continuation',
+    description:'causal spot-perp taker aggression divergence continuation',
+    signal:r=> r.researchFeatures?.spotPerpTakerDivergenceCausal===true && Math.abs(finite(r.researchFeatures?.spotPerpTakerDivergence)??0)>=0.15,
+    direction:r=> Math.sign(finite(r.researchFeatures?.spotPerpTakerDivergence)??0),
+  },
 ];
 
 export function evaluatePositioningStudy(rows, quality, {
@@ -108,6 +147,8 @@ export function evaluatePositioningStudy(rows, quality, {
   maxForwardLabelGapMinutes=30,
   holdoutFraction=0.2,
   walkForwardFolds=2,
+  divergenceRows=[],
+  maxDivergenceAgeMs=30_000,
 }={}) {
   const base = {
     ok:true, version:VERSION, mode:'RESEARCH_ONLY', paperOnly:true, liveOrders:false,
@@ -125,13 +166,17 @@ export function evaluatePositioningStudy(rows, quality, {
       independentNonOverlappingRowsOnly:true,
       outageStartsNewCohortSegment:true,
       labelsNeverCrossSegmentBreaks:true,
+      spotPerpJoin:'PRIOR_ASOF_ONLY',
+      maxDivergenceAgeMs,
+      futureDivergenceForbidden:true,
     },
   };
   const independentCount=Number(quality?.independentRowCount??0);
   const ready = quality?.qualityPass===true && independentCount>=minIndependentRows;
   if (!ready) return { ...base, verdict:'DATA_NOT_READY', dataQuality:{ qualityPass:quality?.qualityPass===true, independentRowCount:independentCount, required:minIndependentRows, defects:quality?.defects??null }, candidates:[] };
 
-  const temporal=temporalSamples(rows,{maxForwardLabelGapMinutes});
+  const joinedRows=joinCausalSpotPerpDivergence(rows, divergenceRows,{maxDivergenceAgeMs});
+  const temporal=temporalSamples(joinedRows,{maxForwardLabelGapMinutes});
   const samples=temporal.samples;
   if(samples.length<10){
     return {
@@ -199,9 +244,9 @@ export function evaluatePositioningStudy(rows, quality, {
 
 if (process.argv[1]?.endsWith('runPositioningEdgeFactory.mjs')) {
   const args=process.argv.slice(2); const val=f=>{const i=args.indexOf(f); return i>=0?args[i+1]:undefined;};
-  const input=val('--input'), qualityPath=val('--quality'), out=val('--out');
+  const input=val('--input'), qualityPath=val('--quality'), divergencePath=val('--divergence'), out=val('--out');
   if(!input||!qualityPath) throw new Error('--input and --quality are required');
-  const result=evaluatePositioningStudy(readJsonl(input),readJson(qualityPath));
+  const result=evaluatePositioningStudy(readJsonl(input),readJson(qualityPath),{divergenceRows:readJsonl(divergencePath)});
   if(out){ fs.mkdirSync(path.dirname(out),{recursive:true}); fs.writeFileSync(out,JSON.stringify(result,null,2)+'\n'); }
   console.log(JSON.stringify(result));
 }
