@@ -27,12 +27,13 @@ function observation(i,netBps=5) {
 }
 
 test('protocol is explicit, hashed, holdout-sealed, and never forward-paper eligible by default',()=>{
-  assert.equal(CROSS_MARKET_PROTOCOL.studyVersion,2);
+  assert.equal(CROSS_MARKET_PROTOCOL.studyVersion,3);
   assert.equal(CROSS_MARKET_PROTOCOL.sequentialSplits.discovery,60);
   assert.equal(CROSS_MARKET_PROTOCOL.sequentialSplits.validation,30);
   assert.equal(CROSS_MARKET_PROTOCOL.sequentialSplits.holdout,30);
   assert.deepEqual(CROSS_MARKET_PROTOCOL.walkForward.testCounts,[15,15,30]);
   assert.equal(CROSS_MARKET_PROTOCOL.roundTripCostBps,10);
+  assert.match(CROSS_MARKET_PROTOCOL.holdoutPolicy,/PRE_HOLDOUT_FIXED_GATES_PASS/);
   assert.match(CROSS_MARKET_PROTOCOL.holdoutPolicy,/NEVER_USED_FOR_RANKING_OR_TUNING/);
   assert.match(CROSS_MARKET_PROTOCOL.rankingPolicy,/HOLDOUT NEVER RANKS OR TUNES/);
   assert.match(CROSS_MARKET_PROTOCOL_SHA256,/^[a-f0-9]{64}$/);
@@ -108,4 +109,22 @@ test('holdout remains sealed before all 120 independent matured signals',()=>{
   assert.equal(report.holdout.status,'SEALED');
   assert.equal(report.forwardPaperEligible,false);
   assert.ok(report.maturedSignalCount<120);
+});
+
+test('holdout remains sealed even at 120 signals when pre-holdout fixed gates fail',()=>{
+  const t=Date.UTC(2026,8,1,0,0,0);
+  const rows=[];
+  for (let i=0;i<120;i++) {
+    const entry=t+i*30*60_000;
+    rows.push(row(entry,{spread:-3,perp:100}));
+    rows.push(row(entry+15*60_000,{spread:0,perp:100}));
+  }
+  const report=evaluateCrossMarketStudy(rows);
+  assert.equal(report.maturedSignalCount,120);
+  assert.equal(report.candidateStatus,'REJECTED_PRE_HOLDOUT');
+  assert.equal(report.holdout.status,'SEALED');
+  assert.equal(report.holdout.count,0);
+  assert.equal(report.holdout.metrics,null);
+  assert.equal(report.sequentialAllocation.holdoutCount,0);
+  assert.equal(report.forwardPaperEligible,false);
 });

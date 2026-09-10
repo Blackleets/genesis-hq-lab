@@ -7,7 +7,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 
 export const CROSS_MARKET_PROTOCOL = Object.freeze({
-  studyVersion: 2,
+  studyVersion: 3,
   hypothesis: 'A material 1m BTC spot/perpetual return disagreement predicts partial perpetual catch-up over the next 10-25m net of fixed round-trip costs.',
   signal: {
     // returnSpread1mBps = perpetualReturn - spotReturn.
@@ -25,7 +25,7 @@ export const CROSS_MARKET_PROTOCOL = Object.freeze({
     policy: 'EXPANDING_TRAIN_FIXED_RULE_THREE_PRE_HOLDOUT_OOS_FOLDS_REQUIRE_ALL_TO_PASS_SAME_FIXED_GATES',
   },
   validationGates: { meanNetBpsMin: 2, medianNetBpsMin: 0, winRateMin: 0.55, profitFactorMin: 1.20 },
-  holdoutPolicy: 'SEALED_UNTIL_120_INDEPENDENT_MATURED_SIGNALS_AND_NEVER_USED_FOR_RANKING_OR_TUNING',
+  holdoutPolicy: 'SEALED_UNLESS_PRE_HOLDOUT_FIXED_GATES_PASS_AND_120_INDEPENDENT_MATURED_SIGNALS_EXIST; NEVER_USED_FOR_RANKING_OR_TUNING',
   rankingPolicy: 'DISCOVERY_VALIDATION_AND_PRE_HOLDOUT_WALK_FORWARD_ONLY; HOLDOUT NEVER RANKS OR TUNES',
   provenanceRequirement: 'OKX_PUBLIC_CONFIRMED_1M_SPOT_AND_SWAP_BARS_ALIGNED_BY_OPEN_TIME',
   researchBoundary: 'RESEARCH_ONLY_NOT_IN_H1_NOT_FORWARD_PAPER',
@@ -153,11 +153,13 @@ export function evaluateCrossMarketStudy(rows, protocol=CROSS_MARKET_PROTOCOL) {
   const discovery=matured.slice(0,dN); const validation=matured.slice(dN,dN+vN);
   const preHoldout=matured.slice(0,dN+vN);
   const walkForward=evaluatePreHoldoutWalkForward(preHoldout,protocol);
-  const holdoutEligible=matured.length>=dN+vN+hN; const holdout=holdoutEligible?matured.slice(dN+vN,dN+vN+hN):[];
   const discoverySummary=summarizeCrossMarket(discovery); const validationSummary=summarizeCrossMarket(validation);
   const discoveryPass=discovery.length===dN && passes(discoverySummary,protocol.validationGates);
   const validationPass=validation.length===vN && passes(validationSummary,protocol.validationGates);
   const preHoldoutPass=discoveryPass && validationPass && walkForward.allFoldsPass;
+  const holdoutSampleComplete=matured.length>=dN+vN+hN;
+  const holdoutEligible=preHoldoutPass && holdoutSampleComplete;
+  const holdout=holdoutEligible?matured.slice(dN+vN,dN+vN+hN):[];
   const candidateStatus=matured.length<dN?'ACCUMULATING_DISCOVERY':matured.length<dN+vN?'DISCOVERY_COMPLETE_AWAITING_VALIDATION':(!preHoldoutPass?'REJECTED_PRE_HOLDOUT':holdoutEligible?'HOLDOUT_READY_FOR_ONE_TIME_AUDIT':'VALIDATION_AND_WALK_FORWARD_PASS_HOLDOUT_SEALED');
   return {
     studyVersion:protocol.studyVersion,mode:'RESEARCH_ONLY',protocolSha256:CROSS_MARKET_PROTOCOL_SHA256,protocol,
