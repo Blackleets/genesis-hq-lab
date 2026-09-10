@@ -1,0 +1,73 @@
+name: research-forward-shadow
+
+on:
+  schedule:
+    - cron: "4,19,34,49 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - .github/workflows/research-forward-shadow.yml
+      - .github/genesis/research-forward-trigger.txt
+      - server/research/runResearchForwardShadow.mjs
+      - server/tests/researchForwardShadow.test.mjs
+
+permissions:
+  contents: write
+
+concurrency:
+  group: research-forward-shadow
+  cancel-in-progress: true
+
+jobs:
+  forward:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: code
+        uses: actions/checkout@v4
+      - name: tape
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'forward-research:')
+        uses: actions/checkout@v4
+        with:
+          ref: capture-tape
+          path: tape
+      - name: verify prospective-only forward semantics
+        run: node --test server/tests/researchForwardShadow.test.mjs
+      - name: run prospective PAPER shadow
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'forward-research:')
+        run: node server/research/runResearchForwardShadow.mjs --root tape
+      - name: assert PAPER forward boundaries
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'forward-research:')
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const x = JSON.parse(fs.readFileSync('tape/quant-evidence/research-forward-shadow-latest.json', 'utf8'));
+          if (x.mode !== 'FORWARD_PAPER_RESEARCH' || x.paperOnly !== true || x.liveOrders !== false || x.executionAuthority !== false || x.capitalEligible !== false) throw new Error('forward capital boundary violated');
+          if (x.methodology?.noHistoricalBackfill !== true || x.methodology?.enrollmentBaselineIsLatestDurableObservation !== true || x.methodology?.postEnrollmentObservationsOnly !== true) throw new Error('prospective evidence boundary violated');
+          if (x.methodology?.oneObservationHorizonMatchesResearchLabel !== true || x.methodology?.causalPriorBtcLeaderOnly !== true) throw new Error('research-forward parity boundary violated');
+          if (x.methodology?.baseCostBps !== 12 || x.methodology?.stressCostBps !== 18) throw new Error('forward cost policy changed');
+          if (x.methodology?.promotionNeverAutomaticToLive !== true) throw new Error('live promotion boundary violated');
+          if (x.boundaries?.realOrdersPlaced !== false || x.boundaries?.liveTradingEnabled !== false || x.boundaries?.changesRiskGates !== false) throw new Error('real capital boundary violated');
+          for (const candidate of x.candidates ?? []) {
+            if (candidate.liveEligible !== false || candidate.executionAuthority !== false || candidate.capitalEligible !== false) throw new Error('candidate authority boundary violated');
+          }
+          NODE
+      - name: publish durable prospective evidence
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'forward-research:')
+        working-directory: tape
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "genesis-research-forward"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f quant-evidence/research-forward-shadow-ledger.json quant-evidence/research-forward-shadow-latest.json quant-evidence/research-forward-shadow-history.jsonl
+          if git diff --staged --quiet; then echo "no material research forward evidence change"; exit 0; fi
+          git commit -m "research forward shadow ${GITHUB_RUN_ID}"
+          for attempt in 1 2 3; do
+            git pull --rebase origin capture-tape
+            if git push origin HEAD:capture-tape; then exit 0; fi
+            sleep $((attempt * 2))
+          done
+          exit 1
