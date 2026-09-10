@@ -2,13 +2,14 @@
   "paper": true,
   "liveOff": true,
   "go": false,
-  "ts": "2026-09-10T09:38:01.933Z",
+  "ts": "2026-09-10T17:39:52.437Z",
   "capital": 10000,
-  "realizedFundingUsdt": 0,
-  "feesUsdt": 1.25,
-  "mtmUsdt": -0.11333756460272179,
-  "settledCount": 0,
-  "holds": [
+  "realizedFundingUsdt": 32.02082954670575,
+  "feesUsdt": 2.5,
+  "mtmUsdt": 0,
+  "settledCount": 4,
+  "holds": [],
+  "closed": [
     {
       "instId": "IOST-USDT-SWAP",
       "side": "long",
@@ -22,13 +23,28 @@
       "nextFundingTime": 1789041600000,
       "lastSettledTime": 0,
       "realizedFundingUsdt": 0,
-      "mtmUsdt": -0.11333756460272179,
-      "mid": 0.0011028499999999998,
-      "halt": false
+      "mtmUsdt": -178.8466769426059,
+      "mid": 0.0010241999999999999,
+      "halt": true,
+      "haltReason": "MARKOUT_HALT",
+      "closedTs": "2026-09-10T17:39:51.298Z",
+      "exitPx": 0.001024,
+      "exitFeeUsdt": 1.25,
+      "realizedPricePnlUsdt": -178.8466769426059
     }
   ],
-  "closed": [],
-  "note": "paper hold IOST long. cobrado 0.00 USDT en 0 settles. a mercado -0.11. fees 1.25. live off. no es un GO.",
+  "note": "sin hold paper. nuevos tickets exigen unit economics positivos. live off. no se inventa un cobro.",
   "feeLock": false,
-  "feeLockReason": null
+  "feeLockReason": null,
+  "unitEconomicsPolicy": {
+    "version": "funding_unit_economics_v2_target_settles",
+    "roundTripFeeBps": 10,
+    "expectedSettles": 2,
+    "executionBufferBps": 2,
+    "minimumNetEdgeBps": 2,
+    "ranking": "PROJECTED_NET_EDGE_AFTER_COSTS",
+    "exitAfterTargetSettles": true,
+    "realizedExitUsesExecutableQuote": true,
+    "realizedPricePnlPersisted": true
+  }
 }
