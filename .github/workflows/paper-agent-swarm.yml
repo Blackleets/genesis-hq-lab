@@ -1,6 +1,6 @@
 name: paper-agent-swarm
 
-# Autonomous PAPER-only agent review of verified capture + forward research evidence.
+# Autonomous PAPER-only agent review of verified capture + forward + portfolio research evidence.
 # It never calls the trading runner, never sends an order, and never unlocks capital.
 
 on:
@@ -12,6 +12,8 @@ on:
     paths:
       - .github/workflows/paper-agent-swarm.yml
       - server/genesis/paperAgentSwarm.mjs
+      - server/genesis/portfolioRiskAgentEvidence.mjs
+      - server/tests/portfolioRiskAgentEvidence.test.mjs
       - server/agents/providerRouter.mjs
 
 permissions:
@@ -56,6 +58,9 @@ jobs:
       - name: Gate on production build
         run: npm run build
 
+      - name: Verify portfolio evidence firewall
+        run: node --test server/tests/portfolioRiskAgentEvidence.test.mjs
+
       - name: Run PAPER agent swarm
         run: |
           node server/genesis/paperAgentSwarm.mjs \
@@ -63,12 +68,22 @@ jobs:
             --funding=tape/paper-tape/funding-latest.json \
             --hz1=tape/paper-tape/hz1-latest.json \
             --forward=tape/quant-evidence/forward-paper-latest.json \
+            --research-forward=tape/quant-evidence/research-forward-shadow-latest.json \
+            --portfolio=tape/quant-evidence/portfolio-risk-research-latest.json \
             --out=tape/paper-tape/agent-swarm-latest.json \
             --jsonl=tape/paper-tape/agent-swarm.jsonl
 
-      - name: Verify swarm capital boundary
+      - name: Verify swarm capital and portfolio boundary
         run: |
-          node -e "const x=require('./tape/paper-tape/agent-swarm-latest.json'); if(x.paperOnly!==true||x.liveOrders!==false||x.executionAuthority!==false||x.capitalEligible!==false) process.exit(1)"
+          node - <<'NODE'
+          const x = require('./tape/paper-tape/agent-swarm-latest.json');
+          if (x.paperOnly !== true || x.liveOrders !== false || x.executionAuthority !== false || x.capitalEligible !== false) throw new Error('swarm capital boundary violated');
+          const p = x.evidence?.portfolioRisk;
+          if (p && (p.liveEligible !== false || p.executionAuthority !== false || p.capitalEligible !== false)) throw new Error('portfolio authority boundary violated');
+          const r = x.evidence?.researchLifecycleForward;
+          if (r && (r.mode !== 'FORWARD_PAPER_RESEARCH' || r.candidates?.some(c => c.liveEligible !== false || c.executionAuthority !== false || c.capitalEligible !== false))) throw new Error('research forward authority boundary violated');
+          if ((r?.nextStageEligible ?? 0) > 0 && x.final?.portfolioRiskReady !== true && !x.final?.blockers?.includes('PORTFOLIO_RISK_NOT_READY') && !x.final?.blockers?.includes('PORTFOLIO_RISK_UNVERIFIED')) throw new Error('portfolio review gate bypassed');
+          NODE
 
       - name: Publish agent evidence
         working-directory: tape
