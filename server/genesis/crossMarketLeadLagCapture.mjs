@@ -5,9 +5,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const CANDLES = 'https://www.okx.com/api/v5/market/candles';
+const CANDLE_LIMIT = 20;
+const VOL_BASELINE_RETURNS = 15;
 
 async function getCandles(instId) {
-  const url = `${CANDLES}?instId=${encodeURIComponent(instId)}&bar=1m&limit=4`;
+  const url = `${CANDLES}?instId=${encodeURIComponent(instId)}&bar=1m&limit=${CANDLE_LIMIT}`;
   const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${CANDLES}`);
   const body = await res.json();
@@ -36,6 +38,54 @@ function pctReturn(prev, next) {
     : null;
 }
 
+function rms(values) {
+  const finite = values.filter(Number.isFinite);
+  if (!finite.length) return null;
+  return Math.sqrt(finite.reduce((sum, value) => sum + value ** 2, 0) / finite.length);
+}
+
+function volatilityContext(aligned) {
+  const spotReturns = [];
+  const futuresReturns = [];
+  for (let i = 1; i < aligned.length; i += 1) {
+    spotReturns.push(pctReturn(aligned[i - 1].spot.close, aligned[i].spot.close));
+    futuresReturns.push(pctReturn(aligned[i - 1].futures.close, aligned[i].futures.close));
+  }
+
+  const spotBaseline = spotReturns.slice(-(VOL_BASELINE_RETURNS + 1), -1);
+  const futuresBaseline = futuresReturns.slice(-(VOL_BASELINE_RETURNS + 1), -1);
+  const available = spotBaseline.length === VOL_BASELINE_RETURNS
+    && futuresBaseline.length === VOL_BASELINE_RETURNS
+    && spotBaseline.every(Number.isFinite)
+    && futuresBaseline.every(Number.isFinite);
+
+  if (!available) {
+    return {
+      available: false,
+      baselineReturnCount: Math.min(spotBaseline.length, futuresBaseline.length),
+      baselineWindowMinutes: VOL_BASELINE_RETURNS,
+      spotRms15mBps: null,
+      futuresRms15mBps: null,
+      spotShockRatio: null,
+      futuresShockRatio: null,
+    };
+  }
+
+  const spotRms = rms(spotBaseline);
+  const futuresRms = rms(futuresBaseline);
+  const currentSpot = spotReturns.at(-1);
+  const currentFutures = futuresReturns.at(-1);
+  return {
+    available: true,
+    baselineReturnCount: VOL_BASELINE_RETURNS,
+    baselineWindowMinutes: VOL_BASELINE_RETURNS,
+    spotRms15mBps: Number.isFinite(spotRms) ? +spotRms.toFixed(4) : null,
+    futuresRms15mBps: Number.isFinite(futuresRms) ? +futuresRms.toFixed(4) : null,
+    spotShockRatio: Number.isFinite(spotRms) && spotRms > 0 ? +(Math.abs(currentSpot) / spotRms).toFixed(4) : null,
+    futuresShockRatio: Number.isFinite(futuresRms) && futuresRms > 0 ? +(Math.abs(currentFutures) / futuresRms).toFixed(4) : null,
+  };
+}
+
 export function buildCrossMarketObservation(spotRows, futuresRows, { symbol = 'BTC-USDT' } = {}) {
   const spot = spotRows.map(parseKline).filter(r => r.confirmed).sort((a, b) => a.openTime - b.openTime);
   const futures = futuresRows.map(parseKline).filter(r => r.confirmed).sort((a, b) => a.openTime - b.openTime);
@@ -48,9 +98,13 @@ export function buildCrossMarketObservation(spotRows, futuresRows, { symbol = 'B
   const basisBps = ((cur.futures.close / cur.spot.close) - 1) * 10_000;
   const spotReturnBps = pctReturn(prev.spot.close, cur.spot.close);
   const futuresReturnBps = pctReturn(prev.futures.close, cur.futures.close);
+  const volatility = volatilityContext(aligned);
+  const futuresToSpotQuoteVolumeRatio = Number.isFinite(cur.spot.quoteVolume) && cur.spot.quoteVolume > 0
+    ? cur.futures.quoteVolume / cur.spot.quoteVolume
+    : null;
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     mode: 'RESEARCH_ONLY',
     provider: 'okx_public_market_data',
     symbol,
@@ -68,12 +122,19 @@ export function buildCrossMarketObservation(spotRows, futuresRows, { symbol = 'B
       returnSpread1mBps: +(futuresReturnBps - spotReturnBps).toFixed(4),
       spotQuoteVolume: cur.spot.quoteVolume,
       futuresQuoteVolume: cur.futures.quoteVolume,
+      futuresToSpotQuoteVolumeRatio: Number.isFinite(futuresToSpotQuoteVolumeRatio)
+        ? +futuresToSpotQuoteVolumeRatio.toFixed(4)
+        : null,
+      volatility,
     },
     provenance: {
       endpoint: CANDLES,
+      requestBar: '1m',
+      requestLimit: CANDLE_LIMIT,
       spotInstId: 'BTC-USDT',
       futuresInstId: 'BTC-USDT-SWAP',
       confirmedBarsOnly: true,
+      volatilityBaselinePolicy: 'CURRENT_CLOSED_1M_RETURN_VS_PRECEDING_15_CLOSED_ALIGNED_1M_RETURNS_RMS',
       securityType: 'PUBLIC_READ_ONLY_NO_API_KEY',
     },
     researchUse: 'OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING',
