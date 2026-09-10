@@ -8,6 +8,7 @@ on:
     branches: [feat/genesis-life-os]
     paths:
       - .github/workflows/cross-market-lead-lag.yml
+      - .github/genesis/cross-market-trigger.txt
       - server/research/runCrossMarketLeadLag.mjs
       - server/tests/crossMarketLeadLag.test.mjs
 
@@ -26,7 +27,7 @@ jobs:
       - name: code
         uses: actions/checkout@v4
       - name: tape
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'cross:')
         uses: actions/checkout@v4
         with:
           ref: capture-tape
@@ -34,7 +35,7 @@ jobs:
       - name: verify causal lead-lag discipline
         run: node --test server/tests/crossMarketLeadLag.test.mjs
       - name: evaluate BTC to alt lead-lag lanes
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'cross:')
         run: |
           node server/research/runCrossMarketLeadLag.mjs \
             --btc-input tape/paper-tape/positioning-dynamics.jsonl \
@@ -49,7 +50,7 @@ jobs:
             --bnbusdt-quality tape/paper-tape/positioning-data-quality-bnbusdt-latest.json \
             --out tape/quant-evidence/cross-market-lead-lag-latest.json
       - name: assert research boundaries
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'cross:')
         shell: bash
         run: |
           node - <<'NODE'
@@ -63,7 +64,7 @@ jobs:
           }
           NODE
       - name: publish durable cross-market evidence
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'cross:')
         working-directory: tape
         shell: bash
         run: |
