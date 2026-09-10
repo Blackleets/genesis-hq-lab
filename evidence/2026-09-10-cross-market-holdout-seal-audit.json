@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "kind": "GENESIS_RESEARCH_AUDIT",
+  "mode": "RESEARCH_ONLY",
+  "sourceBranch": "feat/genesis-life-os",
+  "sourceCommit": "b5d213869ad0ed6444a1a1e4db8c664495511a1c",
+  "ci": {
+    "workflow": "cross-market-lead-lag",
+    "runId": 34423156737,
+    "conclusion": "success",
+    "pushEvidenceFree": true
+  },
+  "change": "Holdout remains sealed at N=120 unless discovery, validation, and all pre-holdout walk-forward folds pass the unchanged fixed gates.",
+  "protocol": {
+    "studyVersion": 3,
+    "roundTripCostBps": 10,
+    "splits": {
+      "discovery": 60,
+      "validation": 30,
+      "holdout": 30
+    },
+    "walkForward": ["30->15", "45->15", "60->30"],
+    "gatesUnchanged": true
+  },
+  "regression": {
+    "scenario": "120 independent matured signals with pre-holdout loss",
+    "expected": "REJECTED_PRE_HOLDOUT + holdout SEALED, count 0, metrics null",
+    "holdoutUsedForRanking": false
+  },
+  "safety": {
+    "paperResearchOnly": true,
+    "liveEnabled": false,
+    "realOrdersPlaced": 0,
+    "realTradingConfirmationsChanged": false,
+    "riskGatesChanged": false,
+    "killSwitchesChanged": false,
+    "forwardPaperEnrolled": false
+  },
+  "expectedImpact": "Preserves virgin holdout and prevents failed candidates from leaking OOS holdout information or enabling optional stopping.",
+  "nextBottleneck": "Accumulate independent scheduled mature cross-market signals to fill discovery plus pre-holdout walk-forward; do not expose holdout until all fixed pre-holdout gates pass."
+}
