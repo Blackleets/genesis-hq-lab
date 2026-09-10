@@ -1,0 +1,41 @@
+{
+  "auditType": "GENESIS_RESEARCH_IMPROVEMENT",
+  "createdAt": "2026-09-10T01:42:00Z",
+  "mode": "PAPER_RESEARCH_ONLY",
+  "branch": "feat/genesis-life-os",
+  "change": {
+    "implementationCommit": "7dbaedfc9612d27c945b7cf52bba7622fa1752b1",
+    "testCommit": "53ec3c86035d7e749ba663d1476c100d3e95c9bd",
+    "workflowRun": 34426520978,
+    "workflow": "cross-market-lead-lag-capture",
+    "workflowConclusion": "success",
+    "summary": "Capture causal volatility context from aligned confirmed OKX 1m spot/perpetual bars: current closed return versus RMS of the preceding 15 closed aligned returns, plus futures/spot quote-volume ratio.",
+    "schemaVersion": 2
+  },
+  "dataProvenance": {
+    "provider": "OKX",
+    "endpoint": "https://www.okx.com/api/v5/market/candles",
+    "securityType": "PUBLIC_READ_ONLY_NO_API_KEY",
+    "bar": "1m",
+    "requestLimit": 20,
+    "confirmedBarsOnly": true,
+    "baselinePolicy": "CURRENT_CLOSED_1M_RETURN_VS_PRECEDING_15_CLOSED_ALIGNED_1M_RETURNS_RMS",
+    "availabilityEvidence": "The existing scheduled cross-market workflow successfully captured this public endpoint immediately before the change; the updated push CI verified deterministic feature construction and provenance. Feature remains observational until scheduled v2 market captures accumulate."
+  },
+  "methodology": {
+    "ranking": "UNCHANGED",
+    "holdout": "SEALED_AND_NEVER_USED_FOR_RANKING_OR_TUNING",
+    "walkForward": "UNCHANGED",
+    "costs": "UNCHANGED",
+    "gates": "UNCHANGED",
+    "forwardPaper": false
+  },
+  "safety": {
+    "liveTrading": false,
+    "realOrders": false,
+    "realTradingConfirmationsChanged": false,
+    "killSwitchesChanged": false,
+    "riskGatesChanged": false
+  },
+  "interpretation": "This adds regime/context information only. It does not assert edge and does not promote any candidate. The next scheduled v2 observations must prove runtime availability before this feature is admitted to any statistical candidate study."
+}
