@@ -1,7 +1,6 @@
 # RESEARCH_ONLY branch-local synchronized positioning evidence.
-# GitHub scheduled workflows only execute from the default branch; this feature branch
-# therefore supports explicit `capture:` pushes while ordinary pushes remain tests-only.
 # Public read-only OKX data only. Never places orders or changes trading/risk gates.
+# BTC keeps its causal spot-perp divergence lane; ETH/SOL/XRP/BNB use isolated positioning tapes.
 name: positioning-branch-capture
 
 on:
@@ -34,7 +33,7 @@ concurrency:
 jobs:
   capture:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 15
     env:
       # Collection budget only. Evidence quality remains fixed at >=90% of the 60s window.
       # 125 ms between history pages keeps request cadence conservative vs OKX public limits.
@@ -51,30 +50,52 @@ jobs:
           path: tape
       - name: verify causal positioning and audit discipline
         run: node --test server/tests/positioningDynamicsCapture.test.mjs server/tests/spotPerpTakerDivergenceCapture.test.mjs server/tests/okxFixedWindowTaker.test.mjs server/tests/positioningDataQualityAudit.test.mjs server/tests/positioningEdgeFactory.test.mjs
-      # Capture divergence first so the later positioning snapshot can only join prior evidence.
-      - name: capture normalized spot-perp taker divergence evidence
+      # Capture divergence first so the later BTC positioning snapshot can only join prior evidence.
+      - name: capture normalized BTC spot-perp taker divergence evidence
         if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
         run: node server/genesis/spotPerpTakerDivergenceCapture.mjs --out tape/paper-tape/spot-perp-taker-divergence-latest.json --jsonl tape/paper-tape/spot-perp-taker-divergence.jsonl
-      - name: capture synchronized OI funding taker premium volatility evidence
+      - name: capture synchronized BTC positioning evidence
         if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
         run: node server/genesis/positioningDynamicsCapture.mjs --symbol BTCUSDT --out tape/paper-tape/positioning-dynamics-latest.json --jsonl tape/paper-tape/positioning-dynamics.jsonl
-      - name: audit effective independent evidence
+      - name: audit BTC independent evidence
         if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
-        run: node server/research/positioningDataQualityAudit.mjs --input tape/paper-tape/positioning-dynamics.jsonl --out tape/paper-tape/positioning-data-quality-latest.json
-      - name: evaluate fail-closed positioning candidates
+        run: node server/research/positioningDataQualityAudit.mjs --symbol BTCUSDT --input tape/paper-tape/positioning-dynamics.jsonl --out tape/paper-tape/positioning-data-quality-latest.json
+      - name: evaluate BTC fail-closed positioning candidates
         if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
-        run: node server/research/runPositioningEdgeFactory.mjs --input tape/paper-tape/positioning-dynamics.jsonl --quality tape/paper-tape/positioning-data-quality-latest.json --divergence tape/paper-tape/spot-perp-taker-divergence.jsonl --out tape/quant-evidence/positioning-edge-factory-latest.json
+        run: node server/research/runPositioningEdgeFactory.mjs --symbol BTCUSDT --input tape/paper-tape/positioning-dynamics.jsonl --quality tape/paper-tape/positioning-data-quality-latest.json --divergence tape/paper-tape/spot-perp-taker-divergence.jsonl --out tape/quant-evidence/positioning-edge-factory-latest.json
+      - name: capture isolated alt positioning cohorts
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
+        shell: bash
+        run: |
+          set -euo pipefail
+          for symbol in ETHUSDT SOLUSDT XRPUSDT BNBUSDT; do
+            key="${symbol,,}"
+            node server/genesis/positioningDynamicsCapture.mjs \
+              --symbol "$symbol" \
+              --out "tape/paper-tape/positioning-${key}-latest.json" \
+              --jsonl "tape/paper-tape/positioning-${key}.jsonl"
+            node server/research/positioningDataQualityAudit.mjs \
+              --symbol "$symbol" \
+              --input "tape/paper-tape/positioning-${key}.jsonl" \
+              --out "tape/paper-tape/positioning-data-quality-${key}-latest.json"
+            node server/research/runPositioningEdgeFactory.mjs \
+              --symbol "$symbol" \
+              --input "tape/paper-tape/positioning-${key}.jsonl" \
+              --quality "tape/paper-tape/positioning-data-quality-${key}-latest.json" \
+              --out "tape/quant-evidence/positioning-edge-${key}-latest.json"
+          done
       - name: assert PAPER RESEARCH_ONLY boundaries
         if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
         shell: bash
         run: |
+          set -euo pipefail
           node - <<'NODE'
           const fs = require('fs');
           const x = JSON.parse(fs.readFileSync('tape/paper-tape/positioning-dynamics-latest.json', 'utf8'));
           const s = JSON.parse(fs.readFileSync('tape/paper-tape/spot-perp-taker-divergence-latest.json', 'utf8'));
           const q = JSON.parse(fs.readFileSync('tape/paper-tape/positioning-data-quality-latest.json', 'utf8'));
           const e = JSON.parse(fs.readFileSync('tape/quant-evidence/positioning-edge-factory-latest.json', 'utf8'));
-          if (x.mode !== 'RESEARCH_ONLY') throw new Error('capture mode must remain RESEARCH_ONLY');
+          if (x.mode !== 'RESEARCH_ONLY' || x.symbol !== 'BTCUSDT') throw new Error('BTC capture boundary violated');
           if (x.researchUse !== 'OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING') throw new Error('capture ranking boundary missing');
           if (!x.provenance?.closedPriceBarOnly || !x.provenance?.fixedWindowTakerFlow) throw new Error('causal provenance missing');
           if (x.positioning?.takerWindowMs !== 60000 || !(x.positioning?.takerWindowCoverageMs >= 54000)) throw new Error('fixed-window taker discipline violated');
@@ -82,11 +103,24 @@ jobs:
           if (!s.provenance?.fixedWindow || s.provenance?.rawSpotVsPerpSizeComparisonForbidden !== true) throw new Error('spot-perp normalization provenance missing');
           if (!(s.spot?.coverageMs >= 54000) || !(s.perpetual?.coverageMs >= 54000)) throw new Error('spot-perp fixed-window coverage violated');
           if (!(s.provenance?.windowEndSkewMs <= s.provenance?.maxWindowEndSkewMs)) throw new Error('spot-perp synchronization violated');
-          if (q.mode !== 'RESEARCH_ONLY' || q.researchUse !== 'DATA_QUALITY_ONLY_NOT_FOR_RANKING') throw new Error('quality boundary missing');
+          if (q.mode !== 'RESEARCH_ONLY' || q.symbol !== 'BTCUSDT' || q.researchUse !== 'DATA_QUALITY_ONLY_NOT_FOR_RANKING') throw new Error('BTC quality boundary missing');
           if (q.boundaries?.holdoutUsedForRanking !== false || q.boundaries?.liveTradingEnabled !== false || q.boundaries?.realOrdersPlaced !== false) throw new Error('quality safety boundary violated');
-          if (e.mode !== 'RESEARCH_ONLY' || e.paperOnly !== true || e.liveOrders !== false || e.executionAuthority !== false || e.capitalEligible !== false) throw new Error('edge factory capital boundary violated');
-          if (e.methodology?.selectionUsesHoldout !== false || e.methodology?.holdoutSealed !== true) throw new Error('holdout boundary violated');
+          if (e.mode !== 'RESEARCH_ONLY' || e.symbol !== 'BTCUSDT' || e.paperOnly !== true || e.liveOrders !== false || e.executionAuthority !== false || e.capitalEligible !== false) throw new Error('BTC edge factory capital boundary violated');
+          if (e.methodology?.selectionUsesHoldout !== false || e.methodology?.holdoutSealed !== true || e.methodology?.symbolIsolation !== true) throw new Error('BTC research boundary violated');
           if (e.methodology?.spotPerpJoin !== 'PRIOR_ASOF_ONLY' || e.methodology?.futureDivergenceForbidden !== true) throw new Error('causal spot-perp join boundary violated');
+
+          for (const symbol of ['ETHUSDT','SOLUSDT','XRPUSDT','BNBUSDT']) {
+            const key = symbol.toLowerCase();
+            const a = JSON.parse(fs.readFileSync(`tape/paper-tape/positioning-${key}-latest.json`, 'utf8'));
+            const aq = JSON.parse(fs.readFileSync(`tape/paper-tape/positioning-data-quality-${key}-latest.json`, 'utf8'));
+            const ae = JSON.parse(fs.readFileSync(`tape/quant-evidence/positioning-edge-${key}-latest.json`, 'utf8'));
+            if (a.mode !== 'RESEARCH_ONLY' || a.symbol !== symbol) throw new Error(`${symbol} capture identity violated`);
+            if (a.provenance?.instrument !== `${symbol.slice(0,-4)}-USDT-SWAP`) throw new Error(`${symbol} instrument provenance violated`);
+            if (a.positioning?.takerWindowMs !== 60000 || !(a.positioning?.takerWindowCoverageMs >= 54000)) throw new Error(`${symbol} taker coverage violated`);
+            if (aq.mode !== 'RESEARCH_ONLY' || aq.symbol !== symbol || aq.boundaries?.holdoutUsedForRanking !== false) throw new Error(`${symbol} quality boundary violated`);
+            if (ae.mode !== 'RESEARCH_ONLY' || ae.symbol !== symbol || ae.paperOnly !== true || ae.liveOrders !== false || ae.executionAuthority !== false || ae.capitalEligible !== false) throw new Error(`${symbol} edge boundary violated`);
+            if (ae.methodology?.selectionUsesHoldout !== false || ae.methodology?.holdoutSealed !== true || ae.methodology?.symbolIsolation !== true) throw new Error(`${symbol} research boundary violated`);
+          }
           NODE
       - name: publish durable evidence
         if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
@@ -97,12 +131,22 @@ jobs:
           git config user.name "genesis-capture"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mkdir -p paper-tape quant-evidence
-          git add -f paper-tape/positioning-dynamics-latest.json paper-tape/positioning-dynamics.jsonl paper-tape/spot-perp-taker-divergence-latest.json paper-tape/spot-perp-taker-divergence.jsonl paper-tape/positioning-data-quality-latest.json quant-evidence/positioning-edge-factory-latest.json
+          git add -f \
+            paper-tape/positioning-dynamics-latest.json \
+            paper-tape/positioning-dynamics.jsonl \
+            paper-tape/spot-perp-taker-divergence-latest.json \
+            paper-tape/spot-perp-taker-divergence.jsonl \
+            paper-tape/positioning-data-quality-latest.json \
+            quant-evidence/positioning-edge-factory-latest.json \
+            paper-tape/positioning-ethusdt-latest.json paper-tape/positioning-ethusdt.jsonl paper-tape/positioning-data-quality-ethusdt-latest.json quant-evidence/positioning-edge-ethusdt-latest.json \
+            paper-tape/positioning-solusdt-latest.json paper-tape/positioning-solusdt.jsonl paper-tape/positioning-data-quality-solusdt-latest.json quant-evidence/positioning-edge-solusdt-latest.json \
+            paper-tape/positioning-xrpusdt-latest.json paper-tape/positioning-xrpusdt.jsonl paper-tape/positioning-data-quality-xrpusdt-latest.json quant-evidence/positioning-edge-xrpusdt-latest.json \
+            paper-tape/positioning-bnbusdt-latest.json paper-tape/positioning-bnbusdt.jsonl paper-tape/positioning-data-quality-bnbusdt-latest.json quant-evidence/positioning-edge-bnbusdt-latest.json
           if git diff --staged --quiet; then
             echo "no material evidence change"
             exit 0
           fi
-          git commit -m "positioning branch capture ${GITHUB_RUN_ID}"
+          git commit -m "positioning multi-asset capture ${GITHUB_RUN_ID}"
           for attempt in 1 2 3; do
             git pull --rebase origin capture-tape
             if git push origin HEAD:capture-tape; then exit 0; fi
