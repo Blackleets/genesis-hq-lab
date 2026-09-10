@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { evaluatePositioningStudy, joinCausalSpotPerpDivergence } from '../research/runPositioningEdgeFactory.mjs';
 
-function row(i,{funding=0.0002,oi=0.2,taker=-0.2,ret=10,vol=1.3,minuteStep=1}={}){
+function row(i,{funding=0.0002,oi=0.2,taker=-0.2,ret=10,vol=1.3,minuteStep=1,symbol='BTCUSDT'}={}){
   return {
-    mode:'RESEARCH_ONLY', provider:'okx_public_market_data', symbol:'BTCUSDT', schemaVersion:4,
+    mode:'RESEARCH_ONLY', provider:'okx_public_market_data', symbol, schemaVersion:4,
     capturedAt:new Date(Date.UTC(2026,0,1,0,i*minuteStep,0)).toISOString(),
     price:{close:100+i},
     positioning:{fundingRateNow:funding,volatilityExpansionRatio:vol,takerWindowMs:60000},
@@ -12,9 +12,9 @@ function row(i,{funding=0.0002,oi=0.2,taker=-0.2,ret=10,vol=1.3,minuteStep=1}={}
     provenance:{takerWindowMs:60000},
   };
 }
-function divergenceAt(ms,value=0.2){
+function divergenceAt(ms,value=0.2,symbol='BTCUSDT'){
   return {
-    mode:'RESEARCH_ONLY', provider:'okx_public_market_data', symbol:'BTCUSDT', schemaVersion:1,
+    mode:'RESEARCH_ONLY', provider:'okx_public_market_data', symbol, schemaVersion:1,
     capturedAt:new Date(ms).toISOString(),
     spot:{coverageMs:60000}, perpetual:{coverageMs:60000},
     divergence:{perpMinusSpotNotionalBuyFraction:value},
@@ -52,6 +52,7 @@ test('never opens holdout or grants execution authority when study runs',()=>{
   const divergences=rows.map(r=>divergenceAt(Date.parse(r.capturedAt)-5000,0.2));
   const out=evaluatePositioningStudy(rows,{qualityPass:true,independentRowCount:30},{divergenceRows:divergences});
   assert.ok(['NO_EDGE_FOUND','RESEARCH_CANDIDATE_FOUND'].includes(out.verdict));
+  assert.equal(out.symbol,'BTCUSDT');
   assert.equal(out.holdoutOpened,false);
   assert.equal(out.partitions.holdoutOpened,false);
   assert.equal(out.partitions.holdoutMetricsComputed,false);
@@ -62,6 +63,7 @@ test('never opens holdout or grants execution authority when study runs',()=>{
   assert.equal(out.methodology.selectionUsesHoldout,false);
   assert.equal(out.methodology.temporalOrderPreserved,true);
   assert.equal(out.methodology.independentNonOverlappingRowsOnly,true);
+  assert.equal(out.methodology.symbolIsolation,true);
   assert.equal(out.methodology.spotPerpJoin,'PRIOR_ASOF_ONLY');
   assert.equal(out.methodology.futureDivergenceForbidden,true);
   assert.ok(out.candidates.some(x=>x.family==='spot_perp_taker_divergence_continuation'));
@@ -82,4 +84,25 @@ test('small usable forward sample remains DATA_NOT_READY even if aggregate quali
   const out=evaluatePositioningStudy(rows,{qualityPass:true,independentRowCount:20},{minIndependentRows:20});
   assert.equal(out.verdict,'DATA_NOT_READY');
   assert.equal(out.candidates.length,0);
+});
+
+test('isolates one asset from rows and divergence evidence belonging to another asset',()=>{
+  const ethRows=Array.from({length:30},(_,i)=>row(i,{symbol:'ETHUSDT'}));
+  const btcRows=Array.from({length:30},(_,i)=>row(i,{symbol:'BTCUSDT'}));
+  const btcDivergence=btcRows.map(r=>divergenceAt(Date.parse(r.capturedAt)-5000,0.9,'BTCUSDT'));
+  const out=evaluatePositioningStudy([...btcRows,...ethRows],{symbol:'ETHUSDT',qualityPass:true,independentRowCount:30},{divergenceRows:btcDivergence});
+  assert.equal(out.symbol,'ETHUSDT');
+  assert.equal(out.methodology.symbolIsolation,true);
+  assert.ok(['NO_EDGE_FOUND','RESEARCH_CANDIDATE_FOUND'].includes(out.verdict));
+  const joined=joinCausalSpotPerpDivergence([...btcRows,...ethRows],btcDivergence,{symbol:'ETHUSDT'});
+  assert.equal(joined.length,30);
+  assert.ok(joined.every(x=>x.symbol==='ETHUSDT'));
+  assert.ok(joined.every(x=>x.researchFeatures.spotPerpTakerDivergence===null));
+});
+
+test('quality symbol mismatch fails closed',()=>{
+  assert.throws(
+    ()=>evaluatePositioningStudy([row(0,{symbol:'ETHUSDT'})],{symbol:'BTCUSDT',qualityPass:true,independentRowCount:20},{symbol:'ETHUSDT'}),
+    /POSITIONING_QUALITY_SYMBOL_MISMATCH/,
+  );
 });
