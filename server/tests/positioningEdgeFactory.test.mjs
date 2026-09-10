@@ -28,6 +28,7 @@ test('fails closed when positioning cohort is not ready',()=>{
   assert.equal(out.candidates.length,0);
   assert.equal(out.capitalEligible,false);
   assert.equal(out.methodology.holdoutSealed,true);
+  assert.equal(out.methodology.strictMissingNumericEvidence,true);
 });
 
 test('causal divergence join accepts only prior fresh evidence and rejects future evidence',()=>{
@@ -37,6 +38,14 @@ test('causal divergence join accepts only prior fresh evidence and rejects futur
   assert.equal(joined[0].researchFeatures.spotPerpTakerDivergence,0.25);
   assert.equal(joined[0].researchFeatures.spotPerpTakerDivergenceAgeMs,5000);
   assert.equal(joined[0].researchFeatures.spotPerpTakerDivergenceCausal,true);
+});
+
+test('missing divergence numeric evidence remains missing instead of becoming zero',()=>{
+  const r=row(1);
+  const t=Date.parse(r.capturedAt);
+  const joined=joinCausalSpotPerpDivergence([r],[divergenceAt(t-5000,null)]);
+  assert.equal(joined[0].researchFeatures.spotPerpTakerDivergence,null);
+  assert.equal(joined[0].researchFeatures.spotPerpTakerDivergenceCausal,false);
 });
 
 test('stale divergence is not exposed as a research feature',()=>{
@@ -65,6 +74,7 @@ test('never opens holdout or grants execution authority when study runs',()=>{
   assert.equal(out.methodology.independentNonOverlappingRowsOnly,true);
   assert.equal(out.methodology.symbolIsolation,true);
   assert.equal(out.methodology.activeQualityCohortOnly,true);
+  assert.equal(out.methodology.strictMissingNumericEvidence,true);
   assert.equal(out.methodology.spotPerpJoin,'PRIOR_ASOF_ONLY');
   assert.equal(out.methodology.futureDivergenceForbidden,true);
   assert.ok(out.candidates.some(x=>x.family==='spot_perp_taker_divergence_continuation'));
