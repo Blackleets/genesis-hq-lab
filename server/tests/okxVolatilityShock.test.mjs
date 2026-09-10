@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { completedCandles, deriveVolatilityShockFeatures } from '../genesis/okxResearchContext.mjs';
+import { completedCandles, deriveVolatilityShockFeatures, okxInstrumentIds } from '../genesis/okxResearchContext.mjs';
 
 function rawCandle({ time, open, high, low, close, volume = 100, confirm = '1' }) {
   return [String(time), String(open), String(high), String(low), String(close), '1', '1', String(volume), confirm];
@@ -16,6 +16,16 @@ function bar(time, close, { rangePct = 0.001, volume = 100 } = {}) {
     volumeQuote: volume,
   };
 }
+
+test('maps the verified research universe to matching OKX spot and perpetual instruments', () => {
+  assert.deepEqual(okxInstrumentIds('BTCUSDT'), { spot: 'BTC-USDT', perp: 'BTC-USDT-SWAP', ccy: 'BTC' });
+  assert.deepEqual(okxInstrumentIds('ETHUSDT'), { spot: 'ETH-USDT', perp: 'ETH-USDT-SWAP', ccy: 'ETH' });
+  assert.deepEqual(okxInstrumentIds('SOLUSDT'), { spot: 'SOL-USDT', perp: 'SOL-USDT-SWAP', ccy: 'SOL' });
+  assert.deepEqual(okxInstrumentIds('XRPUSDT'), { spot: 'XRP-USDT', perp: 'XRP-USDT-SWAP', ccy: 'XRP' });
+  assert.deepEqual(okxInstrumentIds('BNBUSDT'), { spot: 'BNB-USDT', perp: 'BNB-USDT-SWAP', ccy: 'BNB' });
+  assert.throws(() => okxInstrumentIds('DOGEUSDT'), /Unsupported OKX research symbol/);
+  assert.throws(() => okxInstrumentIds('BTCUSD'), /Unsupported OKX research symbol/);
+});
 
 test('completedCandles excludes the current unconfirmed OKX candle', () => {
   const rows = [
