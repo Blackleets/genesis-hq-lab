@@ -6,6 +6,7 @@ import { useExecutions, useMarketData, usePaperPositions, useRunnerTelemetry } f
 import { formatPercent, formatPrice, stateLabel } from './formatters';
 import { TRADING_TIMEFRAMES } from './tradingTypes';
 import { ActivePosition } from './ActivePosition';
+import './mobileTradingFixes.css';
 
 function readDecisionField(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
