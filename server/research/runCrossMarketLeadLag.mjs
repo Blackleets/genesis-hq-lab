@@ -5,10 +5,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const VERSION = 'cross_market_lead_lag_v2_active_cohort';
+const VERSION = 'cross_market_lead_lag_v3_strict_numeric';
 const ALT_SYMBOLS = Object.freeze(['ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'BNBUSDT']);
 
-function finite(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
+function finite(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
 function timeMs(row) { const n = Date.parse(row?.capturedAt); return Number.isFinite(n) ? n : null; }
 function boundaryMs(value) { if(!value) return null; const n=Date.parse(value); return Number.isFinite(n)?n:null; }
 function readJson(file) { return JSON.parse(fs.readFileSync(file, 'utf8')); }
@@ -149,6 +153,7 @@ export function evaluateCrossMarketLane({ btcRows=[], altRows=[], btcQuality={},
       holdoutSealed:true,
       symbolIsolation:true,
       activeQualityCohortsOnly:true,
+      strictMissingNumericEvidence:true,
       btcQualityCohortStart:btcCohortStart,
       altQualityCohortStart:altCohortStart,
       minIndependentRows,
@@ -207,7 +212,7 @@ export function runCrossMarketReport({btcRows,btcQuality,altInputs},{options={}}
   return {
     ok:true,version:VERSION,mode:'RESEARCH_ONLY',paperOnly:true,liveOrders:false,executionAuthority:false,capitalEligible:false,
     completedAt:new Date().toISOString(),leaderSymbol:'BTCUSDT',verdict:survivors.length?'RESEARCH_CANDIDATE_FOUND':Object.values(lanes).some(l=>l.verdict!=='DATA_NOT_READY')?'NO_EDGE_FOUND':'DATA_NOT_READY',
-    methodology:{selectionUsesHoldout:false,holdoutSealed:true,causalPriorLeaderOnly:true,futureLeaderForbidden:true,symbolIsolation:true,activeQualityCohortsOnly:true},
+    methodology:{selectionUsesHoldout:false,holdoutSealed:true,causalPriorLeaderOnly:true,futureLeaderForbidden:true,symbolIsolation:true,activeQualityCohortsOnly:true,strictMissingNumericEvidence:true},
     lanes,survivors,
   };
 }
