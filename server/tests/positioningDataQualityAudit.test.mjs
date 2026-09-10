@@ -2,12 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { auditPositioningRows } from '../research/positioningDataQualityAudit.mjs';
 
-function row({ capturedAt, closeTime, schemaVersion = 4, windowMs = 60_000 } = {}) {
+function row({ capturedAt, closeTime, schemaVersion = 4, windowMs = 60_000, symbol = 'BTCUSDT' } = {}) {
   return {
     schemaVersion,
     mode: 'RESEARCH_ONLY',
     provider: 'okx_public_market_data',
-    symbol: 'BTCUSDT',
+    symbol,
     capturedAt,
     price: { closeTime },
     positioning: { takerWindowMs: windowMs },
@@ -22,7 +22,8 @@ test('separates clean tape integrity from minimum study readiness', () => {
     row({ capturedAt: '2026-09-09T18:10:00.000Z', closeTime: '2026-09-09T18:09:59.999Z' }),
   ];
   const out = auditPositioningRows(rows);
-  assert.equal(out.schemaVersion, 3);
+  assert.equal(out.schemaVersion, 4);
+  assert.equal(out.symbol, 'BTCUSDT');
   assert.equal(out.eligibleRowCount, 3);
   assert.equal(out.independentRowCount, 3);
   assert.equal(out.effectiveIndependentRatio, 1);
@@ -108,4 +109,17 @@ test('flags duplicate closed bars inside the active cohort', () => {
   assert.equal(out.defects.duplicateCloseTimes, 1);
   assert.equal(out.qualityPass, false);
   assert.equal(out.readiness.readyForPredeclaredStudy, false);
+});
+
+test('isolates symbol cohorts so one asset can never count another asset observations', () => {
+  const rows = [
+    row({ capturedAt: '2026-09-09T18:00:00.000Z', closeTime: '2026-09-09T17:59:59.999Z', symbol: 'BTCUSDT' }),
+    row({ capturedAt: '2026-09-09T18:05:00.000Z', closeTime: '2026-09-09T18:04:59.999Z', symbol: 'ETHUSDT' }),
+    row({ capturedAt: '2026-09-09T18:10:00.000Z', closeTime: '2026-09-09T18:09:59.999Z', symbol: 'ETHUSDT' }),
+  ];
+  const eth = auditPositioningRows(rows, { symbol: 'ETHUSDT' });
+  assert.equal(eth.symbol, 'ETHUSDT');
+  assert.equal(eth.rawRowCount, 3);
+  assert.equal(eth.eligibleRowCount, 2);
+  assert.equal(eth.independentRowCount, 2);
 });
