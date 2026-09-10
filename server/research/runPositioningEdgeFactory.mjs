@@ -4,9 +4,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const VERSION = 'positioning_edge_factory_v6_active_cohort';
+const VERSION = 'positioning_edge_factory_v7_strict_numeric';
 
-function finite(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
+function finite(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
 function mean(xs) { return xs.length ? xs.reduce((a,b)=>a+b,0)/xs.length : null; }
 function std(xs) { if (xs.length < 2) return null; const m=mean(xs); return Math.sqrt(xs.reduce((s,x)=>s+(x-m)**2,0)/(xs.length-1)); }
 function metrics(returnsBps=[]) {
@@ -182,6 +186,7 @@ export function evaluatePositioningStudy(rows, quality, {
       labelsNeverCrossSegmentBreaks:true,
       symbolIsolation:true,
       activeQualityCohortOnly:true,
+      strictMissingNumericEvidence:true,
       qualityCohortStart:cohortStart,
       qualityCohortEnd:cohortEnd,
       spotPerpJoin:'PRIOR_ASOF_ONLY',
