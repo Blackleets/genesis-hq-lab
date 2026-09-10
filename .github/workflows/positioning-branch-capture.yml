@@ -35,6 +35,11 @@ jobs:
   capture:
     runs-on: ubuntu-latest
     timeout-minutes: 8
+    env:
+      # Collection budget only. Evidence quality remains fixed at >=90% of the 60s window.
+      # 125 ms between history pages keeps request cadence conservative vs OKX public limits.
+      GENESIS_TAKER_MAX_PAGES: '50'
+      GENESIS_TAKER_PAGE_DELAY_MS: '125'
     steps:
       - name: code
         uses: actions/checkout@v4
