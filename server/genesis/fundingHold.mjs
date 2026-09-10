@@ -17,6 +17,51 @@ export const MAX_PRED_BPS = 12; // above: toxic junk (PONS-class)
 export const MAX_SPREAD_BPS = 8;
 export const LIVE_OFF = true;
 
+// Pre-trade economics. A funding print is not edge if fees/spread consume it.
+// Require two conservative funding events because a single 5-12bps print cannot
+// reliably pay a 10bps taker round-trip plus spread. This remains PAPER only.
+export const ROUND_TRIP_FEE_BPS = TAKER * 2 * 1e4;
+export const EXPECTED_SETTLES = 2;
+export const EXECUTION_BUFFER_BPS = 2;
+export const MIN_NET_EDGE_BPS = 2;
+
+function strictNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Conservative pre-trade funding economics; missing evidence always fails closed. */
+export function fundingEconomics({ predBps, meanBps, spreadBps, expectedSettles = EXPECTED_SETTLES } = {}) {
+  const pred = strictNumber(predBps);
+  const mean = strictNumber(meanBps);
+  const spread = strictNumber(spreadBps);
+  const settles = strictNumber(expectedSettles);
+  if (pred === null || mean === null || spread === null || settles === null || settles < 1) {
+    return {
+      pass: false,
+      reason: 'ECONOMICS_EVIDENCE_MISSING',
+      conservativePerSettleBps: null,
+      grossCaptureBps: null,
+      executionCostBps: null,
+      netEdgeBps: null,
+    };
+  }
+  const conservativePerSettleBps = Math.min(Math.abs(pred), Math.abs(mean));
+  const grossCaptureBps = conservativePerSettleBps * settles;
+  // One full spread approximates crossing half-spread on entry + half-spread on exit.
+  const executionCostBps = ROUND_TRIP_FEE_BPS + Math.max(0, spread) + EXECUTION_BUFFER_BPS;
+  const netEdgeBps = grossCaptureBps - executionCostBps;
+  return {
+    pass: netEdgeBps >= MIN_NET_EDGE_BPS,
+    reason: netEdgeBps >= MIN_NET_EDGE_BPS ? null : 'FUNDING_EDGE_BELOW_EXECUTION_HURDLE',
+    conservativePerSettleBps,
+    grossCaptureBps,
+    executionCostBps,
+    netEdgeBps,
+  };
+}
+
 /** No new paper tickets while fees already beat collected funding. Stops PONS-class churn. */
 export function feesDominate(state) {
   const cobrado = Number(state?.realizedFundingUsdt) || 0;
@@ -159,7 +204,6 @@ export async function runHold({ statePath, once = false } = {}) {
   }
   state.holds = state.holds.filter((h) => !h.halt);
 
-  // open slots: predicted |bps| >= 4, last realized same sign, liquid
   const denyUntil = 24 * 3600 * 1000;
   const denied = new Set(
     (state.closed || [])
@@ -209,6 +253,12 @@ export async function runHold({ statePath, once = false } = {}) {
         const mean8 = bps.reduce((a, b) => a + b, 0) / bps.length;
         if (Math.abs(mean8) < 2.5) return;
         if (s.spread > MAX_SPREAD_BPS) return;
+        const economics = fundingEconomics({
+          predBps: rate * 1e4,
+          meanBps: mean8,
+          spreadBps: s.spread,
+        });
+        if (!economics.pass) return;
         scored.push({
           ...s,
           rate,
@@ -217,12 +267,14 @@ export async function runHold({ statePath, once = false } = {}) {
           lastBps: lastRate * 1e4,
           mean8,
           persist,
+          economics,
         });
       } catch {
         /* skip name */
       }
     });
-    scored.sort((a, b) => Math.abs(b.mean8 || b.predBps) - Math.abs(a.mean8 || a.predBps));
+    // Rank by conservative net edge after fees/spread/buffer, not headline funding.
+    scored.sort((a, b) => (b.economics?.netEdgeBps ?? -Infinity) - (a.economics?.netEdgeBps ?? -Infinity));
     for (const s of scored) {
       if (state.holds.length >= MAX_HOLDS) break;
       const side = s.rate > 0 ? 'short' : 'long';
@@ -241,6 +293,12 @@ export async function runHold({ statePath, once = false } = {}) {
         feeUsdt: fee,
         predictedBps: s.predBps,
         lastRealizedBps: s.lastBps,
+        meanFundingBps: s.mean8,
+        expectedSettles: EXPECTED_SETTLES,
+        projectedGrossFundingBps: s.economics.grossCaptureBps,
+        projectedExecutionCostBps: s.economics.executionCostBps,
+        projectedNetEdgeBps: s.economics.netEdgeBps,
+        economicsGate: 'PASS',
         nextFundingTime: s.next,
         lastSettledTime: 0,
         realizedFundingUsdt: 0,
@@ -259,15 +317,23 @@ export async function runHold({ statePath, once = false } = {}) {
   state.paper = true;
   state.liveOff = true;
   state.go = false;
+  state.unitEconomicsPolicy = {
+    version: 'funding_unit_economics_v1',
+    roundTripFeeBps: ROUND_TRIP_FEE_BPS,
+    expectedSettles: EXPECTED_SETTLES,
+    executionBufferBps: EXECUTION_BUFFER_BPS,
+    minimumNetEdgeBps: MIN_NET_EDGE_BPS,
+    ranking: 'PROJECTED_NET_EDGE_AFTER_COSTS',
+  };
   const names = state.holds.map((h) => `${h.instId.replace('-USDT-SWAP', '')} ${h.side}`).join(', ');
   const cobrado = Number(state.realizedFundingUsdt) || 0;
   const fees = Number(state.feesUsdt) || 0;
   if (names) {
-    state.note = `paper hold ${names}. cobrado ${cobrado.toFixed(2)} USDT en ${state.settledCount} settles. a mercado ${state.mtmUsdt.toFixed(2)}. fees ${fees.toFixed(2)}. live off. no es un GO.`;
+    state.note = `paper hold ${names}. cobrado ${cobrado.toFixed(2)} USDT en ${state.settledCount} settles. a mercado ${state.mtmUsdt.toFixed(2)}. fees ${fees.toFixed(2)}. nuevos tickets exigen net edge post-costes. live off. no es un GO.`;
   } else if (feeLocked) {
     state.note = `candado fees: cobrado ${cobrado.toFixed(2)} < fees ${fees.toFixed(2)}. sin ticket nuevo hasta que el cobro gane. live off. no es un GO.`;
   } else {
-    state.note = 'sin hold paper. live off. no se inventa un cobro.';
+    state.note = 'sin hold paper. nuevos tickets exigen unit economics positivos. live off. no se inventa un cobro.';
   }
   saveState(statePath, state);
   return state;
