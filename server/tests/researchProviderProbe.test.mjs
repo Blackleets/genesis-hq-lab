@@ -20,6 +20,7 @@ test('Bybit is usable only when every required research dimension is present', a
   };
   const result = await probeProvider('bybit', { fetchImpl });
   assert.equal(result.researchOnly, true);
+  assert.equal(result.symbol, 'BTCUSDT');
   assert.equal(result.usableForSynchronizedResearch, true);
   assert.deepEqual(result.availableDimensions.sort(), ['funding', 'oi', 'perp', 'spot', 'trades']);
 });
@@ -40,4 +41,25 @@ test('OKX requires code=0 plus non-empty data for each dimension', async () => {
   const result = await probeProvider('okx', { fetchImpl });
   assert.equal(result.usableForSynchronizedResearch, true);
   assert.equal(result.availableDimensions.length, 5);
+});
+
+test('OKX probe uses the requested asset consistently across all routes', async () => {
+  const urls = [];
+  const fetchImpl = async url => {
+    urls.push(url);
+    return response({ code: '0', data: [{ ts: '1' }] });
+  };
+  const result = await probeProvider('okx', { fetchImpl, symbol: 'ETHUSDT' });
+  assert.equal(result.symbol, 'ETHUSDT');
+  assert.equal(result.usableForSynchronizedResearch, true);
+  assert.ok(urls.some(url => url.includes('ETH-USDT-SWAP')));
+  assert.ok(urls.some(url => url.includes('ETH-USDT&')));
+  assert.equal(urls.some(url => url.includes('BTC-USDT')), false);
+});
+
+test('unsupported OKX research symbols fail closed before any request', async () => {
+  let calls = 0;
+  const fetchImpl = async () => { calls += 1; return response({ code: '0', data: [{}] }); };
+  await assert.rejects(() => probeProvider('okx', { fetchImpl, symbol: 'DOGEUSDT' }), /Unsupported OKX research symbol/);
+  assert.equal(calls, 0);
 });
