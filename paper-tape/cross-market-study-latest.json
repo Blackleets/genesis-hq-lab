@@ -1,9 +1,9 @@
 {
-  "studyVersion": 1,
+  "studyVersion": 3,
   "mode": "RESEARCH_ONLY",
-  "protocolSha256": "7d13b32ba87f987b329df14823a919d14c34887f10681e65f3e0aa5a72739670",
+  "protocolSha256": "b1010c4e461984033c707794f6e92fcd8f29fd6a507d1fdb0e09989c16d72409",
   "protocol": {
-    "studyVersion": 1,
+    "studyVersion": 3,
     "hypothesis": "A material 1m BTC spot/perpetual return disagreement predicts partial perpetual catch-up over the next 10-25m net of fixed round-trip costs.",
     "signal": {
       "longPerpMaxSpreadBps": -2,
@@ -21,18 +21,27 @@
       "validation": 30,
       "holdout": 30
     },
+    "walkForward": {
+      "initialTrainCount": 30,
+      "testCounts": [
+        15,
+        15,
+        30
+      ],
+      "policy": "EXPANDING_TRAIN_FIXED_RULE_THREE_PRE_HOLDOUT_OOS_FOLDS_REQUIRE_ALL_TO_PASS_SAME_FIXED_GATES"
+    },
     "validationGates": {
       "meanNetBpsMin": 2,
       "medianNetBpsMin": 0,
       "winRateMin": 0.55,
       "profitFactorMin": 1.2
     },
-    "holdoutPolicy": "SEALED_UNTIL_120_INDEPENDENT_MATURED_SIGNALS_AND_NEVER_USED_FOR_RANKING_OR_TUNING",
-    "rankingPolicy": "DISCOVERY_AND_VALIDATION_ONLY; HOLDOUT NEVER RANKS OR TUNES",
+    "holdoutPolicy": "SEALED_UNLESS_PRE_HOLDOUT_FIXED_GATES_PASS_AND_120_INDEPENDENT_MATURED_SIGNALS_EXIST; NEVER_USED_FOR_RANKING_OR_TUNING",
+    "rankingPolicy": "DISCOVERY_VALIDATION_AND_PRE_HOLDOUT_WALK_FORWARD_ONLY; HOLDOUT NEVER RANKS OR TUNES",
     "provenanceRequirement": "OKX_PUBLIC_CONFIRMED_1M_SPOT_AND_SWAP_BARS_ALIGNED_BY_OPEN_TIME",
     "researchBoundary": "RESEARCH_ONLY_NOT_IN_H1_NOT_FORWARD_PAPER"
   },
-  "rawSnapshotCount": 5,
+  "rawSnapshotCount": 6,
   "rawMaturedSignalCount": 0,
   "maturedSignalCount": 0,
   "independence": {
@@ -60,6 +69,65 @@
     "medianNetBps": null,
     "winRate": null,
     "profitFactor": null
+  },
+  "walkForward": {
+    "policy": "EXPANDING_TRAIN_FIXED_RULE_THREE_PRE_HOLDOUT_OOS_FOLDS_REQUIRE_ALL_TO_PASS_SAME_FIXED_GATES",
+    "requiredPreHoldoutCount": 90,
+    "complete": false,
+    "allFoldsPass": false,
+    "folds": [
+      {
+        "fold": 1,
+        "trainCount": 0,
+        "testCount": 0,
+        "requiredTestCount": 15,
+        "complete": false,
+        "testStartIndex": 30,
+        "testEndIndexExclusive": 45,
+        "summary": {
+          "count": 0,
+          "meanNetBps": null,
+          "medianNetBps": null,
+          "winRate": null,
+          "profitFactor": null
+        },
+        "pass": false
+      },
+      {
+        "fold": 2,
+        "trainCount": 0,
+        "testCount": 0,
+        "requiredTestCount": 15,
+        "complete": false,
+        "testStartIndex": 45,
+        "testEndIndexExclusive": 60,
+        "summary": {
+          "count": 0,
+          "meanNetBps": null,
+          "medianNetBps": null,
+          "winRate": null,
+          "profitFactor": null
+        },
+        "pass": false
+      },
+      {
+        "fold": 3,
+        "trainCount": 0,
+        "testCount": 0,
+        "requiredTestCount": 30,
+        "complete": false,
+        "testStartIndex": 60,
+        "testEndIndexExclusive": 90,
+        "summary": {
+          "count": 0,
+          "meanNetBps": null,
+          "medianNetBps": null,
+          "winRate": null,
+          "profitFactor": null
+        },
+        "pass": false
+      }
+    ]
   },
   "holdout": {
     "status": "SEALED",
