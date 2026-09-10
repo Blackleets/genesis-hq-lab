@@ -6,6 +6,7 @@ import {
   ROUND_TRIP_FEE_BPS,
   feesDominate,
   fundingEconomics,
+  targetSettlesReached,
 } from '../genesis/fundingHold.mjs';
 
 test('feesDominate locks new tickets when collected funding is below fees', () => {
@@ -45,4 +46,17 @@ test('missing numeric evidence never becomes a zero-cost edge', () => {
     assert.equal(out.reason, 'ECONOMICS_EVIDENCE_MISSING');
     assert.equal(out.netEdgeBps, null);
   }
+});
+
+test('paper lifecycle exits at the exact settle target used by entry economics', () => {
+  assert.equal(targetSettlesReached({ settledCount: 0, expectedSettles: 2 }), false);
+  assert.equal(targetSettlesReached({ settledCount: 1, expectedSettles: 2 }), false);
+  assert.equal(targetSettlesReached({ settledCount: 2, expectedSettles: 2 }), true);
+  assert.equal(targetSettlesReached({ settledCount: 3, expectedSettles: 2 }), true);
+  assert.equal(targetSettlesReached({ settledCount: null, expectedSettles: 2 }), false);
+});
+
+test('legacy paper holds use the conservative configured settle target', () => {
+  assert.equal(targetSettlesReached({ settledCount: 1 }), false);
+  assert.equal(targetSettlesReached({ settledCount: EXPECTED_SETTLES }), true);
 });
