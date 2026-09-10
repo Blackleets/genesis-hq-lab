@@ -1,0 +1,58 @@
+{
+  "auditType": "CROSS_MARKET_DEPTH5_BOOK_IMBALANCE_CONTEXT",
+  "mode": "RESEARCH_ONLY",
+  "createdAt": "2026-09-10T02:16:10Z",
+  "branch": "feat/genesis-life-os",
+  "baseCommit": "a9c8f3056c44b5800a8435e580a7759f795405b9",
+  "implementationCommits": [
+    "ff587cada0f45eb663f8b5bbc8779d81678b8233",
+    "96e4f335815f68adf0b6202b484f988d77780dbd"
+  ],
+  "verification": {
+    "githubActionsRunId": 34428742600,
+    "githubActionsConclusion": "success",
+    "workflow": "cross-market-lead-lag-capture",
+    "pushEvidencePolicy": "push run tests only; market capture/evaluation/publish remain skipped on push"
+  },
+  "dataSource": {
+    "provider": "OKX",
+    "endpoint": "/api/v5/market/books",
+    "authentication": "PUBLIC_READ_ONLY_NO_API_KEY",
+    "depthPerSide": 5,
+    "instruments": ["BTC-USDT", "BTC-USDT-SWAP"],
+    "availabilityBasis": "existing production capture already retrieves five public levels per side from OKX and preserves exchange source timestamps",
+    "rawSizeCrossInstrumentWarning": "spot and swap raw size units are not directly compared; imbalance is normalized within each instrument before divergence is computed"
+  },
+  "change": {
+    "schemaVersion": 4,
+    "feature": "executionFriction.bookDepthImbalance",
+    "formula": "(sumBidSize5 - sumAskSize5) / (sumBidSize5 + sumAskSize5)",
+    "fields": [
+      "spot.bidSize",
+      "spot.askSize",
+      "spot.imbalance",
+      "futures.bidSize",
+      "futures.askSize",
+      "futures.imbalance",
+      "futuresMinusSpot"
+    ],
+    "failClosed": "requires exactly five valid non-negative size levels on both sides; otherwise imbalance is unavailable",
+    "researchUse": "OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING",
+    "costModelEffect": "NONE; fixed protocol cost assumptions unchanged",
+    "candidateGateEffect": "NONE",
+    "holdoutEffect": "NONE"
+  },
+  "expectedResearchImpact": "Adds contemporaneous order-book pressure context at effectively zero additional API cost because the same depth-5 snapshots were already collected. It can later be evaluated pre-holdout as a regime/filter candidate, and rejected if it adds no OOS net value.",
+  "safety": {
+    "paperResearchOnly": true,
+    "liveEnabled": false,
+    "realOrdersPlaced": 0,
+    "realTradingConfirmationsChanged": false,
+    "killSwitchesChanged": false,
+    "riskGatesChanged": false,
+    "gatesLowered": false,
+    "holdoutUsedForRanking": false,
+    "forwardPaperEnrollment": false
+  },
+  "nextBottleneck": "Accumulate homogeneous scheduled schema-v4 observations, then predeclare and test whether depth-5 book imbalance divergence adds stable walk-forward/OOS information beyond spread, basis, volume ratio and volatility; keep holdout sealed until all pre-holdout gates pass."
+}
