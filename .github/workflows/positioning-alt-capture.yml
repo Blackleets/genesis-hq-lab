@@ -11,6 +11,7 @@ on:
     branches: [feat/genesis-life-os]
     paths:
       - .github/workflows/positioning-alt-capture.yml
+      - .github/genesis/positioning-alt-trigger.txt
       - server/genesis/positioningDynamicsCapture.mjs
       - server/genesis/okxFixedWindowTaker.mjs
       - server/genesis/okxResearchContext.mjs
@@ -39,7 +40,7 @@ jobs:
       - name: code
         uses: actions/checkout@v4
       - name: tape
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture-alt:')
         uses: actions/checkout@v4
         with:
           ref: capture-tape
@@ -47,7 +48,7 @@ jobs:
       - name: verify multi-asset isolation and quality discipline
         run: node --test server/tests/positioningDynamicsCapture.test.mjs server/tests/okxFixedWindowTaker.test.mjs server/tests/positioningDataQualityAudit.test.mjs server/tests/positioningEdgeFactory.test.mjs server/tests/okxVolatilityShock.test.mjs
       - name: capture admitted alt positioning cohorts
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture-alt:')
         shell: bash
         run: |
           set -euo pipefail
@@ -68,7 +69,7 @@ jobs:
               --out "tape/quant-evidence/positioning-edge-${key}-latest.json"
           done
       - name: assert isolated PAPER boundaries
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture-alt:')
         shell: bash
         run: |
           set -euo pipefail
@@ -87,11 +88,11 @@ jobs:
             if (quality.mode !== 'RESEARCH_ONLY' || quality.symbol !== symbol || quality.boundaries?.holdoutUsedForRanking !== false) throw new Error(`${symbol} quality boundary violated`);
             if (quality.boundaries?.liveTradingEnabled !== false || quality.boundaries?.realOrdersPlaced !== false) throw new Error(`${symbol} live boundary violated`);
             if (edge.mode !== 'RESEARCH_ONLY' || edge.symbol !== symbol || edge.paperOnly !== true || edge.liveOrders !== false || edge.executionAuthority !== false || edge.capitalEligible !== false) throw new Error(`${symbol} edge boundary violated`);
-            if (edge.methodology?.selectionUsesHoldout !== false || edge.methodology?.holdoutSealed !== true || edge.methodology?.symbolIsolation !== true) throw new Error(`${symbol} research boundary violated`);
+            if (edge.methodology?.selectionUsesHoldout !== false || edge.methodology?.holdoutSealed !== true || edge.methodology?.symbolIsolation !== true || edge.methodology?.activeQualityCohortOnly !== true) throw new Error(`${symbol} research boundary violated`);
           }
           NODE
       - name: publish durable alt evidence
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture-alt:')
         working-directory: tape
         shell: bash
         run: |
