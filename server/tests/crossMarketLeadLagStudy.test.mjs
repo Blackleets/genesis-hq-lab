@@ -10,10 +10,19 @@ import {
   evaluateCrossMarketStudy,
 } from '../research/crossMarketLeadLagStudy.mjs';
 
-function row(ts,{spread=0,perp=100,spot=100,basis=0,confirmed=true}={}) {
+function row(ts,{spread=0,perp=100,spot=100,basis=0,confirmed=true,bid,ask,bookAgeMs=1_000}={}) {
+  const capturedAt=new Date(ts).toISOString();
+  const futuresBid=bid ?? perp-0.01;
+  const futuresAsk=ask ?? perp+0.01;
   return {
-    schemaVersion:1, mode:'RESEARCH_ONLY', provider:'okx_public_market_data', capturedAt:new Date(ts).toISOString(),
-    features:{futuresClose:perp,spotClose:spot,returnSpread1mBps:spread,basisBps:basis},
+    schemaVersion:4, mode:'RESEARCH_ONLY', provider:'okx_public_market_data', capturedAt,
+    features:{
+      futuresClose:perp,spotClose:spot,returnSpread1mBps:spread,basisBps:basis,
+      executionFriction:{
+        available:true,
+        futures:{available:true,bid:futuresBid,ask:futuresAsk,sourceAsOf:new Date(ts-bookAgeMs).toISOString()},
+      },
+    },
     provenance:{confirmedBarsOnly:confirmed},
   };
 }
@@ -27,12 +36,14 @@ function observation(i,netBps=5) {
 }
 
 test('protocol is explicit, hashed, holdout-sealed, and never forward-paper eligible by default',()=>{
-  assert.equal(CROSS_MARKET_PROTOCOL.studyVersion,3);
+  assert.equal(CROSS_MARKET_PROTOCOL.studyVersion,4);
   assert.equal(CROSS_MARKET_PROTOCOL.sequentialSplits.discovery,60);
   assert.equal(CROSS_MARKET_PROTOCOL.sequentialSplits.validation,30);
   assert.equal(CROSS_MARKET_PROTOCOL.sequentialSplits.holdout,30);
   assert.deepEqual(CROSS_MARKET_PROTOCOL.walkForward.testCounts,[15,15,30]);
   assert.equal(CROSS_MARKET_PROTOCOL.roundTripCostBps,10);
+  assert.equal(CROSS_MARKET_PROTOCOL.maxBookAgeMs,30_000);
+  assert.match(CROSS_MARKET_PROTOCOL.executionPricePolicy,/LONG_ENTRY_AT_PERP_ASK/);
   assert.match(CROSS_MARKET_PROTOCOL.holdoutPolicy,/PRE_HOLDOUT_FIXED_GATES_PASS/);
   assert.match(CROSS_MARKET_PROTOCOL.holdoutPolicy,/NEVER_USED_FOR_RANKING_OR_TUNING/);
   assert.match(CROSS_MARKET_PROTOCOL.rankingPolicy,/HOLDOUT NEVER RANKS OR TUNES/);
@@ -42,29 +53,50 @@ test('protocol is explicit, hashed, holdout-sealed, and never forward-paper elig
   assert.equal(report.forwardPaperEligible,false);
 });
 
-test('parser requires read-only confirmed OKX provenance',()=>{
+test('parser requires schema-v4 read-only confirmed OKX provenance and a fresh executable perp book',()=>{
   const t=Date.UTC(2026,8,9,12,0,0);
   const valid=row(t,{spread:-3});
-  const unconfirmed=row(t+1,{spread:-3,confirmed:false});
-  const wrongProvider={...row(t+2,{spread:-3}),provider:'other'};
-  const parsed=parseCrossMarketJsonl([valid,unconfirmed,wrongProvider].map(JSON.stringify).join('\n'));
+  const unconfirmed=row(t+60_000,{spread:-3,confirmed:false});
+  const wrongProvider={...row(t+120_000,{spread:-3}),provider:'other'};
+  const staleBook=row(t+180_000,{spread:-3,bookAgeMs:31_000});
+  const legacy={...row(t+240_000,{spread:-3}),schemaVersion:3};
+  const parsed=parseCrossMarketJsonl([valid,unconfirmed,wrongProvider,staleBook,legacy].map(JSON.stringify).join('\n'));
   assert.equal(parsed.length,1);
   assert.equal(parsed[0].provider,'okx_public_market_data');
 });
 
-test('spot lead produces causal perp catch-up observation only after 10-25m',()=>{
+test('spot lead uses causal executable ask entry and later bid exit only after 10-25m',()=>{
   const t=Date.UTC(2026,8,9,12,0,0);
   const rows=[
-    row(t,{spread:-3,perp:100}),
-    row(t+5*60_000,{spread:0,perp:100.1}),
-    row(t+15*60_000,{spread:0,perp:100.3}),
+    row(t,{spread:-3,perp:100,bid:99.99,ask:100.01}),
+    row(t+5*60_000,{spread:0,perp:100.1,bid:100.09,ask:100.11}),
+    row(t+15*60_000,{spread:0,perp:100.3,bid:100.29,ask:100.31}),
   ];
   const obs=buildMaturedCrossMarketObservations(rows);
   assert.equal(obs.length,1);
   assert.equal(obs[0].side,'LONG_PERP');
   assert.equal(obs[0].gapMs,15*60_000);
+  assert.equal(obs[0].entryPerpPrice,100.01);
+  assert.equal(obs[0].exitPerpPrice,100.29);
+  assert.equal(obs[0].entryPriceSource,'PERP_ASK_AT_CAPTURE');
+  assert.equal(obs[0].exitPriceSource,'PERP_BID_AT_CAPTURE');
+  assert.equal(obs[0].fixedAdditionalCostBps,10);
   assert.ok(obs[0].grossBps>0);
   assert.ok(obs[0].netBps<obs[0].grossBps);
+});
+
+test('short signal uses executable bid entry and ask exit',()=>{
+  const t=Date.UTC(2026,8,9,12,0,0);
+  const rows=[
+    row(t,{spread:3,perp:100,bid:99.99,ask:100.01}),
+    row(t+15*60_000,{spread:0,perp:99.7,bid:99.69,ask:99.71}),
+  ];
+  const [obs]=buildMaturedCrossMarketObservations(rows);
+  assert.equal(obs.side,'SHORT_PERP');
+  assert.equal(obs.entryPerpPrice,99.99);
+  assert.equal(obs.exitPerpPrice,99.71);
+  assert.equal(obs.entryPriceSource,'PERP_BID_AT_CAPTURE');
+  assert.equal(obs.exitPriceSource,'PERP_ASK_AT_CAPTURE');
 });
 
 test('25m embargo prevents overlapping forward windows from inflating effective sample',()=>{
