@@ -51,18 +51,19 @@ jobs:
           path: tape
       - name: verify causal positioning and audit discipline
         run: node --test server/tests/positioningDynamicsCapture.test.mjs server/tests/spotPerpTakerDivergenceCapture.test.mjs server/tests/okxFixedWindowTaker.test.mjs server/tests/positioningDataQualityAudit.test.mjs server/tests/positioningEdgeFactory.test.mjs
-      - name: capture synchronized OI funding taker premium volatility evidence
-        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
-        run: node server/genesis/positioningDynamicsCapture.mjs --symbol BTCUSDT --out tape/paper-tape/positioning-dynamics-latest.json --jsonl tape/paper-tape/positioning-dynamics.jsonl
+      # Capture divergence first so the later positioning snapshot can only join prior evidence.
       - name: capture normalized spot-perp taker divergence evidence
         if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
         run: node server/genesis/spotPerpTakerDivergenceCapture.mjs --out tape/paper-tape/spot-perp-taker-divergence-latest.json --jsonl tape/paper-tape/spot-perp-taker-divergence.jsonl
+      - name: capture synchronized OI funding taker premium volatility evidence
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
+        run: node server/genesis/positioningDynamicsCapture.mjs --symbol BTCUSDT --out tape/paper-tape/positioning-dynamics-latest.json --jsonl tape/paper-tape/positioning-dynamics.jsonl
       - name: audit effective independent evidence
         if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
         run: node server/research/positioningDataQualityAudit.mjs --input tape/paper-tape/positioning-dynamics.jsonl --out tape/paper-tape/positioning-data-quality-latest.json
       - name: evaluate fail-closed positioning candidates
         if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
-        run: node server/research/runPositioningEdgeFactory.mjs --input tape/paper-tape/positioning-dynamics.jsonl --quality tape/paper-tape/positioning-data-quality-latest.json --out tape/quant-evidence/positioning-edge-factory-latest.json
+        run: node server/research/runPositioningEdgeFactory.mjs --input tape/paper-tape/positioning-dynamics.jsonl --quality tape/paper-tape/positioning-data-quality-latest.json --divergence tape/paper-tape/spot-perp-taker-divergence.jsonl --out tape/quant-evidence/positioning-edge-factory-latest.json
       - name: assert PAPER RESEARCH_ONLY boundaries
         if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
         shell: bash
@@ -85,6 +86,7 @@ jobs:
           if (q.boundaries?.holdoutUsedForRanking !== false || q.boundaries?.liveTradingEnabled !== false || q.boundaries?.realOrdersPlaced !== false) throw new Error('quality safety boundary violated');
           if (e.mode !== 'RESEARCH_ONLY' || e.paperOnly !== true || e.liveOrders !== false || e.executionAuthority !== false || e.capitalEligible !== false) throw new Error('edge factory capital boundary violated');
           if (e.methodology?.selectionUsesHoldout !== false || e.methodology?.holdoutSealed !== true) throw new Error('holdout boundary violated');
+          if (e.methodology?.spotPerpJoin !== 'PRIOR_ASOF_ONLY' || e.methodology?.futureDivergenceForbidden !== true) throw new Error('causal spot-perp join boundary violated');
           NODE
       - name: publish durable evidence
         if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
