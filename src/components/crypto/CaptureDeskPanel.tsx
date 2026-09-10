@@ -29,7 +29,7 @@ function sideEs(side: string) {
   return side === 'short' ? 'corto' : side === 'long' ? 'largo' : side;
 }
 
-function parisWhen(ms?: number) {
+function parisWhen(ms?: number | null) {
   if (!ms || !Number.isFinite(ms)) return '—';
   return new Date(ms).toLocaleString('es-ES', {
     timeZone: 'Europe/Paris',
