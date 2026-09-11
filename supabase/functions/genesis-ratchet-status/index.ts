@@ -18,6 +18,7 @@ function json(body: unknown, status = 200) {
 }
 
 function n(value: unknown) {
+  if (value == null || value === '') return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
 }
