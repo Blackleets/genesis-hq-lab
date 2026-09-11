@@ -136,6 +136,18 @@ test('duplicated trade IDs cannot inflate an eligible sample', () => {
   assert.equal(result.status, 'KILL');
 });
 
+test('duplicate IDs across cohorts fail the complete audit', () => {
+  const sharedId = 'cross-cohort-duplicate';
+  const v8 = trade(1, { id: sharedId, strategy_version_id: 'futures_breakout_short_micro:v8' });
+  const v9 = trade(2, { id: sharedId, strategy_version_id: 'futures_breakout_short_micro:v9' });
+  const audit = buildEconomicEdgeAudit([v8, v9], { researchEvidence: research });
+  assert.equal(audit.strategies['futures_breakout_short_micro:v8'].pipeline.checks.uniqueTradeIdsAcrossAudit, false);
+  assert.equal(audit.strategies['futures_breakout_short_micro:v9'].pipeline.checks.uniqueTradeIdsAcrossAudit, false);
+  assert.equal(audit.strategies['futures_breakout_short_micro:v8'].status, 'KILL');
+  assert.equal(audit.strategies['futures_breakout_short_micro:v9'].status, 'KILL');
+  assert.equal(audit.verdict, 'KILL_PRESENT');
+});
+
 test('fingerprint binds research gates and signal provenance', () => {
   const rows = [trade(1)];
   const baseline = buildEconomicEdgeAudit(rows, { researchEvidence: research });
