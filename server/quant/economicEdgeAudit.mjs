@@ -243,6 +243,15 @@ function pipelineIntegrity(rows) {
   return { checks, failures, pass: failures.length === 0 };
 }
 
+function auditWideIntegrity(rows) {
+  const ids = rows.map((row) => String(row.id ?? '').trim());
+  const checks = {
+    uniqueTradeIdsAcrossAudit: ids.every(Boolean) && new Set(ids).size === ids.length,
+  };
+  const failures = Object.entries(checks).filter(([, pass]) => !pass).map(([code]) => code);
+  return { checks, failures, pass: failures.length === 0 };
+}
+
 function researchGateFor(strategyKey, researchEvidence = {}) {
   const evidence = researchEvidence?.[strategyKey] || null;
   if (!evidence) return { available: false, walkForwardPass: false, oosPass: false, source: null };
@@ -260,7 +269,7 @@ function researchGateFor(strategyKey, researchEvidence = {}) {
   };
 }
 
-function evaluateStrategy(strategyKey, rows, policy, researchEvidence) {
+function evaluateStrategy(strategyKey, rows, policy, researchEvidence, auditIntegrity) {
   const metrics = summarizeCohort(rows);
   const calibration = calibrateConfidence(rows);
   const segments = {
@@ -270,7 +279,15 @@ function evaluateStrategy(strategyKey, rows, policy, researchEvidence) {
     sizing: grouped(rows, (row) => row.sizingBucket),
     session: grouped(rows, (row) => row.session),
   };
-  const integrity = pipelineIntegrity(rows);
+  const cohortIntegrity = pipelineIntegrity(rows);
+  const integrity = {
+    checks: {
+      ...cohortIntegrity.checks,
+      uniqueTradeIdsAcrossAudit: auditIntegrity?.checks?.uniqueTradeIdsAcrossAudit !== false,
+    },
+    failures: [...new Set([...cohortIntegrity.failures, ...(auditIntegrity?.failures || [])])],
+    pass: cohortIntegrity.pass && auditIntegrity?.pass !== false,
+  };
   const research = researchGateFor(strategyKey, researchEvidence);
   const kill = policy.kill;
   const evidence = policy.evidence;
@@ -345,7 +362,8 @@ export function buildEconomicEdgeAudit(rawRows, { policy = DEFAULT_EDGE_AUDIT_PO
     if (!strategyGroups.has(key)) strategyGroups.set(key, []);
     strategyGroups.get(key).push(row);
   }
-  const strategies = Object.fromEntries([...strategyGroups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, sample]) => [key, evaluateStrategy(key, sample, policy, researchEvidence)]));
+  const auditIntegrity = auditWideIntegrity(futuresPaperRows);
+  const strategies = Object.fromEntries([...strategyGroups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, sample]) => [key, evaluateStrategy(key, sample, policy, researchEvidence, auditIntegrity)]));
   const normalizedForHash = futuresPaperRows.map((row) => ({
     id: row.id,
     status: row.status,
