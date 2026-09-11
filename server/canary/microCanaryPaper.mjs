@@ -1,41 +1,28 @@
 import { readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { fetchKlines } from '../crypto/backtest/historicalData.mjs';
-import {
-  calculateBollingerBands as bollinger,
-  calculateRsi as rsi,
-  calculateAdx as adx,
-} from '../crypto/technicalIndicators.mjs';
 
 export const MICRO_CANARY_POLICY = Object.freeze({
-  version: 'micro_canary_paper_v1',
+  version: 'micro_canary_paper_v2_v8_mirror',
   mode: 'MICRO_CANARY_PAPER',
-  pair: 'SOLUSDT',
-  interval: '4h',
-  days: 30,
+  strategyVersionId: 'futures_breakout_short_micro:v8',
+  validationStatus: 'EXPERIMENT',
   startingCapitalUsd: 10,
   maxCapitalUsd: 10,
   maxTotalLossUsd: 0.25,
   maxOpenPositions: 1,
   maxLeverage: 1,
-  stopPct: 0.005,
-  rewardRisk: 2.2,
+  fallbackStopPct: 0.03,
   baseCostBps: 12,
   stressCostBps: 18,
-  strategyId: 'legacy_mean_reversion_reference_sol_4h_v1',
-});
-
-const PARAMS = Object.freeze({
-  bbPeriod: 20,
-  bbStd: 2.0,
-  rsiPeriod: 13,
-  rsiOS: 30,
-  rsiOB: 70,
-  adxMax: 25,
-  adxPeriod: 14,
+  statusUrl: 'https://genesis-hq-lab.vercel.app/api/system/health',
 });
 
 const round = (value, digits = 8) => Number(Number(value).toFixed(digits));
+const finite = value => Number.isFinite(Number(value));
+const asMs = value => {
+  const parsed = Date.parse(String(value ?? ''));
+  return Number.isFinite(parsed) ? parsed : null;
+};
 
 export function validateCanaryPolicy(policy = MICRO_CANARY_POLICY) {
   if (policy.startingCapitalUsd <= 0 || policy.startingCapitalUsd > 10) throw new Error('micro canary capital must be >0 and <= $10');
@@ -43,167 +30,149 @@ export function validateCanaryPolicy(policy = MICRO_CANARY_POLICY) {
   if (policy.maxTotalLossUsd <= 0 || policy.maxTotalLossUsd > 0.25) throw new Error('micro canary max total loss must be >0 and <= $0.25');
   if (policy.maxOpenPositions !== 1) throw new Error('micro canary must allow exactly one open position');
   if (policy.maxLeverage !== 1) throw new Error('micro canary paper preview must remain 1x');
+  if (!policy.strategyVersionId?.endsWith(':v8')) throw new Error('micro canary must mirror an explicit v8 strategy version');
   return true;
 }
 
-export function referenceSignals(klines) {
-  const closes = klines.map(k => Number(k[4]));
-  const highs = klines.map(k => Number(k[2]));
-  const lows = klines.map(k => Number(k[3]));
-  const out = new Array(klines.length).fill(null);
-  const warm = Math.max(PARAMS.bbPeriod, PARAMS.adxPeriod * 2) + 2;
-  for (let i = warm; i < klines.length; i++) {
-    const sliceC = closes.slice(0, i + 1);
-    const sliceH = highs.slice(0, i + 1);
-    const sliceL = lows.slice(0, i + 1);
-    const bb = bollinger(sliceC, PARAMS.bbPeriod, PARAMS.bbStd);
-    const currentRsi = rsi(sliceC, PARAMS.rsiPeriod);
-    const currentAdx = adx(sliceH, sliceL, sliceC, PARAMS.adxPeriod);
-    const price = closes[i];
-    if (currentAdx > PARAMS.adxMax) continue;
-    if (price <= bb.lower && currentRsi <= PARAMS.rsiOS) out[i] = 'LONG';
-    else if (price >= bb.upper && currentRsi >= PARAMS.rsiOB) out[i] = 'SHORT';
-  }
-  return out;
+export function assertSafeRunnerSnapshot(snapshot) {
+  if (!snapshot?.ok) throw new Error('runner_snapshot_not_ok');
+  const runner = snapshot?.agentRunner;
+  if (!runner?.ok) throw new Error('runner_status_not_ok');
+  if (runner?.paperOnly !== true) throw new Error('runner_paper_boundary_unverified');
+  if (runner?.liveOrders !== false) throw new Error('runner_live_orders_boundary_violated');
+  if (!Array.isArray(runner?.recentTrades)) throw new Error('runner_recent_trades_unavailable');
+  return runner;
 }
 
-function closeTrade(pos, exitPrice, reason, at, equity, costBps) {
-  const grossPnl = (pos.side === 'LONG' ? exitPrice - pos.entry : pos.entry - exitPrice) * pos.units;
-  const roundTripCost = pos.notionalUsd * (costBps / 10_000);
-  const netPnl = grossPnl - roundTripCost;
+export function selectCurrentV8PaperTrades(snapshot, policy = MICRO_CANARY_POLICY) {
+  const runner = assertSafeRunnerSnapshot(snapshot);
+  return runner.recentTrades
+    .filter(trade =>
+      trade?.status === 'closed'
+      && trade?.mode === 'paper'
+      && trade?.strategyVersionId === policy.strategyVersionId
+      && trade?.validationStatus === policy.validationStatus
+      && ['LONG', 'SHORT'].includes(trade?.side)
+      && finite(trade?.entryPrice)
+      && finite(trade?.exitPrice)
+      && Number(trade.entryPrice) > 0
+      && asMs(trade?.openedAt) !== null
+      && asMs(trade?.closedAt) !== null
+    )
+    .sort((a, b) => asMs(a.openedAt) - asMs(b.openedAt));
+}
+
+function sourceStopLossRate(trade, policy, costBps) {
+  const entry = Number(trade.entryPrice);
+  const stop = Number(trade.stopPrice);
+  const stopPct = finite(stop) && stop > 0
+    ? Math.abs(stop - entry) / entry
+    : policy.fallbackStopPct;
+  return Math.max(stopPct, policy.fallbackStopPct / 4) + (costBps / 10_000);
+}
+
+function replayTrade(trade, equity, costBps, policy) {
+  const entry = Number(trade.entryPrice);
+  const exit = Number(trade.exitPrice);
+  const side = trade.side;
+  const grossReturn = side === 'LONG' ? (exit - entry) / entry : (entry - exit) / entry;
+  const netReturn = grossReturn - (costBps / 10_000);
+  const equityFloor = policy.startingCapitalUsd - policy.maxTotalLossUsd;
+  const remainingLossBudget = Math.max(0, equity - equityFloor);
+  const worstCaseLossRate = sourceStopLossRate(trade, policy, costBps);
+  const lossBoundedNotional = worstCaseLossRate > 0 ? remainingLossBudget / worstCaseLossRate : policy.maxCapitalUsd;
+  const notionalUsd = Math.max(0, Math.min(equity, policy.maxCapitalUsd, lossBoundedNotional));
+  const rawPnl = notionalUsd * netReturn;
+  const netPnlUsd = Math.max(rawPnl, -remainingLossBudget);
+  const nextEquity = equity + netPnlUsd;
   return {
+    equity: nextEquity,
     trade: {
-      side: pos.side,
-      entry: round(pos.entry),
-      exit: round(exitPrice),
-      units: round(pos.units),
-      notionalUsd: round(pos.notionalUsd),
-      grossPnlUsd: round(grossPnl),
-      costUsd: round(roundTripCost),
-      netPnlUsd: round(netPnl),
-      reason,
-      openedAt: pos.openedAt,
-      closedAt: at,
+      sourceTradeId: String(trade.id ?? ''),
+      pair: String(trade.pair ?? ''),
+      side,
+      openedAt: trade.openedAt,
+      closedAt: trade.closedAt,
+      exitReason: trade.exitReason ?? null,
+      entry: round(entry),
+      exit: round(exit),
+      sourceStop: finite(trade.stopPrice) ? round(Number(trade.stopPrice)) : null,
+      sourceTarget: finite(trade.targetPrice) ? round(Number(trade.targetPrice)) : null,
+      sourceCapitalUsedUsd: finite(trade.capitalUsed) ? round(Number(trade.capitalUsed)) : null,
+      sourceLeverage: finite(trade.leverage) ? round(Number(trade.leverage)) : null,
+      sourcePnlUsd: finite(trade.pnl) ? round(Number(trade.pnl)) : null,
+      canaryLeverage: policy.maxLeverage,
+      canaryNotionalUsd: round(notionalUsd),
+      grossReturnPct: round(grossReturn * 100, 6),
+      costBps,
+      netPnlUsd: round(netPnlUsd),
+      equityAfterUsd: round(nextEquity),
     },
-    equity: equity + netPnl,
   };
 }
 
-export function simulateFromSignals(klines, signals, { costBps = MICRO_CANARY_POLICY.baseCostBps } = {}) {
-  validateCanaryPolicy();
-  if (!Array.isArray(klines) || klines.length < 3) throw new Error('at least 3 klines are required');
-  if (!Array.isArray(signals) || signals.length !== klines.length) throw new Error('signals must align with klines');
+export function simulateFromPaperTrades(trades, { costBps = MICRO_CANARY_POLICY.baseCostBps, policy = MICRO_CANARY_POLICY } = {}) {
+  validateCanaryPolicy(policy);
+  if (!Array.isArray(trades)) throw new Error('paper trades must be an array');
   if (!Number.isFinite(costBps) || costBps < 0) throw new Error('costBps must be non-negative');
 
-  let equity = MICRO_CANARY_POLICY.startingCapitalUsd;
+  let equity = policy.startingCapitalUsd;
   let peakEquity = equity;
   let maxDrawdownUsd = 0;
-  let pos = null;
-  let stoppedByLossCap = false;
-  let maxObservedOpenPositions = 0;
   let maxObservedNotionalUsd = 0;
-  const trades = [];
+  let ignoredOverlaps = 0;
+  let ignoredAfterLossCap = 0;
+  let lastAcceptedClose = null;
+  const replayed = [];
 
-  const recordEquity = () => {
+  for (const trade of [...trades].sort((a, b) => asMs(a.openedAt) - asMs(b.openedAt))) {
+    const openedAt = asMs(trade.openedAt);
+    const closedAt = asMs(trade.closedAt);
+    if (openedAt === null || closedAt === null || closedAt < openedAt) continue;
+    if (lastAcceptedClose !== null && openedAt < lastAcceptedClose) {
+      ignoredOverlaps++;
+      continue;
+    }
+    if (equity <= policy.startingCapitalUsd - policy.maxTotalLossUsd + 1e-9) {
+      ignoredAfterLossCap++;
+      continue;
+    }
+    const replay = replayTrade(trade, equity, costBps, policy);
+    equity = replay.equity;
+    replayed.push(replay.trade);
+    lastAcceptedClose = closedAt;
+    maxObservedNotionalUsd = Math.max(maxObservedNotionalUsd, replay.trade.canaryNotionalUsd);
     peakEquity = Math.max(peakEquity, equity);
     maxDrawdownUsd = Math.max(maxDrawdownUsd, peakEquity - equity);
-  };
-
-  for (let i = 1; i < klines.length; i++) {
-    const candle = klines[i];
-    const open = Number(candle[1]);
-    const high = Number(candle[2]);
-    const low = Number(candle[3]);
-    const close = Number(candle[4]);
-    const at = Number(candle[0]);
-
-    if (pos) {
-      const stopHit = pos.side === 'LONG' ? low <= pos.sl : high >= pos.sl;
-      const targetHit = pos.side === 'LONG' ? high >= pos.tp : low <= pos.tp;
-      let exit = null;
-      let reason = null;
-      if (stopHit) {
-        exit = pos.sl;
-        reason = targetHit ? 'STOP_FIRST_INTRABAR_AMBIGUITY' : 'STOP';
-      } else if (targetHit) {
-        exit = pos.tp;
-        reason = 'TARGET';
-      }
-      if (exit !== null) {
-        const closed = closeTrade(pos, exit, reason, at, equity, costBps);
-        equity = closed.equity;
-        trades.push(closed.trade);
-        pos = null;
-        recordEquity();
-      }
-    }
-
-    if (MICRO_CANARY_POLICY.startingCapitalUsd - equity >= MICRO_CANARY_POLICY.maxTotalLossUsd) {
-      stoppedByLossCap = true;
-    }
-
-    const priorSignal = signals[i - 1];
-    if (!pos && !stoppedByLossCap && priorSignal && ['LONG', 'SHORT'].includes(priorSignal)) {
-      const entry = open;
-      const equityFloor = MICRO_CANARY_POLICY.startingCapitalUsd - MICRO_CANARY_POLICY.maxTotalLossUsd;
-      const remainingLossBudget = Math.max(0, equity - equityFloor);
-      const worstCaseLossRate = MICRO_CANARY_POLICY.stopPct + (costBps / 10_000);
-      const lossBoundedNotional = worstCaseLossRate > 0 ? remainingLossBudget / worstCaseLossRate : MICRO_CANARY_POLICY.maxCapitalUsd;
-      const notionalUsd = Math.min(equity, MICRO_CANARY_POLICY.maxCapitalUsd, lossBoundedNotional);
-      if (notionalUsd <= 0) { stoppedByLossCap = true; continue; }
-      const units = notionalUsd / entry;
-      const stopDist = entry * MICRO_CANARY_POLICY.stopPct;
-      pos = {
-        side: priorSignal,
-        entry,
-        units,
-        notionalUsd,
-        sl: priorSignal === 'LONG' ? entry - stopDist : entry + stopDist,
-        tp: priorSignal === 'LONG' ? entry + stopDist * MICRO_CANARY_POLICY.rewardRisk : entry - stopDist * MICRO_CANARY_POLICY.rewardRisk,
-        openedAt: at,
-      };
-      maxObservedOpenPositions = Math.max(maxObservedOpenPositions, 1);
-      maxObservedNotionalUsd = Math.max(maxObservedNotionalUsd, notionalUsd);
-    }
-
-    if (i === klines.length - 1 && pos) {
-      const closed = closeTrade(pos, close, 'END_OF_WINDOW_MARK', at, equity, costBps);
-      equity = closed.equity;
-      trades.push(closed.trade);
-      pos = null;
-      recordEquity();
-    }
   }
 
-  const wins = trades.filter(t => t.netPnlUsd > 0);
-  const losses = trades.filter(t => t.netPnlUsd < 0);
-  const grossWin = wins.reduce((sum, t) => sum + t.netPnlUsd, 0);
-  const grossLoss = Math.abs(losses.reduce((sum, t) => sum + t.netPnlUsd, 0));
-  const netPnlUsd = equity - MICRO_CANARY_POLICY.startingCapitalUsd;
-  const profitFactor = grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? null : 0;
+  const wins = replayed.filter(trade => trade.netPnlUsd > 0);
+  const losses = replayed.filter(trade => trade.netPnlUsd < 0);
+  const grossProfit = wins.reduce((sum, trade) => sum + trade.netPnlUsd, 0);
+  const grossLoss = Math.abs(losses.reduce((sum, trade) => sum + trade.netPnlUsd, 0));
+  const netPnlUsd = equity - policy.startingCapitalUsd;
+  const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? null : 0;
 
   return {
     costBps,
-    trades: trades.length,
+    trades: replayed.length,
     wins: wins.length,
     losses: losses.length,
-    winRate: trades.length ? round(wins.length / trades.length, 6) : 0,
+    winRate: replayed.length ? round(wins.length / replayed.length, 6) : 0,
     netPnlUsd: round(netPnlUsd),
-    roiPct: round((netPnlUsd / MICRO_CANARY_POLICY.startingCapitalUsd) * 100, 6),
-    expectancyUsd: trades.length ? round(netPnlUsd / trades.length) : 0,
+    roiPct: round((netPnlUsd / policy.startingCapitalUsd) * 100, 6),
+    expectancyUsd: replayed.length ? round(netPnlUsd / replayed.length) : 0,
     profitFactor: profitFactor === null ? null : round(profitFactor, 6),
     finalEquityUsd: round(equity),
     maxDrawdownUsd: round(maxDrawdownUsd),
-    maxDrawdownPct: round((maxDrawdownUsd / MICRO_CANARY_POLICY.startingCapitalUsd) * 100, 6),
-    stoppedByLossCap,
-    maxObservedOpenPositions,
+    maxDrawdownPct: round((maxDrawdownUsd / policy.startingCapitalUsd) * 100, 6),
+    stoppedByLossCap: equity <= policy.startingCapitalUsd - policy.maxTotalLossUsd + 1e-9,
+    maxObservedOpenPositions: replayed.length ? 1 : 0,
     maxObservedNotionalUsd: round(maxObservedNotionalUsd),
-    tradesDetail: trades,
+    ignoredOverlaps,
+    ignoredAfterLossCap,
+    tradesDetail: replayed,
   };
-}
-
-export function simulateMicroCanary(klines, opts = {}) {
-  return simulateFromSignals(klines, referenceSignals(klines), opts);
 }
 
 function safeReadJson(path) {
@@ -215,14 +184,16 @@ export function summarizeResearchGates(root) {
   const portfolio = safeReadJson(join(root, 'quant-evidence', 'portfolio-risk-research-latest.json'));
   const forwardCandidates = Array.isArray(forward?.candidates) ? forward.candidates : [];
   const forwardEligible = forwardCandidates.filter(candidate =>
-    candidate?.nextStageEligible === true &&
-    candidate?.executionAuthority !== true &&
-    candidate?.capitalEligible !== true &&
-    candidate?.liveEligible !== true
+    candidate?.nextStageEligible === true
+    && candidate?.executionAuthority !== true
+    && candidate?.capitalEligible !== true
+    && candidate?.liveEligible !== true
   ).length;
-  const portfolioReady = portfolio?.status === 'PORTFOLIO_RESEARCH_READY' &&
-    portfolio?.paperOnly === true && portfolio?.liveOrders === false &&
-    portfolio?.executionAuthority === false && portfolio?.capitalEligible === false;
+  const portfolioReady = portfolio?.status === 'PORTFOLIO_RESEARCH_READY'
+    && portfolio?.paperOnly === true
+    && portfolio?.liveOrders === false
+    && portfolio?.executionAuthority === false
+    && portfolio?.capitalEligible === false;
   return {
     forwardStatus: forward?.status ?? null,
     forwardEligible,
@@ -231,7 +202,7 @@ export function summarizeResearchGates(root) {
   };
 }
 
-export function buildEvidence({ baseline, stress, gates, generatedAt = new Date().toISOString() }) {
+export function buildEvidence({ baseline, stress, gates, source, generatedAt = new Date().toISOString() }) {
   const diagnosticVerdict = baseline.trades === 0 ? 'NO_TRADES' : baseline.netPnlUsd > 0 ? 'PAPER_WIN' : baseline.netPnlUsd < 0 ? 'PAPER_LOSS' : 'FLAT';
   const canaryReadiness = gates.forwardEligible === 0
     ? 'BLOCKED_NO_FORWARD_GATE_PASS'
@@ -247,15 +218,12 @@ export function buildEvidence({ baseline, stress, gates, generatedAt = new Date(
     executionAuthority: false,
     capitalEligible: false,
     strategy: {
-      id: MICRO_CANARY_POLICY.strategyId,
-      purpose: 'LEGACY_REFERENCE_DIAGNOSTIC_ONLY',
-      note: 'Reference PnL is not an Issue-72 promotion candidate and cannot unlock LIVE.',
-      pair: MICRO_CANARY_POLICY.pair,
-      interval: MICRO_CANARY_POLICY.interval,
-      lookbackDays: MICRO_CANARY_POLICY.days,
-      params: PARAMS,
+      id: MICRO_CANARY_POLICY.strategyVersionId,
+      purpose: 'ACTIVE_V8_PAPER_MIRROR_DIAGNOSTIC',
+      note: 'Replays verified closed PAPER fills from the active v8 experiment at 1x with a hard $10 cap. This cannot unlock LIVE.',
     },
-    policy: { ...MICRO_CANARY_POLICY },
+    source,
+    policy: { ...MICRO_CANARY_POLICY, statusUrl: undefined },
     researchGates: gates,
     canaryReadiness,
     diagnosticVerdict,
@@ -277,17 +245,39 @@ export function buildEvidence({ baseline, stress, gates, generatedAt = new Date(
   };
 }
 
-export async function runMicroCanaryPaper({ root = '.', now = new Date() } = {}) {
-  validateCanaryPolicy();
-  const klines = await fetchKlines(MICRO_CANARY_POLICY.pair, {
-    days: MICRO_CANARY_POLICY.days,
-    interval: MICRO_CANARY_POLICY.interval,
+export async function fetchRunnerSnapshot(url = process.env.GENESIS_STATUS_URL || MICRO_CANARY_POLICY.statusUrl) {
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: { accept: 'application/json', 'user-agent': 'genesis-micro-canary-paper-v2' },
+    signal: AbortSignal.timeout(12_000),
   });
-  if (klines.length < 50) throw new Error(`not enough real Binance candles: ${klines.length}`);
-  const baseline = simulateMicroCanary(klines, { costBps: MICRO_CANARY_POLICY.baseCostBps });
-  const stress = simulateMicroCanary(klines, { costBps: MICRO_CANARY_POLICY.stressCostBps });
+  if (!response.ok) throw new Error(`runner_snapshot_http_${response.status}`);
+  return await response.json();
+}
+
+export async function runMicroCanaryPaper({ root = '.', now = new Date(), snapshot = null } = {}) {
+  validateCanaryPolicy();
+  const currentSnapshot = snapshot ?? await fetchRunnerSnapshot();
+  const runner = assertSafeRunnerSnapshot(currentSnapshot);
+  const trades = selectCurrentV8PaperTrades(currentSnapshot);
+  const baseline = simulateFromPaperTrades(trades, { costBps: MICRO_CANARY_POLICY.baseCostBps });
+  const stress = simulateFromPaperTrades(trades, { costBps: MICRO_CANARY_POLICY.stressCostBps });
   const gates = summarizeResearchGates(root);
-  const evidence = buildEvidence({ baseline, stress, gates, generatedAt: now.toISOString() });
+  const evidence = buildEvidence({
+    baseline,
+    stress,
+    gates,
+    source: {
+      kind: 'VERIFIED_SYSTEM_HEALTH_PAPER_TRADES',
+      strategyVersionId: MICRO_CANARY_POLICY.strategyVersionId,
+      runnerVersion: runner.runnerVersion ?? runner.lastResult?.runnerVersion ?? null,
+      validationEngineVersion: runner.validationEngineVersion ?? runner.lastResult?.validationEngineVersion ?? null,
+      sourceClosedTrades: trades.length,
+      sourceLastTickAt: runner.lastTickAt ?? null,
+      sourceUpdatedAt: runner.updatedAt ?? currentSnapshot?.timestamp ?? null,
+    },
+    generatedAt: now.toISOString(),
+  });
   const outDir = join(root, 'quant-evidence');
   mkdirSync(outDir, { recursive: true });
   writeFileSync(join(outDir, 'micro-canary-paper-latest.json'), JSON.stringify(evidence, null, 2) + '\n');
@@ -305,6 +295,8 @@ if (process.argv[1] && process.argv[1].endsWith('microCanaryPaper.mjs')) {
     .then(result => {
       console.log(JSON.stringify({
         mode: result.mode,
+        version: result.version,
+        strategy: result.strategy.id,
         diagnosticVerdict: result.diagnosticVerdict,
         canaryReadiness: result.canaryReadiness,
         trades: result.baseline.trades,
