@@ -5,13 +5,13 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-11T05:13:27.744Z",
+  "completedAt": "2026-09-11T11:47:40.698Z",
   "summary": {
     "hypotheses": 240,
     "paperCandidates": 3,
     "interesting": 33,
-    "regimeDivergence": 125,
-    "killed": 170
+    "regimeDivergence": 118,
+    "killed": 12
   },
   "rules": [
     {
@@ -87,7 +87,8 @@
       "regimeDivergence": 0,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_VALIDATION_EXPECTANCY": 2
+        "NEGATIVE_VALIDATION_EXPECTANCY": 1,
+        "THREE_FAILED_GENERATIONS": 1
       },
       "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
@@ -124,9 +125,9 @@
       "regimeDivergence": 0,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_VALIDATION_EXPECTANCY": 2
+        "THREE_FAILED_GENERATIONS": 2
       },
-      "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
+      "dominantFailure": "THREE_FAILED_GENERATIONS",
       "action": "MUTATE_AND_RETEST"
     },
     {
@@ -229,19 +230,6 @@
       "action": "MUTATE_AND_RETEST"
     },
     {
-      "hypothesisKey": "volatility_squeeze:XRPUSDT:1h:ASIA",
-      "total": 4,
-      "interesting": 1,
-      "regimeDivergence": 0,
-      "paper": 0,
-      "reasons": {
-        "INSUFFICIENT_SAMPLE": 2,
-        "NEGATIVE_VALIDATION_EXPECTANCY": 1
-      },
-      "dominantFailure": "INSUFFICIENT_SAMPLE",
-      "action": "MUTATE_AND_RETEST"
-    },
-    {
       "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:NY",
       "total": 4,
       "interesting": 1,
@@ -250,6 +238,19 @@
       "reasons": {
         "INSUFFICIENT_SAMPLE": 2,
         "NEGATIVE_HOLDOUT_EXPECTANCY": 1
+      },
+      "dominantFailure": "INSUFFICIENT_SAMPLE",
+      "action": "MUTATE_AND_RETEST"
+    },
+    {
+      "hypothesisKey": "volatility_squeeze:XRPUSDT:1h:ASIA",
+      "total": 4,
+      "interesting": 1,
+      "regimeDivergence": 0,
+      "paper": 0,
+      "reasons": {
+        "INSUFFICIENT_SAMPLE": 2,
+        "NEGATIVE_VALIDATION_EXPECTANCY": 1
       },
       "dominantFailure": "INSUFFICIENT_SAMPLE",
       "action": "MUTATE_AND_RETEST"
