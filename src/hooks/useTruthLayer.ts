@@ -34,6 +34,34 @@ export interface RunnerTrade {
   validationStatus?: string | null;
 }
 
+export interface RunnerValidationMetrics {
+  trades?: number;
+  closed?: number;
+  wins?: number;
+  losses?: number;
+  winRate?: number | null;
+  realizedPnl?: number;
+  profitFactor?: number | null;
+  expectancy?: number | null;
+  payoffRatio?: number | null;
+  maxDrawdown?: number;
+  maxDrawdownPct?: number | null;
+  tStat?: number | null;
+  maxLossStreak?: number;
+}
+
+export interface RunnerValidation {
+  profileId?: string;
+  strategyId?: string;
+  strategyVersionId?: string;
+  runnerVersion?: string;
+  status?: string;
+  capitalEligible?: boolean;
+  reason?: string;
+  metrics?: RunnerValidationMetrics;
+  gates?: Array<{ code?: string; pass?: boolean; detail?: string }>;
+}
+
 export interface SystemTruth {
   ok: boolean;
   timestamp: string;
@@ -84,6 +112,32 @@ export interface SystemTruth {
       openPositions?: number;
       sampleRealizedPnl?: number;
       sampleWinRate?: number | null;
+    } | null;
+    validationEngine?: {
+      ok?: boolean;
+      engineVersion?: string;
+      runnerVersion?: string;
+      policy?: {
+        version?: string;
+        validating?: { minClosed?: number; minProfitFactor?: number; minExpectancy?: number };
+        validated?: {
+          minClosed?: number;
+          minProfitFactor?: number;
+          minExpectancy?: number;
+          minWinRate?: number;
+          minTStat?: number;
+          maxDrawdownPct?: number;
+          requireWalkForward?: boolean;
+          requireOos?: boolean;
+          minPositiveRegimes?: number;
+        };
+        capitalEligible?: {
+          requiresFounderGate?: boolean;
+          requiresCanonicalReconciliation?: boolean;
+          requiresLivePreflight?: boolean;
+        };
+      };
+      validations?: Record<string, RunnerValidation>;
     } | null;
     error?: string;
   };
