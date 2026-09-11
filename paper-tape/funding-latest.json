@@ -2,11 +2,11 @@
   "paper": true,
   "liveOff": true,
   "go": false,
-  "ts": "2026-09-11T20:05:33.545Z",
+  "ts": "2026-09-11T22:32:50.288Z",
   "capital": 10000,
   "realizedFundingUsdt": 37.198587673537745,
   "feesUsdt": 8.75,
-  "mtmUsdt": 15.791954745442949,
+  "mtmUsdt": 113.6863607793839,
   "settledCount": 6,
   "holds": [
     {
@@ -30,8 +30,8 @@
       "nextFundingTime": 1789200000000,
       "lastSettledTime": 0,
       "realizedFundingUsdt": 0,
-      "mtmUsdt": 15.791954745442949,
-      "mid": 1.6010499999999999,
+      "mtmUsdt": 113.6863607793839,
+      "mid": 1.6633499999999999,
       "halt": false
     }
   ],
@@ -119,9 +119,9 @@
       "realizedPricePnlUsdt": -59.164149043302984
     }
   ],
-  "note": "paper hold RAY long. cobrado 37.20 USDT en 6 settles. a mercado 15.79. fees 8.75. nuevos tickets exigen net edge post-costes y cierran tras 2 settles. live off. no es un GO.",
-  "feeLock": false,
-  "feeLockReason": null,
+  "note": "paper hold RAY long. funding 37.20 USDT, price realized -263.96, fees 8.75, realized net -235.51, open MTM 113.69. nuevos tickets exigen net edge post-costes y cierran tras 2 settles. live off. no es un GO.",
+  "feeLock": true,
+  "feeLockReason": "REALIZED_NET_PNL_NEGATIVE",
   "unitEconomicsPolicy": {
     "version": "funding_unit_economics_v2_target_settles",
     "roundTripFeeBps": 10,
@@ -131,6 +131,11 @@
     "ranking": "PROJECTED_NET_EDGE_AFTER_COSTS",
     "exitAfterTargetSettles": true,
     "realizedExitUsesExecutableQuote": true,
-    "realizedPricePnlPersisted": true
-  }
+    "realizedPricePnlPersisted": true,
+    "deskLockUsesRealizedNetPnl": true
+  },
+  "realizedPricePnlUsdt": -263.96073551833445,
+  "realizedNetPnlUsdt": -235.5121478447967,
+  "economicPnlUsdt": -121.82578706541278,
+  "equityUsdt": 9878.174212934588
 }
