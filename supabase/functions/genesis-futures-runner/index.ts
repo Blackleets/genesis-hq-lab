@@ -99,14 +99,32 @@ async function authorized(req: Request) {
   return Boolean(supplied) && await sha256(supplied) === RUNNER_TOKEN_SHA256;
 }
 
+const REST_RETRYABLE_STATUS = new Set([502, 503, 504]);
+const REST_MAX_ATTEMPTS = 3;
+const REST_TIMEOUT_MS = 2_500;
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function rest(path: string, init: RequestInit = {}) {
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    ...init,
-    headers: { ...REST_HEADERS, ...(init.headers || {}) },
-  });
-  if (!response.ok) throw new Error(`supabase_${response.status}:${await response.text()}`);
-  const text = await response.text();
-  return text ? JSON.parse(text) : null;
+  let lastError: unknown = null;
+  for (let attempt = 1; attempt <= REST_MAX_ATTEMPTS; attempt++) {
+    try {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+        ...init,
+        headers: { ...REST_HEADERS, ...(init.headers || {}), 'cache-control': 'no-store' },
+        signal: init.signal ?? AbortSignal.timeout(REST_TIMEOUT_MS),
+      });
+      const text = await response.text();
+      if (response.ok) return text ? JSON.parse(text) : null;
+      const error = new Error(`supabase_${response.status}:${path}:${text}`);
+      if (!REST_RETRYABLE_STATUS.has(response.status) || attempt === REST_MAX_ATTEMPTS) throw error;
+      lastError = error;
+    } catch (error) {
+      lastError = error;
+      if (attempt === REST_MAX_ATTEMPTS) throw error;
+    }
+    await sleep(125 * attempt);
+  }
+  throw lastError instanceof Error ? lastError : new Error('supabase_request_failed');
 }
 
 async function readState(key: string) {
