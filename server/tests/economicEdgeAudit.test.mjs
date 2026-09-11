@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildEconomicEdgeAudit, modeledFriction } from '../quant/economicEdgeAudit.mjs';
+import { spawnSync } from 'node:child_process';
+import { buildEconomicEdgeAudit, modeledFriction, normalizeTrade } from '../quant/economicEdgeAudit.mjs';
 
 function trade(i, overrides = {}) {
   const win = overrides.win ?? (i % 2 === 0);
@@ -109,4 +110,52 @@ test('audit hash is reproducible and independent of generatedAt', () => {
   const a = buildEconomicEdgeAudit(rows, { generatedAt: '2026-09-11T00:00:00Z' });
   const b = buildEconomicEdgeAudit([...rows].reverse(), { generatedAt: '2026-09-12T00:00:00Z' });
   assert.equal(a.source.evidenceSha256, b.source.evidenceSha256);
+});
+
+test('missing and malformed numeric observations fail closed instead of becoming zero', () => {
+  for (const value of [null, undefined, '', '   ', false, [], {}, 'NaN']) {
+    const row = normalizeTrade(trade(1, { pnl: value, confidence: value }));
+    assert.equal(row.pnl, null);
+    assert.equal(row.confidence, null);
+    const result = buildEconomicEdgeAudit([row]).strategies[row.strategyKey];
+    assert.equal(result.status, 'KILL');
+    assert.equal(result.metrics.closed, 0);
+    assert.equal(result.calibration.trades, 0);
+  }
+  assert.equal(normalizeTrade(trade(1, { pnl: 0, confidence: 0 })).pnl, 0);
+  assert.equal(normalizeTrade(trade(1, { confidence: 0 })).confidence, 0);
+  for (const confidence of [-0.1, 1.1, Infinity]) {
+    assert.equal(normalizeTrade(trade(1, { confidence })).confidence, null);
+  }
+});
+
+test('duplicated trade IDs cannot inflate an eligible sample', () => {
+  const audit = buildEconomicEdgeAudit([trade(1), trade(1)]);
+  const result = audit.strategies['futures_breakout_short_micro:v8'];
+  assert.equal(result.pipeline.checks.uniqueTradeIds, false);
+  assert.equal(result.status, 'KILL');
+});
+
+test('fingerprint binds research gates and signal provenance', () => {
+  const rows = [trade(1)];
+  const baseline = buildEconomicEdgeAudit(rows, { researchEvidence: research });
+  const changed = structuredClone(research);
+  changed['futures_breakout_short_micro:v8'].walk_forward.pass = false;
+  assert.notEqual(baseline.source.evidenceSha256, buildEconomicEdgeAudit(rows, { researchEvidence: changed }).source.evidenceSha256);
+  assert.notEqual(baseline.source.evidenceSha256, buildEconomicEdgeAudit([trade(1, { evidence: '[]' })], { researchEvidence: research }).source.evidenceSha256);
+  const reordered = Object.fromEntries(Object.entries(research).map(([key, value]) => [key, Object.fromEntries(Object.entries(value).reverse())]));
+  assert.equal(baseline.source.evidenceSha256, buildEconomicEdgeAudit(rows, { researchEvidence: reordered }).source.evidenceSha256);
+});
+
+test('offline CLI reproduces the captured audit without database credentials', () => {
+  const result = spawnSync(process.execPath, ['scripts/quantEngineeringAudit.mjs', '--input', 'evidence/economic-audit-2026-09-11/input.json', '--strict'], {
+    cwd: new URL('../../', import.meta.url),
+    encoding: 'utf8',
+    env: { ...process.env, SUPABASE_URL: '', VITE_SUPABASE_URL: '', SUPABASE_SERVICE_ROLE_KEY: '', SUPABASE_ANON_KEY: '', VITE_SUPABASE_ANON_KEY: '' },
+  });
+  assert.equal(result.status, 2, result.stderr);
+  const audit = JSON.parse(result.stdout);
+  assert.equal(audit.source.futuresRowsAudited, 64);
+  assert.equal(audit.strategies['futures_breakout_short_micro:v8'].metrics.realizedPnl, -1.53);
+  assert.equal(audit.liveOrdersAuthorized, false);
 });

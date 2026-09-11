@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-export const EDGE_AUDIT_VERSION = 'qeec_v1';
+export const EDGE_AUDIT_VERSION = 'qeec_v1.1';
 
 export const DEFAULT_EDGE_AUDIT_POLICY = Object.freeze({
   kill: Object.freeze({
@@ -26,6 +26,14 @@ export const DEFAULT_EDGE_AUDIT_POLICY = Object.freeze({
     requireOos: true,
   }),
 });
+
+// Missing/invalid financial observations must never become synthetic zeroes.
+const finiteNumber = value => {
+  if (typeof value !== 'number' && typeof value !== 'string') return null;
+  if (typeof value === 'string' && !value.trim()) return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
 
 const round = (value, digits = 6) => {
   if (!Number.isFinite(value)) return null;
@@ -102,10 +110,10 @@ function evidenceList(value) {
 }
 
 export function normalizeTrade(row) {
-  const pnl = Number(row.pnl);
-  const confidenceRaw = Number(row.confidence);
-  const confidence = Number.isFinite(confidenceRaw) ? Math.max(0, Math.min(1, confidenceRaw)) : null;
-  const capitalUsed = Number(row.capital_used);
+  const pnl = finiteNumber(row.pnl);
+  const confidenceRaw = finiteNumber(row.confidence);
+  const confidence = Number.isFinite(confidenceRaw) && confidenceRaw >= 0 && confidenceRaw <= 1 ? confidenceRaw : null;
+  const capitalUsed = finiteNumber(row.capital_used);
   const friction = modeledFriction(row);
   const evidence = evidenceList(row.evidence);
   const strategyVersionId = String(row.strategy_version_id || '').trim() || null;
@@ -217,7 +225,9 @@ export function calibrateConfidence(rows) {
 }
 
 function pipelineIntegrity(rows) {
+  const ids = rows.map(row => String(row.id ?? '').trim());
   const checks = {
+    uniqueTradeIds: ids.every(Boolean) && new Set(ids).size === ids.length,
     allClosed: rows.every((row) => row.status === 'closed'),
     paperOnly: rows.every((row) => row.mode === 'paper'),
     strategyAttributed: rows.every((row) => Boolean(row.strategyVersionId)),
@@ -313,8 +323,13 @@ function evaluateStrategy(strategyKey, rows, policy, researchEvidence) {
   };
 }
 
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])]));
+  return value;
+}
 function stableHash(value) {
-  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  return createHash('sha256').update(JSON.stringify(canonical(value))).digest('hex');
 }
 
 export function buildEconomicEdgeAudit(rawRows, { policy = DEFAULT_EDGE_AUDIT_POLICY, researchEvidence = {}, generatedAt = new Date().toISOString() } = {}) {
@@ -333,6 +348,9 @@ export function buildEconomicEdgeAudit(rawRows, { policy = DEFAULT_EDGE_AUDIT_PO
   const strategies = Object.fromEntries([...strategyGroups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, sample]) => [key, evaluateStrategy(key, sample, policy, researchEvidence)]));
   const normalizedForHash = futuresPaperRows.map((row) => ({
     id: row.id,
+    status: row.status,
+    evidence: row.evidence,
+    friction: row.friction,
     strategyVersionId: row.strategyVersionId,
     tradeType: row.trade_type,
     asset: row.asset,
@@ -354,13 +372,16 @@ export function buildEconomicEdgeAudit(rawRows, { policy = DEFAULT_EDGE_AUDIT_PO
     auditVersion: EDGE_AUDIT_VERSION,
     generatedAt,
     mode: 'READ_ONLY_PAPER_AUDIT',
+    pnlBasis: 'STORED_LEDGER_PNL_NOT_INDEPENDENTLY_RECONCILED',
+    costBasis: 'MODELED_DIAGNOSTIC_NOT_DEDUCTED_AGAIN',
+    drawdownBasis: 'CUMULATIVE_CLOSED_PNL_OVER_MEAN_TRADE_ALLOCATION_NOT_ACCOUNT_EQUITY',
     capitalEligible: false,
     liveOrdersAuthorized: false,
     policy,
     source: {
       rowsReceived: rows.length,
       futuresRowsAudited: futuresPaperRows.length,
-      evidenceSha256: stableHash({ policy, rows: normalizedForHash }),
+      evidenceSha256: stableHash({ auditVersion: EDGE_AUDIT_VERSION, policy, rows: normalizedForHash, researchEvidence }),
     },
     portfolio,
     portfolioSegments: {

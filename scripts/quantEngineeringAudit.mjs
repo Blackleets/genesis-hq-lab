@@ -15,8 +15,9 @@ function argValue(name) {
 
 const strict = process.argv.includes('--strict');
 const outputPath = argValue('out');
+const inputPath = argValue('input');
 
-if (!SUPABASE_URL || !SUPABASE_KEY) {
+if (!inputPath && (!SUPABASE_URL || !SUPABASE_KEY)) {
   console.error('[quant:audit] SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY/SUPABASE_ANON_KEY are required.');
   process.exit(1);
 }
@@ -36,6 +37,17 @@ async function rest(resource) {
   return response.json();
 }
 
+// Continue on every nonempty page, including pages capped by the server.
+async function loadAll(resource) {
+  const rows = [];
+  for (;;) {
+    const page = await rest(`${resource}&limit=500&offset=${rows.length}`);
+    if (!Array.isArray(page)) throw new Error('invalid_rest_page');
+    if (!page.length) return rows;
+    rows.push(...page);
+  }
+}
+
 async function loadClosedFuturesTrades() {
   const select = [
     'id', 'trade_type', 'instrument_type', 'asset_pair', 'outcome', 'status', 'mode',
@@ -44,12 +56,12 @@ async function loadClosedFuturesTrades() {
     'opened_at', 'closed_at', 'evidence', 'strategy_version_id', 'entry_regime',
     'entry_session', 'runner_version', 'validation_status',
   ].join(',');
-  return rest(`trades?status=eq.closed&trade_type=like.crypto_futures_%25&select=${encodeURIComponent(select)}&order=closed_at.asc&limit=5000`);
+  return loadAll(`trades?status=eq.closed&trade_type=like.crypto_futures_%25&select=${encodeURIComponent(select)}&order=closed_at.asc,id.asc`);
 }
 
 async function loadResearchEvidence() {
   const select = 'strategy_version_id,evaluated_at,walk_forward,oos_evidence,verdict,policy_version,runner_version';
-  const rows = await rest(`strategy_validation_snapshots?select=${encodeURIComponent(select)}&order=evaluated_at.desc&limit=500`);
+  const rows = await loadAll(`strategy_validation_snapshots?select=${encodeURIComponent(select)}&order=evaluated_at.desc,id.desc`);
   const latest = {};
   for (const row of Array.isArray(rows) ? rows : []) {
     if (row?.strategy_version_id && !latest[row.strategy_version_id]) latest[row.strategy_version_id] = row;
@@ -58,11 +70,12 @@ async function loadResearchEvidence() {
 }
 
 try {
-  const [trades, researchEvidence] = await Promise.all([
-    loadClosedFuturesTrades(),
-    loadResearchEvidence(),
-  ]);
-  const audit = buildEconomicEdgeAudit(trades, { researchEvidence });
+  const input = inputPath ? JSON.parse(fs.readFileSync(path.resolve(inputPath), 'utf8')) : null;
+  if (inputPath && (!input || !Array.isArray(input.trades) || !input.researchEvidence || typeof input.researchEvidence !== 'object')) throw new Error('invalid_audit_snapshot');
+  const [trades, researchEvidence] = input
+    ? [input.trades, input.researchEvidence]
+    : await Promise.all([loadClosedFuturesTrades(), loadResearchEvidence()]);
+  const audit = buildEconomicEdgeAudit(trades, { researchEvidence, ...(input?.capturedAt ? { generatedAt: input.capturedAt } : {}) });
   const serialized = `${JSON.stringify(audit, null, 2)}\n`;
 
   if (outputPath) {
