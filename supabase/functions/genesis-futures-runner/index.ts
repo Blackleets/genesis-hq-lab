@@ -2,7 +2,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY') || '';
 const BINANCE_BASE = Deno.env.get('BINANCE_BASE') || 'https://data-api.binance.vision/api/v3';
 const RUNNER_TOKEN_SHA256 = 'e9f02987e836a6eaf8ef8d7afaed805580cd31264aef5ed86fc3ebb756c59d91';
-const RUNNER_VERSION = 'v8.2';
+const RUNNER_VERSION = 'v8.3';
 const POLICY_KEY = 'quant_validation_policy_v1';
 const RUNTIME_KEY = 'quant_validation_runtime_v1';
 const RESEARCH_KEY = 'quant_research_evidence_v1';
@@ -12,12 +12,11 @@ const MIN_EXPECTED_NET_USD = 18;
 const MIN_REWARD_RISK = 1.8;
 
 const SHORT_EXIT_POLICY = {
-  version: 'profit_lock_v1',
+  version: 'profit_lock_v2',
   targetPct: 0.06,
   stopPct: 0.03,
-  profitLockAfterFraction: 0.35,
-  profitLockRiskFraction: 0.25,
-  lateProfitAfterFraction: 0.70,
+  immediateProfitRiskFraction: 0.25,
+  timedProfitAfterFraction: 0.35,
 } as const;
 
 const FUTURES_TYPES = [
@@ -144,9 +143,8 @@ async function ensureStrategyVersions() {
         targetPct: profile.targetPct,
         stopPct: profile.stopPct,
         exitPolicyVersion: profile.exitPolicyVersion,
-        profitLockAfterFraction: SHORT_EXIT_POLICY.profitLockAfterFraction,
-        profitLockRiskFraction: SHORT_EXIT_POLICY.profitLockRiskFraction,
-        lateProfitAfterFraction: SHORT_EXIT_POLICY.lateProfitAfterFraction,
+        immediateProfitRiskFraction: SHORT_EXIT_POLICY.immediateProfitRiskFraction,
+        timedProfitAfterFraction: SHORT_EXIT_POLICY.timedProfitAfterFraction,
       },
       parent_version_id: profile.parentVersionId,
       source: `genesis_futures_runner_${RUNNER_VERSION}`,
@@ -298,11 +296,12 @@ function markEconomics(row: any, mark: number, ageHours: number) {
 function profitCaptureReason(row: any, ageHours: number, pnl: number, riskUsd: number) {
   if (row.outcome !== 'SHORT') return null;
   if (!String(row.strategy_version_id || '').endsWith(':v9')) return null;
+  if (!(pnl > 0)) return null;
+  if (riskUsd > 0 && pnl >= riskUsd * SHORT_EXIT_POLICY.immediateProfitRiskFraction) return 'profit_lock';
   const timeoutHours = timeoutHoursFor(row.trade_type);
   if (!(timeoutHours > 0)) return null;
   const ageFraction = ageHours / timeoutHours;
-  if (ageFraction >= SHORT_EXIT_POLICY.lateProfitAfterFraction && pnl > 0) return 'late_profit_capture';
-  if (ageFraction >= SHORT_EXIT_POLICY.profitLockAfterFraction && riskUsd > 0 && pnl >= riskUsd * SHORT_EXIT_POLICY.profitLockRiskFraction) return 'profit_lock';
+  if (ageFraction >= SHORT_EXIT_POLICY.timedProfitAfterFraction) return 'timed_profit_capture';
   return null;
 }
 
@@ -383,8 +382,8 @@ async function evidenceSnapshot(policy: any) {
   }
 
   return {
-    version: 3,
-    source: 'family_protection_plus_version_clean_cohorts_profit_capture',
+    version: 4,
+    source: 'family_protection_plus_version_clean_cohorts_profit_capture_v2',
     familyProfiles,
     versionProfiles,
     blockedProfiles: Object.entries(familyProfiles).filter(([, value]: any) => value.blocked).map(([id]) => id),
@@ -559,7 +558,7 @@ async function persistValidation(evidence: any, policy: any, researchEvidence: a
 
   const runtime = {
     ok: true,
-    engineVersion: 'qve_v1.2',
+    engineVersion: 'qve_v1.3',
     runnerVersion: RUNNER_VERSION,
     exitPolicyVersion: SHORT_EXIT_POLICY.version,
     policy,
@@ -691,16 +690,16 @@ async function tick() {
   }
   const completedAt = nowIso(), cyclePnl = round(closedPositions.reduce((sum, item) => sum + Number(item.pnl || 0), 0));
   const result = {
-    ok: true, runnerVersion: RUNNER_VERSION, validationEngineVersion: 'qve_v1.2', exitPolicyVersion: SHORT_EXIT_POLICY.version, paperOnly: true, liveOrders: false,
+    ok: true, runnerVersion: RUNNER_VERSION, validationEngineVersion: 'qve_v1.3', exitPolicyVersion: SHORT_EXIT_POLICY.version, paperOnly: true, liveOrders: false,
     scanned, qualified, executed, skipped, closed: closedPositions.length, cyclePnl, openPositions: openCount, closedPositions,
     evidenceGuard: { version: evidence.version, source: evidence.source, blockedProfiles: evidence.blockedProfiles, familyProfiles: evidence.familyProfiles },
     validationEngine, decisions: decisions.slice(-24),
   };
-  await writeState('external_runner_heartbeat', { source: 'supabase_futures_runner', runnerVersion: RUNNER_VERSION, validationEngineVersion: 'qve_v1.2', exitPolicyVersion: SHORT_EXIT_POLICY.version, lastTickAt: completedAt, totalCycles: Number(previous?.totalCycles || 0) + 1, claudeEnabled: false, paperOnly: true, liveOrders: false, lastResult: result });
+  await writeState('external_runner_heartbeat', { source: 'supabase_futures_runner', runnerVersion: RUNNER_VERSION, validationEngineVersion: 'qve_v1.3', exitPolicyVersion: SHORT_EXIT_POLICY.version, lastTickAt: completedAt, totalCycles: Number(previous?.totalCycles || 0) + 1, claudeEnabled: false, paperOnly: true, liveOrders: false, lastResult: result });
   const historyState = await readState('futures_cycle_history');
   const history = Array.isArray(historyState.value) ? historyState.value : [];
   await writeState('futures_cycle_history', [...history, { ...result, startedAt, completedAt }].slice(-80));
-  await logCycle({ runnerVersion: RUNNER_VERSION, validationEngineVersion: 'qve_v1.2', exitPolicyVersion: SHORT_EXIT_POLICY.version, scanned, qualified, executed, skipped, closed: closedPositions.length, cyclePnl, openPositions: openCount, blockedProfiles: evidence.blockedProfiles, lifecycle: Object.fromEntries(Object.entries(validationEngine.validations).map(([id, value]: any) => [id, value.status])) });
+  await logCycle({ runnerVersion: RUNNER_VERSION, validationEngineVersion: 'qve_v1.3', exitPolicyVersion: SHORT_EXIT_POLICY.version, scanned, qualified, executed, skipped, closed: closedPositions.length, cyclePnl, openPositions: openCount, blockedProfiles: evidence.blockedProfiles, lifecycle: Object.fromEntries(Object.entries(validationEngine.validations).map(([id, value]: any) => [id, value.status])) });
   return { ...result, mode: 'executed', lastTickAt: completedAt };
 }
 
@@ -709,5 +708,5 @@ Deno.serve(async (req: Request) => {
   if (!['GET', 'POST'].includes(req.method)) return json({ ok: false, error: 'method_not_allowed' }, 405);
   if (!await authorized(req)) return json({ ok: false, error: 'runner_auth_invalid' }, 403);
   try { return json(await tick()); }
-  catch (error) { return json({ ok: false, error: error instanceof Error ? error.message : 'runner_failed', paperOnly: true, liveOrders: false, runnerVersion: RUNNER_VERSION, validationEngineVersion: 'qve_v1.2', exitPolicyVersion: SHORT_EXIT_POLICY.version }, 500); }
+  catch (error) { return json({ ok: false, error: error instanceof Error ? error.message : 'runner_failed', paperOnly: true, liveOrders: false, runnerVersion: RUNNER_VERSION, validationEngineVersion: 'qve_v1.3', exitPolicyVersion: SHORT_EXIT_POLICY.version }, 500); }
 });
