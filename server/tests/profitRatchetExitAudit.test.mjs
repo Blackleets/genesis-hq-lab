@@ -45,6 +45,24 @@ test('capture efficiency and giveback use persisted net PnL directly', () => {
   assert.equal(metrics.economicsBasis, 'persisted_net_pnl_no_additional_cost_subtraction');
 });
 
+test('missing numeric evidence stays null instead of becoming fake zero', () => {
+  const normalized = normalizeRatchetTrade(trade({
+    leverage: null,
+    notional_usd: null,
+    mae_observed_net_usd: null,
+    realized_net_pnl_usd: null,
+    max_protected_profit_usd: null,
+    closed_at: null,
+  }));
+  assert.equal(normalized.leverage, null);
+  assert.equal(normalized.notionalUsd, null);
+  assert.equal(normalized.maeObserved, null);
+  assert.equal(normalized.realized, null);
+  assert.equal(normalized.capture, null);
+  assert.equal(normalized.closed, false);
+  assert.equal(normalized.notionalBand, 'UNATTRIBUTED');
+});
+
 test('winner lost uses the existing $5 activation threshold and realized net PnL <= 0', () => {
   assert.equal(WINNER_LOST_MFE_USD, 5);
   assert.equal(normalizeRatchetTrade(trade({ mfe_net_usd: 14.2, realized_net_pnl_usd: -3.1, ratchet_save_exit: false, exit_reason: 'timeout' })).winnerLost, true);
