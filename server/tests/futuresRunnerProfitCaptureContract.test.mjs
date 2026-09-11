@@ -11,23 +11,35 @@ function closeFunction() {
   return source.slice(start, end);
 }
 
-test('runner introduces profit capture as a new paper-only version', () => {
-  assert.match(source, /const RUNNER_VERSION = 'v8\.2'/);
+test('runner introduces immediate profit capture as a paper-only v9 policy', () => {
+  assert.match(source, /const RUNNER_VERSION = 'v8\.3'/);
   assert.match(source, /futures_breakout_short_micro:v9/);
   assert.match(source, /futures_breakout_short_core:v9/);
   assert.match(source, /futures_breakout_short_alt:v9/);
   assert.match(source, /futures_breakout_long_probe:v8/);
-  assert.match(source, /version: 'profit_lock_v1'/);
+  assert.match(source, /version: 'profit_lock_v2'/);
   assert.match(source, /targetPct: 0\.06/);
   assert.match(source, /stopPct: 0\.03/);
+  assert.match(source, /immediateProfitRiskFraction: 0\.25/);
+  assert.match(source, /timedProfitAfterFraction: 0\.35/);
 });
 
 test('profit capture cannot mutate legacy v8 cohorts', () => {
   const block = source.slice(source.indexOf('function profitCaptureReason'), source.indexOf('function summarize'));
   assert.match(block, /row\.outcome !== 'SHORT'/);
   assert.match(block, /endsWith\(':v9'\)/);
-  assert.match(block, /late_profit_capture/);
   assert.match(block, /profit_lock/);
+  assert.match(block, /timed_profit_capture/);
+});
+
+test('meaningful net profit locks before any timeout-age requirement', () => {
+  const block = source.slice(source.indexOf('function profitCaptureReason'), source.indexOf('function summarize'));
+  const immediate = block.indexOf('SHORT_EXIT_POLICY.immediateProfitRiskFraction');
+  const timeoutLookup = block.indexOf('timeoutHoursFor');
+  const timed = block.indexOf('SHORT_EXIT_POLICY.timedProfitAfterFraction');
+  assert.ok(immediate >= 0 && timeoutLookup >= 0 && timed >= 0);
+  assert.ok(immediate < timeoutLookup, '0.25R net profit must be captured without waiting for timeout age');
+  assert.ok(timeoutLookup < timed, 'timed positive capture must remain a secondary fallback');
 });
 
 test('hard target and stop retain priority over adaptive profit capture', () => {
