@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Activity, ShieldCheck, TrendingDown, TrendingUp } from 'lucide-react';
 
+const RATCHET_STATUS_URL = 'https://swgixcbwyhxttnmrglbk.supabase.co/functions/v1/genesis-ratchet-status';
+
 interface RatchetTrade {
   tradeId: string;
   strategyVersionId: string;
@@ -93,7 +95,7 @@ export function RatchetObservabilityPanel({ pair, es = true }: { pair: string; e
     let live = true;
     const load = async () => {
       try {
-        const response = await fetch('/api/genesis/ratchet-status', { cache: 'no-store' });
+        const response = await fetch(RATCHET_STATUS_URL, { cache: 'no-store' });
         if (!response.ok) throw new Error('ratchet telemetry unavailable');
         const payload = await response.json() as RatchetStatus;
         if (!payload.ok || payload.paperOnly !== true || payload.liveOrders === true) throw new Error('invalid ratchet telemetry boundary');
