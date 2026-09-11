@@ -69,11 +69,33 @@ export function targetSettlesReached(hold = {}, fallbackTarget = EXPECTED_SETTLE
   return target !== null && target >= 1 && count >= target;
 }
 
-/** No new paper tickets while fees already beat collected funding. Stops PONS-class churn. */
+/** Reconcile realized funding with executable price PnL and all paid fees. */
+export function realizedFundingEconomics(state) {
+  const realizedFundingUsdt = Number(state?.realizedFundingUsdt) || 0;
+  const feesUsdt = Number(state?.feesUsdt) || 0;
+  const closed = Array.isArray(state?.closed) ? state.closed : [];
+  const realizedPricePnlUsdt = closed.reduce(
+    (sum, hold) => sum + (Number(hold?.realizedPricePnlUsdt) || 0),
+    0,
+  );
+  const realizedNetPnlUsdt = realizedFundingUsdt + realizedPricePnlUsdt - feesUsdt;
+  return {
+    realizedFundingUsdt,
+    realizedPricePnlUsdt,
+    feesUsdt,
+    realizedNetPnlUsdt,
+    closedCount: closed.length,
+  };
+}
+
+/**
+ * No new PAPER tickets while the desk is economically underwater on realized results.
+ * Before the first close, preserve the original fee-vs-funding churn guard.
+ */
 export function feesDominate(state) {
-  const cobrado = Number(state?.realizedFundingUsdt) || 0;
-  const fees = Number(state?.feesUsdt) || 0;
-  return fees > cobrado;
+  const economics = realizedFundingEconomics(state);
+  if (economics.closedCount > 0) return economics.realizedNetPnlUsdt < 0;
+  return economics.feesUsdt > economics.realizedFundingUsdt;
 }
 
 function nowIso() {
@@ -244,10 +266,15 @@ export async function runHold({ statePath, once = false } = {}) {
       .map((c) => c.instId),
   );
   const openIds = new Set(state.holds.map((h) => h.instId));
+  const realizedEconomics = realizedFundingEconomics(state);
+  state.realizedPricePnlUsdt = realizedEconomics.realizedPricePnlUsdt;
+  state.realizedNetPnlUsdt = realizedEconomics.realizedNetPnlUsdt;
   const feeLocked = feesDominate(state);
   if (feeLocked) {
     state.feeLock = true;
-    state.feeLockReason = 'FEES_DOMINATE';
+    state.feeLockReason = realizedEconomics.closedCount > 0 && realizedEconomics.realizedNetPnlUsdt < 0
+      ? 'REALIZED_NET_PNL_NEGATIVE'
+      : 'FEES_DOMINATE';
   } else {
     state.feeLock = false;
     state.feeLockReason = null;
@@ -326,6 +353,11 @@ export async function runHold({ statePath, once = false } = {}) {
   }
 
   state.mtmUsdt = state.holds.reduce((a, h) => a + (h.mtmUsdt || 0), 0);
+  const finalEconomics = realizedFundingEconomics(state);
+  state.realizedPricePnlUsdt = finalEconomics.realizedPricePnlUsdt;
+  state.realizedNetPnlUsdt = finalEconomics.realizedNetPnlUsdt;
+  state.economicPnlUsdt = finalEconomics.realizedNetPnlUsdt + state.mtmUsdt;
+  state.equityUsdt = (Number(state.capital) || 0) + state.economicPnlUsdt;
   state.ts = nowIso();
   state.paper = true;
   state.liveOff = true;
@@ -340,14 +372,17 @@ export async function runHold({ statePath, once = false } = {}) {
     exitAfterTargetSettles: true,
     realizedExitUsesExecutableQuote: true,
     realizedPricePnlPersisted: true,
+    deskLockUsesRealizedNetPnl: true,
   };
   const names = state.holds.map((h) => `${h.instId.replace('-USDT-SWAP', '')} ${h.side}`).join(', ');
   const cobrado = Number(state.realizedFundingUsdt) || 0;
   const fees = Number(state.feesUsdt) || 0;
+  const priceRealized = Number(state.realizedPricePnlUsdt) || 0;
+  const realizedNet = Number(state.realizedNetPnlUsdt) || 0;
   if (names) {
-    state.note = `paper hold ${names}. cobrado ${cobrado.toFixed(2)} USDT en ${state.settledCount} settles. a mercado ${state.mtmUsdt.toFixed(2)}. fees ${fees.toFixed(2)}. nuevos tickets exigen net edge post-costes y cierran tras ${EXPECTED_SETTLES} settles. live off. no es un GO.`;
+    state.note = `paper hold ${names}. funding ${cobrado.toFixed(2)} USDT, price realized ${priceRealized.toFixed(2)}, fees ${fees.toFixed(2)}, realized net ${realizedNet.toFixed(2)}, open MTM ${state.mtmUsdt.toFixed(2)}. nuevos tickets exigen net edge post-costes y cierran tras ${EXPECTED_SETTLES} settles. live off. no es un GO.`;
   } else if (feeLocked) {
-    state.note = `candado fees: cobrado ${cobrado.toFixed(2)} < fees ${fees.toFixed(2)}. sin ticket nuevo hasta que el cobro gane. live off. no es un GO.`;
+    state.note = `candado económico: funding ${cobrado.toFixed(2)} + price realized ${priceRealized.toFixed(2)} - fees ${fees.toFixed(2)} = ${realizedNet.toFixed(2)} USDT. sin ticket nuevo mientras el PnL realizado total sea negativo. live off. no es un GO.`;
   } else {
     state.note = 'sin hold paper. nuevos tickets exigen unit economics positivos. live off. no se inventa un cobro.';
   }

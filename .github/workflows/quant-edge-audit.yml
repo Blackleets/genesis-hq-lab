@@ -9,6 +9,8 @@ on:
       - scripts/quantEngineeringAudit.mjs
       - server/quant/economicEdgeAudit.mjs
       - server/tests/economicEdgeAudit.test.mjs
+      - server/tests/futuresRunnerProfitCaptureContract.test.mjs
+      - supabase/functions/genesis-futures-runner/index.ts
   pull_request:
     paths:
       - .github/workflows/quant-edge-audit.yml
@@ -16,6 +18,8 @@ on:
       - scripts/quantEngineeringAudit.mjs
       - server/quant/economicEdgeAudit.mjs
       - server/tests/economicEdgeAudit.test.mjs
+      - server/tests/futuresRunnerProfitCaptureContract.test.mjs
+      - supabase/functions/genesis-futures-runner/index.ts
   workflow_dispatch:
 
 permissions:
@@ -42,3 +46,5 @@ jobs:
         run: node --check scripts/quantEngineeringAudit.mjs
       - name: adversarial audit tests
         run: node --test server/tests/economicEdgeAudit.test.mjs
+      - name: futures runner safety contract
+        run: node --test server/tests/futuresRunnerProfitCaptureContract.test.mjs

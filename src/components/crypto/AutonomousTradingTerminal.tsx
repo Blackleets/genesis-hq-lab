@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, Bot, Crosshair, RefreshCw, ShieldCheck, WifiOff, Zap } from 'lucide-react';
 import QuantChart, { type ChartCandle, type ChartTrade } from '@workflows/QuantChart';
 import { useTruthLayer, type RunnerTrade } from '@hooks/useTruthLayer';
+import { RatchetObservabilityPanel } from './RatchetObservabilityPanel';
 
 const PAIRS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'DOGEUSDT'] as const;
 const TIMEFRAMES = ['5m', '15m', '1h', '4h'] as const;
@@ -36,11 +37,32 @@ const ageLabel = (iso: string | null | undefined) => {
 };
 
 const shortPair = (pair: string) => pair.replace('USDT', '');
+const humanize = (value: string | null | undefined) => String(value || '—').replaceAll('_', ' ').toUpperCase();
 
 function tradeTone(trade: RunnerTrade) {
   if (trade.status === 'open') return trade.side === 'LONG' ? 'text-emerald-300' : 'text-rose-300';
   if (typeof trade.pnl !== 'number') return 'text-zinc-400';
   return trade.pnl > 0 ? 'text-emerald-300' : trade.pnl < 0 ? 'text-red-300' : 'text-zinc-400';
+}
+
+function favorableMovePct(trade: RunnerTrade | null | undefined, mark: number | null | undefined) {
+  if (!trade || trade.entryPrice == null || mark == null || !Number.isFinite(mark) || trade.entryPrice === 0) return null;
+  const raw = trade.side === 'SHORT'
+    ? ((trade.entryPrice - mark) / trade.entryPrice) * 100
+    : ((mark - trade.entryPrice) / trade.entryPrice) * 100;
+  return Number.isFinite(raw) ? raw : null;
+}
+
+function targetProgressPct(trade: RunnerTrade | null | undefined, mark: number | null | undefined) {
+  if (!trade || trade.entryPrice == null || trade.targetPrice == null || mark == null) return null;
+  const total = trade.side === 'SHORT'
+    ? trade.entryPrice - trade.targetPrice
+    : trade.targetPrice - trade.entryPrice;
+  if (!(total > 0)) return null;
+  const covered = trade.side === 'SHORT'
+    ? trade.entryPrice - mark
+    : mark - trade.entryPrice;
+  return Math.max(0, Math.min(100, (covered / total) * 100));
 }
 
 export function AutonomousTradingTerminal({ es = true }: { es?: boolean }) {
@@ -84,9 +106,14 @@ export function AutonomousTradingTerminal({ es = true }: { es?: boolean }) {
   const openPositions = runner?.openPositions ?? [];
   const stats = runner?.stats;
   const selectedTrades = useMemo(() => recentTrades.filter((trade) => trade.pair === pair), [recentTrades, pair]);
+  const selectedOpen = useMemo(() => openPositions.find((trade) => trade.pair === pair) ?? null, [openPositions, pair]);
+  const selectedMove = favorableMovePct(selectedOpen, market?.lastPrice);
+  const selectedProgress = targetProgressPct(selectedOpen, market?.lastPrice);
   const chartTrades = useMemo<ChartTrade[]>(() => selectedTrades.flatMap((trade) => {
     if (!trade.openedAt || trade.entryPrice == null) return [];
     return [{
+      id: trade.id,
+      pair: trade.pair,
       openedAt: trade.openedAt,
       closedAt: trade.closedAt,
       side: trade.side,
@@ -98,6 +125,14 @@ export function AutonomousTradingTerminal({ es = true }: { es?: boolean }) {
       stop: trade.stopPrice,
       status: trade.status,
       leverage: trade.leverage,
+      capitalUsed: trade.capitalUsed,
+      mode: trade.mode,
+      tradeType: trade.tradeType,
+      strategyVersionId: trade.strategyVersionId,
+      entryRegime: trade.entryRegime,
+      entrySession: trade.entrySession,
+      runnerVersion: trade.runnerVersion,
+      validationStatus: trade.validationStatus,
     }];
   }), [selectedTrades]);
 
@@ -114,6 +149,7 @@ export function AutonomousTradingTerminal({ es = true }: { es?: boolean }) {
   const change = market?.changePct ?? null;
   const positive = typeof change === 'number' && change >= 0;
   const recentClosed = recentTrades.filter((trade) => trade.status === 'closed').slice(0, 8);
+  const runnerVersion = runner?.validationEngine?.runnerVersion ?? selectedOpen?.runnerVersion ?? '—';
 
   return (
     <section className="shrink-0 border-b border-[#202736] bg-[#05070b] text-zinc-100" aria-label="Autonomous paper futures trading terminal">
@@ -151,7 +187,14 @@ export function AutonomousTradingTerminal({ es = true }: { es?: boolean }) {
             </div>
           </div>
           <div className="relative min-h-[410px] bg-[#0a0c12]">
-            {market && market.candles.length ? <QuantChart candles={market.candles} trades={chartTrades} height={410} /> : (
+            {selectedOpen && market?.lastPrice != null && (
+              <div className="pointer-events-none absolute left-3 top-3 z-10 border border-cyan-400/20 bg-[#05070b]/90 px-3 py-2 shadow-[0_8px_28px_rgba(0,0,0,.35)] backdrop-blur-sm">
+                <div className="flex items-center gap-2 font-mono text-[8px] uppercase tracking-[.14em] text-cyan-300"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-300" /> BOT WORKING POSITION</div>
+                <div className="mt-1.5 flex items-baseline gap-2 font-mono"><span className={selectedOpen.side === 'SHORT' ? 'text-rose-300' : 'text-emerald-300'}>{selectedOpen.side}</span><span className="text-zinc-300">{shortPair(selectedOpen.pair)}</span><span className={`${(selectedMove ?? 0) >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{selectedMove == null ? '—' : `${selectedMove >= 0 ? '+' : ''}${selectedMove.toFixed(2)}%`}</span></div>
+                <div className="mt-1 font-mono text-[8px] text-zinc-600">TP progress {selectedProgress == null ? '—' : `${selectedProgress.toFixed(0)}%`} · {selectedOpen.strategyVersionId ?? 'unversioned'} · {selectedOpen.validationStatus ?? 'PAPER'}</div>
+              </div>
+            )}
+            {market && market.candles.length ? <QuantChart candles={market.candles} trades={chartTrades} height={410} seriesKey={`${pair}:${tf}`} /> : (
               <div className="flex h-[410px] items-center justify-center">
                 <div className="text-center">
                   {marketError ? <WifiOff className="mx-auto h-5 w-5 text-red-300" /> : <Activity className="mx-auto h-5 w-5 animate-pulse text-cyan-300" />}
@@ -169,7 +212,7 @@ export function AutonomousTradingTerminal({ es = true }: { es?: boolean }) {
               <span className={`h-2 w-2 rounded-full ${runnerAlive ? 'bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,.75)]' : 'bg-red-400'}`} />
             </div>
             <div className={`mt-3 font-mono text-[15px] font-semibold ${runnerAlive ? 'text-emerald-300' : 'text-red-300'}`}>{runnerAlive ? 'AUTONOMOUS PAPER ACTIVE' : 'RUNNER NOT VERIFIED'}</div>
-            <p className="mt-1 text-[9px] leading-4 text-zinc-600">Heartbeat {ageLabel(runner?.lastTickAt)} · cycle #{Number(runner?.totalCycles ?? 0).toLocaleString()} · {runner?.source ?? 'unknown source'}</p>
+            <p className="mt-1 text-[9px] leading-4 text-zinc-600">Heartbeat {ageLabel(runner?.lastTickAt)} · cycle #{Number(runner?.totalCycles ?? 0).toLocaleString()} · runner {runnerVersion}</p>
           </div>
 
           <div className="grid grid-cols-2 border-b border-[#202736]">
@@ -191,7 +234,7 @@ export function AutonomousTradingTerminal({ es = true }: { es?: boolean }) {
                 const opened = decision.status === 'paper_open';
                 return <div key={`${decision.profile ?? 'profile'}-${decision.pair ?? 'pair'}-${index}`} className="border border-[#1f2633] bg-[#070a0f] px-2.5 py-2">
                   <div className="flex items-center justify-between gap-2"><span className="font-mono text-[9px] text-zinc-200">{shortPair(String(decision.pair ?? '—'))}</span><span className={`font-mono text-[8px] ${opened ? 'text-emerald-300' : 'text-amber-300'}`}>{opened ? `${decision.side ?? ''} OPEN` : 'NO TRADE'}</span></div>
-                  <div className="mt-1 flex items-center justify-between gap-2 font-mono text-[8px] text-zinc-600"><span>{String(decision.profile ?? 'engine')}</span><span className="truncate">{String(decision.reason ?? decision.status ?? 'evaluated')}</span></div>
+                  <div className="mt-1 flex items-center justify-between gap-2 font-mono text-[8px] text-zinc-600"><span>{String(decision.profile ?? 'engine')}</span><span className="truncate">{humanize(String(decision.reason ?? decision.status ?? 'evaluated'))}</span></div>
                 </div>;
               }) : <div className="border border-[#1f2633] p-3 text-[9px] text-zinc-600">Awaiting a verified autonomous cycle.</div>}
             </div>
@@ -199,16 +242,21 @@ export function AutonomousTradingTerminal({ es = true }: { es?: boolean }) {
         </aside>
       </div>
 
+      <RatchetObservabilityPanel pair={pair} es={es} />
+
       <div className="grid grid-cols-1 border-t border-[#202736] xl:grid-cols-2">
         <div className="border-b border-[#202736] bg-[#070a0f] xl:border-b-0 xl:border-r">
           <div className="flex h-9 items-center justify-between border-b border-[#202736] px-3.5">
             <span className="font-mono text-[8px] uppercase tracking-[.16em] text-zinc-500">OPEN PAPER POSITIONS</span>
-            <span className="font-mono text-[8px] text-zinc-600">ENTRY · TP · SL · LEVERAGE</span>
+            <span className="font-mono text-[8px] text-zinc-600">ENTRY · TP · SL · VERSION</span>
           </div>
           <div className="overflow-x-auto">
-            {openPositions.length ? <table className="w-full min-w-[620px] border-collapse font-mono text-[9px]">
-              <thead className="text-zinc-600"><tr className="border-b border-[#1b2230]"><th className="px-3 py-2 text-left font-normal">PAIR</th><th className="px-3 py-2 text-left font-normal">SIDE</th><th className="px-3 py-2 text-right font-normal">ENTRY</th><th className="px-3 py-2 text-right font-normal">TP</th><th className="px-3 py-2 text-right font-normal">SL</th><th className="px-3 py-2 text-right font-normal">LEV</th><th className="px-3 py-2 text-right font-normal">MARGIN</th></tr></thead>
-              <tbody>{openPositions.map((trade) => <tr key={trade.id} className="border-b border-[#141a24] last:border-b-0"><td className="px-3 py-2.5 text-zinc-200">{trade.pair}</td><td className={`px-3 py-2.5 ${trade.side === 'LONG' ? 'text-emerald-300' : 'text-rose-300'}`}>{trade.side}</td><td className="px-3 py-2.5 text-right text-zinc-300">{price(trade.entryPrice)}</td><td className="px-3 py-2.5 text-right text-emerald-300/80">{price(trade.targetPrice)}</td><td className="px-3 py-2.5 text-right text-red-300/80">{price(trade.stopPrice)}</td><td className="px-3 py-2.5 text-right text-zinc-400">{trade.leverage ? `${trade.leverage}x` : '—'}</td><td className="px-3 py-2.5 text-right text-zinc-400">{money(trade.capitalUsed)}</td></tr>)}</tbody>
+            {openPositions.length ? <table className="w-full min-w-[760px] border-collapse font-mono text-[9px]">
+              <thead className="text-zinc-600"><tr className="border-b border-[#1b2230]"><th className="px-3 py-2 text-left font-normal">PAIR</th><th className="px-3 py-2 text-left font-normal">SIDE</th><th className="px-3 py-2 text-left font-normal">STATE</th><th className="px-3 py-2 text-right font-normal">ENTRY</th><th className="px-3 py-2 text-right font-normal">TP</th><th className="px-3 py-2 text-right font-normal">SL</th><th className="px-3 py-2 text-right font-normal">LEV</th><th className="px-3 py-2 text-right font-normal">VERSION</th></tr></thead>
+              <tbody>{openPositions.map((trade) => {
+                const move = trade.pair === pair ? favorableMovePct(trade, market?.lastPrice) : null;
+                return <tr key={trade.id} className={`border-b border-[#141a24] last:border-b-0 ${trade.pair === pair ? 'bg-cyan-400/[.025]' : ''}`}><td className="px-3 py-2.5 text-zinc-200">{trade.pair}</td><td className={`px-3 py-2.5 ${trade.side === 'LONG' ? 'text-emerald-300' : 'text-rose-300'}`}>{trade.side}</td><td className={`px-3 py-2.5 ${move == null ? 'text-zinc-600' : move >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{move == null ? 'TRACKING' : `${move >= 0 ? '+' : ''}${move.toFixed(2)}%`}</td><td className="px-3 py-2.5 text-right text-zinc-300">{price(trade.entryPrice)}</td><td className="px-3 py-2.5 text-right text-emerald-300/80">{price(trade.targetPrice)}</td><td className="px-3 py-2.5 text-right text-red-300/80">{price(trade.stopPrice)}</td><td className="px-3 py-2.5 text-right text-zinc-400">{trade.leverage ? `${trade.leverage}x` : '—'}</td><td className="px-3 py-2.5 text-right text-zinc-500">{trade.strategyVersionId?.split(':').at(-1) ?? '—'}</td></tr>;
+              })}</tbody>
             </table> : <div className="flex min-h-[92px] items-center justify-center px-4 text-center font-mono text-[9px] text-zinc-600">NO OPEN PAPER POSITION · CAPITAL STAYS IDLE UNTIL A SETUP PASSES THE GATES</div>}
           </div>
         </div>
@@ -221,7 +269,7 @@ export function AutonomousTradingTerminal({ es = true }: { es?: boolean }) {
           <div className="overflow-x-auto">
             {recentClosed.length ? <table className="w-full min-w-[620px] border-collapse font-mono text-[9px]">
               <thead className="text-zinc-600"><tr className="border-b border-[#1b2230]"><th className="px-3 py-2 text-left font-normal">PAIR</th><th className="px-3 py-2 text-left font-normal">SIDE</th><th className="px-3 py-2 text-left font-normal">EXIT</th><th className="px-3 py-2 text-right font-normal">ENTRY</th><th className="px-3 py-2 text-right font-normal">CLOSE</th><th className="px-3 py-2 text-right font-normal">P&L</th></tr></thead>
-              <tbody>{recentClosed.map((trade) => <tr key={trade.id} className="border-b border-[#141a24] last:border-b-0"><td className="px-3 py-2.5 text-zinc-200">{trade.pair}</td><td className={`px-3 py-2.5 ${trade.side === 'LONG' ? 'text-emerald-300' : 'text-rose-300'}`}>{trade.side}</td><td className="px-3 py-2.5 text-zinc-500">{trade.exitReason ?? 'exit'}</td><td className="px-3 py-2.5 text-right text-zinc-400">{price(trade.entryPrice)}</td><td className="px-3 py-2.5 text-right text-zinc-400">{price(trade.exitPrice)}</td><td className={`px-3 py-2.5 text-right ${tradeTone(trade)}`}>{money(trade.pnl)}</td></tr>)}</tbody>
+              <tbody>{recentClosed.map((trade) => <tr key={trade.id} className="border-b border-[#141a24] last:border-b-0"><td className="px-3 py-2.5 text-zinc-200">{trade.pair}</td><td className={`px-3 py-2.5 ${trade.side === 'LONG' ? 'text-emerald-300' : 'text-rose-300'}`}>{trade.side}</td><td className="px-3 py-2.5 text-zinc-500">{humanize(trade.exitReason ?? 'exit')}</td><td className="px-3 py-2.5 text-right text-zinc-400">{price(trade.entryPrice)}</td><td className="px-3 py-2.5 text-right text-zinc-400">{price(trade.exitPrice)}</td><td className={`px-3 py-2.5 text-right ${tradeTone(trade)}`}>{money(trade.pnl)}</td></tr>)}</tbody>
             </table> : <div className="flex min-h-[92px] items-center justify-center px-4 text-center font-mono text-[9px] text-zinc-600">NO VERIFIED CLOSED FUTURES TRADES IN THE STATUS WINDOW</div>}
           </div>
         </div>
@@ -229,7 +277,7 @@ export function AutonomousTradingTerminal({ es = true }: { es?: boolean }) {
 
       <div className="grid grid-cols-1 gap-px border-t border-[#202736] bg-[#202736] sm:grid-cols-3">
         <div className="bg-[#080b11] px-3 py-2.5"><div className="flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5 text-red-300" /><span className="font-mono text-[8px] text-zinc-500">EXECUTION BOUNDARY</span></div><div className="mt-1 font-mono text-[10px] text-red-300">REAL ORDERS DISABLED</div></div>
-        <div className="bg-[#080b11] px-3 py-2.5"><div className="flex items-center gap-2"><Zap className="h-3.5 w-3.5 text-amber-300" /><span className="font-mono text-[8px] text-zinc-500">TOP NO-TRADE GATES</span></div><div className="mt-1 truncate font-mono text-[9px] text-zinc-300">{blockers.length ? blockers.map(([reason, count]) => `${reason}×${count}`).join(' · ') : 'AWAITING SCAN'}</div></div>
+        <div className="bg-[#080b11] px-3 py-2.5"><div className="flex items-center gap-2"><Zap className="h-3.5 w-3.5 text-amber-300" /><span className="font-mono text-[8px] text-zinc-500">TOP NO-TRADE GATES</span></div><div className="mt-1 truncate font-mono text-[9px] text-zinc-300">{blockers.length ? blockers.map(([reason, count]) => `${humanize(reason)}×${count}`).join(' · ') : 'AWAITING SCAN'}</div></div>
         <div className="bg-[#080b11] px-3 py-2.5"><div className="flex items-center gap-2"><Activity className="h-3.5 w-3.5 text-cyan-300" /><span className="font-mono text-[8px] text-zinc-500">DATA PROVENANCE</span></div><div className="mt-1 font-mono text-[9px] text-zinc-300">BINANCE MARKET DATA · SUPABASE PAPER LEDGER</div></div>
       </div>
     </section>

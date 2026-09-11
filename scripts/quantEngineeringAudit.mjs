@@ -3,7 +3,7 @@ import path from 'node:path';
 import { buildEconomicEdgeAudit } from '../server/quant/economicEdgeAudit.mjs';
 import { buildProfitRatchetExitAudit } from '../server/quant/profitRatchetExitAudit.mjs';
 
-const SUPABASE_URL = String(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').replace(//$/, '');
+const SUPABASE_URL = String(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
 
 function argValue(name) {

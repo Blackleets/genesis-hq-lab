@@ -2,14 +2,28 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY') || '';
 const BINANCE_BASE = Deno.env.get('BINANCE_BASE') || 'https://data-api.binance.vision/api/v3';
 const RUNNER_TOKEN_SHA256 = 'e9f02987e836a6eaf8ef8d7afaed805580cd31264aef5ed86fc3ebb756c59d91';
-const RUNNER_VERSION = 'v8.1';
+const RUNNER_VERSION = 'v8.4';
 const POLICY_KEY = 'quant_validation_policy_v1';
 const RUNTIME_KEY = 'quant_validation_runtime_v1';
 const RESEARCH_KEY = 'quant_research_evidence_v1';
+const PROFIT_RATCHET_KEY = 'futures_profit_ratchet_v1';
 const MIN_INTERVAL_MS = 4 * 60 * 1000;
 const MAX_OPEN_POSITIONS = 6;
 const MIN_EXPECTED_NET_USD = 18;
 const MIN_REWARD_RISK = 1.8;
+
+const SHORT_EXIT_POLICY = {
+  version: 'adaptive_profit_ratchet_v1',
+  targetPct: 0.06,
+  stopPct: 0.03,
+  activationNetUsd: 5,
+  minProtectedUsd: 1,
+  timedProfitAfterFraction: 0.35,
+  orderBookLevels: 20,
+  strongGivebackFraction: 0.50,
+  neutralGivebackFraction: 0.35,
+  weakGivebackFraction: 0.20,
+} as const;
 
 const FUTURES_TYPES = [
   'crypto_futures_breakout_short_micro',
@@ -19,10 +33,10 @@ const FUTURES_TYPES = [
 ] as const;
 
 const PROFILES = [
-  { id: 'short_micro', strategyId: 'futures_breakout_short_micro', versionId: 'futures_breakout_short_micro:v8', type: FUTURES_TYPES[0], pairs: ['BTCUSDT', 'ETHUSDT'], tf: '5m', lane: 'SHORT', period: 20, margin: 150, leverage: 3, timeoutHours: 2 },
-  { id: 'short_core', strategyId: 'futures_breakout_short_core', versionId: 'futures_breakout_short_core:v8', type: FUTURES_TYPES[1], pairs: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT'], tf: '1h', lane: 'SHORT', period: 34, margin: 250, leverage: 5, timeoutHours: 4 },
-  { id: 'short_alt', strategyId: 'futures_breakout_short_alt', versionId: 'futures_breakout_short_alt:v8', type: FUTURES_TYPES[2], pairs: ['XRPUSDT', 'DOGEUSDT'], tf: '15m', lane: 'SHORT', period: 12, margin: 200, leverage: 3, timeoutHours: 3 },
-  { id: 'long_probe', strategyId: 'futures_breakout_long_probe', versionId: 'futures_breakout_long_probe:v8', type: FUTURES_TYPES[3], pairs: ['BTCUSDT', 'ETHUSDT'], tf: '4h', lane: 'LONG', period: 55, margin: 220, leverage: 3, timeoutHours: 6 },
+  { id: 'short_micro', strategyId: 'futures_breakout_short_micro', versionId: 'futures_breakout_short_micro:v9', parentVersionId: 'futures_breakout_short_micro:v8', type: FUTURES_TYPES[0], pairs: ['BTCUSDT', 'ETHUSDT'], tf: '5m', lane: 'SHORT', period: 20, margin: 150, leverage: 3, timeoutHours: 2, targetPct: SHORT_EXIT_POLICY.targetPct, stopPct: SHORT_EXIT_POLICY.stopPct, exitPolicyVersion: SHORT_EXIT_POLICY.version },
+  { id: 'short_core', strategyId: 'futures_breakout_short_core', versionId: 'futures_breakout_short_core:v9', parentVersionId: 'futures_breakout_short_core:v8', type: FUTURES_TYPES[1], pairs: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT'], tf: '1h', lane: 'SHORT', period: 34, margin: 250, leverage: 5, timeoutHours: 4, targetPct: SHORT_EXIT_POLICY.targetPct, stopPct: SHORT_EXIT_POLICY.stopPct, exitPolicyVersion: SHORT_EXIT_POLICY.version },
+  { id: 'short_alt', strategyId: 'futures_breakout_short_alt', versionId: 'futures_breakout_short_alt:v9', parentVersionId: 'futures_breakout_short_alt:v8', type: FUTURES_TYPES[2], pairs: ['XRPUSDT', 'DOGEUSDT'], tf: '15m', lane: 'SHORT', period: 12, margin: 200, leverage: 3, timeoutHours: 3, targetPct: SHORT_EXIT_POLICY.targetPct, stopPct: SHORT_EXIT_POLICY.stopPct, exitPolicyVersion: SHORT_EXIT_POLICY.version },
+  { id: 'long_probe', strategyId: 'futures_breakout_long_probe', versionId: 'futures_breakout_long_probe:v8', parentVersionId: 'futures_breakout_long_probe:v7', type: FUTURES_TYPES[3], pairs: ['BTCUSDT', 'ETHUSDT'], tf: '4h', lane: 'LONG', period: 55, margin: 220, leverage: 3, timeoutHours: 6, targetPct: 0.12, stopPct: 0.03, exitPolicyVersion: 'fixed_tp_v1' },
 ] as const;
 
 const DEFAULT_POLICY = {
@@ -115,6 +129,46 @@ async function loadPolicy() {
   return DEFAULT_POLICY;
 }
 
+async function ensureStrategyVersions() {
+  const rows = PROFILES
+    .filter((profile) => profile.versionId.endsWith(':v9'))
+    .map((profile) => ({
+      id: profile.versionId,
+      strategy_id: profile.strategyId,
+      profile_id: profile.id,
+      version: 'v9',
+      trade_type: profile.type,
+      status: 'EXPERIMENT',
+      params: {
+        tf: profile.tf,
+        lane: profile.lane,
+        donchianPeriod: profile.period,
+        marginUsd: profile.margin,
+        leverage: profile.leverage,
+        timeoutHours: profile.timeoutHours,
+        targetPct: profile.targetPct,
+        stopPct: profile.stopPct,
+        exitPolicyVersion: profile.exitPolicyVersion,
+        activationNetUsd: SHORT_EXIT_POLICY.activationNetUsd,
+        minProtectedUsd: SHORT_EXIT_POLICY.minProtectedUsd,
+        timedProfitAfterFraction: SHORT_EXIT_POLICY.timedProfitAfterFraction,
+        orderBookLevels: SHORT_EXIT_POLICY.orderBookLevels,
+        strongGivebackFraction: SHORT_EXIT_POLICY.strongGivebackFraction,
+        neutralGivebackFraction: SHORT_EXIT_POLICY.neutralGivebackFraction,
+        weakGivebackFraction: SHORT_EXIT_POLICY.weakGivebackFraction,
+      },
+      parent_version_id: profile.parentVersionId,
+      source: `genesis_futures_runner_${RUNNER_VERSION}`,
+      activated_at: nowIso(),
+    }));
+  if (!rows.length) return;
+  await rest('strategy_versions?on_conflict=id', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' },
+    body: JSON.stringify(rows),
+  });
+}
+
 async function fetchKlines(pair: string, tf: string) {
   const response = await fetch(`${BINANCE_BASE}/klines?symbol=${encodeURIComponent(pair)}&interval=${encodeURIComponent(tf)}&limit=230`, {
     signal: AbortSignal.timeout(8_000),
@@ -132,6 +186,19 @@ async function fetchPrice(pair: string) {
   const payload = await response.json();
   const value = Number(payload?.price);
   return Number.isFinite(value) ? value : null;
+}
+async function fetchDepth(pair: string) {
+  try {
+    const response = await fetch(`${BINANCE_BASE}/depth?symbol=${encodeURIComponent(pair)}&limit=${SHORT_EXIT_POLICY.orderBookLevels}`, {
+      signal: AbortSignal.timeout(6_000),
+    });
+    if (!response.ok) return null;
+    const payload = await response.json();
+    if (!Array.isArray(payload?.bids) || !Array.isArray(payload?.asks)) return null;
+    return payload;
+  } catch {
+    return null;
+  }
 }
 
 function signal(rows: any[], period: number, lane: string) {
@@ -190,6 +257,76 @@ function classifyMarketContext(rows: any[]) {
   else if (volRatio <= 0.75) regime = 'LOW_VOL_RANGE';
   return { regime, session: sessionLabel(), volRatio: round(volRatio, 3), momentum20: round(momentum20, 5), smaSpreadPct: round(smaSpreadPct, 5) };
 }
+function atrPct(rows: any[], period = 14) {
+  const candles = rows.slice(0, -1).slice(-(period + 1));
+  if (candles.length < period + 1) return 0;
+  const ranges: number[] = [];
+  for (let index = 1; index < candles.length; index++) {
+    const high = Number(candles[index]?.[2]);
+    const low = Number(candles[index]?.[3]);
+    const prevClose = Number(candles[index - 1]?.[4]);
+    if (![high, low, prevClose].every(Number.isFinite) || prevClose <= 0) continue;
+    ranges.push(Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose)));
+  }
+  const close = Number(candles.at(-1)?.[4]);
+  return ranges.length && Number.isFinite(close) && close > 0 ? mean(ranges) / close : 0;
+}
+function orderBookImbalance(depth: any) {
+  if (!depth) return null;
+  const bidUsd = depth.bids.slice(0, SHORT_EXIT_POLICY.orderBookLevels).reduce((sum: number, level: any[]) => sum + ((Number(level?.[0]) || 0) * (Number(level?.[1]) || 0)), 0);
+  const askUsd = depth.asks.slice(0, SHORT_EXIT_POLICY.orderBookLevels).reduce((sum: number, level: any[]) => sum + ((Number(level?.[0]) || 0) * (Number(level?.[1]) || 0)), 0);
+  const total = bidUsd + askUsd;
+  return total > 0 ? round((bidUsd - askUsd) / total, 4) : null;
+}
+function exitContext(side: string, rows: any[], depth: any) {
+  const market = classifyMarketContext(rows);
+  const imbalance = orderBookImbalance(depth);
+  const momentum = Number(market.momentum20 || 0);
+  const regimeAligned = side === 'LONG'
+    ? market.regime === 'TREND_UP' || market.regime === 'HIGH_VOL_TREND_UP'
+    : market.regime === 'TREND_DOWN' || market.regime === 'HIGH_VOL_TREND_DOWN';
+  const momentumAligned = side === 'LONG' ? momentum > 0 : momentum < 0;
+  const bookAligned = imbalance == null ? null : (side === 'LONG' ? imbalance >= 0.08 : imbalance <= -0.08);
+  const bookOpposed = imbalance == null ? false : (side === 'LONG' ? imbalance <= -0.12 : imbalance >= 0.12);
+  let score = 0;
+  if (regimeAligned) score += 2;
+  if (momentumAligned) score += 1;
+  if (bookAligned === true) score += 1;
+  if (bookOpposed) score -= 1;
+  const strength = score >= 3 ? 'STRONG' : score <= 0 ? 'WEAK' : 'NEUTRAL';
+  return {
+    strength,
+    score,
+    regime: market.regime,
+    momentum20: market.momentum20,
+    volRatio: market.volRatio,
+    orderBookImbalance: imbalance,
+    atrPct: round(atrPct(rows), 6),
+    orderBookSource: 'binance_spot_public',
+  };
+}
+function protectedTierFloor(mfeUsd: number) {
+  if (mfeUsd >= 200) return 150;
+  if (mfeUsd >= 100) return 70;
+  if (mfeUsd >= 50) return 30;
+  if (mfeUsd >= 25) return 15;
+  if (mfeUsd >= 10) return 5;
+  if (mfeUsd >= SHORT_EXIT_POLICY.activationNetUsd) return SHORT_EXIT_POLICY.minProtectedUsd;
+  return 0;
+}
+function adaptiveProfitFloor(mfeUsd: number, context: ReturnType<typeof exitContext>, notionalUsd: number) {
+  if (mfeUsd < SHORT_EXIT_POLICY.activationNetUsd) return 0;
+  const givebackFraction = context.strength === 'STRONG'
+    ? SHORT_EXIT_POLICY.strongGivebackFraction
+    : context.strength === 'WEAK'
+      ? SHORT_EXIT_POLICY.weakGivebackFraction
+      : SHORT_EXIT_POLICY.neutralGivebackFraction;
+  const atrRoomMultiplier = context.strength === 'STRONG' ? 1.5 : context.strength === 'WEAK' ? 0.55 : 1;
+  const atrRoomUsd = Math.max(0, Number(context.atrPct || 0) * notionalUsd * atrRoomMultiplier);
+  const givebackUsd = Math.max(mfeUsd * givebackFraction, atrRoomUsd);
+  const contextualFloor = Math.max(SHORT_EXIT_POLICY.minProtectedUsd, mfeUsd - givebackUsd);
+  return round(Math.max(protectedTierFloor(mfeUsd), contextualFloor));
+}
 
 function quoteVolume(rows: any[]) { return rows.slice(-6).reduce((sum, row) => sum + (Number(row?.[7]) || 0), 0); }
 function slippagePct(orderSizeUsd: number, volumeUsd: number) {
@@ -205,8 +342,8 @@ function economics(profile: typeof PROFILES[number], side: string, price: number
   const slip = slippagePct(notional, volumeUsd);
   const entry = side === 'LONG' ? price * (1 + slip) : price * (1 - slip);
   const shares = Math.floor((notional / entry) * 10000) / 10000;
-  const target = side === 'LONG' ? entry * 1.12 : entry * 0.88;
-  const stop = side === 'LONG' ? entry * 0.97 : entry * 1.03;
+  const target = side === 'LONG' ? entry * (1 + profile.targetPct) : entry * (1 - profile.targetPct);
+  const stop = side === 'LONG' ? entry * (1 - profile.stopPct) : entry * (1 + profile.stopPct);
   const grossTp = side === 'LONG' ? (target - entry) * shares : (entry - target) * shares;
   const grossSl = side === 'LONG' ? (stop - entry) * shares : (entry - stop) * shares;
   const tpFees = 0.0004 * (entry * shares + target * shares);
@@ -222,6 +359,58 @@ async function openRows() {
   return await rest(`trades?trade_type=in.(${FUTURES_TYPES.join(',')})&status=eq.open&select=id,trade_type,asset_pair,outcome,entry_price,shares,target_price,stop_price,opened_at,notional_usd,entry_volume24h,funding_rate,strategy_version_id,runner_version&limit=100`) || [];
 }
 function timeoutHoursFor(tradeType: string) { return PROFILES.find((profile) => profile.type === tradeType)?.timeoutHours ?? 6; }
+function profileForTradeType(tradeType: string) { return PROFILES.find((profile) => profile.type === tradeType) ?? null; }
+
+function markEconomics(row: any, mark: number, ageHours: number) {
+  const entry = Number(row.entry_price);
+  const shares = Number(row.shares);
+  const notional = Number(row.notional_usd || entry * shares);
+  const volumeUsd = Number(row.entry_volume24h || 0);
+  const slip = slippagePct(notional, volumeUsd);
+  const v9 = String(row.strategy_version_id || '').endsWith(':v9');
+  const effectiveEntry = v9 ? entry : (row.outcome === 'LONG' ? entry * (1 + slip) : entry * (1 - slip));
+  const effectiveExit = row.outcome === 'LONG' ? mark * (1 - slip) : mark * (1 + slip);
+  const gross = row.outcome === 'LONG' ? (effectiveExit - effectiveEntry) * shares : (effectiveEntry - effectiveExit) * shares;
+  const fees = 0.0004 * (effectiveEntry * shares + effectiveExit * shares);
+  const fundingRate = Number(row.funding_rate || 0.0001);
+  const fundingPaid = notional * fundingRate * Math.max(1, ageHours) / 8;
+  const pnl = round(gross - fees - fundingPaid);
+
+  const stop = Number(row.stop_price);
+  let riskUsd = 0;
+  if (Number.isFinite(stop) && stop > 0) {
+    const effectiveStop = row.outcome === 'LONG' ? stop * (1 - slip) : stop * (1 + slip);
+    const grossStop = row.outcome === 'LONG'
+      ? (effectiveStop - effectiveEntry) * shares
+      : (effectiveEntry - effectiveStop) * shares;
+    const stopFees = 0.0004 * (effectiveEntry * shares + effectiveStop * shares);
+    riskUsd = Math.abs(grossStop - stopFees);
+  }
+  return { pnl, fundingPaid, riskUsd: round(riskUsd) };
+}
+function markForNetPnl(row: any, targetPnl: number, ageHours: number) {
+  const entry = Number(row.entry_price);
+  if (!(entry > 0)) return null;
+  let low = entry * 0.5;
+  let high = entry * 1.5;
+  for (let index = 0; index < 48; index++) {
+    const mid = (low + high) / 2;
+    const pnl = markEconomics(row, mid, ageHours).pnl;
+    if (row.outcome === 'LONG') {
+      if (pnl < targetPnl) low = mid; else high = mid;
+    } else {
+      if (pnl > targetPnl) low = mid; else high = mid;
+    }
+  }
+  const result = (low + high) / 2;
+  return Number.isFinite(result) && result > 0 ? round(result, 8) : null;
+}
+function ratchetStopIsTighter(row: any, nextStop: number | null) {
+  if (!(nextStop && nextStop > 0)) return false;
+  const current = Number(row.stop_price);
+  if (!(current > 0)) return true;
+  return row.outcome === 'LONG' ? nextStop > current : nextStop < current;
+}
 
 function summarize(rows: any[]) {
   const closed = rows.filter((row) => row.status === 'closed' && Number.isFinite(Number(row.pnl)));
@@ -300,8 +489,8 @@ async function evidenceSnapshot(policy: any) {
   }
 
   return {
-    version: 2,
-    source: 'family_protection_plus_version_clean_cohorts',
+    version: 5,
+    source: 'family_protection_plus_version_clean_cohorts_adaptive_profit_ratchet',
     familyProfiles,
     versionProfiles,
     blockedProfiles: Object.entries(familyProfiles).filter(([, value]: any) => value.blocked).map(([id]) => id),
@@ -387,13 +576,13 @@ function evaluateLifecycle(profile: typeof PROFILES[number], family: any, versio
   }
 
   if (closed < Number(q.minClosed)) {
-    return { status: 'EXPERIMENT', capitalEligible: false, gates, reason: `Clean v8 sample ${closed}/${q.minClosed}.` };
+    return { status: 'EXPERIMENT', capitalEligible: false, gates, reason: `Clean ${profile.versionId} sample ${closed}/${q.minClosed}.` };
   }
 
   const versionBad = pf != null && pf < Number(q.maxProfitFactor)
     && (!q.requireNegativeExpectancy || (ev != null && ev < 0));
   if (versionBad) {
-    return { status: 'QUARANTINED', capitalEligible: false, gates, reason: `v8 cohort negative: PF=${pf}, EV=${ev}.` };
+    return { status: 'QUARANTINED', capitalEligible: false, gates, reason: `${profile.versionId} cohort negative: PF=${pf}, EV=${ev}.` };
   }
 
   return { status: 'PAPER', capitalEligible: false, gates, reason: 'Paper cohort accumulating evidence.' };
@@ -420,6 +609,7 @@ async function persistValidation(evidence: any, policy: any, researchEvidence: a
       strategyId: profile.strategyId,
       strategyVersionId: profile.versionId,
       runnerVersion: RUNNER_VERSION,
+      exitPolicyVersion: profile.exitPolicyVersion,
       ...verdict,
       metrics: version,
     };
@@ -475,8 +665,9 @@ async function persistValidation(evidence: any, policy: any, researchEvidence: a
 
   const runtime = {
     ok: true,
-    engineVersion: 'qve_v1.1',
+    engineVersion: 'qve_v1.4',
     runnerVersion: RUNNER_VERSION,
+    exitPolicyVersion: SHORT_EXIT_POLICY.version,
     policy,
     validations,
     familyEvidence: evidence.familyProfiles,
@@ -490,26 +681,104 @@ async function persistValidation(evidence: any, policy: any, researchEvidence: a
 
 async function closePositions(rows: any[]) {
   const closed: any[] = [];
+  const state = await readState(PROFIT_RATCHET_KEY);
+  const ratchets: Record<string, any> = state.value && typeof state.value === 'object' ? { ...state.value } : {};
+  const openIds = new Set(rows.map((row: any) => String(row.id)));
+  for (const id of Object.keys(ratchets)) if (!openIds.has(id)) delete ratchets[id];
+
   for (const row of rows) {
     const mark = await fetchPrice(row.asset_pair);
     if (!mark) continue;
     const ageHours = Math.max(0, (Date.now() - Date.parse(row.opened_at)) / 3_600_000);
+    const markState = markEconomics(row, mark, ageHours);
+    const isV9Short = row.outcome === 'SHORT' && String(row.strategy_version_id || '').endsWith(':v9');
+    const existingRatchet = ratchets[row.id] ?? null;
     let reason: string | null = null;
+
     if (row.outcome === 'LONG' && row.target_price && mark >= Number(row.target_price)) reason = 'take_profit';
-    if (row.outcome === 'LONG' && row.stop_price && mark <= Number(row.stop_price)) reason = 'stop_loss';
+    if (row.outcome === 'LONG' && row.stop_price && mark <= Number(row.stop_price)) reason = existingRatchet?.floorUsd > 0 ? 'profit_ratchet_stop' : 'stop_loss';
     if (row.outcome === 'SHORT' && row.target_price && mark <= Number(row.target_price)) reason = 'take_profit';
-    if (row.outcome === 'SHORT' && row.stop_price && mark >= Number(row.stop_price)) reason = 'stop_loss';
+    if (row.outcome === 'SHORT' && row.stop_price && mark >= Number(row.stop_price)) reason = existingRatchet?.floorUsd > 0 ? 'profit_ratchet_stop' : 'stop_loss';
+
+    let ratchetSnapshot: any = existingRatchet;
+    if (!reason && isV9Short) {
+      const profile = profileForTradeType(row.trade_type);
+      const marketRows = profile ? await fetchKlines(row.asset_pair, profile.tf) : null;
+      const depth = marketRows ? await fetchDepth(row.asset_pair) : null;
+      const context = marketRows ? exitContext(row.outcome, marketRows, depth) : {
+        strength: 'NEUTRAL', score: 1, regime: 'UNKNOWN', momentum20: null, volRatio: null,
+        orderBookImbalance: null, atrPct: 0, orderBookSource: 'unavailable',
+      };
+      const previousMfe = Number(existingRatchet?.mfeUsd || 0);
+      const previousFloor = Number(existingRatchet?.floorUsd || 0);
+      const mfeUsd = round(Math.max(previousMfe, markState.pnl));
+      const notionalUsd = Number(row.notional_usd || 0);
+      const candidateFloor = adaptiveProfitFloor(mfeUsd, context as any, notionalUsd);
+      const floorUsd = round(Math.max(previousFloor, candidateFloor));
+      const active = mfeUsd >= SHORT_EXIT_POLICY.activationNetUsd && floorUsd > 0;
+      const ratchetStopPrice = active ? markForNetPnl(row, floorUsd, ageHours) : null;
+      ratchetSnapshot = {
+        tradeId: row.id,
+        pair: row.asset_pair,
+        side: row.outcome,
+        strategyVersionId: row.strategy_version_id,
+        runnerVersion: RUNNER_VERSION,
+        exitPolicyVersion: SHORT_EXIT_POLICY.version,
+        active,
+        mfeUsd,
+        floorUsd,
+        ratchetStopPrice,
+        currentNetPnlUsd: markState.pnl,
+        context,
+        updatedAt: nowIso(),
+      };
+      ratchets[row.id] = ratchetSnapshot;
+
+      if (active && markState.pnl <= floorUsd) {
+        reason = 'profit_ratchet';
+      } else if (active && ratchetStopIsTighter(row, ratchetStopPrice)) {
+        await rest(`trades?id=eq.${encodeURIComponent(row.id)}`, {
+          method: 'PATCH',
+          headers: { Prefer: 'return=minimal' },
+          body: JSON.stringify({ stop_price: ratchetStopPrice }),
+        });
+        row.stop_price = ratchetStopPrice;
+      }
+
+      const timeoutHours = timeoutHoursFor(row.trade_type);
+      const ageFraction = timeoutHours > 0 ? ageHours / timeoutHours : 0;
+      if (!reason && !active && markState.pnl > 0 && ageFraction >= SHORT_EXIT_POLICY.timedProfitAfterFraction) {
+        reason = 'timed_profit_capture';
+      }
+    }
+
     if (!reason && ageHours >= timeoutHoursFor(row.trade_type)) reason = 'timeout';
     if (!reason) continue;
-    const entry = Number(row.entry_price), shares = Number(row.shares), notional = Number(row.notional_usd || entry * shares), volumeUsd = Number(row.entry_volume24h || 0);
-    const slip = slippagePct(notional, volumeUsd), effectiveEntry = row.outcome === 'LONG' ? entry * (1 + slip) : entry * (1 - slip), effectiveExit = row.outcome === 'LONG' ? mark * (1 - slip) : mark * (1 + slip);
-    const gross = row.outcome === 'LONG' ? (effectiveExit - effectiveEntry) * shares : (effectiveEntry - effectiveExit) * shares;
-    const fees = 0.0004 * (effectiveEntry * shares + effectiveExit * shares), fundingRate = Number(row.funding_rate || 0.0001), fundingPaid = notional * fundingRate * Math.max(1, ageHours) / 8;
-    const pnl = round(gross - fees - fundingPaid);
-    await rest(`trades?id=eq.${encodeURIComponent(row.id)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ status: 'closed', exit_price: mark, pnl, closed_at: nowIso(), exit_reason: reason, funding_paid: fundingPaid }) });
-    closed.push({ id: row.id, pair: row.asset_pair, side: row.outcome, reason, pnl, mark: round(mark, 6), strategyVersionId: row.strategy_version_id ?? null });
+
+    await rest(`trades?id=eq.${encodeURIComponent(row.id)}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({ status: 'closed', exit_price: mark, pnl: markState.pnl, closed_at: nowIso(), exit_reason: reason, funding_paid: markState.fundingPaid }),
+    });
+    delete ratchets[row.id];
+    closed.push({
+      id: row.id,
+      pair: row.asset_pair,
+      side: row.outcome,
+      reason,
+      pnl: markState.pnl,
+      mark: round(mark, 6),
+      riskUsd: markState.riskUsd,
+      mfeUsd: ratchetSnapshot?.mfeUsd ?? null,
+      protectedFloorUsd: ratchetSnapshot?.floorUsd ?? null,
+      exitContext: ratchetSnapshot?.context ?? null,
+      strategyVersionId: row.strategy_version_id ?? null,
+      runnerVersion: row.runner_version ?? null,
+      exitPolicyVersion: String(row.strategy_version_id || '').endsWith(':v9') ? SHORT_EXIT_POLICY.version : 'legacy_fixed_tp',
+    });
   }
-  return closed;
+  await writeState(PROFIT_RATCHET_KEY, ratchets);
+  return { closed, ratchets };
 }
 
 async function openPaperPosition(profile: typeof PROFILES[number], pair: string, side: string, price: number, volumeUsd: number, reason: string, context: ReturnType<typeof classifyMarketContext>, validationStatus: string) {
@@ -524,13 +793,27 @@ async function openPaperPosition(profile: typeof PROFILES[number], pair: string,
       id, agent_id: `hosted-${profile.id}-${RUNNER_VERSION}`, market_id: `binance-futures:${pair}`, market_source: 'binance_futures_paper', market_question: `${side} ${pair} paper futures breakout`, market_category: 'crypto_futures', outcome: side,
       entry_price: round(econ.entry, 8), shares: econ.shares, capital_used: profile.margin, confidence: 0.75,
       reason: `Hosted paper runner ${RUNNER_VERSION}: ${reason}`,
-      evidence: JSON.stringify([reason, `DONCHIAN${profile.period}`, 'SMA55', 'HOSTED_PAPER', `RUNNER_${RUNNER_VERSION.toUpperCase()}`, `REGIME_${context.regime}`, `SESSION_${context.session}`, `STRATEGY_VERSION_${profile.versionId}`]),
+      evidence: JSON.stringify([reason, `DONCHIAN${profile.period}`, 'SMA55', 'HOSTED_PAPER', `RUNNER_${RUNNER_VERSION.toUpperCase()}`, `REGIME_${context.regime}`, `SESSION_${context.session}`, `STRATEGY_VERSION_${profile.versionId}`, `EXIT_POLICY_${profile.exitPolicyVersion.toUpperCase()}`]),
       status: 'open', opened_at: nowIso(), days_to_close: 1, asset_pair: pair, trade_type: profile.type, target_price: round(econ.target, 8), stop_price: round(econ.stop, 8), entry_volume24h: volumeUsd,
       instrument_type: 'futures', exchange: 'binance', margin_mode: 'isolated', leverage: profile.leverage, notional_usd: round(econ.notional), funding_rate: 0.0001, liquidation_price: null, maintenance_margin: round(econ.notional * 0.005), mode: 'paper',
       strategy_version_id: profile.versionId, entry_regime: context.regime, entry_session: context.session, runner_version: RUNNER_VERSION, validation_status: validationStatus,
     }),
   });
-  return { opened: true, tradeId: id, entry: round(econ.entry, 8), target: round(econ.target, 8), stop: round(econ.stop, 8), tpNet: round(econ.tpNet), rr: round(econ.rr, 2), runnerVersion: RUNNER_VERSION, strategyVersionId: profile.versionId, regime: context.regime, session: context.session, validationStatus };
+  return {
+    opened: true,
+    tradeId: id,
+    entry: round(econ.entry, 8),
+    target: round(econ.target, 8),
+    stop: round(econ.stop, 8),
+    tpNet: round(econ.tpNet),
+    rr: round(econ.rr, 2),
+    runnerVersion: RUNNER_VERSION,
+    strategyVersionId: profile.versionId,
+    exitPolicyVersion: profile.exitPolicyVersion,
+    regime: context.regime,
+    session: context.session,
+    validationStatus,
+  };
 }
 
 async function logCycle(metadata: Record<string, unknown>) {
@@ -543,13 +826,15 @@ async function tick() {
   const heartbeat = await readState('external_runner_heartbeat');
   const previous: any = heartbeat.value;
   const previousAt = previous?.lastTickAt ? Date.parse(previous.lastTickAt) : 0;
-  if (previousAt && Date.now() - previousAt < MIN_INTERVAL_MS) return { ok: true, mode: 'throttled', paperOnly: true, liveOrders: false, runnerVersion: RUNNER_VERSION, lastTickAt: previous.lastTickAt };
+  if (previousAt && Date.now() - previousAt < MIN_INTERVAL_MS) return { ok: true, mode: 'throttled', paperOnly: true, liveOrders: false, runnerVersion: RUNNER_VERSION, exitPolicyVersion: SHORT_EXIT_POLICY.version, lastTickAt: previous.lastTickAt };
   const startedAt = nowIso();
   const beforeClose = await openRows();
-  const closedPositions = await closePositions(beforeClose);
+  const closeResult = await closePositions(beforeClose);
+  const closedPositions = closeResult.closed;
   const currentOpen = await openRows();
   const openKeys = new Set(currentOpen.map((row: any) => `${row.trade_type}:${row.asset_pair}`));
   const policy = await loadPolicy();
+  await ensureStrategyVersions();
   const evidence = await evidenceSnapshot(policy);
   const researchState = await readState(RESEARCH_KEY);
   const researchEvidence: any = researchState.value && typeof researchState.value === 'object' ? researchState.value : null;
@@ -579,16 +864,17 @@ async function tick() {
   }
   const completedAt = nowIso(), cyclePnl = round(closedPositions.reduce((sum, item) => sum + Number(item.pnl || 0), 0));
   const result = {
-    ok: true, runnerVersion: RUNNER_VERSION, validationEngineVersion: 'qve_v1.1', paperOnly: true, liveOrders: false,
+    ok: true, runnerVersion: RUNNER_VERSION, validationEngineVersion: 'qve_v1.4', exitPolicyVersion: SHORT_EXIT_POLICY.version, paperOnly: true, liveOrders: false,
     scanned, qualified, executed, skipped, closed: closedPositions.length, cyclePnl, openPositions: openCount, closedPositions,
+    profitRatchets: Object.values(closeResult.ratchets).slice(-12),
     evidenceGuard: { version: evidence.version, source: evidence.source, blockedProfiles: evidence.blockedProfiles, familyProfiles: evidence.familyProfiles },
     validationEngine, decisions: decisions.slice(-24),
   };
-  await writeState('external_runner_heartbeat', { source: 'supabase_futures_runner', runnerVersion: RUNNER_VERSION, validationEngineVersion: 'qve_v1.1', lastTickAt: completedAt, totalCycles: Number(previous?.totalCycles || 0) + 1, claudeEnabled: false, paperOnly: true, liveOrders: false, lastResult: result });
+  await writeState('external_runner_heartbeat', { source: 'supabase_futures_runner', runnerVersion: RUNNER_VERSION, validationEngineVersion: 'qve_v1.4', exitPolicyVersion: SHORT_EXIT_POLICY.version, lastTickAt: completedAt, totalCycles: Number(previous?.totalCycles || 0) + 1, claudeEnabled: false, paperOnly: true, liveOrders: false, lastResult: result });
   const historyState = await readState('futures_cycle_history');
   const history = Array.isArray(historyState.value) ? historyState.value : [];
   await writeState('futures_cycle_history', [...history, { ...result, startedAt, completedAt }].slice(-80));
-  await logCycle({ runnerVersion: RUNNER_VERSION, validationEngineVersion: 'qve_v1.1', scanned, qualified, executed, skipped, closed: closedPositions.length, cyclePnl, openPositions: openCount, blockedProfiles: evidence.blockedProfiles, lifecycle: Object.fromEntries(Object.entries(validationEngine.validations).map(([id, value]: any) => [id, value.status])) });
+  await logCycle({ runnerVersion: RUNNER_VERSION, validationEngineVersion: 'qve_v1.4', exitPolicyVersion: SHORT_EXIT_POLICY.version, scanned, qualified, executed, skipped, closed: closedPositions.length, cyclePnl, openPositions: openCount, activeRatchets: Object.keys(closeResult.ratchets).length, blockedProfiles: evidence.blockedProfiles, lifecycle: Object.fromEntries(Object.entries(validationEngine.validations).map(([id, value]: any) => [id, value.status])) });
   return { ...result, mode: 'executed', lastTickAt: completedAt };
 }
 
@@ -597,5 +883,5 @@ Deno.serve(async (req: Request) => {
   if (!['GET', 'POST'].includes(req.method)) return json({ ok: false, error: 'method_not_allowed' }, 405);
   if (!await authorized(req)) return json({ ok: false, error: 'runner_auth_invalid' }, 403);
   try { return json(await tick()); }
-  catch (error) { return json({ ok: false, error: error instanceof Error ? error.message : 'runner_failed', paperOnly: true, liveOrders: false, runnerVersion: RUNNER_VERSION, validationEngineVersion: 'qve_v1.1' }, 500); }
+  catch (error) { return json({ ok: false, error: error instanceof Error ? error.message : 'runner_failed', paperOnly: true, liveOrders: false, runnerVersion: RUNNER_VERSION, validationEngineVersion: 'qve_v1.4', exitPolicyVersion: SHORT_EXIT_POLICY.version }, 500); }
 });
