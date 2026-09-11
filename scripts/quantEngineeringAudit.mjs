@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { buildEconomicEdgeAudit } from '../server/quant/economicEdgeAudit.mjs';
+import { buildProfitRatchetExitAudit } from '../server/quant/profitRatchetExitAudit.mjs';
 
-const SUPABASE_URL = String(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
+const SUPABASE_URL = String(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').replace(//$/, '');
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
 
 function argValue(name) {
@@ -59,6 +60,21 @@ async function loadClosedFuturesTrades() {
   return loadAll(`trades?status=eq.closed&trade_type=like.crypto_futures_%25&select=${encodeURIComponent(select)}&order=closed_at.asc,id.asc`);
 }
 
+async function loadRatchetTelemetry() {
+  const select = [
+    'trade_id', 'strategy_version_id', 'runner_version', 'exit_policy_version', 'asset_pair', 'side',
+    'entry_regime', 'entry_session', 'leverage', 'notional_usd', 'initial_stop_price', 'last_ratchet_stop_price',
+    'mfe_net_usd', 'mae_observed_net_usd', 'max_protected_profit_usd', 'current_net_pnl_usd', 'realized_net_pnl_usd',
+    'max_giveback_usd', 'capture_efficiency', 'giveback_pct_mfe', 'protected_profit_efficiency', 'ratchet_activated',
+    'ratchet_raise_count', 'ratchet_save_exit', 'winner_lost', 'counterfactual_without_ratchet_proven', 'counterfactual_note',
+    'activation_at', 'activation_strength', 'activation_regime', 'activation_momentum20', 'activation_order_book_imbalance', 'activation_atr_pct',
+    'last_context_at', 'last_strength', 'last_regime', 'last_momentum20', 'last_order_book_imbalance', 'last_atr_pct',
+    'close_context_at', 'close_strength', 'close_regime', 'close_momentum20', 'close_order_book_imbalance', 'close_atr_pct',
+    'close_context_source', 'exit_reason', 'opened_at', 'closed_at', 'observation_count', 'telemetry_scope',
+  ].join(',');
+  return rest(`futures_ratchet_telemetry?strategy_version_id=like.%25%3Av9&select=${encodeURIComponent(select)}&order=opened_at.asc&limit=5000`);
+}
+
 async function loadResearchEvidence() {
   const select = 'strategy_version_id,evaluated_at,walk_forward,oos_evidence,verdict,policy_version,runner_version';
   const rows = await loadAll(`strategy_validation_snapshots?select=${encodeURIComponent(select)}&order=evaluated_at.desc,id.desc`);
@@ -72,10 +88,22 @@ async function loadResearchEvidence() {
 try {
   const input = inputPath ? JSON.parse(fs.readFileSync(path.resolve(inputPath), 'utf8')) : null;
   if (inputPath && (!input || !Array.isArray(input.trades) || !input.researchEvidence || typeof input.researchEvidence !== 'object')) throw new Error('invalid_audit_snapshot');
-  const [trades, researchEvidence] = input
-    ? [input.trades, input.researchEvidence]
-    : await Promise.all([loadClosedFuturesTrades(), loadResearchEvidence()]);
-  const audit = buildEconomicEdgeAudit(trades, { researchEvidence, ...(input?.capturedAt ? { generatedAt: input.capturedAt } : {}) });
+  const [trades, researchEvidence, ratchetTelemetry] = input
+    ? [input.trades, input.researchEvidence, Array.isArray(input.ratchetTelemetry) ? input.ratchetTelemetry : []]
+    : await Promise.all([
+      loadClosedFuturesTrades(),
+      loadResearchEvidence(),
+      loadRatchetTelemetry(),
+    ]);
+  const economicAudit = buildEconomicEdgeAudit(trades, {
+    researchEvidence,
+    ...(input?.capturedAt ? { generatedAt: input.capturedAt } : {}),
+  });
+  const ratchetAudit = buildProfitRatchetExitAudit(ratchetTelemetry);
+  const audit = {
+    ...economicAudit,
+    profitRatchet: ratchetAudit,
+  };
   const serialized = `${JSON.stringify(audit, null, 2)}\n`;
 
   if (outputPath) {
