@@ -11,47 +11,74 @@ function closeFunction() {
   return source.slice(start, end);
 }
 
-test('runner introduces immediate profit capture as a paper-only v9 policy', () => {
-  assert.match(source, /const RUNNER_VERSION = 'v8\.3'/);
+test('runner uses adaptive profit ratchet as a paper-only v9 policy', () => {
+  assert.match(source, /const RUNNER_VERSION = 'v8\.4'/);
   assert.match(source, /futures_breakout_short_micro:v9/);
   assert.match(source, /futures_breakout_short_core:v9/);
   assert.match(source, /futures_breakout_short_alt:v9/);
   assert.match(source, /futures_breakout_long_probe:v8/);
-  assert.match(source, /version: 'profit_lock_v2'/);
+  assert.match(source, /version: 'adaptive_profit_ratchet_v1'/);
+  assert.match(source, /activationNetUsd: 5/);
+  assert.match(source, /minProtectedUsd: 1/);
   assert.match(source, /targetPct: 0\.06/);
   assert.match(source, /stopPct: 0\.03/);
-  assert.match(source, /immediateProfitRiskFraction: 0\.25/);
-  assert.match(source, /timedProfitAfterFraction: 0\.35/);
 });
 
-test('profit capture cannot mutate legacy v8 cohorts', () => {
-  const block = source.slice(source.indexOf('function profitCaptureReason'), source.indexOf('function summarize'));
-  assert.match(block, /row\.outcome !== 'SHORT'/);
-  assert.match(block, /endsWith\(':v9'\)/);
-  assert.match(block, /profit_lock/);
-  assert.match(block, /timed_profit_capture/);
+test('v9 mark PnL does not double-charge entry slippage', () => {
+  const block = source.slice(source.indexOf('function markEconomics'), source.indexOf('function markForNetPnl'));
+  assert.match(block, /const v9 = String\(row\.strategy_version_id \|\| ''\)\.endsWith\(':v9'\)/);
+  assert.match(block, /const effectiveEntry = v9 \? entry/);
+  assert.match(block, /effectiveExit/);
+  assert.match(block, /fees/);
+  assert.match(block, /fundingPaid/);
 });
 
-test('meaningful net profit locks before any timeout-age requirement', () => {
-  const block = source.slice(source.indexOf('function profitCaptureReason'), source.indexOf('function summarize'));
-  const immediate = block.indexOf('SHORT_EXIT_POLICY.immediateProfitRiskFraction');
-  const timeoutLookup = block.indexOf('timeoutHoursFor');
-  const timed = block.indexOf('SHORT_EXIT_POLICY.timedProfitAfterFraction');
-  assert.ok(immediate >= 0 && timeoutLookup >= 0 && timed >= 0);
-  assert.ok(immediate < timeoutLookup, '0.25R net profit must be captured without waiting for timeout age');
-  assert.ok(timeoutLookup < timed, 'timed positive capture must remain a secondary fallback');
+test('profit ratchet is monotonic in both MFE and protected floor', () => {
+  const block = closeFunction();
+  assert.match(block, /Math\.max\(previousMfe, markState\.pnl\)/);
+  assert.match(block, /Math\.max\(previousFloor, candidateFloor\)/);
+  assert.match(block, /mfeUsd >= SHORT_EXIT_POLICY\.activationNetUsd/);
+  assert.match(block, /reason = 'profit_ratchet'/);
 });
 
-test('hard target and stop retain priority over adaptive profit capture', () => {
+test('ratchet combines regime momentum volatility and order-book context', () => {
+  const context = source.slice(source.indexOf('function exitContext'), source.indexOf('function quoteVolume'));
+  assert.match(context, /regimeAligned/);
+  assert.match(context, /momentumAligned/);
+  assert.match(context, /orderBookImbalance/);
+  assert.match(context, /atrPct/);
+  assert.match(context, /strength/);
+  assert.match(source, /\/depth\?symbol=/);
+});
+
+test('large winners raise an explicit minimum protected-profit floor', () => {
+  const block = source.slice(source.indexOf('function protectedTierFloor'), source.indexOf('function adaptiveProfitFloor'));
+  assert.match(block, /mfeUsd >= 200\) return 150/);
+  assert.match(block, /mfeUsd >= 100\) return 70/);
+  assert.match(block, /mfeUsd >= 50\) return 30/);
+  assert.match(block, /mfeUsd >= 25\) return 15/);
+  assert.match(block, /mfeUsd >= 10\) return 5/);
+});
+
+test('dynamic stop price only moves in the direction of greater protection', () => {
+  const tighten = source.slice(source.indexOf('function ratchetStopIsTighter'), source.indexOf('function summarize'));
+  assert.match(tighten, /row\.outcome === 'LONG' \? nextStop > current : nextStop < current/);
+  const close = closeFunction();
+  assert.match(close, /ratchetStopIsTighter\(row, ratchetStopPrice\)/);
+  assert.match(close, /stop_price: ratchetStopPrice/);
+  assert.match(close, /profit_ratchet_stop/);
+});
+
+test('hard target and stop retain priority over adaptive ratchet and timeout', () => {
   const block = closeFunction();
   const hardTarget = block.indexOf("reason = 'take_profit'");
-  const hardStop = block.indexOf("reason = 'stop_loss'");
-  const adaptive = block.indexOf('profitCaptureReason(');
+  const hardStop = block.indexOf("'stop_loss'");
+  const ratchet = block.indexOf('adaptiveProfitFloor(');
   const timeout = block.indexOf("reason = 'timeout'");
-  assert.ok(hardTarget >= 0 && hardStop >= 0 && adaptive >= 0 && timeout >= 0);
-  assert.ok(hardTarget < adaptive, 'take profit must be checked before adaptive capture');
-  assert.ok(hardStop < adaptive, 'stop loss must be checked before adaptive capture');
-  assert.ok(adaptive < timeout, 'adaptive capture must be checked before timeout');
+  assert.ok(hardTarget >= 0 && hardStop >= 0 && ratchet >= 0 && timeout >= 0);
+  assert.ok(hardTarget < ratchet, 'take profit must be checked before ratchet management');
+  assert.ok(hardStop < ratchet, 'stop must be checked before ratchet management');
+  assert.ok(ratchet < timeout, 'ratchet management must run before timeout');
 });
 
 test('runner remains paper-only and has no exchange order endpoint', () => {
