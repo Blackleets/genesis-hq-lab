@@ -1,7 +1,11 @@
 export const PROFIT_RATCHET_AUDIT_VERSION = 'profit_ratchet_edge_v1';
 export const WINNER_LOST_MFE_USD = 5;
 
-const finite = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
+const finite = (value) => {
+  if (value == null || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
 const mean = (values) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
 const round = (value, digits = 6) => {
   if (!Number.isFinite(value)) return null;
@@ -14,9 +18,6 @@ const median = (values) => {
   const middle = Math.floor(ordered.length / 2);
   return ordered.length % 2 ? ordered[middle] : (ordered[middle - 1] + ordered[middle]) / 2;
 };
-const ratio = (numerator, denominator) => Number.isFinite(numerator) && Number.isFinite(denominator) && denominator !== 0
-  ? numerator / denominator
-  : null;
 
 export function mfeBand(value) {
   const mfe = finite(value);
