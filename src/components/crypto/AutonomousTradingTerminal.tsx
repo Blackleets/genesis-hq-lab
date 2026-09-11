@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, Bot, Crosshair, RefreshCw, ShieldCheck, WifiOff, Zap } from 'lucide-react';
 import QuantChart, { type ChartCandle, type ChartTrade } from '@workflows/QuantChart';
 import { useTruthLayer, type RunnerTrade } from '@hooks/useTruthLayer';
+import { RatchetObservabilityPanel } from './RatchetObservabilityPanel';
 
 const PAIRS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'DOGEUSDT'] as const;
 const TIMEFRAMES = ['5m', '15m', '1h', '4h'] as const;
@@ -240,6 +241,8 @@ export function AutonomousTradingTerminal({ es = true }: { es?: boolean }) {
           </div>
         </aside>
       </div>
+
+      <RatchetObservabilityPanel pair={pair} es={es} />
 
       <div className="grid grid-cols-1 border-t border-[#202736] xl:grid-cols-2">
         <div className="border-b border-[#202736] bg-[#070a0f] xl:border-b-0 xl:border-r">
