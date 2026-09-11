@@ -46,6 +46,7 @@ function buildPriority({
   riskBand,
   activeFlags,
   cleanV8Closed,
+  cleanV8Required,
   positioningQuality,
   positioningEdge,
   promotion,
@@ -58,6 +59,7 @@ function buildPriority({
   riskBand: string;
   activeFlags: string[];
   cleanV8Closed: number;
+  cleanV8Required: number;
   positioningQuality: PositioningDataQuality | null;
   positioningEdge: PositioningEdgeSnapshot | null;
   promotion: ResearchPromotionSnapshot | null;
@@ -72,8 +74,8 @@ function buildPriority({
   if (['ELEVATED', 'HIGH_RISK', 'CRITICAL'].includes(riskBand) || activeFlags.length > 0) {
     return { label: 'CLEAR RISK FLAGS', detail: `${activeFlags.length} active · ${riskBand.replaceAll('_', ' ')}`, view: 'risk', tone: riskBand === 'CRITICAL' || riskBand === 'HIGH_RISK' ? 'bad' : 'watch' };
   }
-  if (cleanV8Closed < 50) {
-    return { label: 'COLLECT V8 FORWARD SAMPLE', detail: `${cleanV8Closed}/50 clean v8 PAPER trades · runner active · LIVE remains locked`, view: 'agents', tone: 'watch' };
+  if (cleanV8Closed < cleanV8Required) {
+    return { label: 'COLLECT V8 FORWARD SAMPLE', detail: `${cleanV8Closed}/${cleanV8Required} clean v8 PAPER trades · runner active · LIVE remains locked`, view: 'agents', tone: 'watch' };
   }
   if (positioningQuality && positioningQuality.qualityPass !== true) {
     return { label: 'RESTORE DATA QUALITY', detail: 'Positioning cohort is not clean enough for research', view: 'research', tone: 'bad' };
@@ -176,7 +178,13 @@ export function FounderCommandBar({ onOpen }: { onOpen: (view: CommandView) => v
   const supabaseFallbackVerified = runnerVerified && runner?.source === 'supabase_futures_runner';
   const blockingRiskFlags = activeFlags.filter((flag) => !(supabaseFallbackVerified && flag === 'render_unavailable'));
   const renderDegraded = activeFlags.includes('render_unavailable');
-  const cleanV8Closed = (runner?.recentTrades ?? []).filter((trade) => trade.status === 'closed' && trade.strategyVersionId?.endsWith(':v8') && trade.validationStatus === 'EXPERIMENT').length;
+  const fallbackCleanV8Closed = (runner?.recentTrades ?? []).filter((trade) => trade.status === 'closed' && trade.strategyVersionId?.endsWith(':v8') && trade.validationStatus === 'EXPERIMENT').length;
+  const shortMicroValidation = runner?.validationEngine?.validations?.short_micro;
+  const canonicalCleanV8Closed = shortMicroValidation?.strategyVersionId?.endsWith(':v8') && Number.isFinite(shortMicroValidation.metrics?.closed)
+    ? shortMicroValidation.metrics?.closed ?? null
+    : null;
+  const cleanV8Closed = canonicalCleanV8Closed ?? fallbackCleanV8Closed;
+  const cleanV8Required = runner?.validationEngine?.policy?.validated?.minClosed ?? 50;
   const economicPnl = capture.data?.funding?.economicPnlUsdt;
   const openPaper = runner?.stats?.openPositions ?? runner?.openPositions?.length ?? null;
   const mission = truth.data?.founderMode?.focus?.trim() || truth.data?.founderMode?.goal?.trim() || 'Prove repeatable paper edge before capital cutover';
@@ -214,7 +222,7 @@ export function FounderCommandBar({ onOpen }: { onOpen: (view: CommandView) => v
         ? `${openPaper ?? '—'} OPEN · ${finite(economicPnl) ? formatMoney(economicPnl, 0) : 'P&L N/A'}`
         : 'RUNNER UNVERIFIED';
 
-  const priority = buildPriority({ runnerVerified, riskBand, activeFlags: blockingRiskFlags, cleanV8Closed, positioningQuality, positioningEdge, promotion, researchForward, portfolioRisk, forward, economicPnl });
+  const priority = buildPriority({ runnerVerified, riskBand, activeFlags: blockingRiskFlags, cleanV8Closed, cleanV8Required, positioningQuality, positioningEdge, promotion, researchForward, portfolioRisk, forward, economicPnl });
 
   return (
     <section className="founder-command-bar" aria-label="Founder command layer">
