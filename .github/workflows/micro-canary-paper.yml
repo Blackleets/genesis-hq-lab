@@ -36,16 +36,19 @@ jobs:
       - name: verify micro-canary safety semantics
         run: node --test server/tests/microCanaryPaper.test.mjs
 
-      - name: run $10 PAPER micro-canary on real Binance candles
+      - name: replay active v8 PAPER fills as a $10 canary
         run: node server/canary/microCanaryPaper.mjs --root tape | tee micro-canary-result.txt
 
-      - name: assert zero-authority and loss boundaries
+      - name: assert zero-authority, v8 source, and loss boundaries
         shell: bash
         run: |
           node - <<'NODE'
           const fs = require('fs');
           const x = JSON.parse(fs.readFileSync('tape/quant-evidence/micro-canary-paper-latest.json', 'utf8'));
           if (x.mode !== 'MICRO_CANARY_PAPER' || x.paperOnly !== true) throw new Error('micro canary mode boundary violated');
+          if (x.version !== 'micro_canary_paper_v2_v8_mirror') throw new Error('micro canary version is not v8 mirror');
+          if (x.strategy?.id !== 'futures_breakout_short_micro:v8' || x.strategy?.purpose !== 'ACTIVE_V8_PAPER_MIRROR_DIAGNOSTIC') throw new Error('active v8 mirror source violated');
+          if (x.source?.kind !== 'VERIFIED_SYSTEM_HEALTH_PAPER_TRADES') throw new Error('verified paper source missing');
           if (x.liveOrders !== false || x.executionAuthority !== false || x.capitalEligible !== false) throw new Error('capital authority boundary violated');
           if (x.boundaries?.realOrdersPlaced !== false || x.boundaries?.orderEndpointAvailable !== false || x.boundaries?.apiTradingKeysUsed !== false) throw new Error('order boundary violated');
           if (x.boundaries?.liveTradingEnabled !== false || x.boundaries?.changesProductionRiskGates !== false || x.boundaries?.grantsCapitalEligibility !== false || x.boundaries?.writesExecutionState !== false) throw new Error('production boundary violated');
@@ -55,6 +58,10 @@ jobs:
             if (run.maxObservedOpenPositions > 1) throw new Error('concurrency cap violated');
             if (run.finalEquityUsd < 9.75 - 1e-8) throw new Error('loss floor violated');
             if (run.maxDrawdownUsd > 0.25 + 1e-8) throw new Error('drawdown cap violated');
+            for (const trade of run.tradesDetail ?? []) {
+              if (trade.canaryLeverage !== 1) throw new Error('canary leverage must remain 1x');
+              if (trade.canaryNotionalUsd > 10 + 1e-9) throw new Error('trade notional cap violated');
+            }
           }
           NODE
 
