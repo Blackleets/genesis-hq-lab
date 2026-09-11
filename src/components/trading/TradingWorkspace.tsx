@@ -20,6 +20,7 @@ import { PositioningIntelligencePanel } from './PositioningIntelligencePanel';
 import { ConnectorRack } from './ConnectorRack';
 import { ProfitEngineRail } from './ProfitEngineRail';
 import './tradingWorkspace.css';
+import './executionPerformance.css';
 import './workstationV2.css';
 import './workstationV2Refinement.css';
 import './exchangeLayout.css';
