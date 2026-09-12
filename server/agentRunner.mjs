@@ -68,15 +68,6 @@ function writeAgentStatus(update) {
   } catch { /* never block the agent loop */ }
 }
 
-process.on('unhandledRejection', (reason) => {
-  console.error('[agentRunner] ⚠ UNHANDLED REJECTION:', reason);
-});
-
-process.on('uncaughtException', (err) => {
-  console.error('[agentRunner] ✖ UNCAUGHT EXCEPTION:', err);
-  process.exit(1);
-});
-
 const INTERVAL_MS = 5 * 60 * 1000;  // 5 minutes
 const AGENT_ID = 'market-agent-1';
 const ONCE = process.argv.includes('--once');
