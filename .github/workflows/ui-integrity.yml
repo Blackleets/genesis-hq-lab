@@ -1,0 +1,64 @@
+name: ui-integrity
+
+on:
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - .github/workflows/ui-integrity.yml
+      - package.json
+      - package-lock.json
+      - tsconfig*.json
+      - api/genesis/capture.js
+      - src/services/captureClient.ts
+      - src/services/researchLifecycleClient.ts
+      - src/services/positioningResearchClient.ts
+      - src/services/forwardPaperClient.ts
+      - src/services/microCanaryClient.ts
+      - src/components/crypto/CaptureDeskPanel.tsx
+      - src/components/trading/FounderCommandBar.tsx
+      - src/components/trading/ProfitEngineRail.tsx
+      - src/components/trading/PositioningIntelligencePanel.tsx
+      - src/components/trading/EconomicTruthPanel.tsx
+      - src/components/trading/ExecutionTable.tsx
+      - src/components/trading/MarketChart.tsx
+      - src/components/trading/CoinLogo.tsx
+      - src/components/trading/mobileTradingFixes.css
+      - public/assets/coins/*.svg
+      - src/components/trading/positioningIntelligence.css
+      - src/components/trading/economicTruth.css
+      - src/components/trading/executionPerformance.css
+      - src/components/trading/founderCommandBar.css
+      - src/components/trading/exchangeLayout.css
+      - src/components/trading/tradingWorkspace.css
+      - src/components/trading/workstationV2.css
+      - src/components/trading/workstationV2Refinement.css
+      - src/components/trading/TradingWorkspace.tsx
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui-integrity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+      - name: node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: install
+        run: npm ci
+      - name: capture API syntax
+        run: node --check api/genesis/capture.js
+      - name: typecheck
+        run: npm run typecheck
+      - name: build
+        run: npm run build

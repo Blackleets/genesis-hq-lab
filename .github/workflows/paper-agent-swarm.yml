@@ -1,0 +1,108 @@
+name: paper-agent-swarm
+
+# Autonomous PAPER-only agent review of verified capture + forward + portfolio research evidence.
+# It never calls the trading runner, never sends an order, and never unlocks capital.
+
+on:
+  schedule:
+    - cron: "31 */4 * * *"
+  workflow_dispatch:
+  push:
+    branches: [feat/paper-agent-swarm, feat/genesis-life-os]
+    paths:
+      - .github/workflows/paper-agent-swarm.yml
+      - server/genesis/paperAgentSwarm.mjs
+      - server/genesis/portfolioRiskAgentEvidence.mjs
+      - server/tests/portfolioRiskAgentEvidence.test.mjs
+      - server/agents/providerRouter.mjs
+
+permissions:
+  contents: write
+
+concurrency:
+  group: paper-agent-swarm
+  cancel-in-progress: true
+
+env:
+  GENESIS_PAPER_AGENT_PROVIDER: nvidia
+  GENESIS_PAPER_AGENT_MODEL: nvidia/nemotron-3.5-lightning-30b-a3b
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+  GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+
+jobs:
+  swarm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout Genesis code
+        uses: actions/checkout@v4
+
+      - name: Checkout verified PAPER tape
+        uses: actions/checkout@v4
+        with:
+          ref: capture-tape
+          path: tape
+
+      - name: Configure Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Gate on production build
+        run: npm run build
+
+      - name: Verify portfolio evidence firewall
+        run: node --test server/tests/portfolioRiskAgentEvidence.test.mjs
+
+      - name: Run PAPER agent swarm
+        run: |
+          node server/genesis/paperAgentSwarm.mjs \
+            --capture=tape/paper-tape/capture-latest.json \
+            --funding=tape/paper-tape/funding-latest.json \
+            --hz1=tape/paper-tape/hz1-latest.json \
+            --forward=tape/quant-evidence/forward-paper-latest.json \
+            --research-forward=tape/quant-evidence/research-forward-shadow-latest.json \
+            --portfolio=tape/quant-evidence/portfolio-risk-research-latest.json \
+            --out=tape/paper-tape/agent-swarm-latest.json \
+            --jsonl=tape/paper-tape/agent-swarm.jsonl
+
+      - name: Verify swarm capital and portfolio boundary
+        run: |
+          node - <<'NODE'
+          const x = require('./tape/paper-tape/agent-swarm-latest.json');
+          if (x.paperOnly !== true || x.liveOrders !== false || x.executionAuthority !== false || x.capitalEligible !== false) throw new Error('swarm capital boundary violated');
+          const p = x.evidence?.portfolioRisk;
+          if (p && (p.liveEligible !== false || p.executionAuthority !== false || p.capitalEligible !== false)) throw new Error('portfolio authority boundary violated');
+          const r = x.evidence?.researchLifecycleForward;
+          if (r && (r.mode !== 'FORWARD_PAPER_RESEARCH' || r.candidates?.some(c => c.liveEligible !== false || c.executionAuthority !== false || c.capitalEligible !== false))) throw new Error('research forward authority boundary violated');
+          if ((r?.nextStageEligible ?? 0) > 0 && x.final?.portfolioRiskReady !== true && !x.final?.blockers?.includes('PORTFOLIO_RISK_NOT_READY') && !x.final?.blockers?.includes('PORTFOLIO_RISK_UNVERIFIED')) throw new Error('portfolio review gate bypassed');
+          NODE
+
+      - name: Publish agent evidence
+        working-directory: tape
+        run: |
+          git config user.name "genesis-paper-agents"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f paper-tape/agent-swarm-latest.json paper-tape/agent-swarm.jsonl
+          if git diff --staged --quiet; then
+            echo "no agent evidence change"
+            exit 0
+          fi
+          git commit -m "paper agent swarm $(date -u +%Y-%m-%dT%H:%MZ)"
+          for attempt in 1 2 3; do
+            git pull --rebase origin capture-tape
+            if git push origin HEAD:capture-tape; then
+              exit 0
+            fi
+            echo "capture-tape advanced during agent publish; retry ${attempt}/3"
+            sleep $((attempt * 2))
+          done
+          echo "failed to publish agent evidence after retries"
+          exit 1

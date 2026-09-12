@@ -87,17 +87,7 @@ export interface ConnectorConfig {
   id: string;
   name: string;
   platform: PlatformId;
-  config: {
-    webhookUrl?: string;
-    apiKey?: string;
-    token?: string;
-    url?: string;
-    channelId?: string;
-    repoOwner?: string;
-    repoName?: string;
-    databaseId?: string;
-    [key: string]: string | undefined;
-  };
+  config: Record<string, never>;
   status: 'connected' | 'disconnected' | 'error' | 'pending';
   capabilities: string[];
   lastUsed?: string;
@@ -178,6 +168,10 @@ function hydrateState(saved: Partial<GenesisStateShape>): GenesisStateShape {
     saved.selectedModule && hydratedModules[saved.selectedModule]
       ? saved.selectedModule
       : base.selectedModule;
+  // FORCE landing on the pixel office (HQ) for noisy/legacy modules so users
+  // see the live, on-vision trading office instead of broken/empty modules.
+  const FORCE_HQ = ['pred-markets', 'crypto', 'terminal', 'console'];
+  const finalModule = FORCE_HQ.includes(selectedModule) ? 'hq' : selectedModule;
   const selectedAgent =
     saved.selectedAgent && hydratedAgents[saved.selectedAgent]
       ? saved.selectedAgent
@@ -193,19 +187,19 @@ function hydrateState(saved: Partial<GenesisStateShape>): GenesisStateShape {
     tasks: saved.tasks ?? base.tasks,
     events: saved.events ?? base.events,
     selectedLanguage: saved.selectedLanguage ?? base.selectedLanguage,
-    selectedModule,
+    selectedModule: finalModule,
     selectedAgent,
     modules: hydratedModules,
     officeUpgrades: saved.officeUpgrades ?? base.officeUpgrades,
     decisions: saved.decisions ?? base.decisions,
-    capital: saved.capital ?? base.capital,
+    capital: 10_000,
     positions: saved.positions ?? base.positions,
     closedPositions: saved.closedPositions ?? base.closedPositions,
-    capitalHistory: saved.capitalHistory ?? base.capitalHistory,
+    capitalHistory: [{ at: new Date().toISOString(), value: 10_000 }],
     walletAddress: saved.walletAddress ?? base.walletAddress,
     walletConnected: saved.walletConnected ?? base.walletConnected,
     commandHistory: saved.commandHistory ?? base.commandHistory,
-    connectors: saved.connectors ?? base.connectors,
+    connectors: (saved.connectors ?? base.connectors).map(c => ({ ...c, config: {}, status: 'disconnected' })),
   };
 }
 
@@ -573,7 +567,7 @@ export const actions = {
       status: 'queued',
       priority: 'normal',
       createdAt: new Date().toISOString(),
-      sourceModule: 'hr',
+      sourceModule: 'hq',
       estimatedMs: 1000 * 60 * 10,
       isSeed: false,
       isReal: true,
@@ -704,7 +698,7 @@ export const actions = {
       status: 'queued',
       priority: 'high',
       createdAt: now,
-      sourceModule: 'decisions',
+      sourceModule: 'hq',
       estimatedMs: 5 * 60 * 1000,
       isSeed: false,
       isReal: true,
@@ -947,7 +941,7 @@ export const actions = {
         status: 'queued',
         priority: 'normal',
         createdAt: new Date().toISOString(),
-        sourceModule: 'progress',
+        sourceModule: 'hq',
         estimatedMs: 1000 * 60 * 4,
         evidence: task.output ? [task.output.en] : ['Local task completion'],
         output: undefined,
@@ -1154,7 +1148,7 @@ export const actions = {
   // ---------- connector actions ----------
 
   addConnector(connector: ConnectorConfig): void {
-    const connectors = [...state.connectors.filter((c) => c.id !== connector.id), connector];
+    const connectors = [...state.connectors.filter((c) => c.id !== connector.id), { ...connector, config: {}, status: 'disconnected' as const }];
     commit({ ...state, connectors });
   },
 
@@ -1163,7 +1157,7 @@ export const actions = {
   },
 
   updateConnector(id: string, patch: Partial<ConnectorConfig>): void {
-    const connectors = state.connectors.map((c) => c.id === id ? { ...c, ...patch } : c);
+    const connectors = state.connectors.map((c) => c.id === id ? { ...c, ...patch, config: {}, status: 'disconnected' as const } : c);
     commit({ ...state, connectors });
   },
 
@@ -1592,7 +1586,9 @@ function evaluateHiringQueue(s: GenesisStateShape): GenesisStateShape {
         break;
       }
       case 'module-unlocked-decisions':
-        unlocked = s.modules['decisions']?.state !== 'locked-backend';
+        // 'decisions' module was removed in the Fase 1 redesign; the
+        // condition is auto-satisfied so those candidates can unlock.
+        unlocked = true;
         break;
       case 'module-unlocked-markets':
         unlocked = s.modules['markets']?.state === 'ready';
@@ -1729,7 +1725,7 @@ function runAutoTrainingInTick(s: GenesisStateShape, now: number): GenesisStateS
       status: 'queued',
       priority: 'low',
       createdAt: new Date(now).toISOString(),
-      sourceModule: 'hr',
+      sourceModule: 'hq',
       estimatedMs: 5 * 60 * 1000,
       isSeed: false,
       isReal: true,
@@ -1780,7 +1776,7 @@ function runAutoTrainingInTick(s: GenesisStateShape, now: number): GenesisStateS
         status: 'queued',
         priority: 'low',
         createdAt: new Date(now).toISOString(),
-        sourceModule: 'hr',
+        sourceModule: 'hq',
         estimatedMs: 8 * 60 * 1000,
         isSeed: false,
         isReal: true,
@@ -2012,4 +2008,69 @@ export function useCommandHistory(): CommandHistoryEntry[] {
 export function useConnectors(): ConnectorConfig[] {
   const s = useGenesisState();
   return s.connectors;
+}
+
+// Learning sync: update agent learningScore from real backend data
+export function updateAgentLearning(agentId: string, newScore: number) {
+  const current = getState();
+  const agent = current.agents[agentId];
+  if (!agent) return;
+
+  const clamped = Math.max(0, Math.min(1, newScore));
+  const next = {
+    ...current,
+    agents: {
+      ...current.agents,
+      [agentId]: { ...agent, learningScore: clamped },
+    },
+  };
+  commit(next);
+}
+
+// Richer learning sync: agents "live" off real measured performance — the
+// learning loop feeds win rate, trade count and PnL so every module that
+// renders an agent (HQ office, dashboard, HR) shows real numbers.
+export function applyAgentTradingStats(
+  agentId: string,
+  stats: { learningScore?: number; winRate?: number; totalPnL?: number; tradeCount?: number },
+) {
+  const current = getState();
+  const agent = current.agents[agentId];
+  if (!agent) return;
+
+  const next = {
+    ...current,
+    agents: {
+      ...current.agents,
+      [agentId]: {
+        ...agent,
+        ...(stats.learningScore != null ? { learningScore: Math.max(0, Math.min(1, stats.learningScore)) } : {}),
+        ...(stats.winRate != null ? { winRate: stats.winRate } : {}),
+        ...(stats.totalPnL != null ? { totalPnL: stats.totalPnL } : {}),
+        ...(stats.tradeCount != null ? { tradeCount: stats.tradeCount } : {}),
+      },
+    },
+  };
+  commit(next);
+}
+
+// Let external engines (learning loop, sweep) put words in an agent's mouth —
+// the office bubbles + activity feed render these, so agents visibly react to
+// real measured results (adopted configs, verdicts, PnL milestones).
+export function emitAgentSays(
+  agentId: string,
+  voicedText: { es: string; en: string },
+  message?: { es: string; en: string },
+) {
+  const current = getState();
+  if (!current.agents[agentId]) return;
+  commit(appendEvent(current, {
+    kind: 'agent.says',
+    severity: 'info',
+    agentId,
+    voicedBy: agentId,
+    voicedText,
+    message: message ?? voicedText,
+    isVisualSeed: true,
+  }));
 }

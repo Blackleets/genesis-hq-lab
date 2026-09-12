@@ -1,0 +1,50 @@
+name: quant-edge-audit
+
+on:
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - .github/workflows/quant-edge-audit.yml
+      - package.json
+      - scripts/quantEngineeringAudit.mjs
+      - server/quant/economicEdgeAudit.mjs
+      - server/tests/economicEdgeAudit.test.mjs
+      - server/tests/futuresRunnerProfitCaptureContract.test.mjs
+      - supabase/functions/genesis-futures-runner/index.ts
+  pull_request:
+    paths:
+      - .github/workflows/quant-edge-audit.yml
+      - package.json
+      - scripts/quantEngineeringAudit.mjs
+      - server/quant/economicEdgeAudit.mjs
+      - server/tests/economicEdgeAudit.test.mjs
+      - server/tests/futuresRunnerProfitCaptureContract.test.mjs
+      - supabase/functions/genesis-futures-runner/index.ts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quant-edge-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+      - name: node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: audit module syntax
+        run: node --check server/quant/economicEdgeAudit.mjs
+      - name: audit CLI syntax
+        run: node --check scripts/quantEngineeringAudit.mjs
+      - name: adversarial audit tests
+        run: node --test server/tests/economicEdgeAudit.test.mjs
+      - name: futures runner safety contract
+        run: node --test server/tests/futuresRunnerProfitCaptureContract.test.mjs

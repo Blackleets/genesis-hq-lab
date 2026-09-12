@@ -1,0 +1,83 @@
+name: micro-canary-paper
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 */4 * * *'
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - .github/workflows/micro-canary-paper.yml
+      - .github/genesis/micro-canary-trigger.txt
+      - server/canary/microCanaryPaper.mjs
+      - server/tests/microCanaryPaper.test.mjs
+
+permissions:
+  contents: write
+
+concurrency:
+  group: micro-canary-paper
+  cancel-in-progress: true
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: code
+        uses: actions/checkout@v4
+
+      - name: tape
+        uses: actions/checkout@v4
+        with:
+          ref: capture-tape
+          path: tape
+
+      - name: verify micro-canary safety semantics
+        run: node --test server/tests/microCanaryPaper.test.mjs
+
+      - name: replay active v8 PAPER fills as a $10 canary
+        run: node server/canary/microCanaryPaper.mjs --root tape | tee micro-canary-result.txt
+
+      - name: assert zero-authority, v8 source, and loss boundaries
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const x = JSON.parse(fs.readFileSync('tape/quant-evidence/micro-canary-paper-latest.json', 'utf8'));
+          if (x.mode !== 'MICRO_CANARY_PAPER' || x.paperOnly !== true) throw new Error('micro canary mode boundary violated');
+          if (x.version !== 'micro_canary_paper_v2_v8_mirror') throw new Error('micro canary version is not v8 mirror');
+          if (x.strategy?.id !== 'futures_breakout_short_micro:v8' || x.strategy?.purpose !== 'ACTIVE_V8_PAPER_MIRROR_DIAGNOSTIC') throw new Error('active v8 mirror source violated');
+          if (x.source?.kind !== 'VERIFIED_SYSTEM_HEALTH_PAPER_TRADES') throw new Error('verified paper source missing');
+          if (x.liveOrders !== false || x.executionAuthority !== false || x.capitalEligible !== false) throw new Error('capital authority boundary violated');
+          if (x.boundaries?.realOrdersPlaced !== false || x.boundaries?.orderEndpointAvailable !== false || x.boundaries?.apiTradingKeysUsed !== false) throw new Error('order boundary violated');
+          if (x.boundaries?.liveTradingEnabled !== false || x.boundaries?.changesProductionRiskGates !== false || x.boundaries?.grantsCapitalEligibility !== false || x.boundaries?.writesExecutionState !== false) throw new Error('production boundary violated');
+          if (x.boundaries?.maxCapitalUsd !== 10 || x.boundaries?.maxTotalLossUsd !== 0.25 || x.boundaries?.maxOpenPositions !== 1 || x.boundaries?.maxLeverage !== 1) throw new Error('micro risk policy changed');
+          for (const run of [x.baseline, x.stress]) {
+            if (run.maxObservedNotionalUsd > 10 + 1e-9) throw new Error('notional cap violated');
+            if (run.maxObservedOpenPositions > 1) throw new Error('concurrency cap violated');
+            if (run.finalEquityUsd < 9.75 - 1e-8) throw new Error('loss floor violated');
+            if (run.maxDrawdownUsd > 0.25 + 1e-8) throw new Error('drawdown cap violated');
+            for (const trade of run.tradesDetail ?? []) {
+              if (trade.canaryLeverage !== 1) throw new Error('canary leverage must remain 1x');
+              if (trade.canaryNotionalUsd > 10 + 1e-9) throw new Error('trade notional cap violated');
+            }
+          }
+          NODE
+
+      - name: publish durable micro-canary evidence
+        working-directory: tape
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "genesis-micro-canary"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f quant-evidence/micro-canary-paper-latest.json quant-evidence/micro-canary-paper-history.jsonl
+          if git diff --staged --quiet; then echo "no material micro-canary evidence change"; exit 0; fi
+          git commit -m "micro canary paper ${GITHUB_RUN_ID}"
+          for attempt in 1 2 3; do
+            git pull --rebase origin capture-tape
+            if git push origin HEAD:capture-tape; then exit 0; fi
+            sleep $((attempt * 2))
+          done
+          exit 1

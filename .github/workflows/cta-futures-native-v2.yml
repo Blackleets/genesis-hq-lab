@@ -1,0 +1,168 @@
+name: CTA Futures Native v2 Deep Validation
+
+on:
+  push:
+    branches:
+      - research/binance-vision-oi
+      - feat/genesis-life-os
+    paths:
+      - research/cta_futures_native_v2.py
+      - research/cta_futures_native_v2_manifest.json
+      - .github/workflows/cta-futures-native-v2.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout durable capture tape
+        uses: actions/checkout@v4
+        with:
+          ref: capture-tape
+          path: capture-tape
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install deterministic research dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install 'numpy==2.5.3' 'pandas==3.0.5' 'requests==2.32.5'
+
+      - name: Record execution provenance
+        shell: bash
+        run: |
+          mkdir -p evidence-cta-v2
+          {
+            echo "EVIDENCE_COMMIT=$(git rev-parse HEAD)"
+            echo "EVIDENCE_BRANCH=$(git branch --show-current)"
+            python --version
+            python - <<'PY'
+          import numpy, pandas, requests
+          print('VERSIONS', {'numpy': numpy.__version__, 'pandas': pandas.__version__, 'requests': requests.__version__})
+          PY
+            sha256sum research/cta_futures_native_v2.py research/cta_futures_native_v2_manifest.json
+          } | tee evidence-cta-v2/provenance.log
+
+      - name: Compile research engine
+        run: python -m py_compile research/cta_futures_native_v2.py
+
+      - name: Run checksum-verified deep validation
+        id: research
+        shell: bash
+        run: |
+          set +e
+          python research/cta_futures_native_v2.py \
+            --manifest research/cta_futures_native_v2_manifest.json \
+            --output evidence-cta-v2 \
+            --workers 24 2>&1 | tee evidence-cta-v2/raw_terminal.log
+          code=${PIPESTATUS[0]}
+          echo "exit_code=${code}" >> "$GITHUB_OUTPUT"
+          echo "RESEARCH_EXIT_CODE=${code}"
+          exit 0
+
+      - name: Hash complete evidence packet
+        if: always()
+        shell: bash
+        run: |
+          find evidence-cta-v2 -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > evidence-cta-v2/SHA256SUMS
+          cat evidence-cta-v2/SHA256SUMS
+
+      - name: Upload research evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-futures-native-v2-evidence
+          path: evidence-cta-v2/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 6
+
+      - name: Classify research outcome
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, pathlib, sys
+          p = pathlib.Path('evidence-cta-v2/cta_futures_native_v2_report.json')
+          if not p.exists():
+              print('CLASSIFICATION ENGINE_FAILURE report_missing')
+              sys.exit(2)
+          r = json.loads(p.read_text())
+          print('CLASSIFICATION', r.get('verdict'))
+          print('HOLDOUT_STATE', r.get('holdoutState'))
+          print('EXECUTION_AUTHORITY', r.get('executionAuthority'))
+          print('CAPITAL_ELIGIBLE', r.get('capitalEligible'))
+          print('LIVE_ORDERS', r.get('liveOrders'))
+          if r.get('verdict') == 'DATA_COVERAGE_BLOCKED':
+              sys.exit(3)
+          if r.get('executionAuthority') or r.get('capitalEligible') or r.get('liveOrders'):
+              print('ILLEGAL_AUTHORITY_ESCALATION')
+              sys.exit(4)
+          PY
+
+      - name: Persist compact verdict to capture tape
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os, pathlib, shutil
+          src = pathlib.Path('evidence-cta-v2')
+          report_path = src / 'cta_futures_native_v2_report.json'
+          out = pathlib.Path('capture-tape/research-tape/cta-futures-native-v2')
+          out.mkdir(parents=True, exist_ok=True)
+          sha = os.environ.get('GITHUB_SHA', 'unknown')
+          run_id = os.environ.get('GITHUB_RUN_ID', 'unknown')
+          if report_path.exists():
+              report = json.loads(report_path.read_text())
+              durable = {
+                  'schemaVersion': 1,
+                  'researchOnly': True,
+                  'paperOnly': True,
+                  'sourceCommit': sha,
+                  'workflowRunId': run_id,
+                  'engineVersion': report.get('engineVersion'),
+                  'strategyVersion': report.get('strategyVersion'),
+                  'proposalId': report.get('proposalId'),
+                  'hypothesisFingerprint': report.get('hypothesisFingerprint'),
+                  'verdict': report.get('verdict'),
+                  'validation': report.get('validation'),
+                  'validationGate': report.get('validationGate'),
+                  'holdoutState': report.get('holdoutState'),
+                  'holdout': report.get('holdout'),
+                  'executionAuthority': report.get('executionAuthority'),
+                  'capitalEligible': report.get('capitalEligible'),
+                  'liveOrders': report.get('liveOrders'),
+                  'sourceEvidenceHashSha256': report.get('sourceEvidenceHashSha256'),
+                  'coverage': report.get('coverage'),
+              }
+              payload = json.dumps(durable, indent=2, sort_keys=True) + '\n'
+              (out / 'latest.json').write_text(payload)
+              (out / f'{sha}.json').write_text(payload)
+              with (out / 'history.jsonl').open('a') as f:
+                  f.write(json.dumps(durable, sort_keys=True) + '\n')
+          for name in ('provenance.log', 'SHA256SUMS'):
+              p = src / name
+              if p.exists():
+                  shutil.copyfile(p, out / f'{sha}-{name}')
+          PY
+          cd capture-tape
+          git config user.name "genesis-research"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f research-tape/cta-futures-native-v2/
+          if git diff --staged --quiet; then
+            echo "no durable verdict change"
+            exit 0
+          fi
+          git commit -m "research verdict ${GITHUB_SHA:0:12}"
+          # capture-tape is append-heavy and may advance while this run computes.
+          # Rebase our isolated evidence commit before push instead of losing the verdict.
+          git pull --rebase origin capture-tape
+          git push origin HEAD:capture-tape

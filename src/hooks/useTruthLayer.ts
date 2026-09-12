@@ -10,6 +10,58 @@ export interface TruthIssue {
   message: string;
 }
 
+export interface RunnerTrade {
+  id: string;
+  pair: string;
+  side: 'LONG' | 'SHORT';
+  status: 'open' | 'closed';
+  mode: 'paper';
+  entryPrice: number | null;
+  exitPrice: number | null;
+  targetPrice: number | null;
+  stopPrice: number | null;
+  pnl: number | null;
+  openedAt: string | null;
+  closedAt: string | null;
+  exitReason: string | null;
+  tradeType: string | null;
+  leverage: number | null;
+  capitalUsed: number | null;
+  strategyVersionId?: string | null;
+  entryRegime?: string | null;
+  entrySession?: string | null;
+  runnerVersion?: string | null;
+  validationStatus?: string | null;
+}
+
+export interface RunnerValidationMetrics {
+  trades?: number;
+  closed?: number;
+  wins?: number;
+  losses?: number;
+  winRate?: number | null;
+  realizedPnl?: number;
+  profitFactor?: number | null;
+  expectancy?: number | null;
+  payoffRatio?: number | null;
+  maxDrawdown?: number;
+  maxDrawdownPct?: number | null;
+  tStat?: number | null;
+  maxLossStreak?: number;
+}
+
+export interface RunnerValidation {
+  profileId?: string;
+  strategyId?: string;
+  strategyVersionId?: string;
+  runnerVersion?: string;
+  status?: string;
+  capitalEligible?: boolean;
+  reason?: string;
+  metrics?: RunnerValidationMetrics;
+  gates?: Array<{ code?: string; pass?: boolean; detail?: string }>;
+}
+
 export interface SystemTruth {
   ok: boolean;
   timestamp: string;
@@ -35,6 +87,58 @@ export interface SystemTruth {
     claudeEnabled?: boolean;
     llmProvider?: 'groq' | 'gemini' | 'claude' | 'none';
     neverStarted?: boolean;
+    source?: string;
+    paperOnly?: boolean;
+    liveOrders?: boolean;
+    lastResult?: {
+      ok?: boolean;
+      paperOnly?: boolean;
+      liveOrders?: boolean;
+      scanned?: number;
+      qualified?: number;
+      executed?: number;
+      skipped?: number;
+      closed?: number;
+      cyclePnl?: number;
+      openPositions?: number;
+      closedPositions?: Array<{ id: string; pair: string; side: string; reason: string; pnl: number; mark: number }>;
+      decisions?: Array<{ profile?: string; pair?: string; status?: string; reason?: string; side?: string; [key: string]: unknown }>;
+    } | null;
+    openPositions?: RunnerTrade[];
+    recentTrades?: RunnerTrade[];
+    stats?: {
+      sampleTrades?: number;
+      sampleClosed?: number;
+      openPositions?: number;
+      sampleRealizedPnl?: number;
+      sampleWinRate?: number | null;
+    } | null;
+    validationEngine?: {
+      ok?: boolean;
+      engineVersion?: string;
+      runnerVersion?: string;
+      policy?: {
+        version?: string;
+        validating?: { minClosed?: number; minProfitFactor?: number; minExpectancy?: number };
+        validated?: {
+          minClosed?: number;
+          minProfitFactor?: number;
+          minExpectancy?: number;
+          minWinRate?: number;
+          minTStat?: number;
+          maxDrawdownPct?: number;
+          requireWalkForward?: boolean;
+          requireOos?: boolean;
+          minPositiveRegimes?: number;
+        };
+        capitalEligible?: {
+          requiresFounderGate?: boolean;
+          requiresCanonicalReconciliation?: boolean;
+          requiresLivePreflight?: boolean;
+        };
+      };
+      validations?: Record<string, RunnerValidation>;
+    } | null;
     error?: string;
   };
   kalshi: { ok: boolean; hasApiKey?: boolean; wsConnected?: boolean; mode?: string; inUse?: boolean; error?: string };
@@ -158,6 +262,23 @@ interface UseTruthLayerReturn {
 
 const POLL_INTERVAL_MS = 15_000;
 
+export function isSystemTruth(data: unknown): data is SystemTruth {
+  if (!data || typeof data !== 'object') return false;
+  const candidate = data as Partial<SystemTruth>;
+  return typeof candidate.ok === 'boolean'
+    && Array.isArray(candidate.issues)
+    && ['execution', 'agentRunner', 'database', 'treasury', 'websocket', 'kalshi', 'optimizer', 'learning', 'founderMode']
+      .every((key) => candidate[key as keyof SystemTruth] && typeof candidate[key as keyof SystemTruth] === 'object');
+}
+
+export async function fetchSystemTruth(signal?: AbortSignal): Promise<SystemTruth> {
+  const res = await fetchApi('/api/system/health', { cache: 'no-store', signal });
+  if (!res.ok) throw new Error('System health unavailable');
+  const data: unknown = await res.json();
+  if (!isSystemTruth(data)) throw new Error('Invalid system health payload');
+  return data;
+}
+
 export function useTruthLayer(): UseTruthLayerReturn {
   const [truth, setTruth] = useState<SystemTruth | null>(null);
   const [loading, setLoading] = useState(true);
@@ -168,8 +289,7 @@ export function useTruthLayer(): UseTruthLayerReturn {
 
     async function fetchTruth() {
       try {
-        const res = await fetchApi('/api/system/health');
-        const data: SystemTruth = await res.json();
+        const data = await fetchSystemTruth();
         if (!cancelled) {
           setTruth(data);
           setLastFetchedAt(new Date());
@@ -178,11 +298,7 @@ export function useTruthLayer(): UseTruthLayerReturn {
       } catch {
         if (!cancelled) {
           setLoading(false);
-          setTruth((prev) =>
-            prev
-              ? { ...prev, ok: false, error: 'fetch failed' }
-              : null
-          );
+          setTruth(null);
         }
       }
     }

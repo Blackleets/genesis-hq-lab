@@ -21,9 +21,32 @@ import { createDialogueRuntime, stepDialogue } from './agentDialogue';
 import DialogueBubble from './DialogueBubble';
 import OfficeStatusBar from './OfficeStatusBar';
 import { useLiveOfficeState } from '@hooks/useLiveOfficeState';
+import { OFFICE_ZONES, type OfficeZoneId } from './officeZones';
+import type { RoomId } from '@core/types/office';
 
 interface Props {
   onAssetError: (error: Error) => void;
+  onRoomClick?: (room: RoomId) => void;
+}
+
+/** Desk tints on the tile floor → HQ rooms that already exist. */
+const ZONE_TO_ROOM: Record<OfficeZoneId, RoomId> = {
+  researchDesk: 'strategy-lab',
+  analyticsScreen: 'memory-archive',
+  executionDesk: 'execution-desk',
+  riskDesk: 'risk-bunker',
+  portfolioDesk: 'board-room',
+  serverRack: 'memory-archive',
+  restArea: 'open-workspace',
+  centralFloor: 'open-workspace',
+};
+
+function hitZone(x: number, y: number): OfficeZoneId | null {
+  for (const z of Object.values(OFFICE_ZONES)) {
+    const r = z.tint ?? z.area;
+    if (x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h) return z.id;
+  }
+  return null;
 }
 
 interface BubbleView {
@@ -38,7 +61,7 @@ interface BubbleView {
 const BUBBLE_SYNC_MS = 100;
 const FADE_OUT_MS = 420;
 
-export default function TileOffice({ onAssetError }: Props) {
+export default function TileOffice({ onAssetError, onRoomClick }: Props) {
   const lang = useLanguage();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [sheet, setSheet] = useState<HTMLImageElement | null>(null);
@@ -161,7 +184,15 @@ export default function TileOffice({ onAssetError }: Props) {
         width={OFFICE_CANVAS_W}
         height={OFFICE_CANVAS_H}
         className="block absolute inset-0"
-        style={{ imageRendering: 'pixelated' }}
+        style={{ imageRendering: 'pixelated', cursor: onRoomClick ? 'pointer' : 'default' }}
+        onClick={(e) => {
+          if (!onRoomClick) return;
+          const rect = e.currentTarget.getBoundingClientRect();
+          const x = (e.clientX - rect.left) * (OFFICE_CANVAS_W / rect.width);
+          const y = (e.clientY - rect.top) * (OFFICE_CANVAS_H / rect.height);
+          const z = hitZone(x, y);
+          if (z) onRoomClick(ZONE_TO_ROOM[z]);
+        }}
       />
       {bubbleViews.map((b) => (
         <DialogueBubble key={b.key} text={b.text} x={b.x} y={b.y} accent={b.accent} fading={b.fading} />

@@ -1,0 +1,118 @@
+.execution-surface {
+  height: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  background: #080b0f;
+}
+
+.execution-overview {
+  display: grid;
+  grid-template-columns: minmax(180px, .9fr) minmax(220px, 1fr) auto;
+  gap: 1px;
+  border-bottom: 1px solid #252e3a;
+  background: #171d25;
+}
+
+.execution-overview__card {
+  min-width: 0;
+  padding: 9px 11px 8px;
+  display: grid;
+  gap: 4px;
+  background: #0b0f14;
+}
+
+.execution-overview__card span {
+  color: #667384;
+  font: 600 7px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .1em;
+}
+
+.execution-overview__card strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #e6edf5;
+  font: 700 16px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: nowrap;
+}
+
+.execution-overview__card strong.is-positive { color: #6ee7b7; }
+.execution-overview__card strong.is-negative { color: #fca5a5; }
+.execution-overview__card strong.is-neutral { color: #cbd5e1; }
+
+.execution-overview__card small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #7b8796;
+  font: 600 7px/1.25 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+
+.execution-overview__card--canary {
+  box-shadow: inset 2px 0 #d6b979;
+}
+
+.execution-overview__filters {
+  display: flex;
+  align-items: stretch;
+  background: #0b0f14;
+}
+
+.execution-overview__filters button {
+  min-width: 92px;
+  padding: 0 12px;
+  border: 0;
+  border-left: 1px solid #202833;
+  background: transparent;
+  color: #657184;
+  font: 700 7px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .08em;
+}
+
+.execution-overview__filters button.is-active {
+  color: #e4cf91;
+  background: rgb(214 185 121 / 8%);
+  box-shadow: inset 0 -2px #d6b979;
+}
+
+.execution-table-scroll {
+  height: 100%;
+}
+
+@media (max-width: 760px) {
+  .execution-overview {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .execution-overview__card {
+    padding: 8px 9px 7px;
+  }
+
+  .execution-overview__card strong {
+    font-size: 14px;
+  }
+
+  .execution-overview__card small {
+    font-size: 6px;
+  }
+
+  .execution-overview__filters {
+    grid-column: 1 / -1;
+    min-height: 32px;
+    border-top: 1px solid #1e2630;
+  }
+
+  .execution-overview__filters button {
+    flex: 1;
+    min-width: 0;
+    padding: 0 8px;
+  }
+
+  .execution-table-scroll .trading-table th,
+  .execution-table-scroll .trading-table td {
+    padding-left: 9px;
+    padding-right: 9px;
+  }
+}

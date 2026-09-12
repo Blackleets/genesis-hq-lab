@@ -1,0 +1,2219 @@
+{
+  "auditVersion": "qeec_v1.1",
+  "generatedAt": "2026-09-11T12:41:26.871Z",
+  "mode": "READ_ONLY_PAPER_AUDIT",
+  "pnlBasis": "STORED_LEDGER_PNL_NOT_INDEPENDENTLY_RECONCILED",
+  "costBasis": "MODELED_DIAGNOSTIC_NOT_DEDUCTED_AGAIN",
+  "drawdownBasis": "CUMULATIVE_CLOSED_PNL_OVER_MEAN_TRADE_ALLOCATION_NOT_ACCOUNT_EQUITY",
+  "capitalEligible": false,
+  "liveOrdersAuthorized": false,
+  "policy": {
+    "kill": {
+      "minClosed": 20,
+      "maxProfitFactor": 0.9,
+      "requireNegativeExpectancy": true,
+      "maxDrawdownPct": 0.25
+    },
+    "evidence": {
+      "minClosed": 50,
+      "minProfitFactor": 1.3,
+      "minExpectancy": 0,
+      "minWinRate": 0.45,
+      "minTStat": 2,
+      "maxDrawdownPct": 0.25,
+      "minPositiveRegimes": 2,
+      "minTradesPerPositiveRegime": 5,
+      "minCalibrationTrades": 30,
+      "maxBrier": 0.2,
+      "maxEce": 0.1,
+      "minConfidenceBuckets": 2,
+      "requireWalkForward": true,
+      "requireOos": true
+    }
+  },
+  "source": {
+    "rowsReceived": 64,
+    "futuresRowsAudited": 64,
+    "evidenceSha256": "2ec549bdb2584fd5a0ef7937049a6fdaf8b019f59eddc98148951ade4d508efa"
+  },
+  "portfolio": {
+    "trades": 64,
+    "closed": 64,
+    "wins": 35,
+    "losses": 29,
+    "winRate": 0.546875,
+    "realizedPnl": -195.8842,
+    "expectancy": -3.060691,
+    "grossProfit": 312.824,
+    "grossLoss": 508.7082,
+    "profitFactor": 0.614938,
+    "tStat": -1.449845,
+    "maxDrawdownUsd": 295.707,
+    "maxDrawdownPct": 1.599242,
+    "allocationBaselineUsd": 184.9045,
+    "modeledCostUsd": 46.2098,
+    "avgModeledCostBps": 12.3691
+  },
+  "portfolioSegments": {
+    "strategy": {
+      "crypto_futures_breakout_long": {
+        "trades": 6,
+        "closed": 6,
+        "wins": 3,
+        "losses": 3,
+        "winRate": 0.5,
+        "realizedPnl": 1.6438,
+        "expectancy": 0.273959,
+        "grossProfit": 41.415,
+        "grossLoss": 39.7712,
+        "profitFactor": 1.04133,
+        "tStat": 0.038043,
+        "maxDrawdownUsd": 39.7712,
+        "maxDrawdownPct": 0.170754,
+        "allocationBaselineUsd": 232.915,
+        "modeledCostUsd": 5.0777,
+        "avgModeledCostBps": 12.2354
+      },
+      "crypto_futures_breakout_short": {
+        "trades": 11,
+        "closed": 11,
+        "wins": 6,
+        "losses": 5,
+        "winRate": 0.545455,
+        "realizedPnl": -158.446,
+        "expectancy": -14.404182,
+        "grossProfit": 29.569,
+        "grossLoss": 188.015,
+        "profitFactor": 0.157269,
+        "tStat": -2.036069,
+        "maxDrawdownUsd": 188.015,
+        "maxDrawdownPct": 1.034776,
+        "allocationBaselineUsd": 181.6964,
+        "modeledCostUsd": 9.8229,
+        "avgModeledCostBps": 12.6578
+      },
+      "crypto_futures_breakout_short_alt": {
+        "trades": 21,
+        "closed": 21,
+        "wins": 10,
+        "losses": 11,
+        "winRate": 0.47619,
+        "realizedPnl": -49.864,
+        "expectancy": -2.374476,
+        "grossProfit": 133.213,
+        "grossLoss": 183.077,
+        "profitFactor": 0.727634,
+        "tStat": -0.621293,
+        "maxDrawdownUsd": 97.495,
+        "maxDrawdownPct": 0.465008,
+        "allocationBaselineUsd": 209.6629,
+        "modeledCostUsd": 16.5831,
+        "avgModeledCostBps": 12.5658
+      },
+      "crypto_futures_breakout_short_micro": {
+        "trades": 23,
+        "closed": 23,
+        "wins": 15,
+        "losses": 8,
+        "winRate": 0.652174,
+        "realizedPnl": 14.385,
+        "expectancy": 0.625435,
+        "grossProfit": 107.76,
+        "grossLoss": 93.375,
+        "profitFactor": 1.154056,
+        "tStat": 0.25896,
+        "maxDrawdownUsd": 68.729,
+        "maxDrawdownPct": 0.440961,
+        "allocationBaselineUsd": 155.8617,
+        "modeledCostUsd": 13.339,
+        "avgModeledCostBps": 12.3597
+      },
+      "futures_breakout_short_micro:v7": {
+        "trades": 1,
+        "closed": 1,
+        "wins": 0,
+        "losses": 1,
+        "winRate": 0,
+        "realizedPnl": -2.073,
+        "expectancy": -2.073,
+        "grossProfit": 0,
+        "grossLoss": 2.073,
+        "profitFactor": 0,
+        "tStat": null,
+        "maxDrawdownUsd": 2.073,
+        "maxDrawdownPct": 0.01382,
+        "allocationBaselineUsd": 150,
+        "modeledCostUsd": 0.4617,
+        "avgModeledCostBps": 10.2604
+      },
+      "futures_breakout_short_micro:v8": {
+        "trades": 2,
+        "closed": 2,
+        "wins": 1,
+        "losses": 1,
+        "winRate": 0.5,
+        "realizedPnl": -1.53,
+        "expectancy": -0.765,
+        "grossProfit": 0.867,
+        "grossLoss": 2.397,
+        "profitFactor": 0.361702,
+        "tStat": -0.46875,
+        "maxDrawdownUsd": 2.397,
+        "maxDrawdownPct": 0.01598,
+        "allocationBaselineUsd": 150,
+        "modeledCostUsd": 0.9253,
+        "avgModeledCostBps": 10.2811
+      }
+    },
+    "regime": {
+      "RANGE": {
+        "trades": 2,
+        "closed": 2,
+        "wins": 1,
+        "losses": 1,
+        "winRate": 0.5,
+        "realizedPnl": -1.53,
+        "expectancy": -0.765,
+        "grossProfit": 0.867,
+        "grossLoss": 2.397,
+        "profitFactor": 0.361702,
+        "tStat": -0.46875,
+        "maxDrawdownUsd": 2.397,
+        "maxDrawdownPct": 0.01598,
+        "allocationBaselineUsd": 150,
+        "modeledCostUsd": 0.9253,
+        "avgModeledCostBps": 10.2811
+      },
+      "UNATTRIBUTED": {
+        "trades": 62,
+        "closed": 62,
+        "wins": 34,
+        "losses": 28,
+        "winRate": 0.548387,
+        "realizedPnl": -194.3542,
+        "expectancy": -3.134746,
+        "grossProfit": 311.957,
+        "grossLoss": 506.3112,
+        "profitFactor": 0.616137,
+        "tStat": -1.438801,
+        "maxDrawdownUsd": 295.707,
+        "maxDrawdownPct": 1.589562,
+        "allocationBaselineUsd": 186.0305,
+        "modeledCostUsd": 45.2845,
+        "avgModeledCostBps": 12.4365
+      }
+    },
+    "asset": {
+      "BNBUSDT": {
+        "trades": 5,
+        "closed": 5,
+        "wins": 3,
+        "losses": 2,
+        "winRate": 0.6,
+        "realizedPnl": -77.642,
+        "expectancy": -15.5284,
+        "grossProfit": 14.371,
+        "grossLoss": 92.013,
+        "profitFactor": 0.156184,
+        "tStat": -1.18584,
+        "maxDrawdownUsd": 92.013,
+        "maxDrawdownPct": 0.484279,
+        "allocationBaselineUsd": 190,
+        "modeledCostUsd": 5.0979,
+        "avgModeledCostBps": 12.6205
+      },
+      "BTCUSDT": {
+        "trades": 20,
+        "closed": 20,
+        "wins": 12,
+        "losses": 8,
+        "winRate": 0.6,
+        "realizedPnl": -31.876,
+        "expectancy": -1.593802,
+        "grossProfit": 77.529,
+        "grossLoss": 109.405,
+        "profitFactor": 0.708642,
+        "tStat": -0.525478,
+        "maxDrawdownUsd": 50.393,
+        "maxDrawdownPct": 0.298723,
+        "allocationBaselineUsd": 168.695,
+        "modeledCostUsd": 12.2412,
+        "avgModeledCostBps": 11.9667
+      },
+      "DOGEUSDT": {
+        "trades": 11,
+        "closed": 11,
+        "wins": 6,
+        "losses": 5,
+        "winRate": 0.545455,
+        "realizedPnl": -18.84,
+        "expectancy": -1.712727,
+        "grossProfit": 65.209,
+        "grossLoss": 84.049,
+        "profitFactor": 0.775845,
+        "tStat": -0.338502,
+        "maxDrawdownUsd": 46.627,
+        "maxDrawdownPct": 0.224955,
+        "allocationBaselineUsd": 207.2727,
+        "modeledCostUsd": 8.993,
+        "avgModeledCostBps": 13.1217
+      },
+      "ETHUSDT": {
+        "trades": 15,
+        "closed": 15,
+        "wins": 9,
+        "losses": 6,
+        "winRate": 0.6,
+        "realizedPnl": -4.7502,
+        "expectancy": -0.31668,
+        "grossProfit": 68.212,
+        "grossLoss": 72.9622,
+        "profitFactor": 0.934895,
+        "tStat": -0.095202,
+        "maxDrawdownUsd": 35.5982,
+        "maxDrawdownPct": 0.212425,
+        "allocationBaselineUsd": 167.58,
+        "modeledCostUsd": 9.3935,
+        "avgModeledCostBps": 12.1463
+      },
+      "SOLUSDT": {
+        "trades": 4,
+        "closed": 4,
+        "wins": 1,
+        "losses": 3,
+        "winRate": 0.25,
+        "realizedPnl": -59.54,
+        "expectancy": -14.885,
+        "grossProfit": 19.499,
+        "grossLoss": 79.039,
+        "profitFactor": 0.246701,
+        "tStat": -1.252725,
+        "maxDrawdownUsd": 59.54,
+        "maxDrawdownPct": 0.285779,
+        "allocationBaselineUsd": 208.3425,
+        "modeledCostUsd": 3.7081,
+        "avgModeledCostBps": 13.6044
+      },
+      "XRPUSDT": {
+        "trades": 9,
+        "closed": 9,
+        "wins": 4,
+        "losses": 5,
+        "winRate": 0.444444,
+        "realizedPnl": -3.236,
+        "expectancy": -0.359556,
+        "grossProfit": 68.004,
+        "grossLoss": 71.24,
+        "profitFactor": 0.954576,
+        "tStat": -0.059476,
+        "maxDrawdownUsd": 47.519,
+        "maxDrawdownPct": 0.227132,
+        "allocationBaselineUsd": 209.2133,
+        "modeledCostUsd": 6.7762,
+        "avgModeledCostBps": 12.0264
+      }
+    },
+    "cost": {
+      "LOW_<=12BPS": {
+        "trades": 22,
+        "closed": 22,
+        "wins": 10,
+        "losses": 12,
+        "winRate": 0.454545,
+        "realizedPnl": -72.3202,
+        "expectancy": -3.287284,
+        "grossProfit": 54.456,
+        "grossLoss": 126.7762,
+        "profitFactor": 0.429544,
+        "tStat": -1.336232,
+        "maxDrawdownUsd": 97.2622,
+        "maxDrawdownPct": 0.531291,
+        "allocationBaselineUsd": 183.0677,
+        "modeledCostUsd": 12.4373,
+        "avgModeledCostBps": 10.3906
+      },
+      "MEDIUM_12_20BPS": {
+        "trades": 42,
+        "closed": 42,
+        "wins": 25,
+        "losses": 17,
+        "winRate": 0.595238,
+        "realizedPnl": -123.564,
+        "expectancy": -2.942,
+        "grossProfit": 258.368,
+        "grossLoss": 381.932,
+        "profitFactor": 0.676476,
+        "tStat": -0.991183,
+        "maxDrawdownUsd": 273.188,
+        "maxDrawdownPct": 1.469806,
+        "allocationBaselineUsd": 185.8667,
+        "modeledCostUsd": 33.7725,
+        "avgModeledCostBps": 13.4055
+      }
+    },
+    "sizing": {
+      "LARGE_>250": {
+        "trades": 2,
+        "closed": 2,
+        "wins": 0,
+        "losses": 2,
+        "winRate": 0,
+        "realizedPnl": -23.9612,
+        "expectancy": -11.980624,
+        "grossProfit": 0,
+        "grossLoss": 23.9612,
+        "profitFactor": 0,
+        "tStat": -4.513456,
+        "maxDrawdownUsd": 23.9612,
+        "maxDrawdownPct": 0.092606,
+        "allocationBaselineUsd": 258.745,
+        "modeledCostUsd": 1.5525,
+        "avgModeledCostBps": 10
+      },
+      "MEDIUM_150_250": {
+        "trades": 37,
+        "closed": 37,
+        "wins": 17,
+        "losses": 20,
+        "winRate": 0.459459,
+        "realizedPnl": -238.617,
+        "expectancy": -6.449108,
+        "grossProfit": 217.014,
+        "grossLoss": 455.631,
+        "profitFactor": 0.476293,
+        "tStat": -1.871814,
+        "maxDrawdownUsd": 282.22,
+        "maxDrawdownPct": 1.335625,
+        "allocationBaselineUsd": 211.3019,
+        "modeledCostUsd": 32.9194,
+        "avgModeledCostBps": 12.9144
+      },
+      "SMALL_50_150": {
+        "trades": 25,
+        "closed": 25,
+        "wins": 18,
+        "losses": 7,
+        "winRate": 0.72,
+        "realizedPnl": 66.694,
+        "expectancy": 2.66776,
+        "grossProfit": 95.81,
+        "grossLoss": 29.116,
+        "profitFactor": 3.290631,
+        "tStat": 2.404461,
+        "maxDrawdownUsd": 22.762,
+        "maxDrawdownPct": 0.162668,
+        "allocationBaselineUsd": 139.9292,
+        "modeledCostUsd": 11.7379,
+        "avgModeledCostBps": 11.7516
+      }
+    }
+  },
+  "strategies": {
+    "crypto_futures_breakout_long": {
+      "strategyKey": "crypto_futures_breakout_long",
+      "status": "KILL",
+      "capitalEligible": false,
+      "liveOrdersAuthorized": false,
+      "killReasons": [
+        "DATA_INTEGRITY:paperOnly,strategyAttributed,regimeAttributed,signalEvidenceAttributed"
+      ],
+      "metrics": {
+        "trades": 6,
+        "closed": 6,
+        "wins": 3,
+        "losses": 3,
+        "winRate": 0.5,
+        "realizedPnl": 1.6438,
+        "expectancy": 0.273959,
+        "grossProfit": 41.415,
+        "grossLoss": 39.7712,
+        "profitFactor": 1.04133,
+        "tStat": 0.038043,
+        "maxDrawdownUsd": 39.7712,
+        "maxDrawdownPct": 0.170754,
+        "allocationBaselineUsd": 232.915,
+        "modeledCostUsd": 5.0777,
+        "avgModeledCostBps": 12.2354
+      },
+      "calibration": {
+        "trades": 6,
+        "brier": 0.3125,
+        "ece": 0.25,
+        "bucketsPopulated": 1,
+        "buckets": {
+          "0.7-0.8": {
+            "trades": 6,
+            "avgConfidence": 0.75,
+            "winRate": 0.5,
+            "calibrationError": 0.25
+          }
+        },
+        "sufficient": false
+      },
+      "segments": {
+        "regime": {
+          "UNATTRIBUTED": {
+            "trades": 6,
+            "closed": 6,
+            "wins": 3,
+            "losses": 3,
+            "winRate": 0.5,
+            "realizedPnl": 1.6438,
+            "expectancy": 0.273959,
+            "grossProfit": 41.415,
+            "grossLoss": 39.7712,
+            "profitFactor": 1.04133,
+            "tStat": 0.038043,
+            "maxDrawdownUsd": 39.7712,
+            "maxDrawdownPct": 0.170754,
+            "allocationBaselineUsd": 232.915,
+            "modeledCostUsd": 5.0777,
+            "avgModeledCostBps": 12.2354
+          }
+        },
+        "asset": {
+          "BTCUSDT": {
+            "trades": 4,
+            "closed": 4,
+            "wins": 2,
+            "losses": 2,
+            "winRate": 0.5,
+            "realizedPnl": -1.132,
+            "expectancy": -0.283012,
+            "grossProfit": 29.313,
+            "grossLoss": 30.445,
+            "profitFactor": 0.962817,
+            "tStat": -0.026959,
+            "maxDrawdownUsd": 30.445,
+            "maxDrawdownPct": 0.132722,
+            "allocationBaselineUsd": 229.39,
+            "modeledCostUsd": 3.3955,
+            "avgModeledCostBps": 12.4349
+          },
+          "ETHUSDT": {
+            "trades": 2,
+            "closed": 2,
+            "wins": 1,
+            "losses": 1,
+            "winRate": 0.5,
+            "realizedPnl": 2.7758,
+            "expectancy": 1.3879,
+            "grossProfit": 12.102,
+            "grossLoss": 9.3262,
+            "profitFactor": 1.297635,
+            "tStat": 0.12954,
+            "maxDrawdownUsd": 9.3262,
+            "maxDrawdownPct": 0.038865,
+            "allocationBaselineUsd": 239.965,
+            "modeledCostUsd": 1.6822,
+            "avgModeledCostBps": 11.8364
+          }
+        },
+        "cost": {
+          "LOW_<=12BPS": {
+            "trades": 2,
+            "closed": 2,
+            "wins": 0,
+            "losses": 2,
+            "winRate": 0,
+            "realizedPnl": -23.9612,
+            "expectancy": -11.980624,
+            "grossProfit": 0,
+            "grossLoss": 23.9612,
+            "profitFactor": 0,
+            "tStat": -4.513456,
+            "maxDrawdownUsd": 23.9612,
+            "maxDrawdownPct": 0.092606,
+            "allocationBaselineUsd": 258.745,
+            "modeledCostUsd": 1.5525,
+            "avgModeledCostBps": 10
+          },
+          "MEDIUM_12_20BPS": {
+            "trades": 4,
+            "closed": 4,
+            "wins": 3,
+            "losses": 1,
+            "winRate": 0.75,
+            "realizedPnl": 25.605,
+            "expectancy": 6.40125,
+            "grossProfit": 41.415,
+            "grossLoss": 15.81,
+            "profitFactor": 2.619545,
+            "tStat": 0.671305,
+            "maxDrawdownUsd": 15.81,
+            "maxDrawdownPct": 0.071864,
+            "allocationBaselineUsd": 220,
+            "modeledCostUsd": 3.5252,
+            "avgModeledCostBps": 13.3531
+          }
+        },
+        "sizing": {
+          "LARGE_>250": {
+            "trades": 2,
+            "closed": 2,
+            "wins": 0,
+            "losses": 2,
+            "winRate": 0,
+            "realizedPnl": -23.9612,
+            "expectancy": -11.980624,
+            "grossProfit": 0,
+            "grossLoss": 23.9612,
+            "profitFactor": 0,
+            "tStat": -4.513456,
+            "maxDrawdownUsd": 23.9612,
+            "maxDrawdownPct": 0.092606,
+            "allocationBaselineUsd": 258.745,
+            "modeledCostUsd": 1.5525,
+            "avgModeledCostBps": 10
+          },
+          "MEDIUM_150_250": {
+            "trades": 4,
+            "closed": 4,
+            "wins": 3,
+            "losses": 1,
+            "winRate": 0.75,
+            "realizedPnl": 25.605,
+            "expectancy": 6.40125,
+            "grossProfit": 41.415,
+            "grossLoss": 15.81,
+            "profitFactor": 2.619545,
+            "tStat": 0.671305,
+            "maxDrawdownUsd": 15.81,
+            "maxDrawdownPct": 0.071864,
+            "allocationBaselineUsd": 220,
+            "modeledCostUsd": 3.5252,
+            "avgModeledCostBps": 13.3531
+          }
+        },
+        "session": {
+          "UNATTRIBUTED": {
+            "trades": 6,
+            "closed": 6,
+            "wins": 3,
+            "losses": 3,
+            "winRate": 0.5,
+            "realizedPnl": 1.6438,
+            "expectancy": 0.273959,
+            "grossProfit": 41.415,
+            "grossLoss": 39.7712,
+            "profitFactor": 1.04133,
+            "tStat": 0.038043,
+            "maxDrawdownUsd": 39.7712,
+            "maxDrawdownPct": 0.170754,
+            "allocationBaselineUsd": 232.915,
+            "modeledCostUsd": 5.0777,
+            "avgModeledCostBps": 12.2354
+          }
+        }
+      },
+      "pipeline": {
+        "checks": {
+          "uniqueTradeIds": true,
+          "allClosed": true,
+          "paperOnly": false,
+          "strategyAttributed": false,
+          "assetAttributed": true,
+          "regimeAttributed": false,
+          "sizingAttributed": true,
+          "pnlFinite": true,
+          "confidenceFinite": true,
+          "signalEvidenceAttributed": false,
+          "frictionModeled": true
+        },
+        "failures": [
+          "paperOnly",
+          "strategyAttributed",
+          "regimeAttributed",
+          "signalEvidenceAttributed"
+        ],
+        "pass": false
+      },
+      "research": {
+        "available": false,
+        "walkForwardPass": false,
+        "oosPass": false,
+        "source": null
+      },
+      "gates": [
+        {
+          "code": "PIPELINE_INTEGRITY",
+          "pass": false,
+          "detail": "paperOnly,strategyAttributed,regimeAttributed,signalEvidenceAttributed"
+        },
+        {
+          "code": "PAPER_ONLY",
+          "pass": false,
+          "detail": "non-paper rows present"
+        },
+        {
+          "code": "SAMPLE",
+          "pass": false,
+          "detail": "6/50"
+        },
+        {
+          "code": "PROFIT_FACTOR",
+          "pass": false,
+          "detail": "1.04133>=1.3"
+        },
+        {
+          "code": "EXPECTANCY",
+          "pass": true,
+          "detail": "0.273959>0"
+        },
+        {
+          "code": "WIN_RATE",
+          "pass": true,
+          "detail": "0.5>=0.45"
+        },
+        {
+          "code": "TSTAT",
+          "pass": false,
+          "detail": "0.038043>=2"
+        },
+        {
+          "code": "DRAWDOWN",
+          "pass": true,
+          "detail": "0.170754<=0.25"
+        },
+        {
+          "code": "REGIME_BREADTH",
+          "pass": false,
+          "detail": "1/2"
+        },
+        {
+          "code": "CALIBRATION_SAMPLE",
+          "pass": false,
+          "detail": "6/30"
+        },
+        {
+          "code": "CALIBRATION_DIVERSITY",
+          "pass": false,
+          "detail": "1/2"
+        },
+        {
+          "code": "BRIER",
+          "pass": false,
+          "detail": "0.3125<=0.2"
+        },
+        {
+          "code": "ECE",
+          "pass": false,
+          "detail": "0.25<=0.1"
+        },
+        {
+          "code": "WALK_FORWARD",
+          "pass": false,
+          "detail": "missing exact-version evidence"
+        },
+        {
+          "code": "OOS",
+          "pass": false,
+          "detail": "missing exact-version evidence"
+        }
+      ],
+      "interpretation": "Kill criteria triggered. Keep this cohort out of promotion and stop new risk until redesigned/revalidated."
+    },
+    "crypto_futures_breakout_short": {
+      "strategyKey": "crypto_futures_breakout_short",
+      "status": "KILL",
+      "capitalEligible": false,
+      "liveOrdersAuthorized": false,
+      "killReasons": [
+        "DATA_INTEGRITY:paperOnly,strategyAttributed,regimeAttributed,signalEvidenceAttributed"
+      ],
+      "metrics": {
+        "trades": 11,
+        "closed": 11,
+        "wins": 6,
+        "losses": 5,
+        "winRate": 0.545455,
+        "realizedPnl": -158.446,
+        "expectancy": -14.404182,
+        "grossProfit": 29.569,
+        "grossLoss": 188.015,
+        "profitFactor": 0.157269,
+        "tStat": -2.036069,
+        "maxDrawdownUsd": 188.015,
+        "maxDrawdownPct": 1.034776,
+        "allocationBaselineUsd": 181.6964,
+        "modeledCostUsd": 9.8229,
+        "avgModeledCostBps": 12.6578
+      },
+      "calibration": {
+        "trades": 11,
+        "brier": 0.289773,
+        "ece": 0.204545,
+        "bucketsPopulated": 1,
+        "buckets": {
+          "0.7-0.8": {
+            "trades": 11,
+            "avgConfidence": 0.75,
+            "winRate": 0.545455,
+            "calibrationError": 0.204545
+          }
+        },
+        "sufficient": false
+      },
+      "segments": {
+        "regime": {
+          "UNATTRIBUTED": {
+            "trades": 11,
+            "closed": 11,
+            "wins": 6,
+            "losses": 5,
+            "winRate": 0.545455,
+            "realizedPnl": -158.446,
+            "expectancy": -14.404182,
+            "grossProfit": 29.569,
+            "grossLoss": 188.015,
+            "profitFactor": 0.157269,
+            "tStat": -2.036069,
+            "maxDrawdownUsd": 188.015,
+            "maxDrawdownPct": 1.034776,
+            "allocationBaselineUsd": 181.6964,
+            "modeledCostUsd": 9.8229,
+            "avgModeledCostBps": 12.6578
+          }
+        },
+        "asset": {
+          "BNBUSDT": {
+            "trades": 5,
+            "closed": 5,
+            "wins": 3,
+            "losses": 2,
+            "winRate": 0.6,
+            "realizedPnl": -77.642,
+            "expectancy": -15.5284,
+            "grossProfit": 14.371,
+            "grossLoss": 92.013,
+            "profitFactor": 0.156184,
+            "tStat": -1.18584,
+            "maxDrawdownUsd": 92.013,
+            "maxDrawdownPct": 0.484279,
+            "allocationBaselineUsd": 190,
+            "modeledCostUsd": 5.0979,
+            "avgModeledCostBps": 12.6205
+          },
+          "BTCUSDT": {
+            "trades": 3,
+            "closed": 3,
+            "wins": 2,
+            "losses": 1,
+            "winRate": 0.666667,
+            "realizedPnl": -21.922,
+            "expectancy": -7.307333,
+            "grossProfit": 9.34,
+            "grossLoss": 31.262,
+            "profitFactor": 0.298765,
+            "tStat": -0.61002,
+            "maxDrawdownUsd": 31.262,
+            "maxDrawdownPct": 0.209022,
+            "allocationBaselineUsd": 149.5633,
+            "modeledCostUsd": 1.682,
+            "avgModeledCostBps": 11.7641
+          },
+          "ETHUSDT": {
+            "trades": 2,
+            "closed": 2,
+            "wins": 1,
+            "losses": 1,
+            "winRate": 0.5,
+            "realizedPnl": -25.682,
+            "expectancy": -12.841,
+            "grossProfit": 5.858,
+            "grossLoss": 31.54,
+            "profitFactor": 0.185732,
+            "tStat": -0.686721,
+            "maxDrawdownUsd": 31.54,
+            "maxDrawdownPct": 0.180244,
+            "allocationBaselineUsd": 174.985,
+            "modeledCostUsd": 1.6711,
+            "avgModeledCostBps": 13.5605
+          },
+          "SOLUSDT": {
+            "trades": 1,
+            "closed": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "realizedPnl": -33.2,
+            "expectancy": -33.2,
+            "grossProfit": 0,
+            "grossLoss": 33.2,
+            "profitFactor": 0,
+            "tStat": null,
+            "maxDrawdownUsd": 33.2,
+            "maxDrawdownPct": 0.1328,
+            "allocationBaselineUsd": 250,
+            "modeledCostUsd": 1.372,
+            "avgModeledCostBps": 13.72
+          }
+        },
+        "cost": {
+          "LOW_<=12BPS": {
+            "trades": 2,
+            "closed": 2,
+            "wins": 2,
+            "losses": 0,
+            "winRate": 1,
+            "realizedPnl": 10,
+            "expectancy": 5,
+            "grossProfit": 10,
+            "grossLoss": 0,
+            "profitFactor": null,
+            "tStat": null,
+            "maxDrawdownUsd": 0,
+            "maxDrawdownPct": 0,
+            "allocationBaselineUsd": 100,
+            "modeledCostUsd": 0.4,
+            "avgModeledCostBps": 10
+          },
+          "MEDIUM_12_20BPS": {
+            "trades": 9,
+            "closed": 9,
+            "wins": 4,
+            "losses": 5,
+            "winRate": 0.444444,
+            "realizedPnl": -168.446,
+            "expectancy": -18.716222,
+            "grossProfit": 19.569,
+            "grossLoss": 188.015,
+            "profitFactor": 0.104082,
+            "tStat": -2.345399,
+            "maxDrawdownUsd": 188.015,
+            "maxDrawdownPct": 0.940775,
+            "allocationBaselineUsd": 199.8511,
+            "modeledCostUsd": 9.4229,
+            "avgModeledCostBps": 13.2484
+          }
+        },
+        "sizing": {
+          "MEDIUM_150_250": {
+            "trades": 6,
+            "closed": 6,
+            "wins": 1,
+            "losses": 5,
+            "winRate": 0.166667,
+            "realizedPnl": -183.784,
+            "expectancy": -30.630667,
+            "grossProfit": 4.231,
+            "grossLoss": 188.015,
+            "profitFactor": 0.022504,
+            "tStat": -3.724905,
+            "maxDrawdownUsd": 188.015,
+            "maxDrawdownPct": 0.752732,
+            "allocationBaselineUsd": 249.7767,
+            "modeledCostUsd": 8.6423,
+            "avgModeledCostBps": 13.3674
+          },
+          "SMALL_50_150": {
+            "trades": 5,
+            "closed": 5,
+            "wins": 5,
+            "losses": 0,
+            "winRate": 1,
+            "realizedPnl": 25.338,
+            "expectancy": 5.0676,
+            "grossProfit": 25.338,
+            "grossLoss": 0,
+            "profitFactor": null,
+            "tStat": 20.965255,
+            "maxDrawdownUsd": 0,
+            "maxDrawdownPct": 0,
+            "allocationBaselineUsd": 100,
+            "modeledCostUsd": 1.1806,
+            "avgModeledCostBps": 11.8063
+          }
+        },
+        "session": {
+          "UNATTRIBUTED": {
+            "trades": 11,
+            "closed": 11,
+            "wins": 6,
+            "losses": 5,
+            "winRate": 0.545455,
+            "realizedPnl": -158.446,
+            "expectancy": -14.404182,
+            "grossProfit": 29.569,
+            "grossLoss": 188.015,
+            "profitFactor": 0.157269,
+            "tStat": -2.036069,
+            "maxDrawdownUsd": 188.015,
+            "maxDrawdownPct": 1.034776,
+            "allocationBaselineUsd": 181.6964,
+            "modeledCostUsd": 9.8229,
+            "avgModeledCostBps": 12.6578
+          }
+        }
+      },
+      "pipeline": {
+        "checks": {
+          "uniqueTradeIds": true,
+          "allClosed": true,
+          "paperOnly": false,
+          "strategyAttributed": false,
+          "assetAttributed": true,
+          "regimeAttributed": false,
+          "sizingAttributed": true,
+          "pnlFinite": true,
+          "confidenceFinite": true,
+          "signalEvidenceAttributed": false,
+          "frictionModeled": true
+        },
+        "failures": [
+          "paperOnly",
+          "strategyAttributed",
+          "regimeAttributed",
+          "signalEvidenceAttributed"
+        ],
+        "pass": false
+      },
+      "research": {
+        "available": false,
+        "walkForwardPass": false,
+        "oosPass": false,
+        "source": null
+      },
+      "gates": [
+        {
+          "code": "PIPELINE_INTEGRITY",
+          "pass": false,
+          "detail": "paperOnly,strategyAttributed,regimeAttributed,signalEvidenceAttributed"
+        },
+        {
+          "code": "PAPER_ONLY",
+          "pass": false,
+          "detail": "non-paper rows present"
+        },
+        {
+          "code": "SAMPLE",
+          "pass": false,
+          "detail": "11/50"
+        },
+        {
+          "code": "PROFIT_FACTOR",
+          "pass": false,
+          "detail": "0.157269>=1.3"
+        },
+        {
+          "code": "EXPECTANCY",
+          "pass": false,
+          "detail": "-14.404182>0"
+        },
+        {
+          "code": "WIN_RATE",
+          "pass": true,
+          "detail": "0.545455>=0.45"
+        },
+        {
+          "code": "TSTAT",
+          "pass": false,
+          "detail": "-2.036069>=2"
+        },
+        {
+          "code": "DRAWDOWN",
+          "pass": false,
+          "detail": "1.034776<=0.25"
+        },
+        {
+          "code": "REGIME_BREADTH",
+          "pass": false,
+          "detail": "0/2"
+        },
+        {
+          "code": "CALIBRATION_SAMPLE",
+          "pass": false,
+          "detail": "11/30"
+        },
+        {
+          "code": "CALIBRATION_DIVERSITY",
+          "pass": false,
+          "detail": "1/2"
+        },
+        {
+          "code": "BRIER",
+          "pass": false,
+          "detail": "0.289773<=0.2"
+        },
+        {
+          "code": "ECE",
+          "pass": false,
+          "detail": "0.204545<=0.1"
+        },
+        {
+          "code": "WALK_FORWARD",
+          "pass": false,
+          "detail": "missing exact-version evidence"
+        },
+        {
+          "code": "OOS",
+          "pass": false,
+          "detail": "missing exact-version evidence"
+        }
+      ],
+      "interpretation": "Kill criteria triggered. Keep this cohort out of promotion and stop new risk until redesigned/revalidated."
+    },
+    "crypto_futures_breakout_short_alt": {
+      "strategyKey": "crypto_futures_breakout_short_alt",
+      "status": "KILL",
+      "capitalEligible": false,
+      "liveOrdersAuthorized": false,
+      "killReasons": [
+        "DATA_INTEGRITY:paperOnly,strategyAttributed,regimeAttributed,signalEvidenceAttributed",
+        "NEGATIVE_EDGE:N=21,PF=0.727634,EV=-2.374476",
+        "DRAWDOWN:0.465008>0.25"
+      ],
+      "metrics": {
+        "trades": 21,
+        "closed": 21,
+        "wins": 10,
+        "losses": 11,
+        "winRate": 0.47619,
+        "realizedPnl": -49.864,
+        "expectancy": -2.374476,
+        "grossProfit": 133.213,
+        "grossLoss": 183.077,
+        "profitFactor": 0.727634,
+        "tStat": -0.621293,
+        "maxDrawdownUsd": 97.495,
+        "maxDrawdownPct": 0.465008,
+        "allocationBaselineUsd": 209.6629,
+        "modeledCostUsd": 16.5831,
+        "avgModeledCostBps": 12.5658
+      },
+      "calibration": {
+        "trades": 21,
+        "brier": 0.324405,
+        "ece": 0.27381,
+        "bucketsPopulated": 1,
+        "buckets": {
+          "0.7-0.8": {
+            "trades": 21,
+            "avgConfidence": 0.75,
+            "winRate": 0.47619,
+            "calibrationError": 0.27381
+          }
+        },
+        "sufficient": false
+      },
+      "segments": {
+        "regime": {
+          "UNATTRIBUTED": {
+            "trades": 21,
+            "closed": 21,
+            "wins": 10,
+            "losses": 11,
+            "winRate": 0.47619,
+            "realizedPnl": -49.864,
+            "expectancy": -2.374476,
+            "grossProfit": 133.213,
+            "grossLoss": 183.077,
+            "profitFactor": 0.727634,
+            "tStat": -0.621293,
+            "maxDrawdownUsd": 97.495,
+            "maxDrawdownPct": 0.465008,
+            "allocationBaselineUsd": 209.6629,
+            "modeledCostUsd": 16.5831,
+            "avgModeledCostBps": 12.5658
+          }
+        },
+        "asset": {
+          "DOGEUSDT": {
+            "trades": 11,
+            "closed": 11,
+            "wins": 6,
+            "losses": 5,
+            "winRate": 0.545455,
+            "realizedPnl": -18.84,
+            "expectancy": -1.712727,
+            "grossProfit": 65.209,
+            "grossLoss": 84.049,
+            "profitFactor": 0.775845,
+            "tStat": -0.338502,
+            "maxDrawdownUsd": 46.627,
+            "maxDrawdownPct": 0.224955,
+            "allocationBaselineUsd": 207.2727,
+            "modeledCostUsd": 8.993,
+            "avgModeledCostBps": 13.1217
+          },
+          "SOLUSDT": {
+            "trades": 1,
+            "closed": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "realizedPnl": -27.788,
+            "expectancy": -27.788,
+            "grossProfit": 0,
+            "grossLoss": 27.788,
+            "profitFactor": 0,
+            "tStat": null,
+            "maxDrawdownUsd": 27.788,
+            "maxDrawdownPct": 0.115783,
+            "allocationBaselineUsd": 240,
+            "modeledCostUsd": 0.814,
+            "avgModeledCostBps": 11.3056
+          },
+          "XRPUSDT": {
+            "trades": 9,
+            "closed": 9,
+            "wins": 4,
+            "losses": 5,
+            "winRate": 0.444444,
+            "realizedPnl": -3.236,
+            "expectancy": -0.359556,
+            "grossProfit": 68.004,
+            "grossLoss": 71.24,
+            "profitFactor": 0.954576,
+            "tStat": -0.059476,
+            "maxDrawdownUsd": 47.519,
+            "maxDrawdownPct": 0.227132,
+            "allocationBaselineUsd": 209.2133,
+            "modeledCostUsd": 6.7762,
+            "avgModeledCostBps": 12.0264
+          }
+        },
+        "cost": {
+          "LOW_<=12BPS": {
+            "trades": 9,
+            "closed": 9,
+            "wins": 3,
+            "losses": 6,
+            "winRate": 0.333333,
+            "realizedPnl": -70.39,
+            "expectancy": -7.821111,
+            "grossProfit": 26.071,
+            "grossLoss": 96.461,
+            "profitFactor": 0.270275,
+            "tStat": -1.48348,
+            "maxDrawdownUsd": 75.82,
+            "maxDrawdownPct": 0.348153,
+            "allocationBaselineUsd": 217.7778,
+            "modeledCostUsd": 6.3513,
+            "avgModeledCostBps": 10.7488
+          },
+          "MEDIUM_12_20BPS": {
+            "trades": 12,
+            "closed": 12,
+            "wins": 7,
+            "losses": 5,
+            "winRate": 0.583333,
+            "realizedPnl": 20.526,
+            "expectancy": 1.7105,
+            "grossProfit": 107.142,
+            "grossLoss": 86.616,
+            "profitFactor": 1.236977,
+            "tStat": 0.324566,
+            "maxDrawdownUsd": 62.422,
+            "maxDrawdownPct": 0.306626,
+            "allocationBaselineUsd": 203.5767,
+            "modeledCostUsd": 10.2318,
+            "avgModeledCostBps": 13.9285
+          }
+        },
+        "sizing": {
+          "MEDIUM_150_250": {
+            "trades": 21,
+            "closed": 21,
+            "wins": 10,
+            "losses": 11,
+            "winRate": 0.47619,
+            "realizedPnl": -49.864,
+            "expectancy": -2.374476,
+            "grossProfit": 133.213,
+            "grossLoss": 183.077,
+            "profitFactor": 0.727634,
+            "tStat": -0.621293,
+            "maxDrawdownUsd": 97.495,
+            "maxDrawdownPct": 0.465008,
+            "allocationBaselineUsd": 209.6629,
+            "modeledCostUsd": 16.5831,
+            "avgModeledCostBps": 12.5658
+          }
+        },
+        "session": {
+          "UNATTRIBUTED": {
+            "trades": 21,
+            "closed": 21,
+            "wins": 10,
+            "losses": 11,
+            "winRate": 0.47619,
+            "realizedPnl": -49.864,
+            "expectancy": -2.374476,
+            "grossProfit": 133.213,
+            "grossLoss": 183.077,
+            "profitFactor": 0.727634,
+            "tStat": -0.621293,
+            "maxDrawdownUsd": 97.495,
+            "maxDrawdownPct": 0.465008,
+            "allocationBaselineUsd": 209.6629,
+            "modeledCostUsd": 16.5831,
+            "avgModeledCostBps": 12.5658
+          }
+        }
+      },
+      "pipeline": {
+        "checks": {
+          "uniqueTradeIds": true,
+          "allClosed": true,
+          "paperOnly": false,
+          "strategyAttributed": false,
+          "assetAttributed": true,
+          "regimeAttributed": false,
+          "sizingAttributed": true,
+          "pnlFinite": true,
+          "confidenceFinite": true,
+          "signalEvidenceAttributed": false,
+          "frictionModeled": true
+        },
+        "failures": [
+          "paperOnly",
+          "strategyAttributed",
+          "regimeAttributed",
+          "signalEvidenceAttributed"
+        ],
+        "pass": false
+      },
+      "research": {
+        "available": false,
+        "walkForwardPass": false,
+        "oosPass": false,
+        "source": null
+      },
+      "gates": [
+        {
+          "code": "PIPELINE_INTEGRITY",
+          "pass": false,
+          "detail": "paperOnly,strategyAttributed,regimeAttributed,signalEvidenceAttributed"
+        },
+        {
+          "code": "PAPER_ONLY",
+          "pass": false,
+          "detail": "non-paper rows present"
+        },
+        {
+          "code": "SAMPLE",
+          "pass": false,
+          "detail": "21/50"
+        },
+        {
+          "code": "PROFIT_FACTOR",
+          "pass": false,
+          "detail": "0.727634>=1.3"
+        },
+        {
+          "code": "EXPECTANCY",
+          "pass": false,
+          "detail": "-2.374476>0"
+        },
+        {
+          "code": "WIN_RATE",
+          "pass": true,
+          "detail": "0.47619>=0.45"
+        },
+        {
+          "code": "TSTAT",
+          "pass": false,
+          "detail": "-0.621293>=2"
+        },
+        {
+          "code": "DRAWDOWN",
+          "pass": false,
+          "detail": "0.465008<=0.25"
+        },
+        {
+          "code": "REGIME_BREADTH",
+          "pass": false,
+          "detail": "0/2"
+        },
+        {
+          "code": "CALIBRATION_SAMPLE",
+          "pass": false,
+          "detail": "21/30"
+        },
+        {
+          "code": "CALIBRATION_DIVERSITY",
+          "pass": false,
+          "detail": "1/2"
+        },
+        {
+          "code": "BRIER",
+          "pass": false,
+          "detail": "0.324405<=0.2"
+        },
+        {
+          "code": "ECE",
+          "pass": false,
+          "detail": "0.27381<=0.1"
+        },
+        {
+          "code": "WALK_FORWARD",
+          "pass": false,
+          "detail": "missing exact-version evidence"
+        },
+        {
+          "code": "OOS",
+          "pass": false,
+          "detail": "missing exact-version evidence"
+        }
+      ],
+      "interpretation": "Kill criteria triggered. Keep this cohort out of promotion and stop new risk until redesigned/revalidated."
+    },
+    "crypto_futures_breakout_short_micro": {
+      "strategyKey": "crypto_futures_breakout_short_micro",
+      "status": "KILL",
+      "capitalEligible": false,
+      "liveOrdersAuthorized": false,
+      "killReasons": [
+        "DATA_INTEGRITY:paperOnly,strategyAttributed,regimeAttributed,signalEvidenceAttributed",
+        "DRAWDOWN:0.440961>0.25"
+      ],
+      "metrics": {
+        "trades": 23,
+        "closed": 23,
+        "wins": 15,
+        "losses": 8,
+        "winRate": 0.652174,
+        "realizedPnl": 14.385,
+        "expectancy": 0.625435,
+        "grossProfit": 107.76,
+        "grossLoss": 93.375,
+        "profitFactor": 1.154056,
+        "tStat": 0.25896,
+        "maxDrawdownUsd": 68.729,
+        "maxDrawdownPct": 0.440961,
+        "allocationBaselineUsd": 155.8617,
+        "modeledCostUsd": 13.339,
+        "avgModeledCostBps": 12.3597
+      },
+      "calibration": {
+        "trades": 23,
+        "brier": 0.236413,
+        "ece": 0.097826,
+        "bucketsPopulated": 1,
+        "buckets": {
+          "0.7-0.8": {
+            "trades": 23,
+            "avgConfidence": 0.75,
+            "winRate": 0.652174,
+            "calibrationError": 0.097826
+          }
+        },
+        "sufficient": false
+      },
+      "segments": {
+        "regime": {
+          "UNATTRIBUTED": {
+            "trades": 23,
+            "closed": 23,
+            "wins": 15,
+            "losses": 8,
+            "winRate": 0.652174,
+            "realizedPnl": 14.385,
+            "expectancy": 0.625435,
+            "grossProfit": 107.76,
+            "grossLoss": 93.375,
+            "profitFactor": 1.154056,
+            "tStat": 0.25896,
+            "maxDrawdownUsd": 68.729,
+            "maxDrawdownPct": 0.440961,
+            "allocationBaselineUsd": 155.8617,
+            "modeledCostUsd": 13.339,
+            "avgModeledCostBps": 12.3597
+          }
+        },
+        "asset": {
+          "BTCUSDT": {
+            "trades": 11,
+            "closed": 11,
+            "wins": 7,
+            "losses": 4,
+            "winRate": 0.636364,
+            "realizedPnl": -7.616,
+            "expectancy": -0.692364,
+            "grossProfit": 38.009,
+            "grossLoss": 45.625,
+            "profitFactor": 0.833074,
+            "tStat": -0.210294,
+            "maxDrawdownUsd": 26.193,
+            "maxDrawdownPct": 0.168725,
+            "allocationBaselineUsd": 155.2409,
+            "modeledCostUsd": 6.2393,
+            "avgModeledCostBps": 12.1601
+          },
+          "ETHUSDT": {
+            "trades": 10,
+            "closed": 10,
+            "wins": 7,
+            "losses": 3,
+            "winRate": 0.7,
+            "realizedPnl": 20.553,
+            "expectancy": 2.0553,
+            "grossProfit": 50.252,
+            "grossLoss": 29.699,
+            "profitFactor": 1.692044,
+            "tStat": 0.612135,
+            "maxDrawdownUsd": 24.485,
+            "maxDrawdownPct": 0.159636,
+            "allocationBaselineUsd": 153.38,
+            "modeledCostUsd": 5.5775,
+            "avgModeledCostBps": 12.1121
+          },
+          "SOLUSDT": {
+            "trades": 2,
+            "closed": 2,
+            "wins": 1,
+            "losses": 1,
+            "winRate": 0.5,
+            "realizedPnl": 1.448,
+            "expectancy": 0.724,
+            "grossProfit": 19.499,
+            "grossLoss": 18.051,
+            "profitFactor": 1.080217,
+            "tStat": 0.038562,
+            "maxDrawdownUsd": 18.051,
+            "maxDrawdownPct": 0.10514,
+            "allocationBaselineUsd": 171.685,
+            "modeledCostUsd": 1.5221,
+            "avgModeledCostBps": 14.6961
+          }
+        },
+        "cost": {
+          "LOW_<=12BPS": {
+            "trades": 6,
+            "closed": 6,
+            "wins": 4,
+            "losses": 2,
+            "winRate": 0.666667,
+            "realizedPnl": 15.634,
+            "expectancy": 2.605667,
+            "grossProfit": 17.518,
+            "grossLoss": 1.884,
+            "profitFactor": 9.298301,
+            "tStat": 1.60222,
+            "maxDrawdownUsd": 1.884,
+            "maxDrawdownPct": 0.01256,
+            "allocationBaselineUsd": 150,
+            "modeledCostUsd": 2.7464,
+            "avgModeledCostBps": 10.1719
+          },
+          "MEDIUM_12_20BPS": {
+            "trades": 17,
+            "closed": 17,
+            "wins": 11,
+            "losses": 6,
+            "winRate": 0.647059,
+            "realizedPnl": -1.249,
+            "expectancy": -0.073471,
+            "grossProfit": 90.242,
+            "grossLoss": 91.491,
+            "profitFactor": 0.986348,
+            "tStat": -0.022736,
+            "maxDrawdownUsd": 68.729,
+            "maxDrawdownPct": 0.435185,
+            "allocationBaselineUsd": 157.9306,
+            "modeledCostUsd": 10.5926,
+            "avgModeledCostBps": 13.1319
+          }
+        },
+        "sizing": {
+          "MEDIUM_150_250": {
+            "trades": 6,
+            "closed": 6,
+            "wins": 3,
+            "losses": 3,
+            "winRate": 0.5,
+            "realizedPnl": -30.574,
+            "expectancy": -5.095667,
+            "grossProfit": 38.155,
+            "grossLoss": 68.729,
+            "profitFactor": 0.555151,
+            "tStat": -0.619677,
+            "maxDrawdownUsd": 68.729,
+            "maxDrawdownPct": 0.397818,
+            "allocationBaselineUsd": 172.765,
+            "modeledCostUsd": 4.1687,
+            "avgModeledCostBps": 13.3895
+          },
+          "SMALL_50_150": {
+            "trades": 17,
+            "closed": 17,
+            "wins": 12,
+            "losses": 5,
+            "winRate": 0.705882,
+            "realizedPnl": 44.959,
+            "expectancy": 2.644647,
+            "grossProfit": 69.605,
+            "grossLoss": 24.646,
+            "profitFactor": 2.824191,
+            "tStat": 1.701314,
+            "maxDrawdownUsd": 22.762,
+            "maxDrawdownPct": 0.151852,
+            "allocationBaselineUsd": 149.8959,
+            "modeledCostUsd": 9.1702,
+            "avgModeledCostBps": 11.9963
+          }
+        },
+        "session": {
+          "UNATTRIBUTED": {
+            "trades": 23,
+            "closed": 23,
+            "wins": 15,
+            "losses": 8,
+            "winRate": 0.652174,
+            "realizedPnl": 14.385,
+            "expectancy": 0.625435,
+            "grossProfit": 107.76,
+            "grossLoss": 93.375,
+            "profitFactor": 1.154056,
+            "tStat": 0.25896,
+            "maxDrawdownUsd": 68.729,
+            "maxDrawdownPct": 0.440961,
+            "allocationBaselineUsd": 155.8617,
+            "modeledCostUsd": 13.339,
+            "avgModeledCostBps": 12.3597
+          }
+        }
+      },
+      "pipeline": {
+        "checks": {
+          "uniqueTradeIds": true,
+          "allClosed": true,
+          "paperOnly": false,
+          "strategyAttributed": false,
+          "assetAttributed": true,
+          "regimeAttributed": false,
+          "sizingAttributed": true,
+          "pnlFinite": true,
+          "confidenceFinite": true,
+          "signalEvidenceAttributed": false,
+          "frictionModeled": true
+        },
+        "failures": [
+          "paperOnly",
+          "strategyAttributed",
+          "regimeAttributed",
+          "signalEvidenceAttributed"
+        ],
+        "pass": false
+      },
+      "research": {
+        "available": false,
+        "walkForwardPass": false,
+        "oosPass": false,
+        "source": null
+      },
+      "gates": [
+        {
+          "code": "PIPELINE_INTEGRITY",
+          "pass": false,
+          "detail": "paperOnly,strategyAttributed,regimeAttributed,signalEvidenceAttributed"
+        },
+        {
+          "code": "PAPER_ONLY",
+          "pass": false,
+          "detail": "non-paper rows present"
+        },
+        {
+          "code": "SAMPLE",
+          "pass": false,
+          "detail": "23/50"
+        },
+        {
+          "code": "PROFIT_FACTOR",
+          "pass": false,
+          "detail": "1.154056>=1.3"
+        },
+        {
+          "code": "EXPECTANCY",
+          "pass": true,
+          "detail": "0.625435>0"
+        },
+        {
+          "code": "WIN_RATE",
+          "pass": true,
+          "detail": "0.652174>=0.45"
+        },
+        {
+          "code": "TSTAT",
+          "pass": false,
+          "detail": "0.25896>=2"
+        },
+        {
+          "code": "DRAWDOWN",
+          "pass": false,
+          "detail": "0.440961<=0.25"
+        },
+        {
+          "code": "REGIME_BREADTH",
+          "pass": false,
+          "detail": "1/2"
+        },
+        {
+          "code": "CALIBRATION_SAMPLE",
+          "pass": false,
+          "detail": "23/30"
+        },
+        {
+          "code": "CALIBRATION_DIVERSITY",
+          "pass": false,
+          "detail": "1/2"
+        },
+        {
+          "code": "BRIER",
+          "pass": false,
+          "detail": "0.236413<=0.2"
+        },
+        {
+          "code": "ECE",
+          "pass": true,
+          "detail": "0.097826<=0.1"
+        },
+        {
+          "code": "WALK_FORWARD",
+          "pass": false,
+          "detail": "missing exact-version evidence"
+        },
+        {
+          "code": "OOS",
+          "pass": false,
+          "detail": "missing exact-version evidence"
+        }
+      ],
+      "interpretation": "Kill criteria triggered. Keep this cohort out of promotion and stop new risk until redesigned/revalidated."
+    },
+    "futures_breakout_short_micro:v7": {
+      "strategyKey": "futures_breakout_short_micro:v7",
+      "status": "KILL",
+      "capitalEligible": false,
+      "liveOrdersAuthorized": false,
+      "killReasons": [
+        "DATA_INTEGRITY:regimeAttributed,signalEvidenceAttributed"
+      ],
+      "metrics": {
+        "trades": 1,
+        "closed": 1,
+        "wins": 0,
+        "losses": 1,
+        "winRate": 0,
+        "realizedPnl": -2.073,
+        "expectancy": -2.073,
+        "grossProfit": 0,
+        "grossLoss": 2.073,
+        "profitFactor": 0,
+        "tStat": null,
+        "maxDrawdownUsd": 2.073,
+        "maxDrawdownPct": 0.01382,
+        "allocationBaselineUsd": 150,
+        "modeledCostUsd": 0.4617,
+        "avgModeledCostBps": 10.2604
+      },
+      "calibration": {
+        "trades": 1,
+        "brier": 0.5625,
+        "ece": 0.75,
+        "bucketsPopulated": 1,
+        "buckets": {
+          "0.7-0.8": {
+            "trades": 1,
+            "avgConfidence": 0.75,
+            "winRate": 0,
+            "calibrationError": 0.75
+          }
+        },
+        "sufficient": false
+      },
+      "segments": {
+        "regime": {
+          "UNATTRIBUTED": {
+            "trades": 1,
+            "closed": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "realizedPnl": -2.073,
+            "expectancy": -2.073,
+            "grossProfit": 0,
+            "grossLoss": 2.073,
+            "profitFactor": 0,
+            "tStat": null,
+            "maxDrawdownUsd": 2.073,
+            "maxDrawdownPct": 0.01382,
+            "allocationBaselineUsd": 150,
+            "modeledCostUsd": 0.4617,
+            "avgModeledCostBps": 10.2604
+          }
+        },
+        "asset": {
+          "BTCUSDT": {
+            "trades": 1,
+            "closed": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "realizedPnl": -2.073,
+            "expectancy": -2.073,
+            "grossProfit": 0,
+            "grossLoss": 2.073,
+            "profitFactor": 0,
+            "tStat": null,
+            "maxDrawdownUsd": 2.073,
+            "maxDrawdownPct": 0.01382,
+            "allocationBaselineUsd": 150,
+            "modeledCostUsd": 0.4617,
+            "avgModeledCostBps": 10.2604
+          }
+        },
+        "cost": {
+          "LOW_<=12BPS": {
+            "trades": 1,
+            "closed": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "realizedPnl": -2.073,
+            "expectancy": -2.073,
+            "grossProfit": 0,
+            "grossLoss": 2.073,
+            "profitFactor": 0,
+            "tStat": null,
+            "maxDrawdownUsd": 2.073,
+            "maxDrawdownPct": 0.01382,
+            "allocationBaselineUsd": 150,
+            "modeledCostUsd": 0.4617,
+            "avgModeledCostBps": 10.2604
+          }
+        },
+        "sizing": {
+          "SMALL_50_150": {
+            "trades": 1,
+            "closed": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "realizedPnl": -2.073,
+            "expectancy": -2.073,
+            "grossProfit": 0,
+            "grossLoss": 2.073,
+            "profitFactor": 0,
+            "tStat": null,
+            "maxDrawdownUsd": 2.073,
+            "maxDrawdownPct": 0.01382,
+            "allocationBaselineUsd": 150,
+            "modeledCostUsd": 0.4617,
+            "avgModeledCostBps": 10.2604
+          }
+        },
+        "session": {
+          "UNATTRIBUTED": {
+            "trades": 1,
+            "closed": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "realizedPnl": -2.073,
+            "expectancy": -2.073,
+            "grossProfit": 0,
+            "grossLoss": 2.073,
+            "profitFactor": 0,
+            "tStat": null,
+            "maxDrawdownUsd": 2.073,
+            "maxDrawdownPct": 0.01382,
+            "allocationBaselineUsd": 150,
+            "modeledCostUsd": 0.4617,
+            "avgModeledCostBps": 10.2604
+          }
+        }
+      },
+      "pipeline": {
+        "checks": {
+          "uniqueTradeIds": true,
+          "allClosed": true,
+          "paperOnly": true,
+          "strategyAttributed": true,
+          "assetAttributed": true,
+          "regimeAttributed": false,
+          "sizingAttributed": true,
+          "pnlFinite": true,
+          "confidenceFinite": true,
+          "signalEvidenceAttributed": false,
+          "frictionModeled": true
+        },
+        "failures": [
+          "regimeAttributed",
+          "signalEvidenceAttributed"
+        ],
+        "pass": false
+      },
+      "research": {
+        "available": false,
+        "walkForwardPass": false,
+        "oosPass": false,
+        "source": null
+      },
+      "gates": [
+        {
+          "code": "PIPELINE_INTEGRITY",
+          "pass": false,
+          "detail": "regimeAttributed,signalEvidenceAttributed"
+        },
+        {
+          "code": "PAPER_ONLY",
+          "pass": true,
+          "detail": "no live contamination"
+        },
+        {
+          "code": "SAMPLE",
+          "pass": false,
+          "detail": "1/50"
+        },
+        {
+          "code": "PROFIT_FACTOR",
+          "pass": false,
+          "detail": "0>=1.3"
+        },
+        {
+          "code": "EXPECTANCY",
+          "pass": false,
+          "detail": "-2.073>0"
+        },
+        {
+          "code": "WIN_RATE",
+          "pass": false,
+          "detail": "0>=0.45"
+        },
+        {
+          "code": "TSTAT",
+          "pass": false,
+          "detail": "NA>=2"
+        },
+        {
+          "code": "DRAWDOWN",
+          "pass": true,
+          "detail": "0.01382<=0.25"
+        },
+        {
+          "code": "REGIME_BREADTH",
+          "pass": false,
+          "detail": "0/2"
+        },
+        {
+          "code": "CALIBRATION_SAMPLE",
+          "pass": false,
+          "detail": "1/30"
+        },
+        {
+          "code": "CALIBRATION_DIVERSITY",
+          "pass": false,
+          "detail": "1/2"
+        },
+        {
+          "code": "BRIER",
+          "pass": false,
+          "detail": "0.5625<=0.2"
+        },
+        {
+          "code": "ECE",
+          "pass": false,
+          "detail": "0.75<=0.1"
+        },
+        {
+          "code": "WALK_FORWARD",
+          "pass": false,
+          "detail": "missing exact-version evidence"
+        },
+        {
+          "code": "OOS",
+          "pass": false,
+          "detail": "missing exact-version evidence"
+        }
+      ],
+      "interpretation": "Kill criteria triggered. Keep this cohort out of promotion and stop new risk until redesigned/revalidated."
+    },
+    "futures_breakout_short_micro:v8": {
+      "strategyKey": "futures_breakout_short_micro:v8",
+      "status": "KEEP_PAPER",
+      "capitalEligible": false,
+      "liveOrdersAuthorized": false,
+      "killReasons": [],
+      "metrics": {
+        "trades": 2,
+        "closed": 2,
+        "wins": 1,
+        "losses": 1,
+        "winRate": 0.5,
+        "realizedPnl": -1.53,
+        "expectancy": -0.765,
+        "grossProfit": 0.867,
+        "grossLoss": 2.397,
+        "profitFactor": 0.361702,
+        "tStat": -0.46875,
+        "maxDrawdownUsd": 2.397,
+        "maxDrawdownPct": 0.01598,
+        "allocationBaselineUsd": 150,
+        "modeledCostUsd": 0.9253,
+        "avgModeledCostBps": 10.2811
+      },
+      "calibration": {
+        "trades": 2,
+        "brier": 0.3125,
+        "ece": 0.25,
+        "bucketsPopulated": 1,
+        "buckets": {
+          "0.7-0.8": {
+            "trades": 2,
+            "avgConfidence": 0.75,
+            "winRate": 0.5,
+            "calibrationError": 0.25
+          }
+        },
+        "sufficient": false
+      },
+      "segments": {
+        "regime": {
+          "RANGE": {
+            "trades": 2,
+            "closed": 2,
+            "wins": 1,
+            "losses": 1,
+            "winRate": 0.5,
+            "realizedPnl": -1.53,
+            "expectancy": -0.765,
+            "grossProfit": 0.867,
+            "grossLoss": 2.397,
+            "profitFactor": 0.361702,
+            "tStat": -0.46875,
+            "maxDrawdownUsd": 2.397,
+            "maxDrawdownPct": 0.01598,
+            "allocationBaselineUsd": 150,
+            "modeledCostUsd": 0.9253,
+            "avgModeledCostBps": 10.2811
+          }
+        },
+        "asset": {
+          "BTCUSDT": {
+            "trades": 1,
+            "closed": 1,
+            "wins": 1,
+            "losses": 0,
+            "winRate": 1,
+            "realizedPnl": 0.867,
+            "expectancy": 0.867,
+            "grossProfit": 0.867,
+            "grossLoss": 0,
+            "profitFactor": null,
+            "tStat": null,
+            "maxDrawdownUsd": 0,
+            "maxDrawdownPct": 0,
+            "allocationBaselineUsd": 150,
+            "modeledCostUsd": 0.4626,
+            "avgModeledCostBps": 10.2811
+          },
+          "ETHUSDT": {
+            "trades": 1,
+            "closed": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "realizedPnl": -2.397,
+            "expectancy": -2.397,
+            "grossProfit": 0,
+            "grossLoss": 2.397,
+            "profitFactor": 0,
+            "tStat": null,
+            "maxDrawdownUsd": 2.397,
+            "maxDrawdownPct": 0.01598,
+            "allocationBaselineUsd": 150,
+            "modeledCostUsd": 0.4626,
+            "avgModeledCostBps": 10.281
+          }
+        },
+        "cost": {
+          "LOW_<=12BPS": {
+            "trades": 2,
+            "closed": 2,
+            "wins": 1,
+            "losses": 1,
+            "winRate": 0.5,
+            "realizedPnl": -1.53,
+            "expectancy": -0.765,
+            "grossProfit": 0.867,
+            "grossLoss": 2.397,
+            "profitFactor": 0.361702,
+            "tStat": -0.46875,
+            "maxDrawdownUsd": 2.397,
+            "maxDrawdownPct": 0.01598,
+            "allocationBaselineUsd": 150,
+            "modeledCostUsd": 0.9253,
+            "avgModeledCostBps": 10.2811
+          }
+        },
+        "sizing": {
+          "SMALL_50_150": {
+            "trades": 2,
+            "closed": 2,
+            "wins": 1,
+            "losses": 1,
+            "winRate": 0.5,
+            "realizedPnl": -1.53,
+            "expectancy": -0.765,
+            "grossProfit": 0.867,
+            "grossLoss": 2.397,
+            "profitFactor": 0.361702,
+            "tStat": -0.46875,
+            "maxDrawdownUsd": 2.397,
+            "maxDrawdownPct": 0.01598,
+            "allocationBaselineUsd": 150,
+            "modeledCostUsd": 0.9253,
+            "avgModeledCostBps": 10.2811
+          }
+        },
+        "session": {
+          "ASIA": {
+            "trades": 1,
+            "closed": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "realizedPnl": -2.397,
+            "expectancy": -2.397,
+            "grossProfit": 0,
+            "grossLoss": 2.397,
+            "profitFactor": 0,
+            "tStat": null,
+            "maxDrawdownUsd": 2.397,
+            "maxDrawdownPct": 0.01598,
+            "allocationBaselineUsd": 150,
+            "modeledCostUsd": 0.4626,
+            "avgModeledCostBps": 10.281
+          },
+          "LONDON": {
+            "trades": 1,
+            "closed": 1,
+            "wins": 1,
+            "losses": 0,
+            "winRate": 1,
+            "realizedPnl": 0.867,
+            "expectancy": 0.867,
+            "grossProfit": 0.867,
+            "grossLoss": 0,
+            "profitFactor": null,
+            "tStat": null,
+            "maxDrawdownUsd": 0,
+            "maxDrawdownPct": 0,
+            "allocationBaselineUsd": 150,
+            "modeledCostUsd": 0.4626,
+            "avgModeledCostBps": 10.2811
+          }
+        }
+      },
+      "pipeline": {
+        "checks": {
+          "uniqueTradeIds": true,
+          "allClosed": true,
+          "paperOnly": true,
+          "strategyAttributed": true,
+          "assetAttributed": true,
+          "regimeAttributed": true,
+          "sizingAttributed": true,
+          "pnlFinite": true,
+          "confidenceFinite": true,
+          "signalEvidenceAttributed": true,
+          "frictionModeled": true
+        },
+        "failures": [],
+        "pass": true
+      },
+      "research": {
+        "available": true,
+        "walkForwardPass": false,
+        "oosPass": false,
+        "source": {
+          "evaluatedAt": "2026-09-11 12:30:10.215848+00",
+          "verdict": "QUARANTINED",
+          "policyVersion": "institutional_v1"
+        }
+      },
+      "gates": [
+        {
+          "code": "PIPELINE_INTEGRITY",
+          "pass": true,
+          "detail": "complete paper attribution"
+        },
+        {
+          "code": "PAPER_ONLY",
+          "pass": true,
+          "detail": "no live contamination"
+        },
+        {
+          "code": "SAMPLE",
+          "pass": false,
+          "detail": "2/50"
+        },
+        {
+          "code": "PROFIT_FACTOR",
+          "pass": false,
+          "detail": "0.361702>=1.3"
+        },
+        {
+          "code": "EXPECTANCY",
+          "pass": false,
+          "detail": "-0.765>0"
+        },
+        {
+          "code": "WIN_RATE",
+          "pass": true,
+          "detail": "0.5>=0.45"
+        },
+        {
+          "code": "TSTAT",
+          "pass": false,
+          "detail": "-0.46875>=2"
+        },
+        {
+          "code": "DRAWDOWN",
+          "pass": true,
+          "detail": "0.01598<=0.25"
+        },
+        {
+          "code": "REGIME_BREADTH",
+          "pass": false,
+          "detail": "0/2"
+        },
+        {
+          "code": "CALIBRATION_SAMPLE",
+          "pass": false,
+          "detail": "2/30"
+        },
+        {
+          "code": "CALIBRATION_DIVERSITY",
+          "pass": false,
+          "detail": "1/2"
+        },
+        {
+          "code": "BRIER",
+          "pass": false,
+          "detail": "0.3125<=0.2"
+        },
+        {
+          "code": "ECE",
+          "pass": false,
+          "detail": "0.25<=0.1"
+        },
+        {
+          "code": "WALK_FORWARD",
+          "pass": false,
+          "detail": "false"
+        },
+        {
+          "code": "OOS",
+          "pass": false,
+          "detail": "false"
+        }
+      ],
+      "interpretation": "Evidence is incomplete or below threshold. Remain PAPER and collect clean exact-version evidence."
+    }
+  },
+  "verdict": "KILL_PRESENT",
+  "rule": "No audit result authorizes real trading. Promotion requires external founder approval, canonical reconciliation and live preflight after exact-version evidence clears all gates."
+}

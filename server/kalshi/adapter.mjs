@@ -3,8 +3,8 @@
 //
 // Two data streams, one adapter:
 //   WS  (wss://trading-api.kalshi.com/trade-api/ws/v2)
-//       → portfolio channel → fills → kalshi:order_filled
-//                           → positions → kalshi:position_updated
+//       → portfolio channel → fills → kalshi:order_filled → processFill()
+//                           → positions → kalshi:position_updated → processPosition()
 //
 //   REST (GET /trade-api/v2/markets, every MARKET_POLL_MS)
 //       → raw markets → normalizeMarket() → market_update
@@ -14,6 +14,8 @@
 
 import { EventEmitter } from 'node:events';
 import KalshiWS from './ws.mjs';
+import { withRetry } from '../utils/retry.mjs';
+import { processFill, processPosition, trackPendingFill, clearPendingFills } from './fillProcessor.mjs';
 
 const KALSHI_REST_BASE = 'https://trading-api.kalshi.com/trade-api/v2';
 const MARKET_POLL_MS   = 5 * 60_000;   // every 5 minutes
@@ -127,24 +129,32 @@ export function publishMarketUpdates(rawMarkets) {
 // ─── Internal REST poll ───────────────────────────────────────────────────────
 
 async function _pollOnce(apiKey) {
-  try {
-    const res = await fetch(
-      `${KALSHI_REST_BASE}/markets?limit=${MARKET_LIMIT}&status=open`,
-      {
-        headers: { Authorization: `Bearer ${apiKey}` },
-        signal:  AbortSignal.timeout(10_000),
+  return withRetry(
+    async () => {
+      const res = await fetch(
+        `${KALSHI_REST_BASE}/markets?limit=${MARKET_LIMIT}&status=open`,
+        {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          signal: AbortSignal.timeout(10_000),
+        }
+      );
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
       }
-    );
-    if (!res.ok) {
-      console.warn(`[kalshi] market poll HTTP ${res.status} — skipping`);
-      return;
-    }
-    const body = await res.json();
-    const markets = body?.markets ?? body ?? [];
-    publishMarketUpdates(Array.isArray(markets) ? markets : []);
-  } catch (err) {
-    console.warn('[kalshi] market poll error:', err.message);
-  }
+      const body = await res.json();
+      const markets = body?.markets ?? body ?? [];
+      publishMarketUpdates(Array.isArray(markets) ? markets : []);
+    },
+    {
+      initialDelayMs: 500,
+      maxRetries: 2,
+      maxDelayMs: 5000,
+    },
+    'kalshi market poll'
+  ).catch(err => {
+    // market poll is best-effort — don't throw
+    console.warn('[kalshi] market poll exhausted retries:', err.message);
+  });
 }
 
 function _startMarketPoll(apiKey) {
@@ -178,6 +188,8 @@ export function startWS() {
       state.lastFill = { ...fill, receivedAt: Date.now() };
       console.log(`[kalshi] ORDER FILLED: ${fill.ticker} ${fill.side} ×${fill.count} @ $${(fill.price ?? 0).toFixed(2)}`);
       _broadcast?.({ type: 'kalshi:order_filled', ...fill, ts: Date.now() });
+      // Process fill: close trade, settle capital, learn
+      processFill(fill);
     } catch (err) {
       console.error('[kalshi] order_filled handler error:', err.message);
     }
@@ -187,6 +199,8 @@ export function startWS() {
     try {
       state.lastPositionUpdate = { ...pos, receivedAt: Date.now() };
       _broadcast?.({ type: 'kalshi:position_updated', ...pos, ts: Date.now() });
+      // Process position: validate against open trades, detect orphans
+      processPosition(pos);
     } catch (err) {
       console.error('[kalshi] position_updated handler error:', err.message);
     }
@@ -201,6 +215,7 @@ export function startWS() {
 export function stopWS() {
   clearInterval(_marketPollTimer);
   _marketPollTimer = null;
+  clearPendingFills();  // clean up pending fill timeouts
   _ws?.stop();
   _ws = null;
   state.wsConnected = false;

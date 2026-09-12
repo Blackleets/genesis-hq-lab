@@ -1,24 +1,26 @@
 // validationGate.mjs — single validation checkpoint for the Quant Lab.
 //
-// Answers: "Does this strategy / system have enough validated edge to receive capital?"
+// Answers: "Does this strategy / system have enough validated edge to receive capital?"\n// Missing/stale walk-forward FAILS (never silent-pass). Infinite PF FAILS.
 //
 // Rules (institutional minimums, stricter than futuresGovernor defaults):
-//   totalTrades     ≥ 30    (MIN_TRADES_FOR_EDGE from alphaValidationEngine)
+//   totalTrades     ≥ configured institutional minimum (PROMOTION_CRITERIA)
 //   profitFactor    ≥ 1.3
 //   expectancy      > 0     (positive EV per trade)
-//   maxDrawdownPct  ≤ 0.15  (15%)
+//   maxDrawdownPct  ≤ configured promotion ceiling
 //   winRate must exist (at least 1 trade)
 //   data must NOT be fixture or mixed with prediction markets
 //
 // Returns:
 //   { approved, status, reasons, metrics, dataMode, nextAction }
 
-import { getAlphaReport, MIN_TRADES_FOR_EDGE } from '../../research/alphaValidationEngine.mjs';
+import { getAlphaReport } from '../../research/alphaValidationEngine.mjs';
 import { getWfCache, isWfCacheStale } from '../wfCache.mjs';
 import { isGlobalSafeMode, refreshGlobalRiskScore, getGlobalRiskDiagnostics } from '../../risk/globalRiskEngine.mjs';
 import { isSafeMode } from '../../memory/reconciliationEngine.mjs';
 import { getFuturesGovernorSnapshot } from '../../crypto/futuresGovernor.mjs';
 import { PROMOTION_CRITERIA } from '../alpha/strategyRegistry.mjs';
+import { evaluateWalkForwardEvidence, evaluateProfitFactorEvidence } from './gateEvidence.mjs';
+export { evaluateWalkForwardEvidence, evaluateProfitFactorEvidence } from './gateEvidence.mjs';
 
 // ── Thresholds (explicit — no magic numbers scattered) ────────────────────────
 
@@ -43,16 +45,7 @@ function checkTradeCount(n) {
 }
 
 function checkProfitFactor(pf) {
-  if (pf == null) {
-    return { pass: false, code: 'PROFIT_FACTOR_UNKNOWN', detail: 'No profit factor available (no winning or losing trades)' };
-  }
-  if (pf === Infinity) {
-    return { pass: true, code: 'PROFIT_FACTOR_INFINITE', detail: 'No losing trades — PF infinite (check for small sample)' };
-  }
-  if (pf < GATE_RULES.minProfitFactor) {
-    return { pass: false, code: 'PROFIT_FACTOR_LOW', detail: `PF ${pf.toFixed(3)} < ${GATE_RULES.minProfitFactor} threshold` };
-  }
-  return { pass: true, code: 'PROFIT_FACTOR_OK', detail: `PF ${pf.toFixed(3)} ≥ ${GATE_RULES.minProfitFactor}` };
+  return evaluateProfitFactorEvidence(pf, { minProfitFactor: GATE_RULES.minProfitFactor });
 }
 
 function checkExpectancy(ev) {
@@ -78,46 +71,7 @@ function checkDrawdown(dd) {
 }
 
 function checkWalkForward() {
-  const cache = getWfCache();
-
-  if (!cache) {
-    return {
-      pass: true,
-      code: 'WF_NOT_RUN',
-      detail: 'Walk-forward not yet run — call GET /api/quant/wf/run to generate OOS evidence',
-    };
-  }
-
-  const stale = isWfCacheStale(24);
-  const { summary } = cache;
-  const robustShort    = summary?.robustShort    ?? false;
-  const robustCombined = summary?.robustCombined ?? false;
-  const judged         = summary?.combinedJudgedWindows ?? 0;
-  const positive       = summary?.combinedPositiveWindows ?? 0;
-  const completedAt    = cache.completedAt ?? cache.cachedAt ?? 'unknown';
-
-  if (stale) {
-    return {
-      pass: true,
-      code: 'WF_STALE',
-      detail: `Walk-forward cache is >24h old (ran ${completedAt}). Re-run for fresh OOS evidence.`,
-    };
-  }
-
-  if (!robustCombined && !robustShort) {
-    return {
-      pass: false,
-      code: 'WF_NOT_ROBUST',
-      detail: `Walk-forward: combined edge positive in ${positive}/${judged} windows — not robust. Need positive in ALL judged windows.`,
-    };
-  }
-
-  const which = robustCombined ? 'COMBINED' : 'SHORT';
-  return {
-    pass: true,
-    code: 'WF_ROBUST',
-    detail: `Walk-forward ${which} edge robust (${positive}/${judged} windows positive, ran ${completedAt})`,
-  };
+  return evaluateWalkForwardEvidence(getWfCache(), { stale: isWfCacheStale(24) });
 }
 
 
@@ -358,7 +312,7 @@ function buildResult(approved, status, checks, reasons, metrics, promoted, nextA
 
 function buildNextAction(status, trades, pf, ev, promoted) {
   if (status === 'SAFE_MODE')         return 'Clear global safe mode before any capital allocation.';
-  if (status === 'INSUFFICIENT_DATA') return `Accumulate ${Math.max(0, 30 - trades)} more closed trades with the futures breakout engine.`;
+  if (status === 'INSUFFICIENT_DATA') return `Accumulate ${Math.max(0, GATE_RULES.minTrades - trades)} more closed trades with the futures breakout engine.`;
   if (status === 'REJECTED') {
     if (pf != null && pf < 1.3) return `Improve profit factor from ${pf?.toFixed(3)} to ≥1.3. Run edgeSearch to find better params.`;
     if (ev != null && ev <= 0)  return 'Expectancy is zero or negative. Run walk-forward validation. Check if scalp trades are polluting the aggregate.';

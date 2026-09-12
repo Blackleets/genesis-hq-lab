@@ -2,6 +2,7 @@
 
 import { getApiOrigin } from '@services/apiBase';
 
+// Same origin as the rest of the app (VITE_API_BASE). '' in dev → Vite proxies /api.
 const BASE = getApiOrigin();
 
 async function get<T>(path: string): Promise<T> {
@@ -125,13 +126,8 @@ export interface PaperStats {
   wins: number;
   winRate: number;
   avgPnlSol: number;
-  avgWinSol: number;
-  avgLossSol: number;
   openPositions: number;
   liveMode: boolean;
-  profitFactor: number;
-  maxDrawdownPct: number;
-  streak: number;
 }
 
 export interface EquityPoint {

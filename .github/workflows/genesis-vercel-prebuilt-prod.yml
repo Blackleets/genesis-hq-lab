@@ -1,0 +1,58 @@
+name: Genesis Vercel Prebuilt Production
+
+on:
+  push:
+    branches:
+      - ops/vercel-prebuilt-prod
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VERCEL_ORG_ID: team_t9SFyhNYBKT3emXnjgK7389K
+      VERCEL_PROJECT_ID: prj_oK22OIjmXpuwM6ma7FhQViFVfwOI
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Verify Vercel credential presence
+        id: auth
+        shell: bash
+        run: |
+          if [ -n "$VERCEL_TOKEN" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "VERCEL_AUTH_AVAILABLE=true"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "VERCEL_AUTH_AVAILABLE=false"
+          fi
+      - name: Install locked dependencies
+        if: steps.auth.outputs.available == 'true'
+        run: npm ci
+      - name: Validate application build
+        if: steps.auth.outputs.available == 'true'
+        run: npm run build
+      - name: Install Vercel CLI
+        if: steps.auth.outputs.available == 'true'
+        run: npm install --global vercel@latest
+      - name: Pull production project settings
+        if: steps.auth.outputs.available == 'true'
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+      - name: Build Vercel output locally
+        if: steps.auth.outputs.available == 'true'
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+      - name: Deploy prebuilt output to production
+        if: steps.auth.outputs.available == 'true'
+        run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+      - name: Stop safely when credential is unavailable
+        if: steps.auth.outputs.available != 'true'
+        run: |
+          echo "VERCEL_TOKEN is not configured in GitHub Actions; production was not modified."

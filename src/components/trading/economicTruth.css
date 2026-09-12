@@ -1,0 +1,70 @@
+.economic-truth {
+  height: 100%;
+  padding: 9px;
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 9px;
+  overflow: auto;
+  background: #070a0f;
+}
+
+.economic-truth__notice {
+  padding: 13px;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  border: 1px solid #2a3747;
+  background: linear-gradient(180deg, #0c1219, #080c12);
+  color: #67e8f9;
+}
+.economic-truth__notice > div { display: grid; gap: 8px; }
+.economic-truth__notice strong { font: 700 9px/1.2 ui-monospace, monospace; letter-spacing: .08em; color: #a5f3fc; }
+.economic-truth__notice span { font: 500 8px/1.55 ui-monospace, monospace; color: #748296; }
+
+.economic-truth__grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(175px, 1fr));
+  gap: 7px;
+}
+.economic-truth__card {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #222c38;
+  background: #0a0e14;
+  overflow: hidden;
+}
+.economic-truth__card header { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+.economic-truth__card header > div { min-width: 0; display: grid; gap: 5px; }
+.economic-truth__card header strong { font: 700 9px/1 ui-monospace, monospace; letter-spacing: .06em; color: #dce5ef; }
+.economic-truth__card header span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 6px/1 ui-monospace, monospace; letter-spacing: .08em; color: #647184; }
+.economic-truth__card header i { flex: 0 0 auto; font: 700 6px/1 ui-monospace, monospace; font-style: normal; letter-spacing: .06em; color: #7a8797; }
+.economic-truth__card header i.is-ready { color: #6ee7b7; }
+.economic-truth__card header i.is-blocked { color: #fbbf24; }
+.economic-truth__card dl { margin: 13px 0 0; display: grid; gap: 7px; }
+.economic-truth__card dl div { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding-bottom: 4px; border-bottom: 1px dotted #202832; }
+.economic-truth__card dt { font: 500 7px/1 ui-monospace, monospace; color: #5e6b7c; }
+.economic-truth__card dd { margin: 0; text-align: right; font: 700 9px/1 ui-monospace, monospace; color: #c5cfdb; }
+.economic-truth__good { color: #6ee7b7 !important; }
+.economic-truth__bad { color: #fca5a5 !important; }
+.economic-truth__warn { color: #fcd34d !important; }
+.economic-truth__card--aggregate { border-color: #3a3440; background: linear-gradient(180deg, #100e13, #0a0c11); }
+.economic-truth__blocked { min-height: 112px; display: grid; align-content: center; justify-items: start; gap: 7px; color: #fbbf24; }
+.economic-truth__blocked strong { font: 700 8px/1 ui-monospace, monospace; letter-spacing: .06em; color: #fcd34d; }
+.economic-truth__blocked p { margin: 0; font: 500 7px/1.45 ui-monospace, monospace; color: #817989; }
+.economic-truth__card footer { display: flex; align-items: flex-start; gap: 6px; padding-top: 8px; border-top: 1px solid #29232d; font: 500 6px/1.4 ui-monospace, monospace; color: #706979; }
+
+@media (max-width: 1180px) {
+  .economic-truth { grid-template-columns: 190px minmax(0, 1fr); }
+  .economic-truth__grid { grid-template-columns: repeat(2, minmax(175px, 1fr)); }
+}
+
+@media (max-width: 780px) {
+  .economic-truth { height: auto; grid-template-columns: 1fr; padding: 10px; }
+  .economic-truth__notice span { font-size: 9px; }
+  .economic-truth__grid { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
+}
+
+@media (max-width: 430px) {
+  .economic-truth__grid { grid-template-columns: 1fr; }
+}

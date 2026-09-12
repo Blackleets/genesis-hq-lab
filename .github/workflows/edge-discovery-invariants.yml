@@ -1,0 +1,26 @@
+name: Edge discovery invariants
+
+on:
+  push:
+    branches: [feat/genesis-life-os, feat/edge-discovery-engine-v1, feat/edge-discovery-governor-v1]
+  pull_request:
+    branches: [main, feat/genesis-life-os]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Edge discovery and intelligence invariants
+        run: node --test server/tests/edgeDiscoveryCharter.test.mjs server/tests/edgeDiscoveryGovernor.test.mjs server/tests/edgeIntelligenceShadow.test.mjs server/tests/profitRatchetExitAudit.test.mjs
+      - name: Production build
+        run: npm run build

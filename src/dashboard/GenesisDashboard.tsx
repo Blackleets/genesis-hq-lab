@@ -19,8 +19,10 @@ import type { Agent } from '@core/types/genesis';
 import CapitalChart from '@dashboard/charts/CapitalChart';
 import AgentPerformanceChart from '@dashboard/charts/AgentPerformanceChart';
 import AgentLivePanel from '@dashboard/AgentLivePanel';
+import FuturesSummaryPanel from '@dashboard/FuturesSummaryPanel';
 import SkillsPanel from '@dashboard/SkillsPanel';
 import ResearchSignalsPanel from '@dashboard/ResearchSignalsPanel';
+import LiveBotActivity from '@dashboard/LiveBotActivity';
 import { OFFICE_ROOMS } from '@animations/officeRooms';
 import { MODULE_BY_ID, stateTKey } from '@core/data/moduleRegistry';
 import type { TKey } from '@core/i18n/translations';
@@ -174,7 +176,9 @@ export default function GenesisDashboard({ onOpenHQ }: Props) {
           </div>
         )}
 
-        {/* Live agent runner — datos reales del backend SQLite */}
+        {/* Live trading — futures desk in production (futures-only / serverless
+            snapshot), legacy prediction-market agent panel when that runner is
+            active (local dev). useLiveTrading().futuresMode is the mode signal. */}
         <section>
           <div className="flex items-center gap-2 mb-2">
             <span className="gx-overline">
@@ -182,14 +186,21 @@ export default function GenesisDashboard({ onOpenHQ }: Props) {
             </span>
             <div className="flex-1 h-px bg-trim" />
           </div>
-          <AgentLivePanel />
+          {live.futuresMode
+            ? <FuturesSummaryPanel futuresDesk={live.futuresDesk} es={lang === 'es'} />
+            : <AgentLivePanel />}
         </section>
 
-        {/* Research signals + agent skills (live from backend) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          <ResearchSignalsPanel />
-          <SkillsPanel />
-        </div>
+        {/* Research signals + agent skills — legacy prediction-market agent only.
+            These read /api/agent/signals and /api/agent/skills, which don't exist
+            in the serverless prod deploy, so hide them in futures mode instead of
+            showing a permanently-empty "no signals yet" shell. */}
+        {!live.futuresMode && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <ResearchSignalsPanel />
+            <SkillsPanel />
+          </div>
+        )}
 
         {/* 4 Division cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -409,6 +420,10 @@ export default function GenesisDashboard({ onOpenHQ }: Props) {
           </section>
         </div>
 
+        {/* Live funding bot — REAL Binance paper activity, visible on entry */}
+        <LiveBotActivity />
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Modules snapshot */}
         <section className="gx-card">
           <header className="gx-card-head gx-card-title">
@@ -476,6 +491,7 @@ export default function GenesisDashboard({ onOpenHQ }: Props) {
           </div>
         </section>
       </div>
+    </div>
     </main>
   );
 }

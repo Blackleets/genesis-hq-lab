@@ -21,10 +21,12 @@ describe('strategyRegistry — static structure', () => {
 
   test('PROMOTION_CRITERIA has correct institutional minimums', async () => {
     const { PROMOTION_CRITERIA } = await import('../quant/alpha/strategyRegistry.mjs');
-    assert.equal(PROMOTION_CRITERIA.minTrades,       30);
+    assert.equal(PROMOTION_CRITERIA.minTrades,       50);
     assert.equal(PROMOTION_CRITERIA.minProfitFactor, 1.3);
     assert.equal(PROMOTION_CRITERIA.minExpectancy,   0);
-    assert.equal(PROMOTION_CRITERIA.maxDrawdownPct,  0.15);
+    assert.equal(PROMOTION_CRITERIA.minWinRate,      0.45);
+    assert.equal(PROMOTION_CRITERIA.minTStat,        2.0);
+    assert.equal(PROMOTION_CRITERIA.maxDrawdownPct,  0.25);
   });
 
   test('scalp strategy has note about negative edge', async () => {

@@ -18,7 +18,13 @@ export function load<T>(): T | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Envelope<T>;
     if (parsed.schemaVersion !== SCHEMA_VERSION) return null;
-    return parsed.data;
+    // Migrate retired browser connector credentials before components hydrate.
+    const data = parsed.data as T & { connectors?: { config?: unknown; status?: string }[] };
+    if (Array.isArray(data?.connectors)) {
+      data.connectors = data.connectors.map(c => ({ ...c, config: {}, status: 'disconnected' }));
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...parsed, data }));
+    }
+    return data;
   } catch {
     return null;
   }
