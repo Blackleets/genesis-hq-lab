@@ -5,7 +5,7 @@
 // - reads public chain state only
 // - no wallet, private key, signing, transaction submission or execution authority
 // - quotes are anchored to one Ethereum block
-// - observed routes are NOT called atomic until an executor simulation proves that fact
+// - observed routes are NOT called atomic until an executor eth_call proves that fact
 // - all modeled assumptions are surfaced in metadata instead of being presented as measured data
 
 import {
@@ -17,6 +17,13 @@ import {
 } from 'viem';
 import { mainnet } from 'viem/chains';
 import { evaluateMevShadowBatch } from './mevShadowEngine.mjs';
+import {
+  applyAtomicSimulationEvidence,
+  buildAtomicSimulationRequest,
+  getAtomicSimulatorConfig,
+  simulateAtomicArbitrage,
+  VENUE_CODES,
+} from './mevAtomicSimulator.mjs';
 
 export const RADAR_MODE = 'SHADOW';
 export const RADAR_EXECUTION_AUTHORITY = false;
@@ -92,6 +99,8 @@ async function quoteUniswapV3(client, { tokenIn, tokenOut, amountIn, fee, blockN
   if (typeof amountOut !== 'bigint' || amountOut <= 0n) throw new Error('uniswap_quote_invalid');
   return {
     venue: `uniswap_v3_${fee}`,
+    venueCode: VENUE_CODES.UNISWAP_V3,
+    fee,
     amountOut,
     poolFeeBps: fee / 100,
     quoteSource: 'onchain_quoter',
@@ -110,6 +119,8 @@ async function quoteSushiV2(client, { tokenIn, tokenOut, amountIn, blockNumber }
   if (typeof amountOut !== 'bigint' || amountOut <= 0n) throw new Error('sushi_quote_invalid');
   return {
     venue: 'sushiswap_v2',
+    venueCode: VENUE_CODES.SUSHISWAP_V2,
+    fee: 0,
     amountOut,
     poolFeeBps: null,
     quoteSource: 'onchain_router',
@@ -238,13 +249,10 @@ export function buildObservedOpportunity({
     blockNumber: blockNumber.toString(),
     quoteAgeMs,
     blockLag: 0,
-    // Inclusion and liquidity confidence are deliberately zero until they are
-    // measured from actual builder / pool evidence. Unknown evidence must not
-    // silently become perfect confidence.
+    // Inclusion and liquidity confidence stay closed until measured from
+    // builder/pool evidence. Atomic simulation does not magically prove capture.
     inclusionProbability: 0,
     liquidityConfidence: 0,
-    // Same-block quotes prove current route economics only. They are NOT an
-    // executor-level atomic simulation, so both simulation/atomic gates remain closed.
     simulationSuccess: false,
     atomic: false,
     routeId: `${cycle.buyVenue}->${cycle.sellVenue}:USDC-WETH-USDC`,
@@ -271,6 +279,8 @@ export async function scanMevOnchainRadarOnce({
   config = getMevRadarConfig(),
   adapters = DEFAULT_ROUTE_ADAPTERS,
   persist = true,
+  atomicSimulatorConfig = getAtomicSimulatorConfig(),
+  atomicSimulator = simulateAtomicArbitrage,
 } = {}) {
   if (!config.providerConfigured && !client) {
     return {
@@ -297,6 +307,8 @@ export async function scanMevOnchainRadarOnce({
   const amountInRaw = parseUnits(String(config.notionalUsd), TOKENS.USDC.decimals);
   const observations = [];
   const failures = [];
+  let atomicSimulationsAttempted = 0;
+  let atomicSimulationsPassed = 0;
 
   for (const [buyAdapter, sellAdapter] of orderedVenuePairs(adapters)) {
     try {
@@ -308,7 +320,7 @@ export async function scanMevOnchainRadarOnce({
         blockNumber,
       });
       const quoteAgeMs = Math.max(0, Date.now() - capturedMs);
-      observations.push(buildObservedOpportunity({
+      let opportunity = buildObservedOpportunity({
         cycle,
         blockNumber,
         capturedAt,
@@ -316,7 +328,47 @@ export async function scanMevOnchainRadarOnce({
         gasPriceWei,
         ethUsd,
         config,
-      }));
+      });
+
+      if (atomicSimulatorConfig?.executorConfigured) {
+        const request = buildAtomicSimulationRequest({
+          tokenIn: TOKENS.USDC.address,
+          tokenMid: TOKENS.WETH.address,
+          amountIn: cycle.startRaw,
+          buyVenue: cycle.first.venueCode,
+          buyFee: cycle.first.fee ?? 0,
+          sellVenue: cycle.second.venueCode,
+          sellFee: cycle.second.fee ?? 0,
+          quotedFinalAmount: cycle.endRaw,
+          slippageReserveBps: config.slippageReserveBps,
+        });
+        atomicSimulationsAttempted += 1;
+        const simulation = await atomicSimulator({
+          client: liveClient,
+          blockNumber,
+          routeId: opportunity.routeId,
+          request,
+          config: atomicSimulatorConfig,
+        });
+        if (simulation?.ok) atomicSimulationsPassed += 1;
+        opportunity = applyAtomicSimulationEvidence({
+          opportunity,
+          simulation,
+          gasPriceWei,
+          ethUsd,
+          outputTokenDecimals: TOKENS.USDC.decimals,
+        });
+      } else {
+        opportunity = applyAtomicSimulationEvidence({
+          opportunity,
+          simulation: { ok: false, reason: 'executor_not_configured' },
+          gasPriceWei,
+          ethUsd,
+          outputTokenDecimals: TOKENS.USDC.decimals,
+        });
+      }
+
+      observations.push(opportunity);
     } catch (error) {
       failures.push({
         route: `${buyAdapter.id}->${sellAdapter.id}`,
@@ -339,6 +391,9 @@ export async function scanMevOnchainRadarOnce({
     ethUsdReference: ethUsd,
     routesScanned: orderedVenuePairs(adapters).length,
     routesQuoted: observations.length,
+    atomicSimulatorConfigured: atomicSimulatorConfig?.executorConfigured === true,
+    atomicSimulationsAttempted,
+    atomicSimulationsPassed,
     failures,
     observations,
     evaluation,
@@ -355,6 +410,9 @@ if (process.argv[1]?.endsWith('mevOnchainRadar.mjs')) {
     blockNumber: result.blockNumber ?? null,
     routesScanned: result.routesScanned,
     routesQuoted: result.routesQuoted ?? 0,
+    atomicSimulatorConfigured: result.atomicSimulatorConfigured ?? false,
+    atomicSimulationsAttempted: result.atomicSimulationsAttempted ?? 0,
+    atomicSimulationsPassed: result.atomicSimulationsPassed ?? 0,
     candidates: result.evaluation?.candidates?.length ?? 0,
     filtered: result.evaluation?.rejected?.length ?? 0,
     error: result.error ?? null,
