@@ -1,7 +1,7 @@
 // mevShadowWorker.mjs
 // Optional long-running SHADOW observer. It never signs or submits transactions.
 // The worker is NOT auto-started by importing this module; operators launch it
-// explicitly with `npm run mev:shadow:watch` or wire it into a deployment later.
+// explicitly with `npm run mev:radar:watch` or wire it into a deployment later.
 
 import { getMevRadarConfig, scanMevOnchainRadarOnce } from './mevOnchainRadar.mjs';
 import {
@@ -23,6 +23,7 @@ function publicRouteRows(evaluation) {
       netEdgeBps: row.netEdgeBps,
       status: row.verdict === 'SHADOW_CANDIDATE' ? 'qualified' : 'filtered',
       blockers: row.blockers ?? [],
+      simulated: row.atomic === true && row.simulationSuccess === true,
       capturedAt: row.capturedAt ?? null,
     }));
 }
@@ -36,6 +37,9 @@ function publishCycle(result) {
     blockNumber: result.blockNumber ?? null,
     routesScanned: result.routesScanned ?? 0,
     routesQuoted: result.routesQuoted ?? 0,
+    atomicSimulatorConfigured: result.atomicSimulatorConfigured === true,
+    atomicSimulationsAttempted: result.atomicSimulationsAttempted ?? 0,
+    atomicSimulationsPassed: result.atomicSimulationsPassed ?? 0,
     evaluated: summary?.evaluated ?? 0,
     qualified: result.evaluation?.candidates?.length ?? 0,
     filtered: result.evaluation?.rejected?.length ?? 0,
@@ -75,6 +79,9 @@ export async function runMevShadowWorker({
         routesScanned: result.routesScanned ?? 0,
         routesQuoted: quoted,
         observationsRecorded,
+        atomicSimulatorConfigured: result.atomicSimulatorConfigured === true,
+        atomicSimulationsAttempted: result.atomicSimulationsAttempted ?? 0,
+        atomicSimulationsPassed: result.atomicSimulationsPassed ?? 0,
         candidates: result.evaluation?.candidates?.length ?? 0,
         filtered: result.evaluation?.rejected?.length ?? 0,
         lastCapturedAt: result.capturedAt ?? null,
@@ -98,6 +105,9 @@ export async function runMevShadowWorker({
         blockNumber: null,
         routesScanned: 0,
         observationsRecorded,
+        atomicSimulatorConfigured: false,
+        atomicSimulationsAttempted: 0,
+        atomicSimulationsPassed: 0,
         candidates: 0,
         filtered: 0,
         error: message,
@@ -107,6 +117,9 @@ export async function runMevShadowWorker({
         providerConfigured: Boolean(config.providerConfigured),
         routesScanned: 0,
         routesQuoted: 0,
+        atomicSimulatorConfigured: false,
+        atomicSimulationsAttempted: 0,
+        atomicSimulationsPassed: 0,
         evaluated: 0,
         qualified: 0,
         filtered: 0,
@@ -124,9 +137,9 @@ if (process.argv[1]?.endsWith('mevShadowWorker.mjs')) {
   const once = process.argv.includes('--once');
   const config = getMevRadarConfig();
 
-  console.log(`[mev-shadow] mode=SHADOW executionAuthority=false interval=${config.intervalMs}ms`);
+  console.log(`[arbitrage-radar] mode=SHADOW executionAuthority=false interval=${config.intervalMs}ms`);
   if (!config.providerConfigured) {
-    console.log('[mev-shadow] Provider not configured');
+    console.log('[arbitrage-radar] Provider not configured');
   }
 
   await runMevShadowWorker({
@@ -138,6 +151,7 @@ if (process.argv[1]?.endsWith('mevShadowWorker.mjs')) {
         at: new Date().toISOString(),
         block: result.blockNumber ?? null,
         quoted: result.routesQuoted ?? 0,
+        simulated: result.atomicSimulationsPassed ?? 0,
         qualified: result.evaluation?.candidates?.length ?? 0,
         filtered: result.evaluation?.rejected?.length ?? 0,
       }));
