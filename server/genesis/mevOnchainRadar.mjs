@@ -6,6 +6,7 @@
 // - no wallet, private key, signing, transaction submission or execution authority
 // - quotes are anchored to one Ethereum block
 // - observed routes are NOT called atomic until an executor eth_call proves that fact
+// - liquidity confidence comes from same-block size stress, never a guessed volume label
 // - all modeled assumptions are surfaced in metadata instead of being presented as measured data
 
 import {
@@ -24,6 +25,12 @@ import {
   simulateAtomicArbitrage,
   VENUE_CODES,
 } from './mevAtomicSimulator.mjs';
+import {
+  applyLiquidityProof,
+  getLiquidityProofConfig,
+  scaleRawAmount,
+  scoreLiquidityCurve,
+} from './mevLiquidityProof.mjs';
 
 export const RADAR_MODE = 'SHADOW';
 export const RADAR_EXECUTION_AUTHORITY = false;
@@ -249,8 +256,6 @@ export function buildObservedOpportunity({
     blockNumber: blockNumber.toString(),
     quoteAgeMs,
     blockLag: 0,
-    // Inclusion and liquidity confidence stay closed until measured from
-    // builder/pool evidence. Atomic simulation does not magically prove capture.
     inclusionProbability: 0,
     liquidityConfidence: 0,
     simulationSuccess: false,
@@ -281,6 +286,7 @@ export async function scanMevOnchainRadarOnce({
   persist = true,
   atomicSimulatorConfig = getAtomicSimulatorConfig(),
   atomicSimulator = simulateAtomicArbitrage,
+  liquidityProofConfig = getLiquidityProofConfig(),
 } = {}) {
   if (!config.providerConfigured && !client) {
     return {
@@ -309,6 +315,8 @@ export async function scanMevOnchainRadarOnce({
   const failures = [];
   let atomicSimulationsAttempted = 0;
   let atomicSimulationsPassed = 0;
+  let liquidityProbesAttempted = 0;
+  let liquidityProbesPassed = 0;
 
   for (const [buyAdapter, sellAdapter] of orderedVenuePairs(adapters)) {
     try {
@@ -329,6 +337,34 @@ export async function scanMevOnchainRadarOnce({
         ethUsd,
         config,
       });
+
+      liquidityProbesAttempted += 1;
+      try {
+        const probeAmountRaw = scaleRawAmount(amountInRaw, liquidityProofConfig.probeMultiplier);
+        const probeCycle = await quoteAtomicCycleCandidate({
+          client: liveClient,
+          buyAdapter,
+          sellAdapter,
+          amountInRaw: probeAmountRaw,
+          blockNumber,
+        });
+        const measurement = scoreLiquidityCurve({
+          baseAmountIn: toUsd(cycle.startRaw),
+          baseAmountOut: toUsd(cycle.endRaw),
+          probeAmountIn: toUsd(probeCycle.startRaw),
+          probeAmountOut: toUsd(probeCycle.endRaw),
+          config: liquidityProofConfig,
+        });
+        if (measurement.known) liquidityProbesPassed += 1;
+        opportunity = applyLiquidityProof(opportunity, measurement);
+      } catch (error) {
+        opportunity = applyLiquidityProof(opportunity, {
+          known: false,
+          confidence: 0,
+          reason: 'liquidity_probe_failed',
+          error: error instanceof Error ? error.message.slice(0, 200) : String(error).slice(0, 200),
+        });
+      }
 
       if (atomicSimulatorConfig?.executorConfigured) {
         const request = buildAtomicSimulationRequest({
@@ -391,6 +427,8 @@ export async function scanMevOnchainRadarOnce({
     ethUsdReference: ethUsd,
     routesScanned: orderedVenuePairs(adapters).length,
     routesQuoted: observations.length,
+    liquidityProbesAttempted,
+    liquidityProbesPassed,
     atomicSimulatorConfigured: atomicSimulatorConfig?.executorConfigured === true,
     atomicSimulationsAttempted,
     atomicSimulationsPassed,
@@ -410,6 +448,8 @@ if (process.argv[1]?.endsWith('mevOnchainRadar.mjs')) {
     blockNumber: result.blockNumber ?? null,
     routesScanned: result.routesScanned,
     routesQuoted: result.routesQuoted ?? 0,
+    liquidityProbesAttempted: result.liquidityProbesAttempted ?? 0,
+    liquidityProbesPassed: result.liquidityProbesPassed ?? 0,
     atomicSimulatorConfigured: result.atomicSimulatorConfigured ?? false,
     atomicSimulationsAttempted: result.atomicSimulationsAttempted ?? 0,
     atomicSimulationsPassed: result.atomicSimulationsPassed ?? 0,
