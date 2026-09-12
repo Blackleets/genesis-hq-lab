@@ -49,13 +49,6 @@ function finitePositive(value) {
   return Number.isFinite(value) && value > 0;
 }
 
-function envNumber(name, fallback) {
-  const raw = process.env[name];
-  if (raw == null || raw === '') return fallback;
-  const value = Number(raw);
-  return Number.isFinite(value) ? value : fallback;
-}
-
 export function getMevRadarConfig(env = process.env) {
   const rpcUrl = env.GENESIS_MEV_RPC_URL?.trim() || null;
   return {
@@ -245,17 +238,20 @@ export function buildObservedOpportunity({
     blockNumber: blockNumber.toString(),
     quoteAgeMs,
     blockLag: 0,
-    inclusionProbability: 1,
-    liquidityConfidence: 1,
-    // IMPORTANT: same-block quotes validate route economics but do not prove an atomic
-    // executor transaction. Until an executor eth_call/fork simulation is connected,
-    // the institutional evaluator must fail this gate closed.
-    simulationSuccess: true,
+    // Inclusion and liquidity confidence are deliberately zero until they are
+    // measured from actual builder / pool evidence. Unknown evidence must not
+    // silently become perfect confidence.
+    inclusionProbability: 0,
+    liquidityConfidence: 0,
+    // Same-block quotes prove current route economics only. They are NOT an
+    // executor-level atomic simulation, so both simulation/atomic gates remain closed.
+    simulationSuccess: false,
     atomic: false,
     routeId: `${cycle.buyVenue}->${cycle.sellVenue}:USDC-WETH-USDC`,
     prohibitedTacticDetected: false,
     evidence: {
       source: 'ethereum_mainnet_same_block_quotes',
+      sameBlockQuoteSuccess: true,
       poolFeesEmbeddedInQuote: true,
       gasModel: config.gasUnitsSource,
       routeGasUnits,
@@ -263,6 +259,8 @@ export function buildObservedOpportunity({
       slippageReserveBps: config.slippageReserveBps,
       fundingModel: config.fundingModel,
       ethUsdReference: ethUsd,
+      inclusionModel: 'unmeasured_fail_closed',
+      liquidityConfidenceModel: 'unmeasured_fail_closed',
       exactAtomicSimulation: false,
     },
   };
