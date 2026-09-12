@@ -1,9 +1,6 @@
 name: Genesis Vercel Prebuilt Production
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 concurrency:
@@ -65,8 +62,6 @@ jobs:
       - name: Deploy prebuilt output to canonical production
         if: steps.auth.outputs.available == 'true'
         run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
-      - name: Stop safely when credential is unavailable
+      - name: Manual deploy unavailable without token
         if: steps.auth.outputs.available != 'true'
-        run: |
-          echo "VERCEL_TOKEN is not configured in GitHub Actions; production was not modified."
-          exit 1
+        run: echo "VERCEL_TOKEN is not configured; canonical Git integration remains the active production deployment path."
