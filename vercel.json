@@ -3,8 +3,11 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "ignoreCommand": "if [ \"$VERCEL_PROJECT_ID\" = \"prj_Yp21E1BsjHf1Q3bcvbxtIE7DNoEP\" ]; then echo 'Skipping legacy genesis-hq-lab-real project'; exit 0; else exit 1; fi",
   "git": {
-    "deploymentEnabled": false
+    "deploymentEnabled": {
+      "capture-tape": false
+    }
   },
   "rewrites": [
     {
