@@ -1363,6 +1363,7 @@ const server = createServer(async (req, res) => {
   }
 
   if (url.pathname === '/api/trading/pause' && req.method === 'POST') {
+    if (!requireAuth(req, res)) return;
     try {
       const { setOrgState } = await import('./command/orgState.mjs');
       setOrgState({ mode: 'rest' });
@@ -1372,6 +1373,7 @@ const server = createServer(async (req, res) => {
   }
 
   if (url.pathname === '/api/trading/resume' && req.method === 'POST') {
+    if (!requireAuth(req, res)) return;
     try {
       const { setOrgState } = await import('./command/orgState.mjs');
       setOrgState({ mode: 'active' });
