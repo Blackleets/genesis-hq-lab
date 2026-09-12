@@ -10,9 +10,9 @@
 // - no transaction submission
 //
 // The evaluator is deliberately fail-closed. A visually attractive spread is
-// NOT a candidate unless quotes are fresh, simulation is valid, every material
-// cost is known, the buffered economics are positive, and the opportunity also
-// survives a harsher stress-cost scenario.
+// NOT a candidate unless route identity is known, quotes are fresh, simulation
+// is explicitly successful, every material cost is known, and the opportunity
+// also survives a harsher stress-cost scenario.
 
 import { createHash } from 'node:crypto';
 
@@ -28,6 +28,7 @@ export const DEFAULT_GATES = Object.freeze({
   minNetPnlUsd: 1,
   minExpectedNetPnlUsd: 0.5,
   minInclusionProbability: 0.70,
+  minLiquidityConfidence: 0.70,
   gasSafetyMultiplier: 1.25,
   slippageSafetyMultiplier: 1.50,
   stressGasMultiplier: 1.75,
@@ -78,12 +79,12 @@ export function evaluateAtomicDexArb({
   capturedAt = new Date().toISOString(),
   chainId = 'unknown',
   blockNumber = null,
-  quoteAgeMs = 0,
-  blockLag = 0,
-  inclusionProbability = 1,
-  liquidityConfidence = 1,
-  simulationSuccess = true,
-  atomic = true,
+  quoteAgeMs = null,
+  blockLag = null,
+  inclusionProbability = null,
+  liquidityConfidence = null,
+  simulationSuccess = false,
+  atomic = false,
   prohibitedTacticDetected = false,
   routeId = '',
   gates = {},
@@ -102,8 +103,10 @@ export function evaluateAtomicDexArb({
 
   const knownCosts = [gasCostUsd, lpFeesUsd, slippageCostUsd, flashLoanCostUsd, otherCostsUsd]
     .every(finiteNonNegative);
-  const inclusionP = clamp01(inclusionProbability);
-  const liquidityP = clamp01(liquidityConfidence);
+  const inclusionKnown = Number.isFinite(inclusionProbability);
+  const liquidityKnown = Number.isFinite(liquidityConfidence);
+  const inclusionP = inclusionKnown ? clamp01(inclusionProbability) : 0;
+  const liquidityP = liquidityKnown ? clamp01(liquidityConfidence) : 0;
   const grossPnlUsd = sellAmountOut - amountIn;
   const grossEdgeBps = (grossPnlUsd / amountIn) * 10_000;
 
@@ -136,11 +139,19 @@ export function evaluateAtomicDexArb({
   const failedAttemptCostUsd = finiteNonNegative(failureCostUsd)
     ? failureCostUsd
     : (finiteNonNegative(gasCostUsd) ? gasCostUsd : null);
-  const expectedNetPnlUsd = netPnlUsd == null || failedAttemptCostUsd == null
+  const expectedNetPnlUsd = netPnlUsd == null || failedAttemptCostUsd == null || !inclusionKnown
     ? null
     : (netPnlUsd * inclusionP) - (failedAttemptCostUsd * (1 - inclusionP));
 
+  const routeIdentityKnown = [tokenIn, tokenOut, buyDex, sellDex]
+    .every((v) => typeof v === 'string' && v.trim().length > 0);
+  const chainKnown = chainId !== null && chainId !== undefined && String(chainId) !== 'unknown' && String(chainId).trim() !== '';
+  const blockAnchored = blockNumber !== null && blockNumber !== undefined && String(blockNumber).trim() !== '';
+
   const gateResults = {
+    routeIdentityKnown,
+    chainKnown,
+    blockAnchored,
     knownCosts,
     atomic: atomic === true,
     simulationSuccess: simulationSuccess === true,
@@ -152,7 +163,10 @@ export function evaluateAtomicDexArb({
     minNetEdge: netEdgeBps != null && netEdgeBps >= policy.minNetEdgeBps,
     minNetPnl: netPnlUsd != null && netPnlUsd >= policy.minNetPnlUsd,
     stressPositive: stressNetPnlUsd != null && stressNetPnlUsd > 0,
-    inclusionProbability: inclusionP >= policy.minInclusionProbability,
+    inclusionProbabilityKnown: inclusionKnown,
+    inclusionProbability: inclusionKnown && inclusionP >= policy.minInclusionProbability,
+    liquidityConfidenceKnown: liquidityKnown,
+    liquidityConfidence: liquidityKnown && liquidityP >= policy.minLiquidityConfidence,
     expectedNetPositive: expectedNetPnlUsd != null && expectedNetPnlUsd >= policy.minExpectedNetPnlUsd,
   };
   const blockers = Object.entries(gateResults)
@@ -222,8 +236,8 @@ export function evaluateAtomicDexArb({
     stressCostsUsd: stressCostsUsd == null ? null : round(stressCostsUsd),
     stressNetPnlUsd: stressNetPnlUsd == null ? null : round(stressNetPnlUsd),
     stressNetEdgeBps: stressNetEdgeBps == null ? null : round(stressNetEdgeBps),
-    inclusionProbability: inclusionP,
-    liquidityConfidence: liquidityP,
+    inclusionProbability: inclusionKnown ? inclusionP : null,
+    liquidityConfidence: liquidityKnown ? liquidityP : null,
     failedAttemptCostUsd,
     expectedNetPnlUsd: expectedNetPnlUsd == null ? null : round(expectedNetPnlUsd),
     robustnessScore,
