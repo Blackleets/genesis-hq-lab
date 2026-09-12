@@ -9,11 +9,13 @@
 
 ## Deployment rule
 
-Automatic Vercel Git deployments are disabled at repository configuration level to prevent duplicate builds from multiple Vercel projects linked to the same repository.
+Automatic Vercel Git deployment remains enabled for the canonical project. `vercel.json` uses `VERCEL_PROJECT_ID` in the Ignored Build Step so the legacy project `genesis-hq-lab-real` skips builds before consuming the normal build path.
 
-Production deployment is performed only by `.github/workflows/genesis-vercel-prebuilt-prod.yml`, which targets the canonical project ID above, validates quant/economic safety checks, builds the application, creates a Vercel prebuilt artifact, and deploys it to production.
+The legacy Vercel project ID is `prj_Yp21E1BsjHf1Q3bcvbxtIE7DNoEP`. It is non-canonical and must not be used as a production deployment path.
 
-`genesis-hq-lab-real` is legacy/non-canonical and must not be used as a production deployment path. Its existence does not grant LIVE trading authority.
+`.github/workflows/genesis-vercel-prebuilt-prod.yml` is retained as a manual emergency/prebuilt deployment path for the canonical project only. It requires `VERCEL_TOKEN`; normal production deploys do not depend on that secret because Git integration is the active path.
+
+The research branch `capture-tape` remains excluded from Vercel Git deployment.
 
 ## Trading boundary
 
