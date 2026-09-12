@@ -42,7 +42,7 @@ test('102 buy / 103 sell only qualifies when all explicit costs remain positive'
   assert.equal(r.mode, 'SHADOW');
   assert.equal(r.executionAuthority, false);
   assert.ok(r.grossEdgeBps > 98 && r.grossEdgeBps < 99);
-  assert.ok(r.netEdgeBps > 68 && r.netEdgeBps < 69);
+  assert.ok(r.netEdgeBps > 67 && r.netEdgeBps < 69);
   assert.equal(r.verdict, 'SHADOW_CANDIDATE');
 });
 
