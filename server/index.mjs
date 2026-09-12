@@ -169,7 +169,7 @@ const FUTURES_ONLY_MODE = !['0', 'false', 'no', 'off'].includes((process.env.FUT
 function applyCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 
 function sendJson(res, status, payload) {
@@ -185,7 +185,14 @@ function sendJson(res, status, payload) {
 
 function requireAuth(req, res) {
   const secret = process.env.API_SECRET?.trim();
-  if (!secret) return true; // auth disabled when API_SECRET not set
+  if (!secret) {
+    sendJson(res, 503, {
+      ok: false,
+      error: 'api_secret_not_configured',
+      message: 'Write API is disabled until API_SECRET is configured',
+    });
+    return false;
+  }
   const auth = req.headers['authorization'] ?? '';
   if (auth === `Bearer ${secret}`) return true;
   sendJson(res, 401, { ok: false, error: 'unauthorized', message: 'Invalid or missing API_SECRET token' });
