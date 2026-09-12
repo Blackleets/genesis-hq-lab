@@ -1,4 +1,4 @@
-name: MEV shadow v2 checks
+name: MEV shadow checks
 
 on:
   pull_request:
@@ -6,14 +6,23 @@ on:
       - 'server/genesis/mevArbitrageShadow.mjs'
       - 'server/genesis/mevShadowEngine.mjs'
       - 'server/genesis/mevShadowLedger.mjs'
+      - 'server/genesis/mevOnchainRadar.mjs'
+      - 'server/genesis/mevRadarState.mjs'
+      - 'server/genesis/mevShadowWorker.mjs'
       - 'server/tests/mev*.test.mjs'
+      - 'api/mev/**'
+      - 'src/components/trading/ArbitrageRadarPanel.tsx'
+      - 'src/workflows/WorkScreen.tsx'
+      - 'src/workflows/EdgeScorecardView.tsx'
       - 'docs/MEV_ARBITRAGE_SHADOW.md'
+      - '.env.example'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/mev-shadow-v2.yml'
   push:
     branches:
       - 'experiment/mev-arbitrage-shadow-v2'
+      - 'experiment/mev-autonomous-radar'
 
 jobs:
   verify:
@@ -34,6 +43,10 @@ jobs:
           node --check server/genesis/mevArbitrageShadow.mjs
           node --check server/genesis/mevShadowEngine.mjs
           node --check server/genesis/mevShadowLedger.mjs
+          node --check server/genesis/mevOnchainRadar.mjs
+          node --check server/genesis/mevRadarState.mjs
+          node --check server/genesis/mevShadowWorker.mjs
+          node --check api/mev/radar.js
       - name: Focused MEV shadow tests
         run: npm run mev:shadow:test
       - name: Production build

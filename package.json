@@ -38,7 +38,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "mev:shadow": "node --env-file-if-exists=.env server/genesis/mevArbitrageShadow.mjs",
-    "mev:shadow:test": "node --test --test-concurrency=1 server/tests/mevArbitrageShadow.test.mjs server/tests/mevShadowLedger.test.mjs server/tests/mevShadowEngine.test.mjs"
+    "mev:radar:once": "node --env-file-if-exists=.env server/genesis/mevShadowWorker.mjs --once",
+    "mev:radar:watch": "node --env-file-if-exists=.env server/genesis/mevShadowWorker.mjs",
+    "mev:shadow:test": "node --test --test-concurrency=1 server/tests/mevArbitrageShadow.test.mjs server/tests/mevShadowLedger.test.mjs server/tests/mevShadowEngine.test.mjs server/tests/mevOnchainRadar.test.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

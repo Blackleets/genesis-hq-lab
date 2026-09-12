@@ -1,10 +1,10 @@
-# Genesis MEV Arbitrage Shadow v2
+# Genesis MEV Arbitrage Shadow
 
 This lane researches benign DEX arbitrage only. It is designed as an evidence machine first and an execution system never by default.
 
 ## Allowed scope
 
-- atomic DEX-to-DEX arbitrage
+- atomic DEX-to-DEX arbitrage research
 - pool-to-pool price dislocations
 - backrun-style arbitrage that does not target a victim
 - block-anchored quote comparison
@@ -27,9 +27,9 @@ This lane researches benign DEX arbitrage only. It is designed as an evidence ma
 - no change to v9
 - no change to ratchet, TP/SL or sizing
 - no LIVE unlock
-- no hidden fallback from unknown costs to zero
+- no hidden fallback from unknown evidence to perfect confidence
 
-## v2 promotion gates
+## Evidence gates
 
 A spread is not a candidate just because the raw price difference is positive. Every candidate must pass all of these gates:
 
@@ -38,7 +38,7 @@ A spread is not a candidate just because the raw price difference is positive. E
 3. evaluation is anchored to a block
 4. all material costs are known
 5. the route is explicitly atomic
-6. simulation explicitly succeeded
+6. executor-level simulation explicitly succeeded
 7. prohibited MEV tactics are absent
 8. quote age is within the configured freshness window
 9. block lag is within tolerance
@@ -51,39 +51,82 @@ A spread is not a candidate just because the raw price difference is positive. E
 16. liquidity confidence is measured and above threshold
 17. expected net PnL remains positive after failed-attempt cost
 
-Unknown evidence fails closed to `NO_GO`.
+Unknown evidence fails closed internally. The product UI presents those rows as **Filtered** instead of exposing internal research enum names.
 
-## Cost model
+## Real-block radar
 
-The base model is deliberately more conservative than the raw quote:
+`server/genesis/mevOnchainRadar.mjs` adds a read-only Ethereum mainnet radar.
 
-- gas receives a safety multiplier
-- slippage receives a safety multiplier
-- LP fees are included explicitly
-- flash-loan cost is included explicitly
-- other known costs are included explicitly
-- failed-attempt cost is included in expected PnL
+Current route universe:
 
-A second stress model increases gas and slippage again. A route that looks profitable in the base model but loses under stress is rejected.
+- USDC -> WETH -> USDC
+- Uniswap V3 0.05%
+- Uniswap V3 0.30%
+- SushiSwap V2
+- every ordered cross-venue pair, excluding self-comparisons
 
-## Route identity + deduplication
+For every scan it:
 
-Every route gets a deterministic fingerprint derived from:
+1. reads a single Ethereum block number
+2. obtains same-block on-chain quotes from each route adapter
+3. chains the exact output of leg one into leg two
+4. reads current gas price
+5. derives an ETH/USD reference from same-block DEX quotes
+6. applies a conservative whole-route gas budget and adverse-slippage reserve
+7. records the observed route into the existing institutional evaluator
 
-- chain
-- input token
-- output token
-- buy venue
-- sell venue
-- route id
+Pool fee and current price impact are already embedded in the router/quoter output and are not subtracted a second time.
 
-Repeated observations of the same route are deduplicated for ranking so one noisy route cannot dominate the board by spamming snapshots.
+### Important fail-closed boundary
+
+Same-block quotes are **not** the same thing as an atomic executor simulation. Therefore the radar deliberately records:
+
+- `atomic=false`
+- `simulationSuccess=false`
+- unmeasured inclusion probability = fail-closed
+- unmeasured liquidity confidence = fail-closed
+
+This prevents a visually attractive spread from being promoted before an exact executor transaction can be simulated on a fork or with `eth_call` against a real executor contract.
+
+## Autonomous observer
+
+`server/genesis/mevShadowWorker.mjs` can run the read-only radar continuously:
+
+```bash
+npm run mev:radar:once
+npm run mev:radar:watch
+```
+
+The worker is **not** auto-started by importing the module and this branch does not create a daemon, cronjob, wallet or live executor. Deployment enablement remains a separate operator decision.
+
+Every cycle writes:
+
+- local heartbeat
+- append-only shadow evidence
+- compact read-only radar snapshot in the existing `org_state` KV table
+
+The compact snapshot can follow the repository's existing replication path to Supabase without adding a new database schema or exposing RPC credentials.
+
+## Dashboard surface
+
+The board room now prioritizes **Arbitrage Radar**. It intentionally does not display engine version numbers or internal `NO_GO` enums.
+
+Visible states are human-readable:
+
+- `OBSERVING`
+- `QUALIFIED`
+- `FILTERED`
+- `SHADOW`
+
+Funding/directional research remains available in a collapsed background section instead of competing with the arbitrage focus.
+
+The dashboard shows no sample economics. If the provider is missing it displays `Provider not configured`; if the endpoint is unavailable it displays `Backend offline — npm run start`.
 
 ## Evidence ledger
 
-`server/genesis/mevShadowLedger.mjs` adds an append-only SQLite evidence ledger.
+`server/genesis/mevShadowLedger.mjs` is the append-only SQLite evidence ledger.
 
-It records both candidates and rejections so the research process cannot hide failures. Stored fields include:
+It records both qualified and filtered evaluations so the research process cannot hide failures. Stored fields include:
 
 - route fingerprint
 - chain/block
@@ -96,39 +139,24 @@ It records both candidates and rejections so the research process cannot hide fa
 - expected net PnL
 - net edge bps
 - robustness score
-- verdict and blockers
+- internal verdict and blockers
 - complete original evaluation payload
 
-The ledger summary intentionally labels all opportunity economics as **theoretical**. It never presents them as realized account balance or realized profit.
+All opportunity economics are **theoretical**. They are never presented as realized account balance or realized profit.
 
-## Orchestration
-
-`server/genesis/mevShadowEngine.mjs` provides the isolated pipeline:
+## Configuration
 
 ```text
-quote snapshots
-    ↓
-fail-closed evaluator
-    ↓
-NO_GO / SHADOW_CANDIDATE
-    ↓
-append-only evidence ledger (explicit opt-in)
-    ↓
-deduplicated ranking
-    ↓
-research summary
+GENESIS_MEV_RPC_URL=
+GENESIS_MEV_NOTIONAL_USD=1000
+GENESIS_MEV_ROUTE_GAS_UNITS=450000
+GENESIS_MEV_SLIPPAGE_RESERVE_BPS=10
+GENESIS_MEV_FLASH_LOAN_BPS=0
+GENESIS_MEV_SCAN_INTERVAL_MS=12000
 ```
 
-Persistence is explicit (`persist=true`), never implicit.
-
-## Command
-
-```bash
-npm run mev:shadow
-```
-
-At this stage the CLI exposes the evaluator policy and safety boundary. The system still does not connect wallets or submit transactions.
+Do not commit provider keys. `GENESIS_MEV_RPC_URL` belongs in deployment secrets/environment configuration.
 
 ## Next evidence milestone
 
-The next legitimate step is a public-data scanner/adapter layer that provides block-anchored DEX quotes, measured gas, liquidity depth and simulation results to this evaluator. Only after a large SHADOW dataset shows recurring positive **expected and stress-adjusted net edge** should execution even be discussed.
+The remaining critical boundary is exact atomic executor simulation plus measured inclusion/liquidity evidence. Until those exist, real-block observations are valuable research data but remain filtered from execution. Only a large dataset with recurring positive expected and stress-adjusted economics should justify discussing a micro-live executor.
