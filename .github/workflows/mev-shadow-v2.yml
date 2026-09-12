@@ -1,0 +1,40 @@
+name: MEV shadow v2 checks
+
+on:
+  pull_request:
+    paths:
+      - 'server/genesis/mevArbitrageShadow.mjs'
+      - 'server/genesis/mevShadowEngine.mjs'
+      - 'server/genesis/mevShadowLedger.mjs'
+      - 'server/tests/mev*.test.mjs'
+      - 'docs/MEV_ARBITRAGE_SHADOW.md'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/mev-shadow-v2.yml'
+  push:
+    branches:
+      - 'experiment/mev-arbitrage-shadow-v2'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Module syntax
+        run: |
+          node --check server/genesis/mevArbitrageShadow.mjs
+          node --check server/genesis/mevShadowEngine.mjs
+          node --check server/genesis/mevShadowLedger.mjs
+      - name: Focused MEV shadow tests
+        run: npm run mev:shadow:test
+      - name: Production build
+        run: npm run build
