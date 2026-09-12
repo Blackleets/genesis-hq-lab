@@ -73,20 +73,42 @@ For every scan it:
 4. reads current gas price
 5. derives an ETH/USD reference from same-block DEX quotes
 6. applies a conservative whole-route gas budget and adverse-slippage reserve
-7. records the observed route into the existing institutional evaluator
+7. optionally runs an exact read-only executor simulation when a compatible executor is configured
+8. records the resulting evidence into the institutional evaluator
 
 Pool fee and current price impact are already embedded in the router/quoter output and are not subtracted a second time.
 
+## Atomic simulation proof layer
+
+`server/genesis/mevAtomicSimulator.mjs` adds the next evidence boundary.
+
+The simulator uses only `eth_call`/gas estimation semantics. It has no signer and cannot broadcast transactions. It also rejects arbitrary target+calldata execution: the expected executor interface accepts only allowlisted venue codes and validated fee tiers.
+
+When a compatible executor is configured, every attempted route can produce:
+
+- exact simulation block
+- exact final output amount
+- measured gas units
+- deterministic SHA-256 proof binding route + request + block + output + gas
+
+A revert, invalid output, malformed route, unknown venue, unsupported fee tier or excessive gas fails closed.
+
+If no executor is configured, the radar continues collecting same-block quote evidence but leaves the atomic gate closed.
+
+See `docs/ARBITRAGE_ATOMIC_SIMULATION.md` for the contract boundary.
+
 ### Important fail-closed boundary
 
-Same-block quotes are **not** the same thing as an atomic executor simulation. Therefore the radar deliberately records:
+Same-block quotes are **not** the same thing as an atomic executor simulation. Even a successful atomic simulation is **not** proof that the transaction can win against competing searchers.
 
-- `atomic=false`
-- `simulationSuccess=false`
-- unmeasured inclusion probability = fail-closed
-- unmeasured liquidity confidence = fail-closed
+Therefore these remain independent requirements:
 
-This prevents a visually attractive spread from being promoted before an exact executor transaction can be simulated on a fork or with `eth_call` against a real executor contract.
+- measured inclusion probability
+- measured liquidity confidence
+- failed-attempt economics
+- positive stress-adjusted expectancy
+
+The integration test explicitly verifies that successful atomic simulation alone does not create a qualified opportunity.
 
 ## Autonomous observer
 
@@ -104,12 +126,13 @@ Every cycle writes:
 - local heartbeat
 - append-only shadow evidence
 - compact read-only radar snapshot in the existing `org_state` KV table
+- atomic simulation telemetry when configured
 
 The compact snapshot can follow the repository's existing replication path to Supabase without adding a new database schema or exposing RPC credentials.
 
 ## Dashboard surface
 
-The board room now prioritizes **Arbitrage Radar**. It intentionally does not display engine version numbers or internal `NO_GO` enums.
+The board room prioritizes **Arbitrage Radar**. It intentionally does not display engine version numbers or internal `NO_GO` enums.
 
 Visible states are human-readable:
 
@@ -140,7 +163,7 @@ It records both qualified and filtered evaluations so the research process canno
 - net edge bps
 - robustness score
 - internal verdict and blockers
-- complete original evaluation payload
+- complete original evaluation payload, including atomic simulation proof when present
 
 All opportunity economics are **theoretical**. They are never presented as realized account balance or realized profit.
 
@@ -153,10 +176,13 @@ GENESIS_MEV_ROUTE_GAS_UNITS=450000
 GENESIS_MEV_SLIPPAGE_RESERVE_BPS=10
 GENESIS_MEV_FLASH_LOAN_BPS=0
 GENESIS_MEV_SCAN_INTERVAL_MS=12000
+GENESIS_MEV_EXECUTOR_ADDRESS=
+GENESIS_MEV_SIMULATION_FROM=
+GENESIS_MEV_MAX_SIM_GAS_UNITS=1200000
 ```
 
-Do not commit provider keys. `GENESIS_MEV_RPC_URL` belongs in deployment secrets/environment configuration.
+Do not commit provider keys. `GENESIS_MEV_RPC_URL` belongs in deployment secrets/environment configuration. The simulator does not accept or require a private key.
 
 ## Next evidence milestone
 
-The remaining critical boundary is exact atomic executor simulation plus measured inclusion/liquidity evidence. Until those exist, real-block observations are valuable research data but remain filtered from execution. Only a large dataset with recurring positive expected and stress-adjusted economics should justify discussing a micro-live executor.
+The next critical boundary is **capture probability**, not another indicator. We need measured liquidity-depth confidence and inclusion/competition evidence. Until those exist, even atomically simulatable routes remain filtered from execution. Only a large SHADOW dataset with recurring positive expected and stress-adjusted economics should justify discussing a micro-live executor.

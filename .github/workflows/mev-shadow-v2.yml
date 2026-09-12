@@ -7,6 +7,7 @@ on:
       - 'server/genesis/mevShadowEngine.mjs'
       - 'server/genesis/mevShadowLedger.mjs'
       - 'server/genesis/mevOnchainRadar.mjs'
+      - 'server/genesis/mevAtomicSimulator.mjs'
       - 'server/genesis/mevRadarState.mjs'
       - 'server/genesis/mevShadowWorker.mjs'
       - 'server/tests/mev*.test.mjs'
@@ -15,6 +16,7 @@ on:
       - 'src/workflows/WorkScreen.tsx'
       - 'src/workflows/EdgeScorecardView.tsx'
       - 'docs/MEV_ARBITRAGE_SHADOW.md'
+      - 'docs/ARBITRAGE_ATOMIC_SIMULATION.md'
       - '.env.example'
       - 'package.json'
       - 'package-lock.json'
@@ -23,6 +25,8 @@ on:
     branches:
       - 'experiment/mev-arbitrage-shadow-v2'
       - 'experiment/mev-autonomous-radar'
+      - 'experiment/arbitrage-radar-clean'
+      - 'experiment/arbitrage-atomic-simulation'
 
 jobs:
   verify:
@@ -44,6 +48,7 @@ jobs:
           node --check server/genesis/mevShadowEngine.mjs
           node --check server/genesis/mevShadowLedger.mjs
           node --check server/genesis/mevOnchainRadar.mjs
+          node --check server/genesis/mevAtomicSimulator.mjs
           node --check server/genesis/mevRadarState.mjs
           node --check server/genesis/mevShadowWorker.mjs
           node --check api/mev/radar.js
