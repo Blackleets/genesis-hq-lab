@@ -24,6 +24,7 @@ async function main() {
   const forwardPath = arg('--forward');
   const deepLedgerPath = arg('--deep-ledger');
   const outPath = arg('--out', 'quant-evidence/edge-hypotheses-latest.json');
+  const queueHistoryPath = arg('--queue-history', 'quant-evidence/edge-hypotheses-history.jsonl');
   const reportPath = arg('--report', 'quant-evidence/edge-discovery-governor-latest.json');
   const historyPath = arg('--history', 'quant-evidence/edge-discovery-governor-history.jsonl');
 
@@ -53,6 +54,7 @@ async function main() {
   await mkdir(dirname(reportPath), { recursive: true });
   await writeFile(outPath, `${JSON.stringify(governedHypotheses, null, 2)}\n`);
   await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+  await appendFile(queueHistoryPath, `${JSON.stringify(governedHypotheses)}\n`);
   await appendFile(historyPath, `${JSON.stringify(report)}\n`);
 
   console.log(JSON.stringify({
