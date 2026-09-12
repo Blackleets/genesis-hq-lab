@@ -1,5 +1,5 @@
 import { CoinLogo } from './CoinLogo';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Activity, WifiOff } from 'lucide-react';
 import QuantChart, { type ChartTrade } from '@workflows/QuantChart';
 import { useExecutions, useMarketData, usePaperPositions, useRunnerTelemetry } from './useTradingDesk';
@@ -20,6 +20,7 @@ function compactLabel(value: unknown) {
 type BotTone = 'active' | 'watch' | 'offline';
 
 export function MarketChart({ positionOverlay = true }: { positionOverlay?: boolean }) {
+  const [showSignalTrades, setShowSignalTrades] = useState(false);
   const { symbol, timeframe, setTimeframe, market } = useMarketData();
   const executions = useExecutions();
   const positions = usePaperPositions();
@@ -77,6 +78,7 @@ export function MarketChart({ positionOverlay = true }: { positionOverlay?: bool
   }, [activePosition, latestSymbolDecision, runnerReady, runnerResource.state, symbol]);
 
   const trades = useMemo<ChartTrade[]>(() => {
+    if (!showSignalTrades) return [];
     const byId = new Map([...(executions.data ?? []), ...(positions.data ?? [])].map((trade) => [trade.id, trade]));
 
     return [...byId.values()]
@@ -115,7 +117,7 @@ export function MarketChart({ positionOverlay = true }: { positionOverlay?: bool
           decisionProfile: readDecisionField(latestPairDecision?.profile),
         };
       });
-  }, [decisions, executions.data, positions.data, symbol]);
+  }, [decisions, executions.data, positions.data, showSignalTrades, symbol]);
 
   const change = market.data?.changePct;
 
@@ -134,6 +136,15 @@ export function MarketChart({ positionOverlay = true }: { positionOverlay?: bool
         </div>
         <div className="market-chart__timeframes" aria-label="Chart timeframe">
           {TRADING_TIMEFRAMES.map((item) => <button key={item} type="button" onClick={() => setTimeframe(item)} className={timeframe === item ? 'is-active' : ''} aria-pressed={timeframe === item}>{item}</button>)}
+          <button
+            type="button"
+            onClick={() => setShowSignalTrades((visible) => !visible)}
+            className={showSignalTrades ? 'is-active' : ''}
+            aria-pressed={showSignalTrades}
+            title="Show or hide v9 PAPER signal-bot executions on the chart"
+          >
+            {showSignalTrades ? 'V9 ON' : 'V9 HIDDEN'}
+          </button>
         </div>
         <div className={`market-chart__bot-state market-chart__bot-state--${botState.tone}`} data-source="SYSTEM / DECISION DATA" aria-live="polite">
           <span><Activity size={11} aria-hidden="true" /> BOT</span>
