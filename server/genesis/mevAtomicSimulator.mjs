@@ -24,7 +24,7 @@ export const EXECUTOR_ABI = parseAbi([
 ]);
 
 function validAddress(value) {
-  return typeof value === 'string' && isAddress(value);
+  return typeof value === 'string' && isAddress(value, { strict: false });
 }
 
 function toBigInt(value, fallback = null) {
