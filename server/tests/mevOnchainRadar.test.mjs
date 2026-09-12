@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseUnits } from 'viem';
 
 import {
   buildObservedOpportunity,
@@ -14,26 +13,6 @@ import {
 
 const USDC = { symbol: 'USDC', address: '0x0000000000000000000000000000000000000001', decimals: 6 };
 const WETH = { symbol: 'WETH', address: '0x0000000000000000000000000000000000000002', decimals: 18 };
-
-function fakeAdapter(id, { buyWeth = '0.5', ethUsd = '2000', cycleUsd = '1010' } = {}) {
-  return {
-    id,
-    async quote(_client, { tokenIn, tokenOut }) {
-      if (tokenIn.symbol === 'USDC' && tokenOut.symbol === 'WETH') {
-        return { venue: id, amountOut: parseUnits(buyWeth, 18), quoteSource: 'test' };
-      }
-      if (tokenIn.symbol === 'WETH' && tokenOut.symbol === 'USDC') {
-        const isReferenceEth = true;
-        return {
-          venue: id,
-          amountOut: parseUnits(isReferenceEth ? ethUsd : cycleUsd, 6),
-          quoteSource: 'test',
-        };
-      }
-      throw new Error('unsupported_pair');
-    },
-  };
-}
 
 test('radar remains structurally SHADOW only', () => {
   assert.equal(RADAR_MODE, 'SHADOW');
@@ -108,8 +87,12 @@ test('observed same-block quote is not mislabeled as exact atomic simulation', (
   });
 
   assert.equal(opportunity.atomic, false);
-  assert.equal(opportunity.simulationSuccess, true);
+  assert.equal(opportunity.simulationSuccess, false);
+  assert.equal(opportunity.inclusionProbability, 0);
+  assert.equal(opportunity.liquidityConfidence, 0);
+  assert.equal(opportunity.evidence.sameBlockQuoteSuccess, true);
   assert.equal(opportunity.evidence.exactAtomicSimulation, false);
+  assert.equal(opportunity.evidence.inclusionModel, 'unmeasured_fail_closed');
   assert.equal(opportunity.chainId, 1);
   assert.equal(opportunity.blockNumber, '123');
 });
@@ -125,7 +108,7 @@ test('missing provider fails closed without network access', async () => {
   assert.equal(result.routesScanned, 0);
 });
 
-test('injected real-block style scan evaluates observations but atomic gate keeps them filtered', async () => {
+test('injected real-block style scan evaluates observations but evidence gates keep them filtered', async () => {
   const fakeClient = {
     getBlockNumber: async () => 123456n,
     getGasPrice: async () => 10000000000n,
@@ -164,4 +147,6 @@ test('injected real-block style scan evaluates observations but atomic gate keep
   assert.equal(result.evaluation.candidates.length, 0);
   assert.equal(result.evaluation.rejected.length, 2);
   assert.ok(result.evaluation.rejected.every((row) => row.blockers.includes('atomic')));
+  assert.ok(result.evaluation.rejected.every((row) => row.blockers.includes('simulationSuccess')));
+  assert.ok(result.evaluation.rejected.every((row) => row.blockers.includes('inclusionProbability')));
 });
