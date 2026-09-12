@@ -3,6 +3,8 @@
 //
 // This module NEVER signs or submits a transaction. It only performs eth_call
 // style contract simulation against a separately configured executor address.
+// The executor interface is deliberately narrow: routes are expressed as
+// allowlisted venue codes + fee tiers, never arbitrary target/calldata pairs.
 // If the executor is absent, malformed, reverts, or returns inconsistent data,
 // the opportunity remains filtered.
 
@@ -12,13 +14,14 @@ import { formatUnits, isAddress, parseAbi } from 'viem';
 export const ATOMIC_SIMULATION_VERSION = 'atomic_sim_v1';
 export const SIMULATION_EXECUTION_AUTHORITY = false;
 
-export const EXECUTOR_ABI = parseAbi([
-  'function simulateArbitrage((address tokenIn,address tokenMid,uint256 amountIn,address buyTarget,bytes buyData,address sellTarget,bytes sellData,uint256 minFinalAmount,uint256 deadline) request) returns (uint256 finalAmountOut)',
-]);
+export const VENUE_CODES = Object.freeze({
+  UNISWAP_V3: 1,
+  SUSHISWAP_V2: 2,
+});
 
-function validHexData(value) {
-  return typeof value === 'string' && /^0x(?:[0-9a-fA-F]{2})*$/.test(value);
-}
+export const EXECUTOR_ABI = parseAbi([
+  'function simulateArbitrage((address tokenIn,address tokenMid,uint256 amountIn,uint8 buyVenue,uint24 buyFee,uint8 sellVenue,uint24 sellFee,uint256 minFinalAmount,uint256 deadline) request) returns (uint256 finalAmountOut)',
+]);
 
 function validAddress(value) {
   return typeof value === 'string' && isAddress(value);
@@ -32,6 +35,17 @@ function toBigInt(value, fallback = null) {
   } catch {
     return fallback;
   }
+}
+
+function validVenueCode(value) {
+  return Number.isInteger(value) && Object.values(VENUE_CODES).includes(value);
+}
+
+function validFee(value, venueCode) {
+  if (!Number.isInteger(value) || value < 0 || value > 1_000_000) return false;
+  if (venueCode === VENUE_CODES.UNISWAP_V3) return value === 100 || value === 500 || value === 3000 || value === 10000;
+  if (venueCode === VENUE_CODES.SUSHISWAP_V2) return value === 0;
+  return false;
 }
 
 export function getAtomicSimulatorConfig(env = process.env) {
@@ -57,14 +71,45 @@ export function validateAtomicSimulationRequest(request) {
   if (!request || typeof request !== 'object') return { ok: false, errors: ['request_missing'] };
   if (!validAddress(request.tokenIn)) errors.push('tokenIn');
   if (!validAddress(request.tokenMid)) errors.push('tokenMid');
-  if (!validAddress(request.buyTarget)) errors.push('buyTarget');
-  if (!validAddress(request.sellTarget)) errors.push('sellTarget');
-  if (!validHexData(request.buyData) || request.buyData === '0x') errors.push('buyData');
-  if (!validHexData(request.sellData) || request.sellData === '0x') errors.push('sellData');
+  if (!validVenueCode(request.buyVenue)) errors.push('buyVenue');
+  if (!validVenueCode(request.sellVenue)) errors.push('sellVenue');
+  if (!validFee(request.buyFee, request.buyVenue)) errors.push('buyFee');
+  if (!validFee(request.sellFee, request.sellVenue)) errors.push('sellFee');
   if (!(toBigInt(request.amountIn, -1n) > 0n)) errors.push('amountIn');
   if (!(toBigInt(request.minFinalAmount, -1n) > 0n)) errors.push('minFinalAmount');
   if (!(toBigInt(request.deadline, -1n) > 0n)) errors.push('deadline');
   return { ok: errors.length === 0, errors };
+}
+
+export function buildAtomicSimulationRequest({
+  tokenIn,
+  tokenMid,
+  amountIn,
+  buyVenue,
+  buyFee = 0,
+  sellVenue,
+  sellFee = 0,
+  quotedFinalAmount,
+  slippageReserveBps = 10,
+  nowSeconds = Math.floor(Date.now() / 1000),
+  ttlSeconds = 60,
+}) {
+  const finalRaw = toBigInt(quotedFinalAmount, null);
+  const reserve = Math.max(0, Math.min(5_000, Number(slippageReserveBps) || 0));
+  const minFinalAmount = finalRaw == null
+    ? null
+    : (finalRaw * BigInt(Math.floor(10_000 - reserve))) / 10_000n;
+  return {
+    tokenIn,
+    tokenMid,
+    amountIn: toBigInt(amountIn, 0n),
+    buyVenue,
+    buyFee,
+    sellVenue,
+    sellFee,
+    minFinalAmount,
+    deadline: BigInt(Math.floor(nowSeconds + Math.max(10, ttlSeconds))),
+  };
 }
 
 export function atomicSimulationProof({
