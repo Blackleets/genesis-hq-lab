@@ -1,0 +1,1 @@
+Final review branch includes read-only atomic simulation plumbing, fail-closed validation, simulation proof hashing, telemetry, documentation and focused tests. GitHub Actions remains the verification authority.
