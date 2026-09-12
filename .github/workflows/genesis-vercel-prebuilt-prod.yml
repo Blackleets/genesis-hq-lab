@@ -3,8 +3,12 @@ name: Genesis Vercel Prebuilt Production
 on:
   push:
     branches:
-      - ops/vercel-prebuilt-prod
+      - main
   workflow_dispatch:
+
+concurrency:
+  group: genesis-vercel-production
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -12,7 +16,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     env:
       VERCEL_ORG_ID: team_t9SFyhNYBKT3emXnjgK7389K
       VERCEL_PROJECT_ID: prj_oK22OIjmXpuwM6ma7FhQViFVfwOI
@@ -36,23 +40,33 @@ jobs:
           fi
       - name: Install locked dependencies
         if: steps.auth.outputs.available == 'true'
-        run: npm ci
+        run: npm ci --no-audit --no-fund
+      - name: Validate economic and trading safety invariants
+        if: steps.auth.outputs.available == 'true'
+        run: node --test server/tests/economicScoreboard.test.mjs server/tests/edgeIntelligenceShadow.test.mjs server/tests/edgeDiscoveryGovernor.test.mjs server/tests/profitRatchetExitAudit.test.mjs
       - name: Validate application build
         if: steps.auth.outputs.available == 'true'
         run: npm run build
       - name: Install Vercel CLI
         if: steps.auth.outputs.available == 'true'
         run: npm install --global vercel@latest
-      - name: Pull production project settings
+      - name: Pull canonical production project settings
         if: steps.auth.outputs.available == 'true'
         run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+      - name: Verify canonical project link
+        if: steps.auth.outputs.available == 'true'
+        shell: bash
+        run: |
+          test -f .vercel/project.json
+          grep -q 'prj_oK22OIjmXpuwM6ma7FhQViFVfwOI' .vercel/project.json
       - name: Build Vercel output locally
         if: steps.auth.outputs.available == 'true'
         run: vercel build --prod --token="$VERCEL_TOKEN"
-      - name: Deploy prebuilt output to production
+      - name: Deploy prebuilt output to canonical production
         if: steps.auth.outputs.available == 'true'
         run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
       - name: Stop safely when credential is unavailable
         if: steps.auth.outputs.available != 'true'
         run: |
           echo "VERCEL_TOKEN is not configured in GitHub Actions; production was not modified."
+          exit 1
