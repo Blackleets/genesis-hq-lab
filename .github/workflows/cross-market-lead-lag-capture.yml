@@ -1,0 +1,142 @@
+# RESEARCH_ONLY BTC-USDT spot/perpetual cross-market evidence.
+# Public read-only OKX endpoints. Never places orders or changes trading gates.
+# NOTE: GitHub cron schedules only run from the default branch. This workflow lives
+# on feat/genesis-life-os, so an explicit `capture:` trigger commit is supported
+# for branch-local evidence collection while ordinary code pushes remain tests-only.
+name: cross-market-lead-lag-capture
+
+on:
+  schedule:
+    - cron: "4,9,14,19,24,29,34,39,44,49,54,59 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - .github/workflows/cross-market-lead-lag-capture.yml
+      - .github/genesis/cross-market-capture-trigger.txt
+      - server/genesis/crossMarketLeadLagCapture.mjs
+      - server/research/crossMarketLeadLagStudy.mjs
+      - server/tests/crossMarketLeadLagCapture.test.mjs
+      - server/tests/crossMarketLeadLagStudy.test.mjs
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cross-market-lead-lag-capture
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: code
+        uses: actions/checkout@v4
+      - name: tape
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
+        uses: actions/checkout@v4
+        with:
+          ref: capture-tape
+          path: tape
+      - name: verify causal capture and statistical discipline
+        run: node --test server/tests/crossMarketLeadLagCapture.test.mjs server/tests/crossMarketLeadLagStudy.test.mjs
+      - name: verify exchange clock provenance
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p tape/paper-tape
+          verify_clock() {
+            local phase="$1"
+            local local_before local_after response
+            local_before=$(date +%s%3N)
+            response=$(curl --fail --silent --show-error --max-time 15 'https://www.okx.com/api/v5/public/time')
+            local_after=$(date +%s%3N)
+            PHASE="$phase" LOCAL_BEFORE="$local_before" LOCAL_AFTER="$local_after" RESPONSE="$response" node <<'NODE'
+          const fs = require('node:fs');
+          const body = JSON.parse(process.env.RESPONSE);
+          const exchangeMs = Number(body?.data?.[0]?.ts);
+          const before = Number(process.env.LOCAL_BEFORE);
+          const after = Number(process.env.LOCAL_AFTER);
+          if (String(body?.code) !== '0' || !Number.isFinite(exchangeMs)) {
+            throw new Error(`Invalid OKX server-time response: ${body?.code ?? 'unknown'} ${body?.msg ?? ''}`.trim());
+          }
+          const localMidpointMs = Math.round((before + after) / 2);
+          const skewMs = localMidpointMs - exchangeMs;
+          const roundTripMs = after - before;
+          const maxAbsClockSkewMs = 5_000;
+          const payload = {
+            mode: 'RESEARCH_ONLY',
+            provider: 'okx_public_time',
+            endpoint: 'https://www.okx.com/api/v5/public/time',
+            phase: process.env.PHASE,
+            checkedAt: new Date(after).toISOString(),
+            exchangeAsOf: new Date(exchangeMs).toISOString(),
+            localMidpointAsOf: new Date(localMidpointMs).toISOString(),
+            skewMs,
+            roundTripMs,
+            maxAbsClockSkewMs,
+            pass: Math.abs(skewMs) <= maxAbsClockSkewMs,
+            policy: 'FAIL_CLOSED_BEFORE_MARKET_CAPTURE_IF_RUNNER_VS_EXCHANGE_CLOCK_SKEW_EXCEEDS_5S',
+            securityType: 'PUBLIC_READ_ONLY_NO_API_KEY',
+          };
+          fs.writeFileSync('tape/paper-tape/cross-market-clock-provenance-latest.json', `${JSON.stringify(payload, null, 2)}\n`);
+          if (!payload.pass) throw new Error(`OKX clock skew ${skewMs}ms exceeds ${maxAbsClockSkewMs}ms`);
+          console.log(JSON.stringify(payload));
+          NODE
+          }
+          verify_clock signal_time
+      - name: capture causal maturity pair
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
+        shell: bash
+        run: |
+          set -euo pipefail
+          # First observation is the signal-time snapshot. The second is deliberately
+          # delayed into the predeclared 10-25m maturity window so outcomes can mature
+          # causally even when branch-local trigger commits are hours apart.
+          node server/genesis/crossMarketLeadLagCapture.mjs --out tape/paper-tape/cross-market-latest.json --jsonl tape/paper-tape/cross-market.jsonl
+          sleep 660
+          local_before=$(date +%s%3N)
+          response=$(curl --fail --silent --show-error --max-time 15 'https://www.okx.com/api/v5/public/time')
+          local_after=$(date +%s%3N)
+          PHASE="maturity_time" LOCAL_BEFORE="$local_before" LOCAL_AFTER="$local_after" RESPONSE="$response" node <<'NODE'
+          const fs = require('node:fs');
+          const body = JSON.parse(process.env.RESPONSE);
+          const exchangeMs = Number(body?.data?.[0]?.ts);
+          const before = Number(process.env.LOCAL_BEFORE);
+          const after = Number(process.env.LOCAL_AFTER);
+          if (String(body?.code) !== '0' || !Number.isFinite(exchangeMs)) throw new Error('Invalid OKX server-time response');
+          const localMidpointMs = Math.round((before + after) / 2);
+          const skewMs = localMidpointMs - exchangeMs;
+          const maxAbsClockSkewMs = 5_000;
+          const payload = {
+            mode: 'RESEARCH_ONLY', provider: 'okx_public_time', endpoint: 'https://www.okx.com/api/v5/public/time',
+            phase: process.env.PHASE, checkedAt: new Date(after).toISOString(), exchangeAsOf: new Date(exchangeMs).toISOString(),
+            localMidpointAsOf: new Date(localMidpointMs).toISOString(), skewMs, roundTripMs: after - before,
+            maxAbsClockSkewMs, pass: Math.abs(skewMs) <= maxAbsClockSkewMs,
+            policy: 'FAIL_CLOSED_BEFORE_MARKET_CAPTURE_IF_RUNNER_VS_EXCHANGE_CLOCK_SKEW_EXCEEDS_5S', securityType: 'PUBLIC_READ_ONLY_NO_API_KEY',
+          };
+          fs.writeFileSync('tape/paper-tape/cross-market-clock-provenance-latest.json', `${JSON.stringify(payload, null, 2)}\n`);
+          if (!payload.pass) throw new Error(`OKX clock skew ${skewMs}ms exceeds ${maxAbsClockSkewMs}ms`);
+          console.log(JSON.stringify(payload));
+          NODE
+          node server/genesis/crossMarketLeadLagCapture.mjs --out tape/paper-tape/cross-market-latest.json --jsonl tape/paper-tape/cross-market.jsonl
+      - name: evaluate predeclared lead-lag protocol
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
+        run: node server/research/crossMarketLeadLagStudy.mjs tape/paper-tape/cross-market.jsonl --out tape/paper-tape/cross-market-study-latest.json
+      - name: publish durable evidence
+        if: github.event_name != 'push' || startsWith(github.event.head_commit.message, 'capture:')
+        working-directory: tape
+        shell: bash
+        run: |
+          git config user.name "genesis-capture"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f paper-tape/cross-market-latest.json paper-tape/cross-market.jsonl paper-tape/cross-market-study-latest.json paper-tape/cross-market-clock-provenance-latest.json
+          if git diff --staged --quiet; then
+            echo "no change"
+            exit 0
+          fi
+          git commit -m "cross-market capture/study $(date -u +%Y-%m-%dT%H:%MZ)"
+          git pull --rebase origin capture-tape
+          git push

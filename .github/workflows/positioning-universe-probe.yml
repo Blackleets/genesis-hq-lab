@@ -1,0 +1,67 @@
+name: positioning-universe-probe
+
+on:
+  schedule:
+    - cron: "12,42 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - .github/workflows/positioning-universe-probe.yml
+      - server/genesis/researchUniverseProbe.mjs
+      - server/genesis/researchProviderProbe.mjs
+      - server/genesis/okxResearchContext.mjs
+      - server/tests/researchUniverseProbe.test.mjs
+      - server/tests/researchProviderProbe.test.mjs
+      - server/tests/okxVolatilityShock.test.mjs
+
+permissions:
+  contents: write
+
+concurrency:
+  group: positioning-universe-probe
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: code
+        uses: actions/checkout@v4
+      - name: tape
+        uses: actions/checkout@v4
+        with:
+          ref: capture-tape
+          path: tape
+      - name: verify admission logic
+        run: node --test server/tests/researchUniverseProbe.test.mjs server/tests/researchProviderProbe.test.mjs server/tests/okxVolatilityShock.test.mjs
+      - name: probe public OKX positioning universe
+        run: node server/genesis/researchUniverseProbe.mjs --out tape/paper-tape/positioning-universe-probe-latest.json
+      - name: assert research-only boundary
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const x = JSON.parse(fs.readFileSync('tape/paper-tape/positioning-universe-probe-latest.json','utf8'));
+          if (x.mode !== 'RESEARCH_ONLY') throw new Error('mode boundary violated');
+          if (x.policy?.missingDimensionExcludesSymbol !== true) throw new Error('admission gate missing');
+          if (x.policy?.substitutionsAllowed !== false) throw new Error('silent substitution forbidden');
+          if (x.boundaries?.executionAuthority !== false || x.boundaries?.liveTrading !== false || x.boundaries?.realOrders !== false) throw new Error('capital boundary violated');
+          if (x.boundaries?.candidatePromotion !== false || x.boundaries?.holdoutRanking !== false) throw new Error('research boundary violated');
+          NODE
+      - name: publish durable admission evidence
+        working-directory: tape
+        shell: bash
+        run: |
+          git config user.name "genesis-universe-probe"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f paper-tape/positioning-universe-probe-latest.json
+          if git diff --staged --quiet; then echo "no change"; exit 0; fi
+          git commit -m "positioning universe probe $(date -u +%Y-%m-%dT%H:%MZ)"
+          for attempt in 1 2 3; do
+            git pull --rebase origin capture-tape
+            if git push origin HEAD:capture-tape; then exit 0; fi
+            sleep $((attempt*2))
+          done
+          exit 1

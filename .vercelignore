@@ -5,6 +5,19 @@ logs/
 /data/
 *.log
 *.png
+# …but keep the public PNG sprites/tilesets the app serves at runtime
+# (office furniture, kenney tilemaps). Without this they 404 in prod and the
+# office view renders broken-image icons.
+!public/**/*.png
 tmp-*.json
 .playwright-mcp/
 .tunnel/
+
+# Vercel Hobby plan caps Serverless Functions at 12. These endpoints are
+# demos / never called by the SPA — they run on the Render backend instead.
+# Excluding them keeps the Vercel deploy under the limit (a 13th function
+# fails the WHOLE deployment, which spams deploy-failure emails).
+api/learning/
+api/system/status.js
+api/system/version.js
+api/system/strategy.js

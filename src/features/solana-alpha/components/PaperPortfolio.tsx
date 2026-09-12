@@ -34,16 +34,17 @@ export function PaperPortfolio({ stats, positions, trades, onReset }: Props) {
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#0a0e1a', border: '1px solid #1e2a3a', borderRadius: 8, overflow: 'hidden', boxShadow: 'inset 0 1px 0 rgba(255,210,74,.08)' }}>
       <div style={{ padding: '8px 12px', borderBottom: '1px solid #1e2a3a', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         <span style={{ fontSize: 10, color: '#ffd24a', fontWeight: 800, letterSpacing: 1.2 }}>PAPER PORTFOLIO</span>
-        <span style={{ fontSize: 9, color: '#64748b', background: '#111827', borderRadius: 3, padding: '1px 5px' }}>live_mode=false</span>
+        <span style={{ fontSize: 9, color: '#64748b', background: '#111827', borderRadius: 3, padding: '1px 5px' }}>live_mode={String(stats.liveMode)}</span>
         <button
           onClick={onReset}
-          style={{ marginLeft: 'auto', fontSize: 9, color: '#94a3b8', background: '#111827', border: '1px solid #1e2a3a', borderRadius: 3, padding: '2px 6px', cursor: 'pointer' }}
+          disabled={!stats.liveMode}
+          title={stats.liveMode ? 'Reset paper balance' : 'Solo lectura: el reset requiere el backend en vivo, no el snapshot de producción.'}
+          style={{ marginLeft: 'auto', fontSize: 9, color: stats.liveMode ? '#94a3b8' : '#475569', background: '#111827', border: '1px solid #1e2a3a', borderRadius: 3, padding: '2px 6px', cursor: stats.liveMode ? 'pointer' : 'not-allowed' }}
         >
           Reset
         </button>
       </div>
 
-      {/* Primary stats bar — 4 cols */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 1, background: '#111827', flexShrink: 0 }}>
         {[
           { label: 'Balance', value: `${stats.balance.toFixed(2)} SOL` },
@@ -57,40 +58,6 @@ export function PaperPortfolio({ stats, positions, trades, onReset }: Props) {
           </div>
         ))}
       </div>
-
-      {/* Secondary metrics strip — Profit Factor, Max Drawdown, Avg Win/Loss, Streak */}
-      {stats.totalTrades > 0 && (
-        <div style={{ display: 'flex', gap: 1, background: '#111827', flexShrink: 0 }}>
-          <div style={{ flex: 1, padding: '4px 8px', background: '#0a0e1a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 9, color: '#475569' }}>PF</span>
-            <span style={{ fontSize: 10, fontWeight: 700, color: stats.profitFactor >= 1.5 ? '#00ff9c' : stats.profitFactor >= 1 ? '#ffb547' : '#ff4757' }}>
-              {stats.profitFactor > 0 ? stats.profitFactor.toFixed(2) : '—'}
-            </span>
-          </div>
-          <div style={{ flex: 1, padding: '4px 8px', background: '#0a0e1a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 9, color: '#475569' }}>DD</span>
-            <span style={{ fontSize: 10, fontWeight: 700, color: stats.maxDrawdownPct > 20 ? '#ff4757' : stats.maxDrawdownPct > 10 ? '#ffb547' : '#00ff9c' }}>
-              {stats.maxDrawdownPct > 0 ? `${stats.maxDrawdownPct.toFixed(1)}%` : '—'}
-            </span>
-          </div>
-          <div style={{ flex: 1, padding: '4px 8px', background: '#0a0e1a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 9, color: '#475569' }}>Avg W</span>
-            <span style={{ fontSize: 10, fontWeight: 700, color: '#00ff9c' }}>{stats.avgWinSol > 0 ? `+${stats.avgWinSol.toFixed(4)}` : '—'}</span>
-          </div>
-          <div style={{ flex: 1, padding: '4px 8px', background: '#0a0e1a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 9, color: '#475569' }}>Avg L</span>
-            <span style={{ fontSize: 10, fontWeight: 700, color: '#ff4757' }}>{stats.avgLossSol < 0 ? stats.avgLossSol.toFixed(4) : '—'}</span>
-          </div>
-          {stats.streak !== 0 && (
-            <div style={{ flex: 1, padding: '4px 8px', background: '#0a0e1a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 9, color: '#475569' }}>Streak</span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: stats.streak > 0 ? '#00ff9c' : '#ff4757' }}>
-                {stats.streak > 0 ? `+${stats.streak}W` : `${Math.abs(stats.streak)}L`}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {positions.length > 0 && (

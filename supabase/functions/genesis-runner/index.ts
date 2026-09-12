@@ -1,4 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
+import postgres from "npm:postgres@3.4.5";
+import { runSolanaAlphaTick } from "./solanaAlpha.ts";
 
 const FUTURES_TYPES = [
   "crypto_futures_breakout_short_micro",
@@ -13,8 +15,6 @@ const START_CAPITAL = Number.parseFloat(Deno.env.get("FUTURES_DESK_START_CAPITAL
 const RUNNER_TOKEN = Deno.env.get("GENESIS_RUNNER_TOKEN")?.trim() ?? "";
 const RUNNER_TOKEN_SHA256 = Deno.env.get("GENESIS_RUNNER_TOKEN_SHA256")?.trim()
   || "cb7babc91d08408bb16d6196cc38158ad7760fe4a1ddcd6d12a0590aa3ff4502";
-const TG_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
-const TG_CHAT = Deno.env.get("TELEGRAM_CHAT_ID") ?? "";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY");
@@ -290,58 +290,6 @@ async function openPosition(profile: any, pair: string, side: string, price: num
   return { opened: true, tradeId: id, entry: round(econ.entry, 5), tpNet: round(econ.tpNet), rr: round(econ.rr) };
 }
 
-async function tg(text: string) {
-  if (!TG_TOKEN || !TG_CHAT) return;
-  try {
-    await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ chat_id: TG_CHAT, text, parse_mode: "HTML" }),
-      signal: AbortSignal.timeout(5000),
-    });
-  } catch { /* never fail the tick */ }
-}
-
-function exitEmoji(reason: string) {
-  if (reason === "take_profit") return "✅";
-  if (reason === "stop_loss") return "❌";
-  if (reason === "timeout") return "⏰";
-  return "🔵";
-}
-
-function sideEmoji(side: string) {
-  return side === "LONG" ? "🟢" : "🔴";
-}
-
-async function notifyTrades(
-  closedPositions: Array<{ pair: string; side: string; reason: string; pnl: number | null; mark: number | null }>,
-  openedTrades: Array<{ pair: string; side: string; profile: string; tpNet: number | null; rr: number | null }>,
-) {
-  for (const t of closedPositions) {
-    const pnlStr = t.pnl != null
-      ? `${t.pnl >= 0 ? "+" : ""}$${Math.abs(t.pnl).toFixed(2)}`
-      : "—";
-    const pnlEmoji = t.pnl != null && t.pnl >= 0 ? "💵" : "🩸";
-    await tg(
-      `${exitEmoji(t.reason)} <b>CERRADO · ${t.reason.replace("_", " ").toUpperCase()}</b>\n` +
-      `━━━━━━━━━━━━━━━━\n` +
-      `📍 ${t.pair} · ${t.side}\n` +
-      `${pnlEmoji} PnL: <b>${pnlStr}</b>\n` +
-      `Mark: $${(t.mark ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
-      `<i>PAPER · live_mode=false</i>`,
-    );
-  }
-  for (const t of openedTrades) {
-    await tg(
-      `${sideEmoji(t.side)} <b>${t.side} ABIERTA · ${t.profile}</b>\n` +
-      `━━━━━━━━━━━━━━━━\n` +
-      `📍 ${t.pair}\n` +
-      `🎯 Net esperado: +$${(t.tpNet ?? 0).toFixed(2)} · RR: ${(t.rr ?? 0).toFixed(2)}x\n` +
-      `<i>PAPER · live_mode=false</i>`,
-    );
-  }
-}
-
 async function writeCycleHistory(cycle: Record<string, unknown>) {
   const rows = await fetchRows("org_state", "value", (q) => q.eq("key", "futures_cycle_history").limit(1));
   const row = rows[0] as any;
@@ -350,7 +298,56 @@ async function writeCycleHistory(cycle: Record<string, unknown>) {
   await writeOrgState("futures_cycle_history", history.slice(-80));
 }
 
+// Self-bootstrap a reliable pg_cron tick (every 5 min) from inside Postgres, so
+// the runner no longer depends on GitHub Actions' flaky scheduled workflows.
+// Uses SUPABASE_DB_URL (auto-injected) + the runner's own GENESIS_RUNNER_TOKEN.
+// Runs once per cold start; best-effort (a failure never blocks the tick).
+let cronReady = false;
+async function ensureRunnerCron() {
+  if (cronReady) return;
+  const dbUrl = Deno.env.get("SUPABASE_DB_URL");
+  const token = Deno.env.get("GENESIS_RUNNER_TOKEN")?.trim();
+  if (!dbUrl || !token) { cronReady = true; return; }
+  const sql = postgres(dbUrl, { ssl: "require", max: 1, idle_timeout: 5, connect_timeout: 8 });
+  try {
+    await sql.unsafe("create extension if not exists pg_cron;");
+    await sql.unsafe("create extension if not exists pg_net;");
+    // Upsert the runner token into Vault (the cron job reads it at fire time).
+    const existing = await sql`select id from vault.secrets where name = 'genesis_runner_token'`;
+    if (existing.length > 0) {
+      await sql`select vault.update_secret(${existing[0].id}, ${token})`;
+    } else {
+      await sql`select vault.create_secret(${token}, 'genesis_runner_token')`;
+    }
+    // (Re)create the 5-minute job idempotently.
+    await sql.unsafe(`
+      select cron.unschedule('genesis-runner-tick')
+      where exists (select 1 from cron.job where jobname = 'genesis-runner-tick');
+    `);
+    await sql.unsafe(`
+      select cron.schedule('genesis-runner-tick', '*/5 * * * *', $cron$
+        select net.http_post(
+          url := 'https://swgixcbwyhxttnmrglbk.supabase.co/functions/v1/genesis-runner',
+          headers := jsonb_build_object(
+            'content-type', 'application/json',
+            'x-genesis-runner-token',
+              (select decrypted_secret from vault.decrypted_secrets where name = 'genesis_runner_token')
+          ),
+          timeout_milliseconds := 8000
+        );
+      $cron$);
+    `);
+    console.log("[genesis-runner] pg_cron tick scheduled (*/5)");
+  } catch (error) {
+    console.error("[genesis-runner] ensureRunnerCron failed:", error instanceof Error ? error.message : error);
+  } finally {
+    cronReady = true; // best-effort: don't hammer on every cold start
+    await sql.end({ timeout: 5 });
+  }
+}
+
 async function runTick() {
+  await ensureRunnerCron(); // self-schedule the reliable 5-min cron (once per cold start)
   const heartbeat = await readHeartbeat();
   if (heartbeat.msSinceLastTick != null && heartbeat.msSinceLastTick < MIN_INTERVAL_MS) {
     return { ok: true, mode: "throttled", lastTickAt: heartbeat.lastTickAt, msSinceLastTick: heartbeat.msSinceLastTick };
@@ -440,18 +437,17 @@ async function runTick() {
       blockReason: p.blockReason ?? null,
     })),
   });
-  await writeHeartbeat({ ok: true, scanned: result.scanned, qualified: result.qualified, executed: result.executed, skipped: result.skipped, closed: result.closed });
+  // PumpFun (Solana Alpha) feeder — isolated: never breaks the futures tick.
+  let solana: Record<string, unknown> = { ok: false, skipped: true };
+  try {
+    solana = await runSolanaAlphaTick(supabase);
+  } catch (error) {
+    solana = { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+
+  await writeHeartbeat({ ok: true, scanned: result.scanned, qualified: result.qualified, executed: result.executed, skipped: result.skipped, closed: result.closed, solana });
   await logEvent("SUPABASE EDGE FUTURES TICK", { scanned: result.scanned, qualified: result.qualified, executed: result.executed, closed: result.closed });
-
-  // Telegram notifications — fire-and-forget, never blocks the tick
-  const openedTrades = result.profiles.flatMap((p: any) =>
-    p.pairResults
-      .filter((pr: any) => pr.status === "executed")
-      .map((pr: any) => ({ pair: pr.pair, side: pr.side, profile: p.profile, tpNet: pr.tpNet ?? null, rr: pr.rr ?? null }))
-  );
-  notifyTrades(result.closedPositions ?? [], openedTrades).catch(() => {});
-
-  return { ok: true, mode: "executed", cycle };
+  return { ok: true, mode: "executed", cycle: { ...cycle, solana } };
 }
 
 Deno.serve(async (req: Request) => {

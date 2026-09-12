@@ -1,0 +1,173 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { buildEconomicEdgeAudit, modeledFriction, normalizeTrade } from '../quant/economicEdgeAudit.mjs';
+
+function trade(i, overrides = {}) {
+  const win = overrides.win ?? (i % 2 === 0);
+  const confidence = overrides.confidence ?? (i % 4 < 2 ? 0.65 : 0.85);
+  const pnl = overrides.pnl ?? (win ? 12 : -4);
+  return {
+    id: `t-${i}`,
+    trade_type: 'crypto_futures_breakout_short_micro',
+    instrument_type: 'futures',
+    asset_pair: i % 2 === 0 ? 'BTCUSDT' : 'ETHUSDT',
+    outcome: 'SHORT',
+    status: 'closed',
+    mode: 'paper',
+    confidence,
+    entry_price: 100,
+    exit_price: 99,
+    shares: 5,
+    capital_used: 150,
+    leverage: 3,
+    notional_usd: 450,
+    entry_volume24h: 5_000_000,
+    funding_paid: 0.02,
+    pnl,
+    opened_at: new Date(Date.UTC(2026, 0, 1, 0, i)).toISOString(),
+    closed_at: new Date(Date.UTC(2026, 0, 1, 1, i)).toISOString(),
+    evidence: JSON.stringify(['DONCHIAN20', 'RUNNER_V8.1', 'REGIME_TREND_DOWN', 'STRATEGY_VERSION_futures_breakout_short_micro:v8']),
+    strategy_version_id: 'futures_breakout_short_micro:v8',
+    entry_regime: i % 2 === 0 ? 'TREND_DOWN' : 'HIGH_VOL_TREND_DOWN',
+    entry_session: i % 3 === 0 ? 'LONDON' : 'NEW_YORK',
+    runner_version: 'v8.1',
+    validation_status: 'PAPER',
+    ...overrides,
+  };
+}
+
+const research = {
+  'futures_breakout_short_micro:v8': {
+    evaluated_at: '2026-09-11T00:00:00Z',
+    verdict: 'VALIDATED',
+    policy_version: 'institutional_v1',
+    walk_forward: { pass: true },
+    oos_evidence: { pass: true },
+  },
+};
+
+test('friction reconstruction includes round-trip fees, slippage and funding', () => {
+  const result = modeledFriction(trade(1));
+  assert.ok(result.feeUsd > 0);
+  assert.ok(result.slippageUsd > 0);
+  assert.equal(result.fundingUsd, 0.02);
+  assert.ok(result.modeledCostBps > 8);
+});
+
+test('negative exact-version cohort triggers strict kill criteria', () => {
+  const rows = Array.from({ length: 24 }, (_, i) => trade(i, { pnl: i % 5 === 0 ? 2 : -6, confidence: i % 2 ? 0.7 : 0.8 }));
+  const audit = buildEconomicEdgeAudit(rows, { researchEvidence: research, generatedAt: '2026-09-11T00:00:00Z' });
+  const strategy = audit.strategies['futures_breakout_short_micro:v8'];
+  assert.equal(strategy.status, 'KILL');
+  assert.ok(strategy.killReasons.some((reason) => reason.startsWith('NEGATIVE_EDGE:')));
+  assert.equal(strategy.capitalEligible, false);
+});
+
+test('live contamination fails pipeline integrity and can never promote', () => {
+  const rows = Array.from({ length: 60 }, (_, i) => trade(i));
+  rows[10] = trade(10, { mode: 'real' });
+  const audit = buildEconomicEdgeAudit(rows, { researchEvidence: research, generatedAt: '2026-09-11T00:00:00Z' });
+  const strategy = audit.strategies['futures_breakout_short_micro:v8'];
+  assert.equal(strategy.status, 'KILL');
+  assert.equal(strategy.pipeline.checks.paperOnly, false);
+  assert.equal(strategy.liveOrdersAuthorized, false);
+});
+
+test('constant confidence blocks evidence candidate even when PnL is strong', () => {
+  const rows = Array.from({ length: 60 }, (_, i) => trade(i, { confidence: 0.75, pnl: i % 3 === 0 ? -4 : 12 }));
+  const audit = buildEconomicEdgeAudit(rows, { researchEvidence: research, generatedAt: '2026-09-11T00:00:00Z' });
+  const strategy = audit.strategies['futures_breakout_short_micro:v8'];
+  assert.equal(strategy.status, 'KEEP_PAPER');
+  assert.equal(strategy.calibration.bucketsPopulated, 1);
+  assert.equal(strategy.gates.find((gate) => gate.code === 'CALIBRATION_DIVERSITY').pass, false);
+});
+
+test('well-attributed positive evidence can become evidence candidate but never capital eligible', () => {
+  const rows = Array.from({ length: 80 }, (_, i) => {
+    const high = i % 4 < 2;
+    const win = high ? i % 10 !== 0 : i % 5 !== 0;
+    return trade(i, {
+      confidence: high ? 0.85 : 0.65,
+      pnl: win ? 14 : -4,
+      win,
+    });
+  });
+  const audit = buildEconomicEdgeAudit(rows, { researchEvidence: research, generatedAt: '2026-09-11T00:00:00Z' });
+  const strategy = audit.strategies['futures_breakout_short_micro:v8'];
+  assert.equal(strategy.status, 'EVIDENCE_CANDIDATE');
+  assert.equal(strategy.capitalEligible, false);
+  assert.equal(strategy.liveOrdersAuthorized, false);
+  assert.ok(strategy.metrics.expectancy > 0);
+  assert.ok(Object.keys(strategy.segments.asset).length >= 2);
+  assert.ok(Object.keys(strategy.segments.regime).length >= 2);
+  assert.ok(Object.keys(strategy.segments.cost).length >= 1);
+  assert.ok(Object.keys(strategy.segments.sizing).length >= 1);
+});
+
+test('audit hash is reproducible and independent of generatedAt', () => {
+  const rows = [trade(2), trade(1)];
+  const a = buildEconomicEdgeAudit(rows, { generatedAt: '2026-09-11T00:00:00Z' });
+  const b = buildEconomicEdgeAudit([...rows].reverse(), { generatedAt: '2026-09-12T00:00:00Z' });
+  assert.equal(a.source.evidenceSha256, b.source.evidenceSha256);
+});
+
+test('missing and malformed numeric observations fail closed instead of becoming zero', () => {
+  for (const value of [null, undefined, '', '   ', false, [], {}, 'NaN']) {
+    const row = normalizeTrade(trade(1, { pnl: value, confidence: value }));
+    assert.equal(row.pnl, null);
+    assert.equal(row.confidence, null);
+    const result = buildEconomicEdgeAudit([row]).strategies[row.strategyKey];
+    assert.equal(result.status, 'KILL');
+    assert.equal(result.metrics.closed, 0);
+    assert.equal(result.calibration.trades, 0);
+  }
+  assert.equal(normalizeTrade(trade(1, { pnl: 0, confidence: 0 })).pnl, 0);
+  assert.equal(normalizeTrade(trade(1, { confidence: 0 })).confidence, 0);
+  for (const confidence of [-0.1, 1.1, Infinity]) {
+    assert.equal(normalizeTrade(trade(1, { confidence })).confidence, null);
+  }
+});
+
+test('duplicated trade IDs cannot inflate an eligible sample', () => {
+  const audit = buildEconomicEdgeAudit([trade(1), trade(1)]);
+  const result = audit.strategies['futures_breakout_short_micro:v8'];
+  assert.equal(result.pipeline.checks.uniqueTradeIds, false);
+  assert.equal(result.status, 'KILL');
+});
+
+test('duplicate IDs across cohorts fail the complete audit', () => {
+  const sharedId = 'cross-cohort-duplicate';
+  const v8 = trade(1, { id: sharedId, strategy_version_id: 'futures_breakout_short_micro:v8' });
+  const v9 = trade(2, { id: sharedId, strategy_version_id: 'futures_breakout_short_micro:v9' });
+  const audit = buildEconomicEdgeAudit([v8, v9], { researchEvidence: research });
+  assert.equal(audit.strategies['futures_breakout_short_micro:v8'].pipeline.checks.uniqueTradeIdsAcrossAudit, false);
+  assert.equal(audit.strategies['futures_breakout_short_micro:v9'].pipeline.checks.uniqueTradeIdsAcrossAudit, false);
+  assert.equal(audit.strategies['futures_breakout_short_micro:v8'].status, 'KILL');
+  assert.equal(audit.strategies['futures_breakout_short_micro:v9'].status, 'KILL');
+  assert.equal(audit.verdict, 'KILL_PRESENT');
+});
+
+test('fingerprint binds research gates and signal provenance', () => {
+  const rows = [trade(1)];
+  const baseline = buildEconomicEdgeAudit(rows, { researchEvidence: research });
+  const changed = structuredClone(research);
+  changed['futures_breakout_short_micro:v8'].walk_forward.pass = false;
+  assert.notEqual(baseline.source.evidenceSha256, buildEconomicEdgeAudit(rows, { researchEvidence: changed }).source.evidenceSha256);
+  assert.notEqual(baseline.source.evidenceSha256, buildEconomicEdgeAudit([trade(1, { evidence: '[]' })], { researchEvidence: research }).source.evidenceSha256);
+  const reordered = Object.fromEntries(Object.entries(research).map(([key, value]) => [key, Object.fromEntries(Object.entries(value).reverse())]));
+  assert.equal(baseline.source.evidenceSha256, buildEconomicEdgeAudit(rows, { researchEvidence: reordered }).source.evidenceSha256);
+});
+
+test('offline CLI reproduces the captured audit without database credentials', () => {
+  const result = spawnSync(process.execPath, ['scripts/quantEngineeringAudit.mjs', '--input', 'evidence/economic-audit-2026-09-11/input.json', '--strict'], {
+    cwd: new URL('../../', import.meta.url),
+    encoding: 'utf8',
+    env: { ...process.env, SUPABASE_URL: '', VITE_SUPABASE_URL: '', SUPABASE_SERVICE_ROLE_KEY: '', SUPABASE_ANON_KEY: '', VITE_SUPABASE_ANON_KEY: '' },
+  });
+  assert.equal(result.status, 2, result.stderr);
+  const audit = JSON.parse(result.stdout);
+  assert.equal(audit.source.futuresRowsAudited, 64);
+  assert.equal(audit.strategies['futures_breakout_short_micro:v8'].metrics.realizedPnl, -1.53);
+  assert.equal(audit.liveOrdersAuthorized, false);
+});

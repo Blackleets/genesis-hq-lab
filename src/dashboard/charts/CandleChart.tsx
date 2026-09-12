@@ -7,6 +7,11 @@ import { loadChartTicker, type ChartTickerStats } from '@services/chartTicker';
 import { TradeStoryCard } from '../../components/crypto/TradeStoryCard';
 import { CopilotPanel } from '../../components/crypto/CopilotPanel';
 import { ChartStatsHeader } from '../../components/crypto/ChartStatsHeader';
+import { ema as emaCalc, bollinger, vwap as vwapCalc, rsi as rsiCalc, macd as macdCalc, type OHLC } from './chartIndicators';
+import { analyzeChart } from './chartAnalysis';
+import { DrawingsPrimitive, type Figure } from './chartDrawings';
+import { useChartDrawings, type DrawTool } from './useChartDrawings';
+import { ChartDrawToolbar } from './ChartDrawToolbar';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -15,6 +20,15 @@ const PAIRS     = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT'];
 const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d'];
 // Pro palette (DexScreener-ish): crisp green/red, calm EMAs.
 const C = { up: '#16c784', down: '#ea3943', ema9: '#3b82f6', ema21: '#f59e0b' };
+// Extended indicator palette.
+const IC = {
+  ema50: '#a855f7', ema200: '#e879f9',
+  bbBasis: '#64748b', bbBand: '#475569',
+  vwap: '#22d3ee',
+  rsi: '#eab308', macd: '#3b82f6', macdSignal: '#f97316',
+  autoSup: '#22c55e', autoRes: '#ef4444',
+};
+const newId = () => `d${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 // Binance public REST — CORS allowed from browser, no key needed
 const BINANCE = 'https://api.binance.com/api/v3';
@@ -153,6 +167,47 @@ function ema(closes: number[], period: number): number[] {
   return out;
 }
 
+// ─── Figure hit-testing (cursor-mode selection) ────────────────────────────────
+
+function distToSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number): number {
+  const dx = x2 - x1, dy = y2 - y1;
+  const len2 = dx * dx + dy * dy;
+  let t = len2 === 0 ? 0 : ((px - x1) * dx + (py - y1) * dy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function hitTestFigure(px: number, py: number, figures: Figure[], chart: any, series: any): string | null {
+  const TOL = 7;
+  const x = (t: number) => chart.timeScale().timeToCoordinate(t as Time) as number | null;
+  const y = (p: number) => series.priceToCoordinate(p) as number | null;
+  for (let i = figures.length - 1; i >= 0; i--) {
+    const f = figures[i];
+    if (f.type === 'hline') {
+      const yy = y(f.price);
+      if (yy != null && Math.abs(py - yy) <= TOL) return f.id;
+    } else {
+      const x1 = x(f.t1), y1 = y(f.p1), x2 = x(f.t2), y2 = y(f.p2);
+      if (x1 == null || y1 == null || x2 == null || y2 == null) continue;
+      if (f.type === 'trend') {
+        if (distToSegment(px, py, x1, y1, x2, y2) <= TOL) return f.id;
+      } else {
+        const left = Math.min(x1, x2), right = Math.max(x1, x2);
+        const top = Math.min(y1, y2), bot = Math.max(y1, y2);
+        const edges = [
+          distToSegment(px, py, left, top, right, top),
+          distToSegment(px, py, left, bot, right, bot),
+          distToSegment(px, py, left, top, left, bot),
+          distToSegment(px, py, right, top, right, bot),
+        ];
+        if (Math.min(...edges) <= TOL) return f.id;
+      }
+    }
+  }
+  return null;
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function CandleChart({
@@ -193,6 +248,39 @@ export default function CandleChart({
   const [overlayEvents, setOverlayEvents] = useState<OverlayEvent[]>([]);
   const [viewportVersion, setViewportVersion] = useState(0);
   const [overlayBounds, setOverlayBounds] = useState({ width: 0, height: 0 });
+
+  // Pro indicators
+  const [showBoll, setShowBoll]   = useState(false);
+  const [showVwap, setShowVwap]   = useState(false);
+  const [showEma50, setShowEma50] = useState(false);
+  const [showEma200, setShowEma200] = useState(false);
+  const [showRsi, setShowRsi]     = useState(false);
+  const [showMacd, setShowMacd]   = useState(false);
+
+  // Layout + crosshair tooltip
+  const [fullscreen, setFullscreen] = useState(false);
+  const [hover, setHover] = useState<{ x: number; o: number; h: number; l: number; c: number; v: number; chg: number } | null>(null);
+
+  // Drawing (manual) + AUTO analysis
+  const draw = useChartDrawings(pair);
+  const [showAuto, setShowAuto] = useState(true);
+  const [autoFigures, setAutoFigures] = useState<Figure[]>([]);
+  const [draft, setDraft] = useState<Figure | null>(null);
+
+  // Indicator series kept in one ref bag (created once)
+  const indRef = useRef<Record<string, ISeriesApi<SeriesType>>>({});
+  const primitiveRef = useRef<DrawingsPrimitive | null>(null);
+  const candlesRef = useRef<OHLC[]>([]);
+  // Live refs so the once-created click/move handlers see current values
+  const toolRef = useRef<DrawTool>(draw.tool);
+  const pendingRef = useRef<{ t: number; p: number } | null>(null);
+  const addFigureRef = useRef(draw.addFigure);
+  const setSelectedRef = useRef(draw.setSelectedId);
+  const figuresRef = useRef<Figure[]>(draw.figures);
+  useEffect(() => { toolRef.current = draw.tool; pendingRef.current = null; setDraft(null); }, [draw.tool]);
+  useEffect(() => { addFigureRef.current = draw.addFigure; }, [draw.addFigure]);
+  useEffect(() => { setSelectedRef.current = draw.setSelectedId; }, [draw.setSelectedId]);
+  useEffect(() => { figuresRef.current = draw.figures; }, [draw.figures]);
 
   // Co-pilot pre-trade state
   const [copilotSide, setCopilotSide]         = useState<'LONG' | 'SHORT' | null>(null);
@@ -250,13 +338,60 @@ export default function CandleChart({
     });
     chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.85, bottom: 0 } });
 
+    // ── Pro indicator series (created hidden; toggles flip visibility) ──────────
+    const lineOpts = (color: string, width: 1 | 2 = 1) => ({ color, lineWidth: width, crosshairMarkerVisible: false, lastValueVisible: false, priceLineVisible: false, visible: false } as const);
+    indRef.current.bbUpper = chart.addSeries(LineSeries, lineOpts(IC.bbBand));
+    indRef.current.bbBasis = chart.addSeries(LineSeries, lineOpts(IC.bbBasis));
+    indRef.current.bbLower = chart.addSeries(LineSeries, lineOpts(IC.bbBand));
+    indRef.current.vwap   = chart.addSeries(LineSeries, lineOpts(IC.vwap));
+    indRef.current.ema50  = chart.addSeries(LineSeries, lineOpts(IC.ema50));
+    indRef.current.ema200 = chart.addSeries(LineSeries, lineOpts(IC.ema200));
+    // RSI in its own pane (index 1)
+    indRef.current.rsi = chart.addSeries(LineSeries, { color: IC.rsi, lineWidth: 1, crosshairMarkerVisible: false, lastValueVisible: true, priceLineVisible: false, visible: false }, 1);
+    // MACD in its own pane (index 2)
+    indRef.current.macdHist   = chart.addSeries(HistogramSeries, { priceFormat: { type: 'price' }, priceLineVisible: false, lastValueVisible: false, visible: false }, 2);
+    indRef.current.macdLine   = chart.addSeries(LineSeries, { color: IC.macd, lineWidth: 1, crosshairMarkerVisible: false, lastValueVisible: false, priceLineVisible: false, visible: false }, 2);
+    indRef.current.macdSignal = chart.addSeries(LineSeries, { color: IC.macdSignal, lineWidth: 1, crosshairMarkerVisible: false, lastValueVisible: false, priceLineVisible: false, visible: false }, 2);
+
+    // ── Drawings primitive (manual + auto figures) ─────────────────────────────
+    const primitive = new DrawingsPrimitive();
+    csRef.current.attachPrimitive(primitive);
+    primitiveRef.current = primitive;
+
     // Trade markers primitive (v5) — attached to the candlestick series
     markersRef.current = createSeriesMarkers(csRef.current, []);
     const bumpViewport = () => window.requestAnimationFrame(() => setViewportVersion(v => v + 1));
 
-    // Click → select the nearest trade marker (entry or exit) by time
+    // Click → draw (when a tool is active) or select trade/figure (cursor mode)
     chart.subscribeClick((param) => {
+      const tool = toolRef.current;
+      const cs = csRef.current;
+      if (tool !== 'cursor' && cs && param.point && param.time != null) {
+        const price = cs.coordinateToPrice(param.point.y) as number | null;
+        if (price == null) return;
+        const t = param.time as number;
+        if (tool === 'hline') {
+          addFigureRef.current({ id: newId(), type: 'hline', price, color: '#38bdf8' });
+        } else if (!pendingRef.current) {
+          pendingRef.current = { t, p: price };
+        } else {
+          const a = pendingRef.current;
+          addFigureRef.current(
+            tool === 'rect'
+              ? { id: newId(), type: 'rect', t1: a.t, p1: a.p, t2: t, p2: price, color: '#38bdf8' }
+              : { id: newId(), type: 'trend', t1: a.t, p1: a.p, t2: t, p2: price, color: '#eab308' },
+          );
+          pendingRef.current = null;
+          setDraft(null);
+        }
+        return;
+      }
       if (param.time == null || !onSelectRef.current) return;
+      // Cursor mode: try to select a manual figure first
+      if (cs && param.point) {
+        const hit = hitTestFigure(param.point.x, param.point.y, figuresRef.current, chart, cs);
+        if (hit) { setSelectedRef.current(hit === selectedRef.current ? null : hit); return; }
+      }
       const clicked = param.time as number;
       const tol = (TF_SECONDS[tfRef.current] ?? 3600) * 2.5;
       let best: { id: string; d: number } | null = null;
@@ -269,8 +404,30 @@ export default function CandleChart({
           if (d <= tol && (!best || d < best.d)) best = { id: t.id, d };
         }
       }
-      // Toggle off if re-clicking the already-selected trade
       onSelectRef.current(best ? (best.id === selectedRef.current ? null : best.id) : null);
+    });
+
+    // Crosshair move → OHLCV tooltip + live draft for two-click tools
+    chart.subscribeCrosshairMove((param) => {
+      const cs = csRef.current;
+      // Draft preview while drawing trend/rect
+      if (pendingRef.current && cs && param.point && param.time != null) {
+        const price = cs.coordinateToPrice(param.point.y) as number | null;
+        if (price != null) {
+          const a = pendingRef.current;
+          const t = param.time as number;
+          setDraft(toolRef.current === 'rect'
+            ? { id: 'draft', type: 'rect', t1: a.t, p1: a.p, t2: t, p2: price, color: '#38bdf8' }
+            : { id: 'draft', type: 'trend', t1: a.t, p1: a.p, t2: t, p2: price, color: '#eab308' });
+        }
+      }
+      // OHLCV tooltip
+      if (param.time == null || !param.point) { setHover(null); return; }
+      const t = param.time as number;
+      const bar = candlesRef.current.find((c) => c.time === t);
+      if (!bar) { setHover(null); return; }
+      const chg = bar.open !== 0 ? ((bar.close - bar.open) / bar.open) * 100 : 0;
+      setHover({ x: param.point.x, o: bar.open, h: bar.high, l: bar.low, c: bar.close, v: bar.volume, chg });
     });
     chart.timeScale().subscribeVisibleTimeRangeChange(bumpViewport);
 
@@ -344,6 +501,36 @@ export default function CandleChart({
           value: c.volume,
           color: c.close >= c.open ? C.up + '55' : C.down + '55',
         })));
+
+        // ── Pro indicators ───────────────────────────────────────────────────
+        const ohlc: OHLC[] = candles.map(c => ({ time: c.time as number, open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume }));
+        candlesRef.current = ohlc;
+        const toLine = (vals: (number | null)[]) =>
+          candles.flatMap((c, i) => (vals[i] == null ? [] : [{ time: c.time, value: vals[i] as number }]));
+        const ind = indRef.current;
+        const bb = bollinger(closes, 20, 2);
+        ind.bbUpper?.setData(toLine(bb.upper));
+        ind.bbBasis?.setData(toLine(bb.basis));
+        ind.bbLower?.setData(toLine(bb.lower));
+        ind.vwap?.setData(toLine(vwapCalc(ohlc)));
+        ind.ema50?.setData(toLine(emaCalc(closes, 50)));
+        ind.ema200?.setData(toLine(emaCalc(closes, 200)));
+        ind.rsi?.setData(toLine(rsiCalc(closes, 14)));
+        const m = macdCalc(closes);
+        ind.macdLine?.setData(toLine(m.macd));
+        ind.macdSignal?.setData(toLine(m.signal));
+        ind.macdHist?.setData(candles.map((c, i) => ({ time: c.time, value: m.hist[i], color: m.hist[i] >= 0 ? C.up + '88' : C.down + '88' })));
+
+        // ── AUTO analysis: support/resistance levels + trend lines ─────────────
+        const analysis = analyzeChart(ohlc);
+        const af: Figure[] = [];
+        for (const lv of analysis.levels) {
+          af.push({ id: `auto-l-${lv.price.toFixed(2)}`, type: 'hline', price: lv.price, label: `${lv.kind === 'support' ? 'S' : 'R'} ${lv.touches}x`, color: lv.kind === 'support' ? IC.autoSup : IC.autoRes, auto: true });
+        }
+        for (const tr of analysis.trends) {
+          af.push({ id: `auto-t-${tr.kind}`, type: 'trend', t1: tr.t1, p1: tr.p1, t2: tr.t2, p2: tr.p2, color: tr.kind === 'support' ? IC.autoSup : IC.autoRes, auto: true });
+        }
+        setAutoFigures(af);
 
         chartRef.current!.timeScale().fitContent();
         setCandlesLoadedAt(Date.now());  // signals marker/replay effects to re-run
@@ -494,6 +681,56 @@ export default function CandleChart({
     e21Ref.current?.applyOptions({ visible: showEma21 });
   }, [showEma21]);
 
+  // ── Indicator visibility toggles ─────────────────────────────────────────────
+  useEffect(() => {
+    const i = indRef.current;
+    i.bbUpper?.applyOptions({ visible: showBoll });
+    i.bbBasis?.applyOptions({ visible: showBoll });
+    i.bbLower?.applyOptions({ visible: showBoll });
+  }, [showBoll]);
+  useEffect(() => { indRef.current.vwap?.applyOptions({ visible: showVwap }); }, [showVwap]);
+  useEffect(() => { indRef.current.ema50?.applyOptions({ visible: showEma50 }); }, [showEma50]);
+  useEffect(() => { indRef.current.ema200?.applyOptions({ visible: showEma200 }); }, [showEma200]);
+  useEffect(() => { indRef.current.rsi?.applyOptions({ visible: showRsi }); }, [showRsi]);
+  useEffect(() => {
+    const i = indRef.current;
+    i.macdLine?.applyOptions({ visible: showMacd });
+    i.macdSignal?.applyOptions({ visible: showMacd });
+    i.macdHist?.applyOptions({ visible: showMacd });
+  }, [showMacd]);
+
+  // ── Push drawing state into the primitive ────────────────────────────────────
+  useEffect(() => {
+    primitiveRef.current?.setState({
+      manual: draw.figures,
+      auto: autoFigures,
+      draft,
+      selectedId: draw.selectedId,
+      showAuto,
+    });
+  }, [draw.figures, autoFigures, draft, draw.selectedId, showAuto, candlesLoadedAt, viewportVersion]);
+
+  // ── Delete key removes the selected manual figure ────────────────────────────
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && draw.selectedId) {
+        draw.deleteSelected();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [draw.selectedId, draw.deleteSelected]);
+
+  // ── Re-fit chart layout when entering/leaving fullscreen ─────────────────────
+  useEffect(() => {
+    const id = setTimeout(() => {
+      if (wrapRef.current && chartRef.current) {
+        chartRef.current.applyOptions({ width: wrapRef.current.clientWidth, height: wrapRef.current.clientHeight });
+      }
+    }, 60);
+    return () => clearTimeout(id);
+  }, [fullscreen]);
+
   // ── 24h ticker stats for the DexScreener-style header ────────────────────────
   useEffect(() => {
     let cancelled = false;
@@ -575,8 +812,17 @@ export default function CandleChart({
   const myPos    = positions.filter(p => p.pair === pair);
   const visibleTradeCount = tradeStories.filter((trade) => trade.pair === pair).length;
 
+  const indChips: Array<{ k: string; on: boolean; toggle: () => void; color: string }> = [
+    { k: 'BOLL', on: showBoll, toggle: () => setShowBoll(v => !v), color: IC.bbBasis },
+    { k: 'VWAP', on: showVwap, toggle: () => setShowVwap(v => !v), color: IC.vwap },
+    { k: 'EMA50', on: showEma50, toggle: () => setShowEma50(v => !v), color: IC.ema50 },
+    { k: 'EMA200', on: showEma200, toggle: () => setShowEma200(v => !v), color: IC.ema200 },
+    { k: 'RSI', on: showRsi, toggle: () => setShowRsi(v => !v), color: IC.rsi },
+    { k: 'MACD', on: showMacd, toggle: () => setShowMacd(v => !v), color: IC.macd },
+  ];
+
   return (
-    <div className="gx-card overflow-hidden h-full flex flex-col min-h-0">
+    <div className={`gx-card overflow-hidden flex flex-col min-h-0 ${fullscreen ? 'fixed inset-0 z-50 h-screen w-screen rounded-none' : 'h-full'}`}>
 
       {/* ── DexScreener-style stats header: pairs · price · changes · vol · TF ── */}
       <ChartStatsHeader
@@ -605,6 +851,26 @@ export default function CandleChart({
         onToggleLabels={() => setShowTradeLabels(v => !v)}
       />
 
+      {/* ── Indicator toggle chips ───────────────────────────────────────── */}
+      <div className="flex items-center gap-1.5 px-4 py-1.5 border-b border-zinc-800/60 flex-wrap">
+        <span className="font-mono text-[9px] uppercase tracking-wider text-zinc-600 mr-1">Indicadores</span>
+        {indChips.map(chip => (
+          <button
+            key={chip.k}
+            type="button"
+            onClick={chip.toggle}
+            className="font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border transition-colors"
+            style={{
+              color: chip.on ? '#fff' : '#6b7280',
+              borderColor: chip.on ? chip.color : '#2a313d',
+              background: chip.on ? `${chip.color}22` : 'transparent',
+            }}
+          >
+            {chip.k}
+          </button>
+        ))}
+      </div>
+
       {/* ── Error state ─────────────────────────────────────────────────── */}
       {error && (
         <div className="px-4 py-2 font-mono text-[10px] text-rose-400 border-b border-zinc-800/60 bg-rose-500/5">
@@ -632,8 +898,49 @@ export default function CandleChart({
       )}
 
       {/* ── Chart canvas — flex-fills the remaining card height ─────────── */}
-      <div className="relative w-full flex-1 min-h-0" style={{ minHeight: 220 }}>
+      <div className="relative w-full flex-1 min-h-0" style={{ minHeight: fullscreen ? 480 : 360 }}>
         <div ref={wrapRef} className="absolute inset-0" />
+
+        {/* Drawing toolbar */}
+        <ChartDrawToolbar
+          tool={draw.tool}
+          onTool={(t: DrawTool) => draw.setTool(t)}
+          autoOn={showAuto}
+          onToggleAuto={() => setShowAuto(v => !v)}
+          hasSelection={draw.selectedId != null}
+          onDelete={draw.deleteSelected}
+          onClear={draw.clearAll}
+        />
+
+        {/* Fullscreen toggle */}
+        <button
+          type="button"
+          title={fullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+          onClick={() => setFullscreen(v => !v)}
+          className="absolute right-2 top-2 z-[4] flex h-7 w-7 items-center justify-center rounded text-[13px]"
+          style={{ background: 'rgba(8,11,16,0.78)', border: '1px solid #232a35', color: '#9aa4b2' }}
+        >
+          {fullscreen ? '🗗' : '⛶'}
+        </button>
+
+        {/* Crosshair OHLCV tooltip */}
+        {hover && (
+          <div
+            className="pointer-events-none absolute top-2 z-[4] flex gap-2 rounded px-2 py-1 font-mono text-[10px]"
+            style={{
+              left: Math.min(Math.max(48, hover.x - 80), Math.max(48, overlayBounds.width - 230)),
+              background: 'rgba(8,11,16,0.92)', border: '1px solid #232a35', color: '#cbd5e1',
+            }}
+          >
+            <span>O <span className="text-zinc-100">{hover.o.toLocaleString()}</span></span>
+            <span>H <span className="text-emerald-400">{hover.h.toLocaleString()}</span></span>
+            <span>L <span className="text-rose-400">{hover.l.toLocaleString()}</span></span>
+            <span>C <span className="text-zinc-100">{hover.c.toLocaleString()}</span></span>
+            <span style={{ color: hover.chg >= 0 ? '#16c784' : '#ea3943' }}>{hover.chg >= 0 ? '+' : ''}{hover.chg.toFixed(2)}%</span>
+            <span className="text-zinc-500">V {hover.v >= 1000 ? `${(hover.v / 1000).toFixed(1)}k` : hover.v.toFixed(0)}</span>
+          </div>
+        )}
+
         <div className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center">
           <div className="font-mono text-[72px] md:text-[96px] font-black tracking-[-0.08em] text-zinc-500/10 select-none">
             {symbol}

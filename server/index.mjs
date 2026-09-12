@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
-import { readFileSync } from 'node:fs';
+import { handleFounderRequest } from './genesis/founderHttp.mjs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -210,6 +211,12 @@ function latestIso(...values) {
 const server = createServer(async (req, res) => {
   applyCors(res);
 
+  // Deliberately before the global OPTIONS/GET guards: this read-only route
+  // rejects EVERY method except GET, consistently with the Vercel adapter.
+  if (req.url?.split('?')[0] === '/api/genesis/founder') {
+    return handleFounderRequest(req, res);
+  }
+
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
     res.end();
@@ -282,6 +289,7 @@ const server = createServer(async (req, res) => {
     let body = '';
     req.on('data', (chunk) => { body += chunk; });
     req.on('end', () => {
+      if (!requireAuth(req, res)) return;
       try {
         const parsed = body ? JSON.parse(body) : {};
         const baseline = resetFuturesPnlBaseline({
@@ -300,6 +308,7 @@ const server = createServer(async (req, res) => {
     let body = '';
     req.on('data', (chunk) => { body += chunk; });
     req.on('end', async () => {
+      if (!requireAuth(req, res)) return;
       try {
         const parsed = body ? JSON.parse(body) : {};
         if (parsed?.apply === true) {
@@ -336,6 +345,7 @@ const server = createServer(async (req, res) => {
     let body = '';
     req.on('data', (chunk) => { body += chunk; });
     req.on('end', () => {
+      if (!requireAuth(req, res)) return;
       try {
         const parsed = body ? JSON.parse(body) : {};
         const result = applyIntelligenceSupervisorRun(
@@ -369,6 +379,7 @@ const server = createServer(async (req, res) => {
     let body = '';
     req.on('data', (chunk) => { body += chunk; });
     req.on('end', () => {
+      if (!requireAuth(req, res)) return;
       try {
         const parsed = body ? JSON.parse(body) : {};
         const result = rollbackIntelligenceSupervisorOverrides(
@@ -680,6 +691,73 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === '/api/genesis/context') {
+    // Derivatives positioning context for a pair (real Binance futures data + Fear&Greed).
+    try {
+      const symbol = (url.searchParams.get('pair') || 'COTIUSDT').toUpperCase();
+      const { getContext } = await import('./genesis/derivativesContext.mjs');
+      const ctx = await getContext(symbol);
+      sendJson(res, 200, { ok: true, context: ctx });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  if (url.pathname === '/api/genesis/liquidations') {
+    // Live liquidation stats from the persistent stream (started at server boot).
+    try {
+      const url2 = new URL(req.url, `http://${req.headers.host}`);
+      const symbol = url2.searchParams.get('pair') ? url2.searchParams.get('pair').toUpperCase() : null;
+      const minutes = Math.min(parseInt(url2.searchParams.get('minutes') || '60', 10) || 60, 1440);
+      const { getLiquidationStats } = await import('./genesis/liquidationStream.mjs');
+      sendJson(res, 200, { ok: true, stats: getLiquidationStats(symbol, { minutes }) });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  if (url.pathname === '/api/genesis/candles') {
+    // Keep local/runtime behavior identical to the canonical Vercel read route.
+    try {
+      const { default: handleCandles } = await import('../api/genesis/candles.js');
+      let responseStatus = 200;
+      const adapter = {
+        status(code) { responseStatus = code; return this; },
+        setHeader(name, value) { res.setHeader(name, value); return this; },
+        send(body) { res.writeHead(responseStatus); res.end(body); return this; },
+      };
+      await handleCandles(req, adapter);
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
+  if (url.pathname === '/api/genesis/live') {
+    // Genesis Quant Lab live state: ALL paper bots + treasury (read-only, no auth — public paper data).
+    try {
+      const liveDir = join(__dir, '..', 'data');
+      const stateFiles = readdirSync(liveDir)
+        .filter(f => /^genesis_live_state_.+\.json$/.test(f))
+        .sort();
+      const bots = [];
+      for (const f of stateFiles) {
+        try {
+          const raw = JSON.parse(readFileSync(join(liveDir, f), 'utf8'));
+          if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+          // derive pair/tf from filename genesis_live_state_<PAIR>_<TF>.json if the state lacks them
+          let pair = raw.pair, tf = raw.tf;
+          if (!pair) {
+            const m = f.match(/^genesis_live_state_(.+)_(\w+)\.json$/);
+            if (m) { pair = m[1]; if (!tf) tf = m[2]; }
+          }
+          bots.push({ pair, tf, ...raw });
+        } catch { /* skip corrupt state file */ }
+      }
+      let treasury = null;
+      try { treasury = JSON.parse(readFileSync(join(liveDir, 'genesis_treasury_state.json'), 'utf8')); } catch { /* no treasury yet */ }
+      // Back-compat: expose the first bot's full state as `bot` (bots entries are flattened {pair, tf, ...state})
+      sendJson(res, 200, { ok: true, bots, bot: bots[0] ?? null, treasury, updatedAt: new Date().toISOString() });
+    } catch (e) { sendJson(res, 500, { ok: false, error: e.message }); }
+    return;
+  }
+
   if (url.pathname === '/api/crypto/overview') {
     try {
       const overview = getCryptoOverview();
@@ -831,6 +909,7 @@ const server = createServer(async (req, res) => {
     let body = '';
     req.on('data', c => body += c);
     req.on('end', async () => {
+      if (!requireAuth(req, res)) return;
       try {
         const { pair = 'BTCUSDT', side, capitalUsed = 100 } = JSON.parse(body);
         if (!['LONG', 'SHORT'].includes(side)) {
@@ -1106,6 +1185,7 @@ const server = createServer(async (req, res) => {
     let body = '';
     req.on('data', c => body += c);
     req.on('end', async () => {
+      if (!requireAuth(req, res)) return;
       try {
         const { pair = 'BTCUSDT', side } = JSON.parse(body || '{}');
         if (!['LONG', 'SHORT'].includes(side)) {
@@ -1989,6 +2069,10 @@ server.on('upgrade', (req, socket, head) => {
 server.listen(PORT, HOST, () => {
   console.log(`[genesis-hq-lab-backend] listening on http://${HOST}:${PORT}`);
   kalshiStartWS();
+  // Genesis liquidation stream: persistent WS capturing forced orders 24/7.
+  import('./genesis/liquidationStream.mjs')
+    .then(m => { m.startLiquidationStream(); console.log('[genesis] liquidation stream started'); })
+    .catch(e => console.error('[genesis] liquidation stream failed:', e.message));
   // Wire solana broadcast + init once the dynamic import resolves
   (async () => {
     let attempts = 0;

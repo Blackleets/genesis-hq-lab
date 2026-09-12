@@ -45,7 +45,10 @@ function migrate() {
         db.prepare(stmt + ';').run();
       } catch (e) {
         // Ignore idempotent migration errors
-        if (!e.message.includes('already exists') && !e.message.includes('duplicate column name')) throw e;
+        if (!e.message.includes('already exists') && !e.message.includes('duplicate column name')) {
+          console.error('[db] Migration error:', e.message.slice(0, 100), 'in:', stmt.slice(0, 60));
+          throw e;
+        }
       }
     }
   });
@@ -116,6 +119,71 @@ function migrateIntelligenceSupervisor() {
 }
 
 migrateIntelligenceSupervisor();
+
+// ─── Kalshi real trading columns ──────────────────────────────────────────────
+
+function migrateTradingKalshi() {
+  const stmts = [
+    // SQLite: cannot add UNIQUE to existing table, so use INDEX instead for migration
+    `ALTER TABLE trades ADD COLUMN external_order_id TEXT`,
+    `ALTER TABLE trades ADD COLUMN trade_type TEXT DEFAULT 'paper'`,
+    `ALTER TABLE trades ADD COLUMN mode TEXT`,
+    `ALTER TABLE trades ADD COLUMN exit_reason TEXT`,
+    // Use INDEX for existing tables (new tables have UNIQUE in schema.sql)
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_trades_external_order_uniq ON trades(external_order_id) WHERE external_order_id IS NOT NULL`,
+  ];
+  for (const stmt of stmts) {
+    try {
+      db.prepare(stmt).run();
+    } catch (e) {
+      // Idempotent: column might already exist
+      if (!e.message.includes('duplicate column name') && !e.message.includes('already exists')) {
+        // Silent fail for migration
+      }
+    }
+  }
+}
+
+migrateTradingKalshi();
+
+// ─── Venue strategy parameters ────────────────────────────────────────────────
+
+function migrateStrategyParams() {
+  const stmts = [
+    `CREATE TABLE IF NOT EXISTS strategy_params (
+      id                 TEXT PRIMARY KEY,
+      venue              TEXT NOT NULL UNIQUE,
+      is_active          INTEGER NOT NULL DEFAULT 0,
+      min_confidence     REAL NOT NULL DEFAULT 0.65,
+      max_entry_price    REAL NOT NULL DEFAULT 0.90,
+      min_entry_price    REAL NOT NULL DEFAULT 0.10,
+      max_position_usd   REAL NOT NULL DEFAULT 500,
+      max_position_pct   REAL NOT NULL DEFAULT 0.05,
+      max_open_trades    INTEGER NOT NULL DEFAULT 5,
+      stop_loss_pct      REAL NOT NULL DEFAULT 0.20,
+      take_profit_pct    REAL NOT NULL DEFAULT 0.50,
+      trailing_stop_pct  REAL,
+      max_hold_days      INTEGER NOT NULL DEFAULT 45,
+      min_liquidity_usd  REAL NOT NULL DEFAULT 5000,
+      min_volume_24h     REAL,
+      settings_json      TEXT NOT NULL DEFAULT '{}',
+      activated_at       TEXT,
+      deactivated_at     TEXT,
+      created_at         TEXT NOT NULL,
+      updated_at         TEXT NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_strategy_active ON strategy_params(venue, is_active)`,
+  ];
+  for (const stmt of stmts) {
+    try {
+      db.prepare(stmt).run();
+    } catch (e) {
+      // idempotent
+    }
+  }
+}
+
+migrateStrategyParams();
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

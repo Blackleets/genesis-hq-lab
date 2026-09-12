@@ -56,8 +56,6 @@ jobs:
 
       - name: Deploy functions via Management API
         if: env.SUPABASE_ACCESS_TOKEN != ''
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           deploy_fn() {
             local slug="$1"
@@ -71,7 +69,6 @@ jobs:
               -H "Content-Type: application/json" \
               -d "{\"verify_jwt\":false,\"body\":$BODY}")
             if [ "$STATUS" = "404" ]; then
-              # does not exist yet — create with POST
               STATUS=$(curl -s -o /tmp/deploy_out.json -w "%{http_code}" -X POST \
                 "https://api.supabase.com/v1/projects/$PROJECT_REF/functions" \
                 -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \

@@ -1,0 +1,62 @@
+# RESEARCH_ONLY high-resolution RPI sampling.
+# Complements the full paper harvest so the combined RPI tape targets ~5-minute spacing.
+# Never places orders, changes trading gates, or enables LIVE.
+# Note: GitHub scheduled workflows execute from the default branch; the branch-local trigger path
+# below lets the autonomous research loop request a safe capture while this workflow lives here.
+name: rpi-research-capture
+
+on:
+  schedule:
+    - cron: "2,12,17,27,32,42,47,57 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - .github/workflows/rpi-research-capture.yml
+      - .github/genesis/rpi-research-trigger.txt
+      - server/genesis/okxRpiOrderBook.mjs
+      - server/genesis/rpiOrderBookCapture.mjs
+      - server/research/rpiDepthImbalanceStudy.mjs
+      - server/tests/okxRpiOrderBook.test.mjs
+      - server/tests/rpiOrderBookCapture.test.mjs
+      - server/tests/rpiDepthImbalanceStudy.test.mjs
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rpi-research-capture
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: code
+        uses: actions/checkout@v4
+      - name: tape
+        uses: actions/checkout@v4
+        with:
+          ref: capture-tape
+          path: tape
+      - name: verify RPI evidence path
+        run: node --test server/tests/okxRpiOrderBook.test.mjs server/tests/rpiOrderBookCapture.test.mjs server/tests/rpiDepthImbalanceStudy.test.mjs
+      - name: capture OKX RPI liquidity context
+        run: node server/genesis/rpiOrderBookCapture.mjs --inst BTC-USDT-SWAP --depth 20 --out tape/paper-tape/rpi-orderbook-latest.json --jsonl tape/paper-tape/rpi-orderbook.jsonl
+      - name: evaluate locked RPI depth-imbalance study
+        run: node server/research/rpiDepthImbalanceStudy.mjs tape/paper-tape/rpi-orderbook.jsonl --out tape/paper-tape/rpi-depth-imbalance-study-latest.json
+      - name: publish durable RPI evidence
+        working-directory: tape
+        shell: bash
+        run: |
+          git config user.name "genesis-capture"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f paper-tape/rpi-orderbook-latest.json paper-tape/rpi-orderbook.jsonl paper-tape/rpi-depth-imbalance-study-latest.json
+          if git diff --staged --quiet; then
+            echo "no change"
+            exit 0
+          fi
+          git commit -m "rpi research capture $(date -u +%Y-%m-%dT%H:%MZ)"
+          git pull --rebase origin capture-tape
+          git push

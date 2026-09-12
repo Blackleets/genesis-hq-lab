@@ -16,15 +16,8 @@
 
 import { getFuturesGovernorSnapshot } from '../../crypto/futuresGovernor.mjs';
 import { recordStatusIfChanged, getStatusOverride } from './promotionAudit.mjs';
-
-// ── Promotion thresholds (aligned with alphaValidationEngine.MIN_TRADES_FOR_EDGE) ──
-export const PROMOTION_CRITERIA = Object.freeze({
-  minTrades:         30,    // absolute minimum to assess edge
-  minProfitFactor:   1.3,   // PF < 1.3 = not enough edge to justify capital
-  minExpectancy:     0,     // EV must be positive
-  maxDrawdownPct:    0.15,  // max acceptable drawdown as fraction (15%)
-  minWinRate:        null,  // no hard floor — covered by PF + EV
-});
+import { PROMOTION_CRITERIA, evaluatePromotionEligibility } from './promotionGate.mjs';
+export { PROMOTION_CRITERIA, evaluatePromotionEligibility } from './promotionGate.mjs';
 
 // ── Static registry — describes each known strategy ──────────────────────────
 
@@ -152,12 +145,11 @@ function deriveStatus(strategy, governorProfiles) {
     if (trades < PROMOTION_CRITERIA.minTrades) return trades > 0 ? 'PAPER' : 'RESEARCH';
 
     const pf = profile.profitFactor;
-    const ev = profile.avgPnl ?? 0;
-
-    if (pf != null && pf >= PROMOTION_CRITERIA.minProfitFactor && ev > PROMOTION_CRITERIA.minExpectancy) {
-      return 'PROMOTED';
-    }
     if (pf != null && pf < 1.0) return 'REJECTED';
+
+    // Full institutional floor (sample, PF, EV, WR, DD, t-stat). Missing metrics ≠ PROMOTED.
+    const elig = evaluatePromotionEligibility(profile);
+    if (elig.eligible) return 'PROMOTED';
     return 'PAPER';
   }
 

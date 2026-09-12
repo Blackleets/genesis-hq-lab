@@ -1,8 +1,13 @@
 name: Hosted Futures Runner
 
+# Manual recovery probe only.
+# The canonical hosted futures schedule lives in Supabase pg_cron and calls
+# genesis-futures-runner. Keeping a second 5-minute GitHub schedule here caused
+# duplicate Edge invocations and unnecessary egress. Use workflow_dispatch only
+# when an operator wants to probe the legacy genesis-runner endpoint explicitly.
+# No live order authority is granted by this workflow.
+
 on:
-  schedule:
-    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -12,13 +17,26 @@ concurrency:
   group: hosted-futures-runner
   cancel-in-progress: false
 
+env:
+  GENESIS_RUNNER_TOKEN: ${{ secrets.GENESIS_RUNNER_TOKEN }}
+
 jobs:
-  futures-tick:
+  recovery-probe:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Run Supabase hosted futures tick
+      - name: Probe legacy Supabase runner
         run: |
-          curl --fail --silent --show-error \
-            -H "x-genesis-runner-token: ${{ secrets.GENESIS_RUNNER_TOKEN }}" \
-            "https://swgixcbwyhxttnmrglbk.supabase.co/functions/v1/genesis-runner"
+          RESP=$(curl --silent --show-error --max-time 25 \
+            -H "x-genesis-runner-token: $GENESIS_RUNNER_TOKEN" \
+            "https://swgixcbwyhxttnmrglbk.supabase.co/functions/v1/genesis-runner" \
+            -w "\n%{http_code}" || echo "curl_failed")
+          STATUS=$(echo "$RESP" | tail -1)
+          BODY=$(echo "$RESP" | sed '$d')
+          echo "genesis-runner status: $STATUS"
+          echo "body: $BODY"
+          if [ "$STATUS" = "402" ]; then
+            echo "::warning::Supabase Edge is restricted by project egress quota. Canonical paper capture remains separate; do not infer runner liveness from this probe."
+          fi
+          # A recovery probe never changes trading authority and does not page the owner.
+          exit 0

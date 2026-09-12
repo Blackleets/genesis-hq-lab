@@ -44,13 +44,8 @@ const DEFAULT_STATS: PaperStats = {
   wins: 0,
   winRate: 0,
   avgPnlSol: 0,
-  avgWinSol: 0,
-  avgLossSol: 0,
   openPositions: 0,
   liveMode: false,
-  profitFactor: 0,
-  maxDrawdownPct: 0,
-  streak: 0,
 };
 
 function stripOk<T extends { ok: boolean }>(payload: T): Omit<T, 'ok'> {
@@ -83,7 +78,10 @@ function signalActedOn(signal: Partial<SolanaSignal> & { actedOn?: boolean }) {
 
 function wsCandidates() {
   const primary = wsUrl('/ws');
-  return primary === '/ws' ? ['ws://127.0.0.1:8788/ws', primary] : [primary];
+  if (primary !== '/ws') return [primary];
+  const host = typeof window !== 'undefined' ? window.location.hostname : '';
+  const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '';
+  return isLocal ? ['ws://127.0.0.1:8788/ws', primary] : [];
 }
 
 function ActivityTape({ tokens, signals, positions }: { tokens: SolanaToken[]; signals: SolanaSignal[]; positions: PaperPosition[] }) {
@@ -158,7 +156,7 @@ export default function SolanaAlphaView() {
   const [curve, setCurve] = useState<EquityPoint[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollMsRef = useRef(POLL_RETRY_MS);
 
   const hottestSignal = signals[0] ?? null;
@@ -214,7 +212,6 @@ export default function SolanaAlphaView() {
   useEffect(() => {
     void loadAll();
     // self-adjusting poll: 4s when disconnected, 10s when live
-    let stopped = false;
     const schedulePoll = () => {
       timerRef.current = setTimeout(async () => {
         await loadAll();
@@ -225,6 +222,7 @@ export default function SolanaAlphaView() {
 
     let ws: WebSocket | null = null;
     let opened = false;
+    let stopped = false;
 
     const refreshPaper = () => {
       Promise.all([fetchPaperStats(), fetchPaperPositions(), fetchPaperTrades(50), fetchEquityCurve(200)])
@@ -270,7 +268,8 @@ export default function SolanaAlphaView() {
       }
     };
 
-    connectWs(wsCandidates());
+    const candidates = wsCandidates();
+    if (candidates.length > 0) connectWs(candidates);
 
     return () => {
       stopped = true;
@@ -280,6 +279,12 @@ export default function SolanaAlphaView() {
   }, [loadAll]);
 
   const handleReset = async () => {
+    // In production the Solana feed is a read-only snapshot (liveMode=false);
+    // paper/reset 409s there. Refuse early instead of surfacing a red error.
+    if (!stats.liveMode) {
+      setError('Solo lectura: el reset requiere el backend en vivo, no el snapshot de producción.');
+      return;
+    }
     if (!confirm('Reset paper balance to 100 SOL and close all positions?')) return;
     try {
       await resetPaperBalance();
