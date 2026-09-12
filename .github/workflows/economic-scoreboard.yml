@@ -1,0 +1,26 @@
+name: Genesis economic scoreboard checks
+
+on:
+  push:
+    branches: [main, feat/genesis-life-os, feat/genesis-economic-scoreboard-v1]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Economic scoreboard gates
+        run: node --test server/tests/economicScoreboard.test.mjs server/tests/edgeIntelligenceShadow.test.mjs server/tests/edgeDiscoveryGovernor.test.mjs
+      - name: Production build
+        run: npm run build

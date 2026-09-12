@@ -29,6 +29,7 @@ import './challengerEvidence.css';
 
 const StrategyPanel = lazy(() => import('./StrategyPanel').then((module) => ({ default: module.StrategyPanel })));
 const EconomicTruthPanel = lazy(() => import('./EconomicTruthPanel').then((module) => ({ default: module.EconomicTruthPanel })));
+const EconomicScoreboardPanel = lazy(() => import('./EconomicScoreboardPanel').then((module) => ({ default: module.EconomicScoreboardPanel })));
 const AgentBar = lazy(() => import('./AgentBar').then((module) => ({ default: module.AgentBar })));
 const ControlDrawer = lazy(() => import('./ControlDrawer').then((module) => ({ default: module.ControlDrawer })));
 
@@ -91,7 +92,7 @@ function TradingWorkspaceContent() {
           {tab === 'executions' ? <ExecutionTable /> : null}
           {tab === 'decisions' ? <DecisionTape limit={8} /> : null}
           {tab === 'strategies' ? <Suspense fallback={<LoadingPanel />}><StrategyPanel /></Suspense> : null}
-          {tab === 'truth' ? <Suspense fallback={<LoadingPanel />}><EconomicTruthPanel /></Suspense> : null}
+          {tab === 'truth' ? <Suspense fallback={<LoadingPanel />}><EconomicScoreboardPanel /><EconomicTruthPanel /></Suspense> : null}
           {tab === 'agents' ? <Suspense fallback={<LoadingPanel />}><AgentBar /></Suspense> : null}
         </div>
       </section>
