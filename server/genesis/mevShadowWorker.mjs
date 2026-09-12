@@ -4,9 +4,48 @@
 // explicitly with `npm run mev:shadow:watch` or wire it into a deployment later.
 
 import { getMevRadarConfig, scanMevOnchainRadarOnce } from './mevOnchainRadar.mjs';
-import { writeMevRadarHeartbeat } from './mevRadarState.mjs';
+import {
+  writeMevRadarHeartbeat,
+  writeMevRadarPublicSnapshot,
+} from './mevRadarState.mjs';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function publicRouteRows(evaluation) {
+  if (!evaluation) return [];
+  return [...(evaluation.candidates ?? []), ...(evaluation.rejected ?? [])]
+    .sort((a, b) => (b.expectedNetPnlUsd ?? -Infinity) - (a.expectedNetPnlUsd ?? -Infinity))
+    .slice(0, 8)
+    .map((row) => ({
+      route: row.routeId ?? `${row.buyDex ?? '?'} -> ${row.sellDex ?? '?'}`,
+      expectedNetPnlUsd: row.expectedNetPnlUsd,
+      stressNetPnlUsd: row.stressNetPnlUsd,
+      netEdgeBps: row.netEdgeBps,
+      status: row.verdict === 'SHADOW_CANDIDATE' ? 'qualified' : 'filtered',
+      blockers: row.blockers ?? [],
+      capturedAt: row.capturedAt ?? null,
+    }));
+}
+
+function publishCycle(result) {
+  const summary = result.evaluation?.summary ?? null;
+  return writeMevRadarPublicSnapshot({
+    status: result.status,
+    providerConfigured: result.providerConfigured === true,
+    chainId: result.chainId ?? null,
+    blockNumber: result.blockNumber ?? null,
+    routesScanned: result.routesScanned ?? 0,
+    routesQuoted: result.routesQuoted ?? 0,
+    evaluated: summary?.evaluated ?? 0,
+    qualified: result.evaluation?.candidates?.length ?? 0,
+    filtered: result.evaluation?.rejected?.length ?? 0,
+    theoreticalExpectedNetPnlUsd: summary?.theoreticalExpectedNetPnlUsd ?? null,
+    theoreticalStressNetPnlUsd: summary?.theoreticalStressNetPnlUsd ?? null,
+    medianNetEdgeBps: summary?.medianCandidateNetEdgeBps ?? null,
+    topRoutes: publicRouteRows(result.evaluation),
+    error: result.error ?? null,
+  });
+}
 
 export async function runMevShadowWorker({
   once = false,
@@ -39,16 +78,18 @@ export async function runMevShadowWorker({
         candidates: result.evaluation?.candidates?.length ?? 0,
         filtered: result.evaluation?.rejected?.length ?? 0,
         lastCapturedAt: result.capturedAt ?? null,
-        error: null,
+        error: result.error ?? null,
       });
+      publishCycle(result);
 
       if (typeof onCycle === 'function') await onCycle(result);
       if (once) return result;
     } catch (error) {
       cycles += 1;
       const message = error instanceof Error ? error.message : String(error);
+      const status = message === 'provider_not_configured' ? 'provider_not_configured' : 'degraded';
       writeMevRadarHeartbeat({
-        status: message === 'provider_not_configured' ? 'provider_not_configured' : 'degraded',
+        status,
         providerConfigured: Boolean(config.providerConfigured),
         mode: 'SHADOW',
         executionAuthority: false,
@@ -59,6 +100,17 @@ export async function runMevShadowWorker({
         observationsRecorded,
         candidates: 0,
         filtered: 0,
+        error: message,
+      });
+      writeMevRadarPublicSnapshot({
+        status,
+        providerConfigured: Boolean(config.providerConfigured),
+        routesScanned: 0,
+        routesQuoted: 0,
+        evaluated: 0,
+        qualified: 0,
+        filtered: 0,
+        topRoutes: [],
         error: message,
       });
       if (once) throw error;
@@ -86,7 +138,7 @@ if (process.argv[1]?.endsWith('mevShadowWorker.mjs')) {
         at: new Date().toISOString(),
         block: result.blockNumber ?? null,
         quoted: result.routesQuoted ?? 0,
-        candidates: result.evaluation?.candidates?.length ?? 0,
+        qualified: result.evaluation?.candidates?.length ?? 0,
         filtered: result.evaluation?.rejected?.length ?? 0,
       }));
     },
