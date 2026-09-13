@@ -224,6 +224,9 @@ export async function runResilientMevShadowWorker({
           captureWindowTracker,
           competitionObserver,
         });
+        // The scanner can publish degraded evidence and resolve normally.
+        // Do not clear quarantine merely because its promise did not reject.
+        if (result?.ok !== true) throw new Error('scan_unavailable');
         circuitBreaker.recordSuccess(selected.source);
         const safeResult = {
           ...result,

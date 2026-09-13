@@ -423,9 +423,13 @@ export async function scanMevOnchainRadarOnce({
   }
 
   const evaluation = evaluateMevShadowBatch(observations, { persist });
+  // Reading a block is not evidence that contract quotes are usable. Preserve
+  // diagnostics, but let the supervisor quarantine an unusable scan provider.
+  const quotesAvailable = observations.length > 0;
   return {
-    ok: true,
-    status: 'observing',
+    ok: quotesAvailable,
+    status: quotesAvailable ? 'observing' : 'degraded',
+    error: quotesAvailable ? null : (failures.length ? 'all_route_quotes_failed' : 'no_routes_configured'),
     providerConfigured: true,
     mode: RADAR_MODE,
     executionAuthority: RADAR_EXECUTION_AUTHORITY,
