@@ -94,6 +94,23 @@ export function createCaptureWindowTracker({ maxClosedWindows = 500 } = {}) {
     if (closed.length > maxClosedWindows) closed.splice(0, closed.length - maxClosedWindows);
   }
 
+  function snapshot() {
+    const activeWindows = [...active.values()];
+    const closedDurations = closed.map((window) => window.durationMs).filter(Number.isFinite);
+    const closedObservations = closed.map((window) => window.observations).filter(Number.isFinite);
+    return {
+      version: CAPTURE_READINESS_VERSION,
+      activeWindows: activeWindows.length,
+      closedWindows: closed.length,
+      totalPreCaptureObservations,
+      longestActiveObservations: activeWindows.reduce((max, row) => Math.max(max, row.observations), 0),
+      medianClosedWindowMs: median(closedDurations),
+      medianClosedWindowObservations: median(closedObservations),
+      active: activeWindows.slice(0, 20),
+      note: 'Window persistence is competition telemetry only; it is not inclusion probability.',
+    };
+  }
+
   return {
     update(evaluation, { blockNumber = null, capturedAt = new Date().toISOString() } = {}) {
       const rows = rowsFromEvaluation(evaluation);
@@ -134,24 +151,8 @@ export function createCaptureWindowTracker({ maxClosedWindows = 500 } = {}) {
         if (!seen.has(key)) closeRoute(key, capturedAt, blockNumber == null ? null : String(blockNumber));
       }
 
-      const activeWindows = [...active.values()];
-      const closedDurations = closed.map((window) => window.durationMs).filter(Number.isFinite);
-      const closedObservations = closed.map((window) => window.observations).filter(Number.isFinite);
-
-      return {
-        version: CAPTURE_READINESS_VERSION,
-        activeWindows: activeWindows.length,
-        closedWindows: closed.length,
-        totalPreCaptureObservations,
-        longestActiveObservations: activeWindows.reduce((max, row) => Math.max(max, row.observations), 0),
-        medianClosedWindowMs: median(closedDurations),
-        medianClosedWindowObservations: median(closedObservations),
-        active: activeWindows.slice(0, 20),
-        note: 'Window persistence is competition telemetry only; it is not inclusion probability.',
-      };
+      return snapshot();
     },
-    snapshot() {
-      return this.update(null, { capturedAt: new Date().toISOString() });
-    },
+    snapshot,
   };
 }
