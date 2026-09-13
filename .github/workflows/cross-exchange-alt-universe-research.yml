@@ -1,0 +1,84 @@
+name: Cross-exchange alt universe research
+
+on:
+  push:
+    branches:
+      - 'experiment/cross-exchange-arb-shadow'
+    paths:
+      - '.github/workflows/cross-exchange-alt-universe-research.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Read-only multi-asset cross-exchange scan
+        run: |
+          node --input-type=module <<'NODE'
+          import { scanCrossExchangeArbShadowDetailed } from './server/genesis/crossExchangeArbShadow.mjs';
+
+          const exchanges = ['okx', 'kraken', 'coinbase', 'bitfinex', 'kucoin', 'mexc', 'gate'];
+          const symbols = [
+            'BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'XRP/USDT', 'DOGE/USDT',
+            'ADA/USDT', 'LINK/USDT', 'AVAX/USDT', 'LTC/USDT', 'BCH/USDT',
+            'DOT/USDT', 'UNI/USDT', 'AAVE/USDT', 'ATOM/USDT', 'XLM/USDT',
+          ];
+
+          const scan = await scanCrossExchangeArbShadowDetailed({
+            exchanges,
+            symbols,
+            quoteNotional: 1000,
+            rebalanceBps: 5,
+            maxBookAgeMs: 5000,
+            maxBookSkewMs: 1000,
+          });
+
+          const rows = scan.results.map((row) => ({
+            symbol: row.symbol,
+            buyVenue: row.buyVenue,
+            sellVenue: row.sellVenue,
+            grossEdgeBps: Number(row.grossEdgeBps.toFixed(4)),
+            feeAdjustedBps: row.edgeAfterTradingFeesBps == null ? null : Number(row.edgeAfterTradingFeesBps.toFixed(4)),
+            netEdgeBps: row.netEdgeBps == null ? null : Number(row.netEdgeBps.toFixed(4)),
+            netPnlUsd: row.netPnlUsd == null ? null : Number(row.netPnlUsd.toFixed(6)),
+            bookSkewMs: row.bookSkewMs,
+            buyLatencyMs: row.buyLatencyMs,
+            sellLatencyMs: row.sellLatencyMs,
+            verdict: row.verdict,
+          }));
+          const filterCounts = scan.filteredPairs.reduce((acc, row) => {
+            acc[row.reason] = (acc[row.reason] ?? 0) + 1;
+            return acc;
+          }, {});
+
+          console.log(JSON.stringify({
+            diagnostic: 'cross_exchange_alt_universe',
+            mode: scan.mode,
+            executionAuthority: scan.executionAuthority,
+            notionalUsd: 1000,
+            rebalanceBudgetBps: 5,
+            requestedVenues: exchanges,
+            activeVenues: scan.activeExchanges,
+            symbolsRequested: symbols.length,
+            observations: rows.length,
+            grossPositive: rows.filter((r) => r.grossEdgeBps > 0).length,
+            feeAdjustedPositive: rows.filter((r) => r.feeAdjustedBps != null && r.feeAdjustedBps > 0).length,
+            netPositive: rows.filter((r) => r.netEdgeBps != null && r.netEdgeBps > 0).length,
+            filterCounts,
+            failures: scan.failures,
+            top: rows.slice(0, 30),
+          }));
+          NODE
