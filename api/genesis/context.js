@@ -53,7 +53,12 @@ async function readRadarState() {
 
 async function sendRadarView(res) {
   try {
-    const { configured, state } = await readRadarState();
+    const sources = await Promise.allSettled([readRadarState(), readHostedRadarState()]);
+    const states = sources.filter((r) => r.status === 'fulfilled').map((r) => r.value);
+    const configured = states.some((r) => r.configured);
+    const state = states.map((r) => r.state).filter(Boolean)
+      .sort((a, b) => Date.parse(b.updatedAt ?? b.stateUpdatedAt ?? '') - Date.parse(a.updatedAt ?? a.stateUpdatedAt ?? ''))[0] ?? null;
+    if (!states.length) throw new Error('radar_sources_unavailable');
     if (!configured) {
       return sendJson(res, 200, {
         ok: false,
@@ -78,6 +83,19 @@ async function sendRadarView(res) {
       radar: null,
     });
   }
+}
+
+async function readHostedRadarState() {
+  const response = await fetch('https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/data/arbitrage-observations/data/arbitrage-radar.json', {
+    signal: AbortSignal.timeout(5_000),
+  });
+  if (response.status === 404) return { configured: false, state: null };
+  if (!response.ok) throw new Error('hosted_observation_unavailable');
+  const state = await response.json();
+  if (state?.mode !== 'SHADOW' || state?.executionAuthority !== false || !Number.isFinite(Date.parse(state.updatedAt))) {
+    throw new Error('invalid_hosted_observation');
+  }
+  return { configured: true, state };
 }
 
 export default async function handler(req, res) {

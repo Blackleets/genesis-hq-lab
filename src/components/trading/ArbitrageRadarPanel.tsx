@@ -3,6 +3,7 @@ import { Activity, Radar, ShieldCheck, WifiOff } from 'lucide-react';
 
 interface RadarRoute {
   route: string;
+  netPnlUsd?: number | null;
   expectedNetPnlUsd: number | null;
   stressNetPnlUsd: number | null;
   netEdgeBps: number | null;
@@ -30,6 +31,9 @@ interface RadarSnapshot {
   error: string | null;
   updatedAt: string | null;
   stateUpdatedAt?: string | null;
+  source?: string;
+  bestNetPnlUsd?: number | null;
+  positiveRoutes?: number;
 }
 
 interface RadarResponse {
@@ -123,9 +127,12 @@ export function ArbitrageRadarPanel({ compact = false }: { compact?: boolean }) 
   }, []);
 
   const routes = useMemo(() => snapshot?.topRoutes ?? [], [snapshot?.topRoutes]);
-  const observing = snapshot?.status === 'observing';
+  const periodic = snapshot?.source === 'github_periodic_observer';
+  const observationAge = Date.now() - Date.parse(snapshot?.updatedAt ?? '');
+  const stale = !Number.isFinite(observationAge) || observationAge > (periodic ? 45 * 60_000 : 60_000);
+  const observing = snapshot?.status === 'observing' && !stale;
   const statusText = state === 'ready'
-    ? (observing ? 'OBSERVING' : String(snapshot?.status ?? 'IDLE').replaceAll('_', ' ').toUpperCase())
+    ? (stale && snapshot ? 'SIN ACTUALIZAR' : observing ? (periodic ? 'CAPTURA RECIBIDA' : 'OBSERVING') : String(snapshot?.status ?? 'IDLE').replaceAll('_', ' ').toUpperCase())
     : state.toUpperCase();
 
   return (
@@ -137,7 +144,7 @@ export function ArbitrageRadarPanel({ compact = false }: { compact?: boolean }) 
           </div>
           <div className="min-w-0">
             <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-[#00ff9c]">Arbitrage Radar</div>
-            <div className="font-mono text-[10px] text-zinc-500 truncate">On-chain intelligence · same-block quotes · shadow only</div>
+            <div className="font-mono text-[10px] text-zinc-500 truncate">{periodic ? 'Datos reales · capturas cada 30 min, sujetas a retrasos' : 'On-chain intelligence · same-block quotes · shadow only'}</div>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -164,9 +171,11 @@ export function ArbitrageRadarPanel({ compact = false }: { compact?: boolean }) 
             <Metric label="Routes" value={String(snapshot.routesScanned)} />
             <Metric label="Quoted" value={String(snapshot.routesQuoted)} />
             <Metric label="Qualified" value={String(snapshot.qualified)} accent={snapshot.qualified > 0} />
-            <Metric label="Expected" value={money(snapshot.theoreticalExpectedNetPnlUsd)} accent={(snapshot.theoreticalExpectedNetPnlUsd ?? 0) > 0} />
-            <Metric label="Stress" value={money(snapshot.theoreticalStressNetPnlUsd)} accent={(snapshot.theoreticalStressNetPnlUsd ?? 0) > 0} />
+            <Metric label={periodic ? 'Mejor neto estimado' : 'Expected'} value={money(periodic ? snapshot.bestNetPnlUsd : snapshot.theoreticalExpectedNetPnlUsd)} />
+            <Metric label={periodic ? 'Rutas netas positivas' : 'Stress'} value={periodic ? String(snapshot.positiveRoutes ?? 0) : money(snapshot.theoreticalStressNetPnlUsd)} />
           </div>
+
+          {periodic && <div className="px-4 py-3 border-b border-zinc-800 font-mono text-[11px] text-zinc-400">Investigación paper: cotizaciones con costes, sin operaciones ejecutadas. Ganancia realizada: —. Falta demostrar simulación atómica y captura antes de operar.</div>}
 
           <div className="px-4 py-2 flex flex-wrap gap-x-5 gap-y-1 border-b border-zinc-800 font-mono text-[10px] text-zinc-500">
             <span>ETHEREUM {snapshot.blockNumber ? `#${snapshot.blockNumber}` : '—'}</span>
@@ -186,7 +195,7 @@ export function ArbitrageRadarPanel({ compact = false }: { compact?: boolean }) 
                     <div className="text-zinc-600 truncate">{route.status === 'qualified' ? 'qualified by evidence' : blockerLabel(route.blockers[0])}</div>
                   </div>
                   <div className="text-right tabular-nums text-zinc-400">{bps(route.netEdgeBps)}</div>
-                  <div className={`text-right tabular-nums ${(route.expectedNetPnlUsd ?? 0) > 0 ? 'text-emerald-300' : 'text-zinc-500'}`}>{money(route.expectedNetPnlUsd)}</div>
+                  <div className={`text-right tabular-nums ${((periodic ? route.netPnlUsd : route.expectedNetPnlUsd) ?? 0) > 0 ? 'text-emerald-300' : 'text-zinc-500'}`}>{money(periodic ? route.netPnlUsd : route.expectedNetPnlUsd)}</div>
                   <div className={`text-right uppercase tracking-wider ${route.status === 'qualified' ? 'text-[#00ff9c]' : 'text-zinc-500'}`}>{route.status === 'qualified' ? 'QUALIFIED' : 'FILTERED'}</div>
                 </div>
               ))}
