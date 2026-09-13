@@ -1,0 +1,162 @@
+name: Cross-exchange funding shadow
+
+on:
+  push:
+    branches:
+      - 'feat/cross-exchange-funding-shadow'
+    paths:
+      - 'server/genesis/crossExchangeFundingShadow.mjs'
+      - 'server/tests/crossExchangeFundingShadow.test.mjs'
+      - '.github/workflows/cross-exchange-funding-shadow.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Deterministic funding economics tests
+        run: node --test server/tests/crossExchangeFundingShadow.test.mjs
+      - name: Read-only current funding and persistence research
+        run: |
+          node --input-type=module <<'NODE'
+          import ccxt from 'ccxt';
+          import {
+            evaluateFundingPair,
+            rankFundingPairs,
+          } from './server/genesis/crossExchangeFundingShadow.mjs';
+
+          const venueIds = ['okx', 'bitget', 'kucoinfutures', 'mexc', 'gate'];
+          const bases = ['BTC', 'ETH', 'SOL'];
+          const clients = {};
+          const currentByBase = Object.fromEntries(bases.map((base) => [base, []]));
+          const failures = [];
+
+          for (const id of venueIds) {
+            try {
+              const ex = new ccxt[id]({ enableRateLimit: true, timeout: 12000 });
+              await ex.loadMarkets();
+              clients[id] = ex;
+              for (const base of bases) {
+                const market = Object.values(ex.markets ?? {}).find((m) =>
+                  m?.swap === true
+                  && m.base === base
+                  && m.quote === 'USDT'
+                  && m.settle === 'USDT'
+                  && m.linear !== false
+                );
+                if (!market || !ex.has?.fetchFundingRate) continue;
+                try {
+                  const funding = await ex.fetchFundingRate(market.symbol);
+                  if (!Number.isFinite(Number(funding?.fundingRate))) continue;
+                  currentByBase[base].push({
+                    venue: id,
+                    symbol: market.symbol,
+                    base,
+                    quote: 'USDT',
+                    settle: 'USDT',
+                    fundingRate: Number(funding.fundingRate),
+                    interval: funding.interval ?? '8h',
+                    taker: Number.isFinite(Number(market.taker)) ? Number(market.taker) : null,
+                    maker: Number.isFinite(Number(market.maker)) ? Number(market.maker) : null,
+                    fundingTimestamp: funding.fundingTimestamp ?? funding.timestamp ?? null,
+                    nextFundingTimestamp: funding.nextFundingTimestamp ?? null,
+                    feeSource: 'ccxt_market_metadata_unverified',
+                  });
+                } catch (error) {
+                  failures.push({ venue: id, base, stage: 'current_funding', error: String(error?.message ?? error).replace(/\s+/g, ' ').slice(0, 220) });
+                }
+              }
+            } catch (error) {
+              failures.push({ venue: id, base: null, stage: 'load_markets', error: String(error?.message ?? error).replace(/\s+/g, ' ').slice(0, 220) });
+            }
+          }
+
+          function fundingBucket(timestamp, intervalHours = 8) {
+            const ts = Number(timestamp);
+            if (!Number.isFinite(ts)) return null;
+            const width = intervalHours * 60 * 60 * 1000;
+            return Math.round(ts / width) * width;
+          }
+
+          async function historyFor(venue) {
+            const ex = clients[venue.venue];
+            if (!ex?.has?.fetchFundingRateHistory) return [];
+            try {
+              const since = Date.now() - (21 * 24 * 60 * 60 * 1000);
+              const history = await ex.fetchFundingRateHistory(venue.symbol, since, 100);
+              return (history ?? [])
+                .filter((row) => Number.isFinite(Number(row?.fundingRate)) && Number.isFinite(Number(row?.timestamp)))
+                .map((row) => ({ timestamp: Number(row.timestamp), rate: Number(row.fundingRate) }));
+            } catch (error) {
+              failures.push({ venue: venue.venue, base: venue.base, stage: 'funding_history', error: String(error?.message ?? error).replace(/\s+/g, ' ').slice(0, 220) });
+              return [];
+            }
+          }
+
+          const reports = [];
+          for (const base of bases) {
+            const ranked = rankFundingPairs(currentByBase[base]);
+            const top = ranked[0] ?? null;
+            if (!top?.longVenue || !top?.shortVenue) {
+              reports.push({ base, currentVenues: currentByBase[base].length, top: null });
+              continue;
+            }
+
+            const [longHistory, shortHistory] = await Promise.all([
+              historyFor(top.longVenue),
+              historyFor(top.shortVenue),
+            ]);
+            const intervalHours = top.contract.intervalHours || 8;
+            const longByBucket = new Map(longHistory.map((row) => [fundingBucket(row.timestamp, intervalHours), row.rate]));
+            const persistence = [];
+            for (const row of shortHistory) {
+              const bucket = fundingBucket(row.timestamp, intervalHours);
+              const longRate = longByBucket.get(bucket);
+              if (!Number.isFinite(longRate)) continue;
+              persistence.push({ longRate, shortRate: row.rate });
+            }
+
+            const withPersistence = evaluateFundingPair(top.longVenue, top.shortVenue, {
+              persistence,
+              feeEvidenceVerified: false,
+            });
+
+            reports.push({
+              base,
+              currentVenues: currentByBase[base].length,
+              longVenue: withPersistence.longVenue.venue,
+              shortVenue: withPersistence.shortVenue.venue,
+              currentDiffBps: Number(withPersistence.fundingDifferential.bpsPerInterval.toFixed(6)),
+              takerRoundTripBps: withPersistence.fees.takerRoundTripBps,
+              makerRoundTripBps: withPersistence.fees.makerRoundTripBps,
+              takerBreakEvenHours: withPersistence.breakEven.takerHours == null ? null : Number(withPersistence.breakEven.takerHours.toFixed(2)),
+              persistence: withPersistence.persistence,
+              status: withPersistence.status,
+              blockers: withPersistence.blockers,
+              sevenDayTakerProjectionBps: withPersistence.projections.taker.find((row) => row.horizonHours === 168)?.projectedNetBeforeBasisSlippageBps ?? null,
+            });
+          }
+
+          console.log(JSON.stringify({
+            diagnostic: 'cross_exchange_funding_shadow',
+            mode: 'SHADOW',
+            executionAuthority: false,
+            feeEvidence: 'ccxt_market_metadata_unverified',
+            projectionWarning: 'all horizon PnL is conditional on funding differential persistence and excludes basis/slippage/margin/liquidation/transfer risk',
+            reports,
+            failures,
+          }));
+          NODE
