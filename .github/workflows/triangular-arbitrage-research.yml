@@ -1,0 +1,198 @@
+name: Triangular arbitrage research
+
+on:
+  push:
+    branches:
+      - 'experiment/cross-exchange-arb-shadow'
+    paths:
+      - '.github/workflows/triangular-arbitrage-research.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Read-only triangular route scan
+        run: |
+          node --input-type=module <<'NODE'
+          import ccxt from 'ccxt';
+
+          const venueIds = ['okx', 'kucoin', 'mexc', 'gate', 'bitfinex'];
+          const START_USDT = 1000;
+          const MAX_BOOK_SKEW_MS = 1000;
+          const triangles = [
+            ['USDT', 'BTC', 'ETH', 'USDT'],
+            ['USDT', 'ETH', 'BTC', 'USDT'],
+            ['USDT', 'BTC', 'SOL', 'USDT'],
+            ['USDT', 'SOL', 'BTC', 'USDT'],
+            ['USDT', 'ETH', 'SOL', 'USDT'],
+            ['USDT', 'SOL', 'ETH', 'USDT'],
+          ];
+
+          function bookLimit(id) { return id === 'bitfinex' ? 25 : 20; }
+
+          function spendQuoteOnAsks(asks, quoteAmount) {
+            let quoteUsed = 0;
+            let baseOut = 0;
+            for (const [p0, q0] of asks ?? []) {
+              const p = Number(p0), q = Number(q0);
+              if (!(p > 0) || !(q > 0)) continue;
+              const levelQuote = p * q;
+              const useQuote = Math.min(levelQuote, quoteAmount - quoteUsed);
+              if (useQuote <= 0) break;
+              quoteUsed += useQuote;
+              baseOut += useQuote / p;
+              if (quoteUsed + 1e-9 >= quoteAmount) break;
+            }
+            return quoteUsed + 1e-9 >= quoteAmount ? baseOut : null;
+          }
+
+          function sellBaseToBids(bids, baseAmount) {
+            let baseUsed = 0;
+            let quoteOut = 0;
+            for (const [p0, q0] of bids ?? []) {
+              const p = Number(p0), q = Number(q0);
+              if (!(p > 0) || !(q > 0)) continue;
+              const useBase = Math.min(q, baseAmount - baseUsed);
+              if (useBase <= 0) break;
+              baseUsed += useBase;
+              quoteOut += useBase * p;
+              if (baseUsed + 1e-12 >= baseAmount) break;
+            }
+            return baseUsed + 1e-12 >= baseAmount ? quoteOut : null;
+          }
+
+          function findDirectMarket(ex, from, to) {
+            const direct = ex.markets?.[`${from}/${to}`];
+            if (direct?.spot) return { market: direct, side: 'sell_base' };
+            const inverse = ex.markets?.[`${to}/${from}`];
+            if (inverse?.spot) return { market: inverse, side: 'buy_base' };
+            return null;
+          }
+
+          async function evaluateVenue(id) {
+            const ex = new ccxt[id]({ enableRateLimit: true, timeout: 12000 });
+            await ex.loadMarkets();
+            const requiredSymbols = new Set();
+            const routePlans = [];
+
+            for (const currencies of triangles) {
+              const legs = [];
+              let usable = true;
+              for (let i = 0; i < currencies.length - 1; i += 1) {
+                const from = currencies[i], to = currencies[i + 1];
+                const found = findDirectMarket(ex, from, to);
+                if (!found) { usable = false; break; }
+                requiredSymbols.add(found.market.symbol);
+                legs.push({ from, to, ...found });
+              }
+              if (usable) routePlans.push({ currencies, legs });
+            }
+
+            const books = new Map();
+            await Promise.all([...requiredSymbols].map(async (symbol) => {
+              const started = Date.now();
+              try {
+                const book = await ex.fetchOrderBook(symbol, bookLimit(id));
+                books.set(symbol, {
+                  bids: book.bids ?? [], asks: book.asks ?? [],
+                  fetchedAt: Date.now(), latencyMs: Date.now() - started,
+                });
+              } catch (error) {
+                books.set(symbol, { error: String(error?.message ?? error).replace(/\s+/g, ' ').slice(0, 180) });
+              }
+            }));
+
+            const rows = [];
+            for (const plan of routePlans) {
+              const timestamps = plan.legs.map((leg) => books.get(leg.market.symbol)?.fetchedAt).filter(Number.isFinite);
+              if (timestamps.length !== plan.legs.length) continue;
+              const skewMs = Math.max(...timestamps) - Math.min(...timestamps);
+              if (skewMs > MAX_BOOK_SKEW_MS) continue;
+
+              let grossAmount = START_USDT;
+              let netAmount = START_USDT;
+              let ok = true;
+              const legEvidence = [];
+              for (const leg of plan.legs) {
+                const book = books.get(leg.market.symbol);
+                const taker = Number(leg.market.taker);
+                if (!book || book.error || !Number.isFinite(taker) || taker < 0) { ok = false; break; }
+
+                const grossOut = leg.side === 'sell_base'
+                  ? sellBaseToBids(book.bids, grossAmount)
+                  : spendQuoteOnAsks(book.asks, grossAmount);
+                const netRawOut = leg.side === 'sell_base'
+                  ? sellBaseToBids(book.bids, netAmount)
+                  : spendQuoteOnAsks(book.asks, netAmount);
+                if (!(grossOut > 0) || !(netRawOut > 0)) { ok = false; break; }
+                const netOut = netRawOut * (1 - taker);
+                legEvidence.push({
+                  symbol: leg.market.symbol,
+                  from: leg.from,
+                  to: leg.to,
+                  side: leg.side,
+                  taker,
+                  grossOut,
+                  netOut,
+                  latencyMs: book.latencyMs,
+                });
+                grossAmount = grossOut;
+                netAmount = netOut;
+              }
+              if (!ok) continue;
+              const grossEdgeBps = ((grossAmount - START_USDT) / START_USDT) * 10000;
+              const netEdgeBps = ((netAmount - START_USDT) / START_USDT) * 10000;
+              rows.push({
+                venue: id,
+                route: plan.currencies.join('->'),
+                grossFinalUsdt: grossAmount,
+                netFinalUsdt: netAmount,
+                grossEdgeBps,
+                netEdgeBps,
+                netPnlUsd: netAmount - START_USDT,
+                bookSkewMs: skewMs,
+                legs: legEvidence,
+              });
+            }
+            return rows;
+          }
+
+          const all = [];
+          const failures = [];
+          for (const id of venueIds) {
+            try {
+              all.push(...await evaluateVenue(id));
+            } catch (error) {
+              failures.push({ venue: id, error: String(error?.message ?? error).replace(/\s+/g, ' ').slice(0, 240) });
+            }
+          }
+          all.sort((a, b) => b.netEdgeBps - a.netEdgeBps);
+
+          console.log(JSON.stringify({
+            diagnostic: 'triangular_arbitrage_shadow',
+            mode: 'SHADOW_RESEARCH',
+            executionAuthority: false,
+            startUsdt: START_USDT,
+            maxBookSkewMs: MAX_BOOK_SKEW_MS,
+            routesMeasured: all.length,
+            grossPositive: all.filter((r) => r.grossEdgeBps > 0).length,
+            netPositive: all.filter((r) => r.netEdgeBps > 0).length,
+            warning: 'fee-adjusted order-book observation only; no execution, fill or latency guarantee',
+            top: all.slice(0, 25),
+            failures,
+          }));
+          NODE
