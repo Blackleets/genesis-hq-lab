@@ -11,6 +11,7 @@
     "db:restore": "node --env-file-if-exists=.env server/persistence/restore.mjs",
     "start:render": "npm run db:restore ; concurrently -n server,agent,optimizer -c green,magenta,yellow --restart-tries -1 --restart-after 5000 \"npm run server\" \"npm run agent\" \"npm run optimizer\"",
     "start:render:lean": "concurrently -n server,agent -c green,magenta --restart-tries -1 --restart-after 5000 \"npm run server\" \"npm run agent\"",
+    "start:render:arbitrage": "npm run db:restore ; concurrently -n server,agent,optimizer,arbitrage -c green,magenta,yellow,cyan --restart-tries -1 --restart-after 5000 \"npm run server\" \"npm run agent\" \"npm run optimizer\" \"npm run mev:radar:watch\"",
     "mcp": "node server/mcpServer.mjs",
     "test": "node --test --test-concurrency=1 \"server/tests/**/*.test.mjs\"",
     "test:engine": "vitest run server/genesis/__tests__",
@@ -36,7 +37,12 @@
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "mev:shadow": "node --env-file-if-exists=.env server/genesis/mevArbitrageShadow.mjs",
+    "mev:preflight": "node --env-file-if-exists=.env server/genesis/mevPreflight.mjs",
+    "mev:radar:once": "node --env-file-if-exists=.env server/genesis/mevShadowWorker.mjs --once",
+    "mev:radar:watch": "node --env-file-if-exists=.env server/genesis/mevShadowWorker.mjs",
+    "mev:shadow:test": "node --test --test-concurrency=1 server/tests/mevArbitrageShadow.test.mjs server/tests/mevShadowLedger.test.mjs server/tests/mevShadowEngine.test.mjs server/tests/mevOnchainRadar.test.mjs server/tests/mevAtomicSimulator.test.mjs server/tests/mevAtomicRadarIntegration.test.mjs server/tests/mevLiquidityProof.test.mjs server/tests/mevCaptureReadiness.test.mjs server/tests/mevCompetitionObserver.test.mjs server/tests/mevPreflight.test.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
@@ -63,7 +69,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
-    "autoprefixer": "^10.5.0",
+    "autoprefixer": "^10.4.19",
     "concurrently": "^10.0.0",
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",

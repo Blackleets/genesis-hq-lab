@@ -1,6 +1,5 @@
-// EdgeScorecardView — the single screen that answers "are we ready for real money?"
-// Polls /api/trading/edge-scorecard and renders a clear GO / NO-GO / INSUFFICIENT_DATA
-// verdict with the checks that are passing and failing.
+// EdgeScorecardView — evidence surface for capital readiness.
+// Internal research verdicts stay exact in data; the UI renders calm, human-readable states.
 
 import { useEffect, useState, useCallback } from 'react';
 import { agentClient, type EdgeScorecard, type CryptoEdgeScorecard } from '@services/agentClient';
@@ -12,17 +11,17 @@ const POLL_MS = 30_000;
 function VerdictBadge({ verdict }: { verdict: EdgeScorecard['verdict'] }) {
   const colors = {
     GO:                'border-green-400/60 text-green-300 bg-green-400/10',
-    NO_GO:             'border-red-400/60 text-red-300 bg-red-400/10',
-    INSUFFICIENT_DATA: 'border-amber-400/60 text-amber-300 bg-amber-400/10',
+    NO_GO:             'border-amber-400/50 text-amber-300 bg-amber-400/8',
+    INSUFFICIENT_DATA: 'border-zinc-600 text-zinc-300 bg-zinc-800/40',
   };
   const labels = {
-    GO:                'GO — listo para capital real',
-    NO_GO:             'NO-GO — edge no probado',
-    INSUFFICIENT_DATA: 'DATOS INSUFICIENTES',
+    GO:                'VALIDATED — evidence threshold met',
+    NO_GO:             'OBSERVING — edge not confirmed',
+    INSUFFICIENT_DATA: 'COLLECTING DATA',
   };
   return (
     <div className={`inline-flex items-center gap-2 border px-4 py-2 font-mono text-sm font-bold uppercase tracking-widest ${colors[verdict]}`}>
-      <span className="text-lg">{verdict === 'GO' ? '✓' : verdict === 'NO_GO' ? '✗' : '⏳'}</span>
+      <span className="text-lg">{verdict === 'GO' ? '✓' : verdict === 'NO_GO' ? '•' : '…'}</span>
       {labels[verdict]}
     </div>
   );
@@ -31,11 +30,11 @@ function VerdictBadge({ verdict }: { verdict: EdgeScorecard['verdict'] }) {
 function CheckRow({ label, pass, value, threshold }: { label: string; pass: boolean; value: number | null; threshold: number }) {
   return (
     <div className="flex items-center gap-3 py-2 border-b border-zinc-800 last:border-0">
-      <span className={`text-lg font-mono ${pass ? 'text-green-400' : 'text-red-400'}`}>{pass ? '✓' : '✗'}</span>
+      <span className={`text-lg font-mono ${pass ? 'text-green-400' : 'text-amber-400'}`}>{pass ? '✓' : '•'}</span>
       <span className="flex-1 font-mono text-[12px] text-zinc-300">{label}</span>
       {value != null && (
-        <span className={`font-mono text-[11px] tabular-nums ${pass ? 'text-green-400' : 'text-red-400'}`}>
-          {value} {!pass && threshold != null ? `(need ${threshold})` : ''}
+        <span className={`font-mono text-[11px] tabular-nums ${pass ? 'text-green-400' : 'text-amber-300'}`}>
+          {value} {!pass && threshold != null ? `(target ${threshold})` : ''}
         </span>
       )}
     </div>
@@ -59,14 +58,14 @@ function CryptoScorecard({ crypto, lang }: { crypto: CryptoEdgeScorecard; lang: 
     <div className="border border-[#f7931a44] bg-[#f7931a08] px-4 py-4 space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="text-[9px] uppercase tracking-[0.2em] text-[#f7931a]">{es ? 'Motor Crypto · activo' : 'Crypto Engine · active'}</div>
+          <div className="text-[9px] uppercase tracking-[0.2em] text-[#f7931a]">{es ? 'Motor Crypto · segundo plano' : 'Crypto Engine · background'}</div>
           <div className="text-[10px] text-zinc-500 mt-0.5">{es ? 'fuente' : 'source'}: {crypto.source}</div>
         </div>
         <VerdictBadge verdict={crypto.verdict} />
       </div>
 
       {crypto.nextMilestone && (
-        <div className="border border-zinc-700 bg-zinc-900/50 px-4 py-2 text-zinc-400 text-[12px]">⏳ {crypto.nextMilestone}</div>
+        <div className="border border-zinc-700 bg-zinc-900/50 px-4 py-2 text-zinc-400 text-[12px]">{crypto.nextMilestone}</div>
       )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -85,15 +84,15 @@ function CryptoScorecard({ crypto, lang }: { crypto: CryptoEdgeScorecard; lang: 
       )}
 
       {crypto.verdict === 'NO_GO' && (
-        <div className="border border-red-400/30 bg-red-400/5 px-4 py-3 text-[12px] text-red-300">
+        <div className="border border-amber-400/30 bg-amber-400/5 px-4 py-3 text-[12px] text-amber-200">
           {es
-            ? 'El edge aún no está probado. La señal actual no es rentable tras costos fuera de muestra — el optimizador sigue buscando una config válida antes de arriesgar capital.'
-            : 'Edge not proven yet. The current signal is unprofitable after costs out-of-sample — the optimizer keeps searching for a valid config before risking capital.'}
+            ? 'En observación. La señal direccional todavía no demuestra rentabilidad fuera de muestra después de costos; continúa acumulando evidencia en segundo plano.'
+            : 'Observing. The directional signal has not yet proven out-of-sample profitability after costs; it continues collecting evidence in the background.'}
         </div>
       )}
       {crypto.verdict === 'GO' && (
         <div className="border border-green-400/40 bg-green-400/5 px-4 py-3 text-green-300 text-[12px]">
-          ✓ {es ? 'Edge validado out-of-sample. Listo para evaluar capital real en crypto.' : 'Edge validated out-of-sample. Ready to consider real crypto capital.'}
+          ✓ {es ? 'Edge validado out-of-sample. Aún requiere aprobación humana antes de cualquier capital real.' : 'Edge validated out-of-sample. Human approval is still required before any real capital.'}
         </div>
       )}
     </div>
@@ -105,6 +104,7 @@ export default function EdgeScorecardView() {
   const [data, setData] = useState<EdgeScorecard | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastSync, setLastSync] = useState<string | null>(null);
+  const [showDirectional, setShowDirectional] = useState(false);
 
   const load = useCallback(async () => {
     const result = await agentClient.getEdgeScorecard();
@@ -126,27 +126,40 @@ export default function EdgeScorecardView() {
 
   return (
     <div className="flex-1 overflow-y-auto p-5 space-y-6 font-mono">
-      {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-lg font-bold text-zinc-100">
-            {lang === 'es' ? 'Edge Scorecard — ¿Listo para dinero real?' : 'Edge Scorecard — Ready for Real Money?'}
+            {lang === 'es' ? 'Evidencia de Edge · Preparación de capital' : 'Edge Evidence · Capital Readiness'}
           </h1>
           <p className="text-[11px] text-zinc-500 mt-1 max-w-xl">
             {lang === 'es'
-              ? 'Todos los checks deben pasar (y 50+ trades). Un GO de UI no es capital real: LIVE_OFF sigue; hace falta GO humano por archivo, no REAL_TRADING desde esta pantalla.'
-              : 'All checks must pass (and 50+ trades). A UI GO is not live capital: LIVE_OFF stays; human GO file required — never flip REAL_TRADING from this screen.'}
+              ? 'La evidencia puede validar una estrategia, pero nunca activa dinero real desde esta pantalla. LIVE_OFF permanece bloqueado hasta aprobación humana explícita.'
+              : 'Evidence may validate a strategy, but this screen never activates real money. LIVE_OFF remains locked until explicit human approval.'}
           </p>
         </div>
         {lastSync && <span className="text-[10px] text-zinc-600 shrink-0">sync {lastSync}</span>}
       </div>
 
-      {/* Local live engine — always on: real Binance backtest + brute-force
-          sweep. This is the area that keeps learning and moving even when the
-          hosted backend is quiet, and it feeds the agents their real stats. */}
-      <LocalEdgeScorecard />
+      <section className="border border-zinc-800 bg-[#0b0f16]">
+        <button
+          type="button"
+          onClick={() => setShowDirectional((visible) => !visible)}
+          className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left"
+          aria-expanded={showDirectional}
+        >
+          <span>
+            <span className="block text-[10px] uppercase tracking-[0.2em] text-zinc-400">
+              {lang === 'es' ? 'Investigación direccional · segundo plano' : 'Directional research · background'}
+            </span>
+            <span className="block text-[10px] text-zinc-600 mt-0.5">
+              {lang === 'es' ? 'V9 y búsqueda local siguen separados del foco de arbitraje.' : 'V9 and local research remain separate from the arbitrage focus.'}
+            </span>
+          </span>
+          <span className="text-zinc-500 text-sm">{showDirectional ? '−' : '+'}</span>
+        </button>
+        {showDirectional && <div className="border-t border-zinc-800"><LocalEdgeScorecard /></div>}
+      </section>
 
-      {/* Hosted backend verdict */}
       {loading ? (
         <div className="text-zinc-500 text-sm">
           {lang === 'es' ? 'Cargando...' : 'Loading...'}
@@ -154,15 +167,13 @@ export default function EdgeScorecardView() {
       ) : !data ? (
         <div className="border border-amber-400/40 bg-amber-400/5 px-4 py-3 text-amber-300 text-[12px]">
           {lang === 'es'
-            ? 'Backend hosted offline — el motor local de arriba sigue midiendo y aprendiendo con datos reales de Binance.'
-            : 'Hosted backend offline — the local engine above keeps measuring and learning from real Binance data.'}
+            ? 'Backend hosted offline — la investigación direccional permanece aislada.'
+            : 'Hosted backend offline — directional research remains isolated.'}
         </div>
       ) : (
         <>
-          {/* Crypto engine — the currently active strategy */}
           {data.crypto && <CryptoScorecard crypto={data.crypto} lang={lang} />}
 
-          {/* Prediction market engine */}
           <div className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 pt-2">
             {lang === 'es' ? 'Mercados de Predicción (Polymarket/Kalshi)' : 'Prediction Markets (Polymarket/Kalshi)'}
           </div>
@@ -170,11 +181,10 @@ export default function EdgeScorecardView() {
 
           {data.nextMilestone && (
             <div className="border border-zinc-700 bg-zinc-900/50 px-4 py-2 text-zinc-400 text-[12px]">
-              ⏳ {data.nextMilestone}
+              {data.nextMilestone}
             </div>
           )}
 
-          {/* Stats grid */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <StatTile label={lang === 'es' ? 'Trades cerrados' : 'Closed trades'} value={String(data.totalClosed)} />
             <StatTile label="Win rate" value={`${(data.winRate * 100).toFixed(1)}%`} />
@@ -196,14 +206,13 @@ export default function EdgeScorecardView() {
             <StatTile
               label={lang === 'es' ? 'Gap calibración' : 'Calibration gap'}
               value={data.calibrationGap != null ? data.calibrationGap.toFixed(3) : '—'}
-              sub={data.calibrationGap != null && data.calibrationGap < 0.10 ? '✓ bien calibrado' : '✗ sobre-confiado'}
+              sub={data.calibrationGap != null && data.calibrationGap < 0.10 ? '✓ calibrated' : '• needs evidence'}
             />
           </div>
 
-          {/* Checks */}
           <div>
             <div className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 mb-2">
-              {lang === 'es' ? 'Condiciones GO' : 'GO conditions'}
+              {lang === 'es' ? 'Condiciones de validación' : 'Validation conditions'}
             </div>
             <div className="bg-[#0d111a] border border-zinc-800 px-4 py-1">
               {checkEntries.map(([key, check]) => (
@@ -218,15 +227,14 @@ export default function EdgeScorecardView() {
             </div>
           </div>
 
-          {/* Failing checks summary */}
           {data.failingChecks.length > 0 && data.verdict === 'NO_GO' && (
-            <div className="border border-red-400/30 bg-red-400/5 px-4 py-3 space-y-1">
-              <div className="text-[9px] uppercase tracking-[0.2em] text-red-400 mb-2">
-                {lang === 'es' ? 'Qué falta para GO' : 'What needs to improve for GO'}
+            <div className="border border-amber-400/30 bg-amber-400/5 px-4 py-3 space-y-1">
+              <div className="text-[9px] uppercase tracking-[0.2em] text-amber-300 mb-2">
+                {lang === 'es' ? 'Brechas de evidencia' : 'Evidence gaps'}
               </div>
               {data.failingChecks.map((fc) => (
-                <div key={fc.key} className="text-[12px] text-red-300">
-                  ✗ {fc.label} — actual: {fc.value ?? 'n/a'}, need: {fc.threshold}
+                <div key={fc.key} className="text-[12px] text-amber-200">
+                  • {fc.label} — actual: {fc.value ?? 'n/a'}, target: {fc.threshold}
                 </div>
               ))}
             </div>
@@ -235,8 +243,8 @@ export default function EdgeScorecardView() {
           {data.verdict === 'GO' && (
             <div className="border border-green-400/40 bg-green-400/5 px-4 py-3 text-green-300 text-[12px]">
               ✓ {lang === 'es'
-                ? 'Checks de UI en verde ≠ dinero real. LIVE_OFF / paper siguen. Capital real solo con GO humano explícito (archivo), nunca desde este scorecard.'
-                : 'UI checks green ≠ real money. LIVE_OFF / paper stay. Real capital only with explicit human GO file — never from this scorecard.'}
+                ? 'Evidencia validada. LIVE_OFF / paper siguen; capital real solo con aprobación humana explícita.'
+                : 'Evidence validated. LIVE_OFF / paper remain; real capital still requires explicit human approval.'}
             </div>
           )}
         </>

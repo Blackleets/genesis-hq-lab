@@ -1,0 +1,1 @@
+Canonical SHADOW integration source: `experiment/arbitrage-competition-observability` at or after commit `c63e8035e287fab66e93c1244414ef25cb5be224`. This marker carries no runtime authority and does not enable execution.

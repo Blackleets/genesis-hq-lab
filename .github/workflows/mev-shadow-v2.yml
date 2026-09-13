@@ -1,0 +1,74 @@
+name: MEV shadow checks
+
+on:
+  pull_request:
+    paths:
+      - 'server/genesis/mevArbitrageShadow.mjs'
+      - 'server/genesis/mevShadowEngine.mjs'
+      - 'server/genesis/mevShadowLedger.mjs'
+      - 'server/genesis/mevOnchainRadar.mjs'
+      - 'server/genesis/mevAtomicSimulator.mjs'
+      - 'server/genesis/mevLiquidityProof.mjs'
+      - 'server/genesis/mevCaptureReadiness.mjs'
+      - 'server/genesis/mevCompetitionObserver.mjs'
+      - 'server/genesis/mevPreflight.mjs'
+      - 'server/genesis/mevRadarState.mjs'
+      - 'server/genesis/mevShadowWorker.mjs'
+      - 'server/tests/mev*.test.mjs'
+      - 'api/genesis/context.js'
+      - 'src/components/trading/ArbitrageRadarPanel.tsx'
+      - 'src/components/trading/TradingWorkspace.tsx'
+      - 'src/workflows/WorkScreen.tsx'
+      - 'src/workflows/EdgeScorecardView.tsx'
+      - 'docs/MEV_ARBITRAGE_SHADOW.md'
+      - 'docs/ARBITRAGE_ATOMIC_SIMULATION.md'
+      - 'docs/ARBITRAGE_LIQUIDITY_PROOF.md'
+      - 'docs/ARBITRAGE_SHADOW_READY.md'
+      - 'docs/ARBITRAGE_COMPETITION_OBSERVABILITY.md'
+      - '.env.example'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/mev-shadow-v2.yml'
+  push:
+    branches:
+      - 'experiment/mev-arbitrage-shadow-v2'
+      - 'experiment/mev-autonomous-radar'
+      - 'experiment/arbitrage-radar-clean'
+      - 'experiment/arbitrage-atomic-simulation'
+      - 'experiment/arbitrage-liquidity-proof'
+      - 'experiment/arbitrage-shadow-ready'
+      - 'experiment/arbitrage-competition-observability'
+      - 'feat/arbitrage-radar-shadow'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Module syntax
+        run: |
+          node --check server/genesis/mevArbitrageShadow.mjs
+          node --check server/genesis/mevShadowEngine.mjs
+          node --check server/genesis/mevShadowLedger.mjs
+          node --check server/genesis/mevOnchainRadar.mjs
+          node --check server/genesis/mevAtomicSimulator.mjs
+          node --check server/genesis/mevLiquidityProof.mjs
+          node --check server/genesis/mevCaptureReadiness.mjs
+          node --check server/genesis/mevCompetitionObserver.mjs
+          node --check server/genesis/mevPreflight.mjs
+          node --check server/genesis/mevRadarState.mjs
+          node --check server/genesis/mevShadowWorker.mjs
+          node --check api/genesis/context.js
+      - name: Focused MEV shadow tests
+        run: npm run mev:shadow:test
+      - name: Production build
+        run: npm run build

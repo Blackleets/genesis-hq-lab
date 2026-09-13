@@ -11,6 +11,7 @@ import type { Task, TaskStatus } from '@core/types/task';
 import type { TKey } from '@core/i18n/translations';
 import { CaptureDeskPanel } from '@components/crypto/CaptureDeskPanel';
 import { QuantReadinessPanel } from '@components/crypto/QuantReadinessPanel';
+import { ArbitrageRadarPanel } from '@components/trading/ArbitrageRadarPanel';
 import EdgeScorecardView from '@workflows/EdgeScorecardView';
 import { useFundingBotState } from '@services/useFundingBotState';
 
@@ -90,7 +91,7 @@ function PaperStrip({ es }: { es: boolean }) {
     <div className="flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-wider">
       <span className="px-1.5 py-0.5 border border-amber-500/50 text-amber-300">PAPER</span>
       <span className="px-1.5 py-0.5 border border-zinc-700 text-zinc-400">LIVE_OFF</span>
-      <span className="px-1.5 py-0.5 border border-red-500/40 text-red-300">6 GATES NO-GO</span>
+      <span className="px-1.5 py-0.5 border border-cyan-500/40 text-cyan-300">EVIDENCE MODE</span>
       <span className="text-zinc-600">{es ? 'sin dinero real' : 'no real money'}</span>
     </div>
   );
@@ -109,7 +110,7 @@ function BoardPaper({ es }: { es: boolean }) {
       <div className="font-mono text-[11px] text-zinc-400 mt-1">
         {es ? 'cobrado' : 'accrued'} ${st.fundingPaid.toFixed(4)} · {st.openCount} pos · {st.trades.length} {es ? 'eventos' : 'events'}
       </div>
-      <div className="font-mono text-[10px] text-amber-500/80 mt-2">PAPER · LIVE_OFF · {es ? 'no es un GO' : 'not a GO'}</div>
+      <div className="font-mono text-[10px] text-amber-500/80 mt-2">PAPER · LIVE_OFF · {es ? 'en observación' : 'observing'}</div>
       {!st.booted && (
         <div className="font-mono text-[11px] text-zinc-600 mt-2">
           {es ? 'esperando feed real (gist). sin números de muestra.' : 'waiting on real feed (gist). no sample numbers.'}
@@ -129,7 +130,19 @@ function RoomDesk({ room, es }: { room: RoomId; es: boolean }) {
       </div>
     );
   }
-  if (room === 'board-room') return <BoardPaper es={es} />;
+  if (room === 'board-room') {
+    return (
+      <div className="space-y-3">
+        <ArbitrageRadarPanel />
+        <details className="border border-zinc-800 bg-[#0b0f16]">
+          <summary className="cursor-pointer list-none px-4 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500 hover:text-zinc-300">
+            {es ? 'Investigación direccional y funding · segundo plano' : 'Directional + funding research · background'}
+          </summary>
+          <div className="border-t border-zinc-800"><BoardPaper es={es} /></div>
+        </details>
+      </div>
+    );
+  }
   if (room === 'risk-bunker') {
     return (
       <div className="border border-zinc-800 bg-[#0b0f16] px-4 py-4 font-mono text-[12px] text-zinc-300 space-y-2">
@@ -137,8 +150,8 @@ function RoomDesk({ room, es }: { room: RoomId; es: boolean }) {
         <div>LIVE_OFF · PAPER · {es ? 'trading real bloqueado' : 'live trading blocked'}</div>
         <div className="text-zinc-500 text-[11px]">
           {es
-            ? 'Las 6 gates viven en Laboratorio. Esta sala no inventa un GO ni un DD.'
-            : 'The 6 gates live in the Lab. This room does not invent a GO or a drawdown.'}
+            ? 'Las gates viven en Laboratorio. Esta sala no inventa validación ni drawdown.'
+            : 'The gates live in the Lab. This room never invents validation or drawdown.'}
         </div>
       </div>
     );
@@ -184,7 +197,6 @@ export default function WorkScreen({ room, onClose }: Props) {
         )}
 
         {desk}
-
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <section className="gx-card">
