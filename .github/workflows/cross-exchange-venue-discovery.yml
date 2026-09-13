@@ -1,0 +1,66 @@
+name: Cross-exchange venue discovery
+
+on:
+  push:
+    branches:
+      - 'experiment/cross-exchange-arb-shadow'
+    paths:
+      - '.github/workflows/cross-exchange-venue-discovery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Probe public spot venues
+        run: |
+          node --input-type=module <<'NODE'
+          import ccxt from 'ccxt';
+
+          const exchangeIds = ['okx', 'kraken', 'coinbase', 'bitfinex', 'gateio', 'kucoin', 'mexc'];
+          const symbols = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT'];
+          const rows = [];
+
+          for (const id of exchangeIds) {
+            const started = Date.now();
+            try {
+              if (!ccxt[id]) throw new Error('unsupported_exchange');
+              const ex = new ccxt[id]({ enableRateLimit: true, timeout: 10000 });
+              await ex.loadMarkets();
+              const available = symbols.filter((symbol) => ex.markets?.[symbol]);
+              rows.push({
+                exchange: id,
+                ok: true,
+                latencyMs: Date.now() - started,
+                availableSymbols: available,
+              });
+            } catch (error) {
+              rows.push({
+                exchange: id,
+                ok: false,
+                latencyMs: Date.now() - started,
+                error: String(error?.message ?? error).replace(/\s+/g, ' ').slice(0, 260),
+              });
+            }
+          }
+
+          console.log(JSON.stringify({
+            diagnostic: 'cross_exchange_venue_discovery',
+            symbols,
+            venues: rows,
+            viableVenueCount: rows.filter((row) => row.ok && row.availableSymbols.length > 0).length,
+          }));
+          NODE
