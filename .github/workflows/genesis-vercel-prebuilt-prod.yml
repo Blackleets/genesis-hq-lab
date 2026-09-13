@@ -2,6 +2,11 @@ name: Genesis Vercel Prebuilt Production
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feat/genesis-life-os
+    paths:
+      - '.github/workflows/genesis-vercel-prebuilt-prod.yml'
 
 concurrency:
   group: genesis-vercel-production
