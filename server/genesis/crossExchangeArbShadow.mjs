@@ -24,7 +24,7 @@ import ccxt from 'ccxt';
 export const EXECUTION_AUTHORITY = false;
 export const MODE = 'SHADOW';
 
-const DEFAULT_EXCHANGES = ['binance', 'bybit', 'okx'];
+const DEFAULT_EXCHANGES = ['binance', 'bybit', 'okx', 'kraken', 'coinbase', 'bitfinex', 'kucoin', 'mexc'];
 const DEFAULT_SYMBOLS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT'];
 
 export function vwapForQuote(asks, quoteNotional) {
