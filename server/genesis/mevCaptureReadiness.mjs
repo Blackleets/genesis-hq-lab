@@ -8,6 +8,7 @@
 
 export const CAPTURE_READINESS_VERSION = 'capture_readiness_v1';
 export const CAPTURE_ONLY_BLOCKERS = Object.freeze([
+  'inclusionProbabilityKnown',
   'inclusionProbability',
   'expectedNetPositive',
 ]);
