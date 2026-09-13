@@ -60,6 +60,7 @@ function blockerLabel(value: string | undefined) {
     minNetEdge: 'edge below reserve',
     minNetPnl: 'profit below floor',
     stressPositive: 'fails stress test',
+    inclusionProbabilityKnown: 'capture evidence not measured',
     inclusionProbability: 'inclusion confidence low',
     expectedNetPositive: 'expected value too small',
     noProhibitedTactic: 'policy blocked',
@@ -87,7 +88,7 @@ export function ArbitrageRadarPanel({ compact = false }: { compact?: boolean }) 
 
     const tick = async () => {
       try {
-        const response = await fetch('/api/mev/radar', { cache: 'no-store' });
+        const response = await fetch('/api/genesis/context?view=arbitrage-radar', { cache: 'no-store' });
         if (!alive) return;
         if (!response.ok) {
           setState(response.status === 404 ? 'offline' : 'error');
