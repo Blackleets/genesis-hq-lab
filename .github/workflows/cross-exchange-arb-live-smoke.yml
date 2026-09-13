@@ -36,13 +36,14 @@ jobs:
       - name: Read-only cross-exchange SHADOW observation
         run: |
           node --input-type=module <<'NODE'
-          import { scanCrossExchangeArbShadow, MODE, EXECUTION_AUTHORITY } from './server/genesis/crossExchangeArbShadow.mjs';
+          import { scanCrossExchangeArbShadowDetailed, MODE, EXECUTION_AUTHORITY } from './server/genesis/crossExchangeArbShadow.mjs';
 
-          const rows = await scanCrossExchangeArbShadow({
+          const scan = await scanCrossExchangeArbShadowDetailed({
             quoteNotional: 1000,
             rebalanceBps: 5,
             maxBookAgeMs: 5000,
           });
+          const rows = scan.results;
           const summary = rows.slice(0, 12).map((row) => ({
             symbol: row.symbol,
             buyVenue: row.buyVenue,
@@ -57,6 +58,9 @@ jobs:
             diagnostic: 'cross_exchange_shadow',
             mode: MODE,
             executionAuthority: EXECUTION_AUTHORITY,
+            requestedExchanges: scan.requestedExchanges,
+            activeExchanges: scan.activeExchanges,
+            providerFailures: scan.failures,
             notionalUsd: 1000,
             rebalanceBudgetBps: 5,
             opportunitiesMeasured: rows.length,
@@ -64,4 +68,7 @@ jobs:
             best: summary[0] ?? null,
             top: summary,
           }));
+          if (scan.activeExchanges.length < 2) {
+            throw new Error('fewer_than_two_live_venues');
+          }
           NODE
