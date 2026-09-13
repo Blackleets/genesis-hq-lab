@@ -29,3 +29,36 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Read-only Ethereum SHADOW observation
         run: npm run mev:radar:resilient:once
+      - name: Diagnose quote failures safely
+        run: |
+          node --input-type=module <<'NODE'
+          import { selectHealthyEthereumRpc } from './server/genesis/mevResilientWorker.mjs';
+          import { getMevRadarConfig, scanMevOnchainRadarOnce } from './server/genesis/mevOnchainRadar.mjs';
+
+          const env = {
+            ...process.env,
+            GENESIS_MEV_RPC_URL: '',
+            GENESIS_MEV_RPC_URLS: '',
+            GENESIS_MEV_PUBLIC_RPC_FALLBACK: 'true',
+          };
+          const selected = await selectHealthyEthereumRpc({ env });
+          if (!selected.ok) {
+            console.log(JSON.stringify({ diagnostic: 'provider_unavailable', attempts: selected.attempts }));
+            process.exit(0);
+          }
+
+          const config = getMevRadarConfig({ ...env, GENESIS_MEV_RPC_URL: selected.url });
+          const result = await scanMevOnchainRadarOnce({ config, persist: false });
+          const failures = (result.failures ?? []).map(({ route, error }) => ({
+            route,
+            error: String(error ?? 'unknown').split('\n')[0].slice(0, 240),
+          }));
+          console.log(JSON.stringify({
+            diagnostic: 'quote_scan',
+            provider: selected.source,
+            block: result.blockNumber ?? null,
+            routesScanned: result.routesScanned ?? 0,
+            routesQuoted: result.routesQuoted ?? 0,
+            failures,
+          }));
+          NODE
