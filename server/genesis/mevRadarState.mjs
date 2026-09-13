@@ -105,6 +105,18 @@ export function writeMevRadarPublicSnapshot(snapshot = {}) {
     evaluated: Math.max(0, Number(snapshot.evaluated) || 0),
     qualified: Math.max(0, Number(snapshot.qualified) || 0),
     filtered: Math.max(0, Number(snapshot.filtered) || 0),
+    preCaptureReady: Math.max(0, Number(snapshot.preCaptureReady) || 0),
+    captureState: String(snapshot.captureState ?? 'BUILDING_EVIDENCE'),
+    captureWindowActive: Math.max(0, Number(snapshot.captureWindowActive) || 0),
+    captureWindowLongestObservations: Math.max(0, Number(snapshot.captureWindowLongestObservations) || 0),
+    competitionTransitionsObserved: Math.max(0, Number(snapshot.competitionTransitionsObserved) || 0),
+    nextObservationSurvivalRate: Number.isFinite(snapshot.nextObservationSurvivalRate)
+      ? snapshot.nextObservationSurvivalRate
+      : null,
+    medianSurvivingEdgeDecayBps: Number.isFinite(snapshot.medianSurvivingEdgeDecayBps)
+      ? snapshot.medianSurvivingEdgeDecayBps
+      : null,
+    activePreCaptureRoutes: Math.max(0, Number(snapshot.activePreCaptureRoutes) || 0),
     theoreticalExpectedNetPnlUsd: Number.isFinite(snapshot.theoreticalExpectedNetPnlUsd)
       ? snapshot.theoreticalExpectedNetPnlUsd
       : null,
@@ -123,7 +135,7 @@ export function writeMevRadarPublicSnapshot(snapshot = {}) {
     })) : [],
     error: snapshot.error ? String(snapshot.error).slice(0, 300) : null,
     updatedAt: now,
-    note: 'SHADOW opportunity economics only; not realized account PnL.',
+    note: 'SHADOW opportunity economics only; survival telemetry is descriptive and not inclusion probability.',
   };
 
   db.prepare(`
