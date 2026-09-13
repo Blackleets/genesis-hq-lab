@@ -12,6 +12,7 @@
 import {
   createPublicClient,
   formatUnits,
+  getAddress,
   http,
   parseAbi,
   parseUnits,
@@ -38,18 +39,18 @@ export const RADAR_EXECUTION_AUTHORITY = false;
 const TOKENS = Object.freeze({
   USDC: {
     symbol: 'USDC',
-    address: '0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    address: getAddress('0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'),
     decimals: 6,
   },
   WETH: {
     symbol: 'WETH',
-    address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+    address: getAddress('0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'),
     decimals: 18,
   },
 });
 
-const UNISWAP_V3_QUOTER_V2 = '0x61fFE014bA17989E743c5F6cB21bF9697530B21e';
-const SUSHISWAP_V2_ROUTER = '0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F';
+const UNISWAP_V3_QUOTER_V2 = getAddress('0x61ffe014ba17989e743c5f6cb21bf9697530b21e');
+const SUSHISWAP_V2_ROUTER = getAddress('0xd9e1ce17f2641f24ae83637ab66a2cca9c378b9f');
 
 const UNISWAP_QUOTER_ABI = parseAbi([
   'function quoteExactInputSingle((address tokenIn,address tokenOut,uint256 amountIn,uint24 fee,uint160 sqrtPriceLimitX96) params) returns (uint256 amountOut,uint160 sqrtPriceX96After,uint32 initializedTicksCrossed,uint256 gasEstimate)',
