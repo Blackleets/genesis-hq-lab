@@ -1,0 +1,91 @@
+name: Cross-exchange funding discovery
+
+on:
+  push:
+    branches:
+      - 'experiment/cross-exchange-arb-shadow'
+    paths:
+      - '.github/workflows/cross-exchange-funding-discovery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Probe public perpetual funding
+        run: |
+          node --input-type=module <<'NODE'
+          import ccxt from 'ccxt';
+
+          const ids = ['binanceusdm', 'bybit', 'okx', 'krakenfutures', 'bitget', 'kucoinfutures', 'mexc', 'coinex', 'gate'];
+          const bases = new Set(['BTC', 'ETH', 'SOL']);
+          const rows = [];
+
+          for (const id of ids) {
+            const started = Date.now();
+            try {
+              if (!ccxt[id]) throw new Error('unsupported_exchange');
+              const ex = new ccxt[id]({ enableRateLimit: true, timeout: 12000 });
+              await ex.loadMarkets();
+              const markets = Object.values(ex.markets ?? {}).filter((m) =>
+                m?.swap === true && bases.has(m.base) && (m.quote === 'USDT' || m.settle === 'USDT')
+              );
+              const selected = [];
+              for (const base of bases) {
+                const market = markets.find((m) => m.base === base && m.linear !== false);
+                if (!market) continue;
+                let funding = null;
+                try {
+                  if (ex.has?.fetchFundingRate) funding = await ex.fetchFundingRate(market.symbol);
+                } catch (error) {
+                  funding = { error: String(error?.message ?? error).replace(/\s+/g, ' ').slice(0, 220) };
+                }
+                selected.push({
+                  base,
+                  symbol: market.symbol,
+                  taker: Number.isFinite(Number(market.taker)) ? Number(market.taker) : null,
+                  maker: Number.isFinite(Number(market.maker)) ? Number(market.maker) : null,
+                  fundingRate: Number.isFinite(Number(funding?.fundingRate)) ? Number(funding.fundingRate) : null,
+                  fundingTimestamp: funding?.fundingTimestamp ?? null,
+                  nextFundingTimestamp: funding?.nextFundingTimestamp ?? null,
+                  interval: funding?.interval ?? null,
+                  fundingError: funding?.error ?? null,
+                });
+              }
+              rows.push({
+                exchange: id,
+                ok: true,
+                latencyMs: Date.now() - started,
+                hasFetchFundingRate: Boolean(ex.has?.fetchFundingRate),
+                markets: selected,
+              });
+            } catch (error) {
+              rows.push({
+                exchange: id,
+                ok: false,
+                latencyMs: Date.now() - started,
+                error: String(error?.message ?? error).replace(/\s+/g, ' ').slice(0, 280),
+              });
+            }
+          }
+
+          console.log(JSON.stringify({
+            diagnostic: 'cross_exchange_funding_discovery',
+            mode: 'SHADOW_RESEARCH',
+            executionAuthority: false,
+            venues: rows,
+          }));
+          NODE
