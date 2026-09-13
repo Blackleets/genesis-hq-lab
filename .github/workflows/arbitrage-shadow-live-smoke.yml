@@ -29,7 +29,7 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Read-only Ethereum SHADOW observation
         run: npm run mev:radar:resilient:once
-      - name: Diagnose quote failures safely
+      - name: Diagnose live route economics safely
         run: |
           node --input-type=module <<'NODE'
           import { selectHealthyEthereumRpc } from './server/genesis/mevResilientWorker.mjs';
@@ -53,12 +53,32 @@ jobs:
             route,
             error: String(error ?? 'unknown').split('\n')[0].slice(0, 240),
           }));
+          const rows = [
+            ...(result.evaluation?.candidates ?? []),
+            ...(result.evaluation?.rejected ?? []),
+          ].map((row) => ({
+            route: row.routeId,
+            verdict: row.verdict,
+            grossPnlUsd: row.grossPnlUsd,
+            grossEdgeBps: row.grossEdgeBps,
+            totalCostsUsd: row.totalCostsUsd,
+            netPnlUsd: row.netPnlUsd,
+            netEdgeBps: row.netEdgeBps,
+            stressNetPnlUsd: row.stressNetPnlUsd,
+            liquidityConfidence: row.liquidityConfidence,
+            blockers: row.blockers,
+          }));
           console.log(JSON.stringify({
-            diagnostic: 'quote_scan',
+            diagnostic: 'route_economics',
             provider: selected.source,
             block: result.blockNumber ?? null,
             routesScanned: result.routesScanned ?? 0,
             routesQuoted: result.routesQuoted ?? 0,
+            liquidityProbesPassed: result.liquidityProbesPassed ?? 0,
+            atomicSimulatorConfigured: result.atomicSimulatorConfigured === true,
+            qualified: result.evaluation?.candidates?.length ?? 0,
+            filtered: result.evaluation?.rejected?.length ?? 0,
             failures,
+            rows,
           }));
           NODE
