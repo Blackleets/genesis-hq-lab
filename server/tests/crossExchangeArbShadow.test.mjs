@@ -5,6 +5,7 @@ import {
   vwapForQuote,
   vwapForBase,
   evaluateCrossVenueArb,
+  orderBookLimitForExchange,
   scanCrossExchangeArbShadowDetailed,
   EXECUTION_AUTHORITY,
   MODE,
@@ -82,6 +83,11 @@ test('insufficient depth is NO execution candidate', () => {
 
   assert.equal(r.executable, false);
   assert.equal(r.reason, 'insufficient_buy_depth');
+});
+
+test('venue-specific order-book limits avoid unsupported depth requests', () => {
+  assert.equal(orderBookLimitForExchange('bitfinex', 20), 25);
+  assert.equal(orderBookLimitForExchange('okx', 20), 20);
 });
 
 test('one unavailable venue is isolated and remaining venues are still compared', async () => {
