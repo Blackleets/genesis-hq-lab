@@ -1,0 +1,31 @@
+name: Arbitrage Radar live-chain smoke
+
+on:
+  push:
+    branches:
+      - 'deploy/arbitrage-shadow-railway'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GENESIS_MEV_PUBLIC_RPC_FALLBACK: 'true'
+      GENESIS_MEV_RPC_COOLDOWN_CYCLES: '1'
+      GENESIS_MEV_SCAN_INTERVAL_MS: '12000'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Read-only Ethereum SHADOW observation
+        run: npm run mev:radar:resilient:once
