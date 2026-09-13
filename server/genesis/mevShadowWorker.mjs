@@ -8,6 +8,7 @@ import {
   createCaptureWindowTracker,
   summarizeCaptureReadiness,
 } from './mevCaptureReadiness.mjs';
+import { createCompetitionObserver } from './mevCompetitionObserver.mjs';
 import {
   writeMevRadarHeartbeat,
   writeMevRadarPublicSnapshot,
@@ -51,6 +52,10 @@ function publishCycle(result) {
     captureState: result.captureReadiness?.state ?? 'BUILDING_EVIDENCE',
     captureWindowActive: result.captureWindow?.activeWindows ?? 0,
     captureWindowLongestObservations: result.captureWindow?.longestActiveObservations ?? 0,
+    competitionTransitionsObserved: result.competition?.transitionsObserved ?? 0,
+    nextObservationSurvivalRate: result.competition?.nextObservationSurvivalRate ?? null,
+    medianSurvivingEdgeDecayBps: result.competition?.medianSurvivingEdgeDecayBps ?? null,
+    activePreCaptureRoutes: result.competition?.activePreCaptureRoutes ?? 0,
     evaluated: summary?.evaluated ?? 0,
     qualified: result.evaluation?.candidates?.length ?? 0,
     filtered: result.evaluation?.rejected?.length ?? 0,
@@ -68,6 +73,7 @@ export async function runMevShadowWorker({
   config = getMevRadarConfig(),
   onCycle = null,
   captureWindowTracker = createCaptureWindowTracker(),
+  competitionObserver = createCompetitionObserver(),
 } = {}) {
   let cycles = 0;
   let observationsRecorded = 0;
@@ -84,7 +90,11 @@ export async function runMevShadowWorker({
         blockNumber: result.blockNumber ?? null,
         capturedAt: result.capturedAt ?? startedAt,
       });
-      const enrichedResult = { ...result, captureReadiness, captureWindow };
+      const competition = competitionObserver.observe(result.evaluation, {
+        blockNumber: result.blockNumber ?? null,
+        capturedAt: result.capturedAt ?? startedAt,
+      });
+      const enrichedResult = { ...result, captureReadiness, captureWindow, competition };
 
       writeMevRadarHeartbeat({
         status: result.status,
@@ -106,6 +116,10 @@ export async function runMevShadowWorker({
         captureState: captureReadiness.state,
         captureWindowActive: captureWindow.activeWindows,
         captureWindowLongestObservations: captureWindow.longestActiveObservations,
+        competitionTransitionsObserved: competition.transitionsObserved,
+        nextObservationSurvivalRate: competition.nextObservationSurvivalRate,
+        medianSurvivingEdgeDecayBps: competition.medianSurvivingEdgeDecayBps,
+        activePreCaptureRoutes: competition.activePreCaptureRoutes,
         candidates: result.evaluation?.candidates?.length ?? 0,
         filtered: result.evaluation?.rejected?.length ?? 0,
         lastCapturedAt: result.capturedAt ?? null,
@@ -119,6 +133,7 @@ export async function runMevShadowWorker({
       cycles += 1;
       const message = error instanceof Error ? error.message : String(error);
       const status = message === 'provider_not_configured' ? 'provider_not_configured' : 'degraded';
+      const competition = competitionObserver.snapshot();
       writeMevRadarHeartbeat({
         status,
         providerConfigured: Boolean(config.providerConfigured),
@@ -137,6 +152,10 @@ export async function runMevShadowWorker({
         preCaptureReady: 0,
         captureState: 'BUILDING_EVIDENCE',
         captureWindowActive: captureWindowTracker.snapshot().activeWindows,
+        competitionTransitionsObserved: competition.transitionsObserved,
+        nextObservationSurvivalRate: competition.nextObservationSurvivalRate,
+        medianSurvivingEdgeDecayBps: competition.medianSurvivingEdgeDecayBps,
+        activePreCaptureRoutes: competition.activePreCaptureRoutes,
         candidates: 0,
         filtered: 0,
         error: message,
@@ -154,6 +173,10 @@ export async function runMevShadowWorker({
         preCaptureReady: 0,
         captureState: 'BUILDING_EVIDENCE',
         captureWindowActive: captureWindowTracker.snapshot().activeWindows,
+        competitionTransitionsObserved: competition.transitionsObserved,
+        nextObservationSurvivalRate: competition.nextObservationSurvivalRate,
+        medianSurvivingEdgeDecayBps: competition.medianSurvivingEdgeDecayBps,
+        activePreCaptureRoutes: competition.activePreCaptureRoutes,
         evaluated: 0,
         qualified: 0,
         filtered: 0,
@@ -189,6 +212,9 @@ if (process.argv[1]?.endsWith('mevShadowWorker.mjs')) {
         simulated: result.atomicSimulationsPassed ?? 0,
         preCaptureReady: result.captureReadiness?.preCaptureReady ?? 0,
         activeCaptureWindows: result.captureWindow?.activeWindows ?? 0,
+        observedTransitions: result.competition?.transitionsObserved ?? 0,
+        survivalRate: result.competition?.nextObservationSurvivalRate ?? null,
+        edgeDecayBps: result.competition?.medianSurvivingEdgeDecayBps ?? null,
         qualified: result.evaluation?.candidates?.length ?? 0,
         filtered: result.evaluation?.rejected?.length ?? 0,
       }));
