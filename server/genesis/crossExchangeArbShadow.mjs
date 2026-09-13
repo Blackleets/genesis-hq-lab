@@ -136,6 +136,10 @@ function compactError(error) {
   return raw.replace(/\s+/g, ' ').slice(0, 320);
 }
 
+export function orderBookLimitForExchange(exchangeId, fallback = 20) {
+  return exchangeId === 'bitfinex' ? 25 : fallback;
+}
+
 async function buildExchange(exchangeId) {
   if (!ccxt[exchangeId]) throw new Error(`Unsupported exchange: ${exchangeId}`);
   const ex = new ccxt[exchangeId]({ enableRateLimit: true });
@@ -145,7 +149,7 @@ async function buildExchange(exchangeId) {
 
 async function fetchBook(ex, symbol, limit = 20) {
   const startedAt = Date.now();
-  const book = await ex.fetchOrderBook(symbol, limit);
+  const book = await ex.fetchOrderBook(symbol, orderBookLimitForExchange(ex.id, limit));
   return {
     bids: book.bids ?? [],
     asks: book.asks ?? [],
