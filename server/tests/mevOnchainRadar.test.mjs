@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   buildObservedOpportunity,
+  DEFAULT_ROUTE_ADAPTERS,
   getMevRadarConfig,
   orderedVenuePairs,
   quoteAtomicCycleCandidate,
@@ -25,6 +26,14 @@ test('provider config is explicit and never invents an RPC URL', () => {
   assert.equal(cfg.providerConfigured, false);
   assert.equal(cfg.gasUnitsSource, 'conservative_default');
   assert.equal(cfg.slippageSource, 'conservative_default');
+});
+
+test('default route universe covers all executor-supported Uniswap V3 fee tiers plus Sushi', () => {
+  assert.deepEqual(
+    DEFAULT_ROUTE_ADAPTERS.map((adapter) => adapter.id),
+    ['uniswap_v3_100', 'uniswap_v3_500', 'uniswap_v3_3000', 'uniswap_v3_10000', 'sushiswap_v2'],
+  );
+  assert.equal(orderedVenuePairs(DEFAULT_ROUTE_ADAPTERS).length, 20);
 });
 
 test('ordered venue pairs exclude self-arbitrage', () => {
