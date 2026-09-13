@@ -94,17 +94,12 @@ test('one unavailable venue is isolated and remaining venues are still compared'
   const fakeMarkets = { taker: 0.001 };
   const exchangeBuilder = async (id) => {
     if (id === 'binance') throw new Error('451 restricted location');
-    return {
-      id,
-      market: () => fakeMarkets,
-    };
+    return { id, market: () => fakeMarkets };
   };
   const bookFetcher = async (ex) => {
     const now = Date.now();
-    if (ex.id === 'bybit') {
-      return { asks: [[100, 20]], bids: [[99.8, 20]], fetchedAt: now };
-    }
-    return { asks: [[100.4, 20]], bids: [[100.7, 20]], fetchedAt: now };
+    if (ex.id === 'bybit') return { asks: [[100, 20]], bids: [[99.8, 20]], fetchedAt: now, latencyMs: 10, exchangeTs: now };
+    return { asks: [[100.4, 20]], bids: [[100.7, 20]], fetchedAt: now, latencyMs: 10, exchangeTs: now };
   };
 
   const scan = await scanCrossExchangeArbShadowDetailed({
@@ -113,6 +108,7 @@ test('one unavailable venue is isolated and remaining venues are still compared'
     quoteNotional: 1000,
     rebalanceBps: 5,
     maxBookAgeMs: 5000,
+    maxBookSkewMs: 1000,
     exchangeBuilder,
     bookFetcher,
   });
@@ -124,6 +120,35 @@ test('one unavailable venue is isolated and remaining venues are still compared'
   assert.equal(scan.results.length, 2);
   assert.equal(scan.results[0].buyVenue, 'bybit');
   assert.equal(scan.results[0].sellVenue, 'okx');
+  assert.ok(scan.results.every((row) => Number.isFinite(row.bookSkewMs)));
+});
+
+test('cross-venue snapshots beyond the skew budget are filtered before economics', async () => {
+  const baseNow = Date.now();
+  const exchangeBuilder = async (id) => ({ id, market: () => ({ taker: 0.001 }) });
+  const bookFetcher = async (ex) => ({
+    asks: [[100, 20]],
+    bids: [[101, 20]],
+    fetchedAt: ex.id === 'a' ? baseNow : baseNow - 1500,
+    latencyMs: 10,
+    exchangeTs: null,
+  });
+
+  const scan = await scanCrossExchangeArbShadowDetailed({
+    exchanges: ['a', 'b'],
+    symbols: ['SOL/USDT'],
+    quoteNotional: 1000,
+    rebalanceBps: 5,
+    maxBookAgeMs: 5000,
+    maxBookSkewMs: 500,
+    exchangeBuilder,
+    bookFetcher,
+  });
+
+  assert.equal(scan.results.length, 0);
+  assert.equal(scan.filteredPairs.length, 2);
+  assert.ok(scan.filteredPairs.every((row) => row.reason === 'book_skew'));
+  assert.ok(scan.filteredPairs.every((row) => row.bookSkewMs === 1500));
 });
 
 test('module is structurally shadow-only', () => {
