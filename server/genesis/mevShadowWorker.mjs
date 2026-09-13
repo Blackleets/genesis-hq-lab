@@ -1,9 +1,13 @@
 // mevShadowWorker.mjs
 // Optional long-running SHADOW observer. It never signs or submits transactions.
 // The worker is NOT auto-started by importing this module; operators launch it
-// explicitly with `npm run mev:radar:watch` or wire it into a deployment later.
+// explicitly with `npm run mev:radar:watch` or use the opt-in Render start command.
 
 import { getMevRadarConfig, scanMevOnchainRadarOnce } from './mevOnchainRadar.mjs';
+import {
+  createCaptureWindowTracker,
+  summarizeCaptureReadiness,
+} from './mevCaptureReadiness.mjs';
 import {
   writeMevRadarHeartbeat,
   writeMevRadarPublicSnapshot,
@@ -43,6 +47,10 @@ function publishCycle(result) {
     atomicSimulatorConfigured: result.atomicSimulatorConfigured === true,
     atomicSimulationsAttempted: result.atomicSimulationsAttempted ?? 0,
     atomicSimulationsPassed: result.atomicSimulationsPassed ?? 0,
+    preCaptureReady: result.captureReadiness?.preCaptureReady ?? 0,
+    captureState: result.captureReadiness?.state ?? 'BUILDING_EVIDENCE',
+    captureWindowActive: result.captureWindow?.activeWindows ?? 0,
+    captureWindowLongestObservations: result.captureWindow?.longestActiveObservations ?? 0,
     evaluated: summary?.evaluated ?? 0,
     qualified: result.evaluation?.candidates?.length ?? 0,
     filtered: result.evaluation?.rejected?.length ?? 0,
@@ -59,6 +67,7 @@ export async function runMevShadowWorker({
   persist = true,
   config = getMevRadarConfig(),
   onCycle = null,
+  captureWindowTracker = createCaptureWindowTracker(),
 } = {}) {
   let cycles = 0;
   let observationsRecorded = 0;
@@ -70,6 +79,12 @@ export async function runMevShadowWorker({
       cycles += 1;
       const quoted = result.routesQuoted ?? 0;
       observationsRecorded += quoted;
+      const captureReadiness = summarizeCaptureReadiness(result.evaluation);
+      const captureWindow = captureWindowTracker.update(result.evaluation, {
+        blockNumber: result.blockNumber ?? null,
+        capturedAt: result.capturedAt ?? startedAt,
+      });
+      const enrichedResult = { ...result, captureReadiness, captureWindow };
 
       writeMevRadarHeartbeat({
         status: result.status,
@@ -87,15 +102,19 @@ export async function runMevShadowWorker({
         atomicSimulatorConfigured: result.atomicSimulatorConfigured === true,
         atomicSimulationsAttempted: result.atomicSimulationsAttempted ?? 0,
         atomicSimulationsPassed: result.atomicSimulationsPassed ?? 0,
+        preCaptureReady: captureReadiness.preCaptureReady,
+        captureState: captureReadiness.state,
+        captureWindowActive: captureWindow.activeWindows,
+        captureWindowLongestObservations: captureWindow.longestActiveObservations,
         candidates: result.evaluation?.candidates?.length ?? 0,
         filtered: result.evaluation?.rejected?.length ?? 0,
         lastCapturedAt: result.capturedAt ?? null,
         error: result.error ?? null,
       });
-      publishCycle(result);
+      publishCycle(enrichedResult);
 
-      if (typeof onCycle === 'function') await onCycle(result);
-      if (once) return result;
+      if (typeof onCycle === 'function') await onCycle(enrichedResult);
+      if (once) return enrichedResult;
     } catch (error) {
       cycles += 1;
       const message = error instanceof Error ? error.message : String(error);
@@ -115,6 +134,9 @@ export async function runMevShadowWorker({
         atomicSimulatorConfigured: false,
         atomicSimulationsAttempted: 0,
         atomicSimulationsPassed: 0,
+        preCaptureReady: 0,
+        captureState: 'BUILDING_EVIDENCE',
+        captureWindowActive: captureWindowTracker.snapshot().activeWindows,
         candidates: 0,
         filtered: 0,
         error: message,
@@ -129,6 +151,9 @@ export async function runMevShadowWorker({
         atomicSimulatorConfigured: false,
         atomicSimulationsAttempted: 0,
         atomicSimulationsPassed: 0,
+        preCaptureReady: 0,
+        captureState: 'BUILDING_EVIDENCE',
+        captureWindowActive: captureWindowTracker.snapshot().activeWindows,
         evaluated: 0,
         qualified: 0,
         filtered: 0,
@@ -162,6 +187,8 @@ if (process.argv[1]?.endsWith('mevShadowWorker.mjs')) {
         quoted: result.routesQuoted ?? 0,
         liquidityProofs: result.liquidityProbesPassed ?? 0,
         simulated: result.atomicSimulationsPassed ?? 0,
+        preCaptureReady: result.captureReadiness?.preCaptureReady ?? 0,
+        activeCaptureWindows: result.captureWindow?.activeWindows ?? 0,
         qualified: result.evaluation?.candidates?.length ?? 0,
         filtered: result.evaluation?.rejected?.length ?? 0,
       }));
