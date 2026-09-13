@@ -137,12 +137,20 @@ async function quoteSushiV2(client, { tokenIn, tokenOut, amountIn, blockNumber }
 
 export const DEFAULT_ROUTE_ADAPTERS = Object.freeze([
   {
+    id: 'uniswap_v3_100',
+    quote: (client, params) => quoteUniswapV3(client, { ...params, fee: 100 }),
+  },
+  {
     id: 'uniswap_v3_500',
     quote: (client, params) => quoteUniswapV3(client, { ...params, fee: 500 }),
   },
   {
     id: 'uniswap_v3_3000',
     quote: (client, params) => quoteUniswapV3(client, { ...params, fee: 3000 }),
+  },
+  {
+    id: 'uniswap_v3_10000',
+    quote: (client, params) => quoteUniswapV3(client, { ...params, fee: 10000 }),
   },
   {
     id: 'sushiswap_v2',
