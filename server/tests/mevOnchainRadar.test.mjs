@@ -117,6 +117,24 @@ test('missing provider fails closed without network access', async () => {
   assert.equal(result.routesScanned, 0);
 });
 
+test('a readable block with every DEX quote failing is degraded, not observing', async () => {
+  const result = await scanMevOnchainRadarOnce({
+    client: { getBlockNumber: async () => 123n, getGasPrice: async () => 1n },
+    adapters: ['a', 'b'].map((id) => ({
+      id,
+      quote: async () => { throw new Error('quote_unavailable'); },
+    })),
+    persist: false,
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 'degraded');
+  assert.equal(result.error, 'all_route_quotes_failed');
+  assert.equal(result.routesScanned, 2);
+  assert.equal(result.routesQuoted, 0);
+  assert.equal(result.failures.length, 2);
+  assert.equal(result.executionAuthority, false);
+});
+
 test('injected real-block style scan evaluates observations but evidence gates keep them filtered', async () => {
   const fakeClient = {
     getBlockNumber: async () => 123456n,

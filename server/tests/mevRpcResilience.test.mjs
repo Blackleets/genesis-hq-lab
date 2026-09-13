@@ -7,7 +7,31 @@ import {
   getRpcCandidates,
   probeEthereumRpc,
   selectHealthyEthereumRpc,
+  runResilientMevShadowWorker,
 } from '../genesis/mevResilientWorker.mjs';
+
+test('resolved failed scan quarantines provider and next cycle uses the fallback', async () => {
+  const used = [];
+  const cycles = [];
+  const stop = new Error('test_complete');
+  await assert.rejects(runResilientMevShadowWorker({
+    env: { GENESIS_MEV_RPC_URLS: 'https://a.example,https://b.example', GENESIS_MEV_PUBLIC_RPC_FALLBACK: 'false' },
+    fetchImpl: async () => ({ ok: true, json: async () => ({ result: '0x1' }) }),
+    workerRunner: async ({ config }) => {
+      used.push(config.rpcUrl);
+      return used.length === 1
+        ? { ok: false, status: 'degraded', routesScanned: 20, routesQuoted: 0, error: 'all_route_quotes_failed' }
+        : { ok: true, status: 'observing', routesScanned: 20, routesQuoted: 20, evaluation: { candidates: [], rejected: [] } };
+    },
+    onCycle: async (cycle) => { cycles.push(cycle); },
+    sleepFn: async () => { if (used.length === 2) throw stop; },
+  }), (error) => error === stop);
+  assert.deepEqual(used, ['https://a.example', 'https://b.example']);
+  assert.equal(cycles[0].ok, false);
+  assert.deepEqual(cycles[0].rpcHealth.blockedSources, ['configured_1']);
+  assert.equal(cycles[1].ok, true);
+  assert.equal(cycles[1].providerSource, 'configured_2');
+});
 
 test('configured RPCs are preferred and public fallbacks remain available', () => {
   const candidates = getRpcCandidates({
