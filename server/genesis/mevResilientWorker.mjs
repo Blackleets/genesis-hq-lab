@@ -4,8 +4,8 @@
 // Safety contract:
 // - no wallet/private key/signing/broadcast
 // - no execution authority
-// - configured RPCs are preferred, but public read-only fallbacks keep SHADOW
-//   observation alive when no secret-backed provider is available
+// - configured RPCs are preferred, while public read-only fallbacks keep SHADOW
+//   observation alive when no configured provider is available or healthy
 // - provider URLs are never printed because configured URLs may contain keys
 
 import { createCaptureWindowTracker } from './mevCaptureReadiness.mjs';
@@ -25,6 +25,12 @@ function splitUrls(value) {
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function rotate(items, offset = 0) {
+  if (!items.length) return [];
+  const normalized = ((Number(offset) || 0) % items.length + items.length) % items.length;
+  return [...items.slice(normalized), ...items.slice(0, normalized)];
 }
 
 export function getRpcCandidates(env = process.env) {
@@ -52,6 +58,40 @@ export function getRpcCandidates(env = process.env) {
     seen.add(candidate.url);
     return true;
   });
+}
+
+export function createRpcCircuitBreaker({ cooldownCycles = 3 } = {}) {
+  const cooldown = Math.max(1, Math.floor(Number(cooldownCycles) || 3));
+  const blockedUntilCycle = new Map();
+
+  return {
+    recordFailure(source, cycle) {
+      if (!source) return;
+      blockedUntilCycle.set(String(source), Math.max(0, Number(cycle) || 0) + cooldown);
+    },
+    recordSuccess(source) {
+      if (!source) return;
+      blockedUntilCycle.delete(String(source));
+    },
+    isBlocked(source, cycle) {
+      const until = blockedUntilCycle.get(String(source));
+      if (!Number.isFinite(until)) return false;
+      if ((Number(cycle) || 0) >= until) {
+        blockedUntilCycle.delete(String(source));
+        return false;
+      }
+      return true;
+    },
+    blockedSources(cycle) {
+      return [...blockedUntilCycle.keys()].filter((source) => this.isBlocked(source, cycle));
+    },
+    snapshot(cycle) {
+      return {
+        cooldownCycles: cooldown,
+        blockedSources: this.blockedSources(cycle),
+      };
+    },
+  };
 }
 
 export async function probeEthereumRpc(candidate, {
@@ -96,9 +136,16 @@ export async function selectHealthyEthereumRpc({
   env = process.env,
   fetchImpl = globalThis.fetch,
   timeoutMs = 4_000,
+  blockedSources = [],
+  publicStartIndex = 0,
 } = {}) {
+  const blocked = new Set(blockedSources.map(String));
+  const candidates = getRpcCandidates(env).filter((candidate) => !blocked.has(candidate.source));
+  const configured = candidates.filter((candidate) => candidate.configured === true);
+  const publicCandidates = rotate(candidates.filter((candidate) => candidate.configured !== true), publicStartIndex);
   const attempts = [];
-  for (const candidate of getRpcCandidates(env)) {
+
+  for (const candidate of [...configured, ...publicCandidates]) {
     const probe = await probeEthereumRpc(candidate, { fetchImpl, timeoutMs });
     attempts.push(probe);
     if (probe.ok) {
@@ -120,21 +167,31 @@ export async function runResilientMevShadowWorker({
   fetchImpl = globalThis.fetch,
   sleepFn = sleep,
   onCycle = null,
+  workerRunner = runMevShadowWorker,
+  circuitBreaker = createRpcCircuitBreaker({
+    cooldownCycles: Number(env.GENESIS_MEV_RPC_COOLDOWN_CYCLES || 3),
+  }),
 } = {}) {
   const captureWindowTracker = createCaptureWindowTracker();
   const competitionObserver = createCompetitionObserver();
   const baseConfig = getMevRadarConfig(env);
   const intervalMs = baseConfig.intervalMs;
   let cycles = 0;
+  let publicCursor = 0;
 
   do {
     cycles += 1;
-    const selected = await selectHealthyEthereumRpc({ env, fetchImpl });
+    const selected = await selectHealthyEthereumRpc({
+      env,
+      fetchImpl,
+      blockedSources: circuitBreaker.blockedSources(cycles),
+      publicStartIndex: publicCursor,
+    });
 
     if (!selected.ok) {
       // Ask the existing worker to publish its fail-closed provider state.
       try {
-        await runMevShadowWorker({
+        await workerRunner({
           once: true,
           persist: true,
           config: getMevRadarConfig({ ...env, GENESIS_MEV_RPC_URL: '' }),
@@ -147,24 +204,33 @@ export async function runResilientMevShadowWorker({
 
       console.warn(`[arbitrage-radar] cycle=${cycles} provider=unavailable mode=SHADOW executionAuthority=false`);
       if (typeof onCycle === 'function') {
-        await onCycle({ ok: false, status: 'provider_unavailable', providerSource: null, cycles });
+        await onCycle({
+          ok: false,
+          status: 'provider_unavailable',
+          providerSource: null,
+          cycles,
+          rpcHealth: circuitBreaker.snapshot(cycles),
+        });
       }
       if (once) return { ok: false, status: 'provider_unavailable', providerSource: null, cycles };
     } else {
+      if (!selected.configured) publicCursor += 1;
       const config = getMevRadarConfig({ ...env, GENESIS_MEV_RPC_URL: selected.url });
       try {
-        const result = await runMevShadowWorker({
+        const result = await workerRunner({
           once: true,
           persist: true,
           config,
           captureWindowTracker,
           competitionObserver,
         });
+        circuitBreaker.recordSuccess(selected.source);
         const safeResult = {
           ...result,
           providerSource: selected.source,
           providerConfiguredExternally: selected.configured,
           cycles,
+          rpcHealth: circuitBreaker.snapshot(cycles),
         };
         console.log(JSON.stringify({
           at: new Date().toISOString(),
@@ -179,10 +245,18 @@ export async function runResilientMevShadowWorker({
         if (typeof onCycle === 'function') await onCycle(safeResult);
         if (once) return safeResult;
       } catch (error) {
+        circuitBreaker.recordFailure(selected.source, cycles);
         const message = error instanceof Error ? error.message : String(error);
         console.warn(`[arbitrage-radar] cycle=${cycles} provider=${selected.source} status=degraded error=${message.slice(0, 160)}`);
         if (typeof onCycle === 'function') {
-          await onCycle({ ok: false, status: 'degraded', providerSource: selected.source, cycles, error: message });
+          await onCycle({
+            ok: false,
+            status: 'degraded',
+            providerSource: selected.source,
+            cycles,
+            error: message,
+            rpcHealth: circuitBreaker.snapshot(cycles),
+          });
         }
         if (once) throw error;
       }
