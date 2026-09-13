@@ -74,6 +74,13 @@ export function evaluateCrossVenueArb({
   sellTakerFee,
   rebalanceBps = null,
   capturedAt = new Date().toISOString(),
+  bookSkewMs = null,
+  buyBookAgeMs = null,
+  sellBookAgeMs = null,
+  buyLatencyMs = null,
+  sellLatencyMs = null,
+  buyExchangeTs = null,
+  sellExchangeTs = null,
 }) {
   const buy = vwapForQuote(buyAsks, quoteNotional);
   if (!buy) return { executable: false, reason: 'insufficient_buy_depth', symbol, buyVenue, sellVenue };
@@ -122,6 +129,13 @@ export function evaluateCrossVenueArb({
     netEdgeBps,
     feeModel: feesKnown ? 'ccxt_market_taker' : 'unknown',
     rebalanceModel: rebalanceKnown ? 'explicit_budget' : 'unresolved',
+    bookSkewMs: Number.isFinite(bookSkewMs) ? bookSkewMs : null,
+    buyBookAgeMs: Number.isFinite(buyBookAgeMs) ? buyBookAgeMs : null,
+    sellBookAgeMs: Number.isFinite(sellBookAgeMs) ? sellBookAgeMs : null,
+    buyLatencyMs: Number.isFinite(buyLatencyMs) ? buyLatencyMs : null,
+    sellLatencyMs: Number.isFinite(sellLatencyMs) ? sellLatencyMs : null,
+    buyExchangeTs: Number.isFinite(buyExchangeTs) ? buyExchangeTs : null,
+    sellExchangeTs: Number.isFinite(sellExchangeTs) ? sellExchangeTs : null,
     verdict: netEdgeBps != null && netEdgeBps > 0 ? 'SHADOW_CANDIDATE' : 'NO_GO',
   };
 }
@@ -150,12 +164,13 @@ async function buildExchange(exchangeId) {
 async function fetchBook(ex, symbol, limit = 20) {
   const startedAt = Date.now();
   const book = await ex.fetchOrderBook(symbol, orderBookLimitForExchange(ex.id, limit));
+  const fetchedAt = Date.now();
   return {
     bids: book.bids ?? [],
     asks: book.asks ?? [],
     exchangeTs: book.timestamp ?? null,
-    fetchedAt: Date.now(),
-    latencyMs: Date.now() - startedAt,
+    fetchedAt,
+    latencyMs: fetchedAt - startedAt,
   };
 }
 
@@ -167,11 +182,13 @@ export async function scanCrossExchangeArbShadowDetailed({
     ? null
     : Number(process.env.GENESIS_ARB_REBALANCE_BPS),
   maxBookAgeMs = Number(process.env.GENESIS_ARB_MAX_BOOK_AGE_MS || 3000),
+  maxBookSkewMs = Number(process.env.GENESIS_ARB_MAX_BOOK_SKEW_MS || 1000),
   exchangeBuilder = buildExchange,
   bookFetcher = fetchBook,
 } = {}) {
   const clients = {};
   const failures = [];
+  const filteredPairs = [];
 
   for (const id of exchanges) {
     try {
@@ -208,15 +225,24 @@ export async function scanCrossExchangeArbShadowDetailed({
     }));
 
     const quotedVenues = activeExchanges.filter((id) => snapshots[id]);
+    const evaluatedAt = Date.now();
     for (const buyVenue of quotedVenues) {
       for (const sellVenue of quotedVenues) {
         if (buyVenue === sellVenue) continue;
         const buySnap = snapshots[buyVenue];
         const sellSnap = snapshots[sellVenue];
-        const now = Date.now();
-        const buyAge = now - buySnap.book.fetchedAt;
-        const sellAge = now - sellSnap.book.fetchedAt;
-        if (buyAge > maxBookAgeMs || sellAge > maxBookAgeMs) continue;
+        const buyAge = evaluatedAt - buySnap.book.fetchedAt;
+        const sellAge = evaluatedAt - sellSnap.book.fetchedAt;
+        const bookSkewMs = Math.abs(buySnap.book.fetchedAt - sellSnap.book.fetchedAt);
+
+        if (buyAge > maxBookAgeMs || sellAge > maxBookAgeMs) {
+          filteredPairs.push({ symbol, buyVenue, sellVenue, reason: 'book_age', buyAgeMs: buyAge, sellAgeMs: sellAge });
+          continue;
+        }
+        if (bookSkewMs > maxBookSkewMs) {
+          filteredPairs.push({ symbol, buyVenue, sellVenue, reason: 'book_skew', bookSkewMs });
+          continue;
+        }
 
         results.push(evaluateCrossVenueArb({
           symbol,
@@ -228,6 +254,14 @@ export async function scanCrossExchangeArbShadowDetailed({
           buyTakerFee: normalizeTakerFee(buySnap.market),
           sellTakerFee: normalizeTakerFee(sellSnap.market),
           rebalanceBps,
+          capturedAt: new Date(Math.max(buySnap.book.fetchedAt, sellSnap.book.fetchedAt)).toISOString(),
+          bookSkewMs,
+          buyBookAgeMs: buyAge,
+          sellBookAgeMs: sellAge,
+          buyLatencyMs: buySnap.book.latencyMs,
+          sellLatencyMs: sellSnap.book.latencyMs,
+          buyExchangeTs: buySnap.book.exchangeTs,
+          sellExchangeTs: sellSnap.book.exchangeTs,
         }));
       }
     }
@@ -244,7 +278,10 @@ export async function scanCrossExchangeArbShadowDetailed({
     requestedExchanges: [...exchanges],
     activeExchanges,
     requestedSymbols: [...symbols],
+    maxBookAgeMs,
+    maxBookSkewMs,
     failures,
+    filteredPairs,
     results: sortedResults,
   };
 }
@@ -262,7 +299,10 @@ if (process.argv[1]?.endsWith('crossExchangeArbShadow.mjs')) {
     scannedAt: new Date().toISOString(),
     requestedExchanges: scan.requestedExchanges,
     activeExchanges: scan.activeExchanges,
+    maxBookAgeMs: scan.maxBookAgeMs,
+    maxBookSkewMs: scan.maxBookSkewMs,
     failures: scan.failures,
+    filteredPairs: scan.filteredPairs,
     opportunities: scan.results.slice(0, 25),
   }, null, 2));
 }
