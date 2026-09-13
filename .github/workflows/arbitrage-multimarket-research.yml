@@ -1,0 +1,147 @@
+name: Arbitrage Radar multimarket research
+
+on:
+  push:
+    branches:
+      - 'deploy/arbitrage-shadow-railway'
+    paths:
+      - '.github/workflows/arbitrage-multimarket-research.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GENESIS_MEV_PUBLIC_RPC_FALLBACK: 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Probe broader same-block token pairs
+        run: |
+          node --input-type=module <<'NODE'
+          import { createPublicClient, formatUnits, getAddress, http, parseAbi, parseUnits } from 'viem';
+          import { mainnet } from 'viem/chains';
+          import { selectHealthyEthereumRpc } from './server/genesis/mevResilientWorker.mjs';
+
+          const selected = await selectHealthyEthereumRpc({ env: {
+            ...process.env,
+            GENESIS_MEV_RPC_URL: '',
+            GENESIS_MEV_RPC_URLS: '',
+            GENESIS_MEV_PUBLIC_RPC_FALLBACK: 'true',
+          }});
+          if (!selected.ok) {
+            console.log(JSON.stringify({ diagnostic: 'multimarket_research', status: 'provider_unavailable', attempts: selected.attempts }));
+            process.exit(0);
+          }
+
+          const client = createPublicClient({
+            chain: mainnet,
+            transport: http(selected.url, { timeout: 10000, retryCount: 1 }),
+          });
+          const tokens = {
+            USDC: { symbol: 'USDC', address: getAddress('0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'), decimals: 6 },
+            USDT: { symbol: 'USDT', address: getAddress('0xdac17f958d2ee523a2206206994597c13d831ec7'), decimals: 6 },
+            DAI: { symbol: 'DAI', address: getAddress('0x6b175474e89094c44da98b954eedeac495271d0f'), decimals: 18 },
+            WETH: { symbol: 'WETH', address: getAddress('0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'), decimals: 18 },
+            WBTC: { symbol: 'WBTC', address: getAddress('0x2260fac5e5542a773aa44fbcfedf7c193bc2c599'), decimals: 8 },
+          };
+          const QUOTER = getAddress('0x61ffe014ba17989e743c5f6cb21bf9697530b21e');
+          const SUSHI = getAddress('0xd9e1ce17f2641f24ae83637ab66a2cca9c378b9f');
+          const quoterAbi = parseAbi(['function quoteExactInputSingle((address tokenIn,address tokenOut,uint256 amountIn,uint24 fee,uint160 sqrtPriceLimitX96) params) returns (uint256 amountOut,uint160 sqrtPriceX96After,uint32 initializedTicksCrossed,uint256 gasEstimate)']);
+          const sushiAbi = parseAbi(['function getAmountsOut(uint256 amountIn,address[] path) view returns (uint256[] amounts)']);
+          const block = await client.getBlockNumber();
+
+          const adapters = [100, 500, 3000, 10000].map((fee) => ({
+            id: `uniswap_v3_${fee}`,
+            quote: async (tokenIn, tokenOut, amountIn) => {
+              const { result } = await client.simulateContract({
+                address: QUOTER,
+                abi: quoterAbi,
+                functionName: 'quoteExactInputSingle',
+                args: [{ tokenIn: tokenIn.address, tokenOut: tokenOut.address, amountIn, fee, sqrtPriceLimitX96: 0n }],
+                blockNumber: block,
+              });
+              const out = Array.isArray(result) ? result[0] : result?.amountOut;
+              if (typeof out !== 'bigint' || out <= 0n) throw new Error('invalid_uniswap_quote');
+              return out;
+            },
+          }));
+          adapters.push({
+            id: 'sushiswap_v2',
+            quote: async (tokenIn, tokenOut, amountIn) => {
+              const amounts = await client.readContract({
+                address: SUSHI,
+                abi: sushiAbi,
+                functionName: 'getAmountsOut',
+                args: [amountIn, [tokenIn.address, tokenOut.address]],
+                blockNumber: block,
+              });
+              const out = amounts.at(-1);
+              if (typeof out !== 'bigint' || out <= 0n) throw new Error('invalid_sushi_quote');
+              return out;
+            },
+          });
+
+          const markets = [
+            [tokens.USDT, tokens.WETH],
+            [tokens.DAI, tokens.WETH],
+            [tokens.USDC, tokens.WBTC],
+            [tokens.USDT, tokens.WBTC],
+          ];
+
+          const summaries = [];
+          for (const [base, mid] of markets) {
+            const amountIn = parseUnits('1000', base.decimals);
+            const rows = [];
+            for (const buy of adapters) {
+              for (const sell of adapters) {
+                if (buy.id === sell.id) continue;
+                try {
+                  const midOut = await buy.quote(base, mid, amountIn);
+                  const finalOut = await sell.quote(mid, base, midOut);
+                  const finalBase = Number(formatUnits(finalOut, base.decimals));
+                  const grossPnl = finalBase - 1000;
+                  rows.push({
+                    route: `${buy.id}->${sell.id}`,
+                    grossPnlBase: Number(grossPnl.toFixed(6)),
+                    grossEdgeBps: Number((grossPnl * 10).toFixed(6)),
+                  });
+                } catch (error) {
+                  rows.push({
+                    route: `${buy.id}->${sell.id}`,
+                    error: String(error?.shortMessage ?? error?.message ?? error).split('\n')[0].slice(0, 180),
+                  });
+                }
+              }
+            }
+            rows.sort((a, b) => (b.grossPnlBase ?? -Infinity) - (a.grossPnlBase ?? -Infinity));
+            summaries.push({
+              market: `${base.symbol}/${mid.symbol}`,
+              notionalBase: 1000,
+              routesTested: rows.length,
+              routesQuoted: rows.filter((row) => Number.isFinite(row.grossPnlBase)).length,
+              grossPositive: rows.filter((row) => (row.grossPnlBase ?? 0) > 0).length,
+              best: rows[0] ?? null,
+              top3: rows.slice(0, 3),
+              failures: rows.filter((row) => row.error).length,
+            });
+          }
+
+          console.log(JSON.stringify({
+            diagnostic: 'multimarket_research',
+            provider: selected.source,
+            block: block.toString(),
+            markets: summaries,
+          }));
+          NODE
