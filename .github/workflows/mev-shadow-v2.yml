@@ -10,6 +10,7 @@ on:
       - 'server/genesis/mevAtomicSimulator.mjs'
       - 'server/genesis/mevLiquidityProof.mjs'
       - 'server/genesis/mevCaptureReadiness.mjs'
+      - 'server/genesis/mevCompetitionObserver.mjs'
       - 'server/genesis/mevPreflight.mjs'
       - 'server/genesis/mevRadarState.mjs'
       - 'server/genesis/mevShadowWorker.mjs'
@@ -22,6 +23,7 @@ on:
       - 'docs/ARBITRAGE_ATOMIC_SIMULATION.md'
       - 'docs/ARBITRAGE_LIQUIDITY_PROOF.md'
       - 'docs/ARBITRAGE_SHADOW_READY.md'
+      - 'docs/ARBITRAGE_COMPETITION_OBSERVABILITY.md'
       - '.env.example'
       - 'package.json'
       - 'package-lock.json'
@@ -34,6 +36,7 @@ on:
       - 'experiment/arbitrage-atomic-simulation'
       - 'experiment/arbitrage-liquidity-proof'
       - 'experiment/arbitrage-shadow-ready'
+      - 'experiment/arbitrage-competition-observability'
 
 jobs:
   verify:
@@ -58,6 +61,7 @@ jobs:
           node --check server/genesis/mevAtomicSimulator.mjs
           node --check server/genesis/mevLiquidityProof.mjs
           node --check server/genesis/mevCaptureReadiness.mjs
+          node --check server/genesis/mevCompetitionObserver.mjs
           node --check server/genesis/mevPreflight.mjs
           node --check server/genesis/mevRadarState.mjs
           node --check server/genesis/mevShadowWorker.mjs
