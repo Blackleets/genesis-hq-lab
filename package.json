@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "server": "node --env-file-if-exists=.env server/index.mjs",
-    "start": "concurrently -n server,agent,optimizer,web -c green,magenta,yellow,cyan -k \"npm run server\" \"npm run agent\" \"npm run optimizer\" \"npm run dev\"",
+    "start": "npm run mev:radar:watch",
     "start:ui": "concurrently -n server,web -c green,cyan -k \"npm run server\" \"npm run dev\"",
     "db:restore": "node --env-file-if-exists=.env server/persistence/restore.mjs",
     "start:render": "npm run db:restore ; concurrently -n server,agent,optimizer,arbitrage -c green,magenta,yellow,cyan --restart-tries -1 --restart-after 5000 \"npm run server\" \"npm run agent\" \"npm run optimizer\" \"npm run mev:radar:watch\"",
