@@ -1,55 +1,45 @@
-# Backend + agente 24/7 en Render (free tier — sin disco persistente).
-# Los datos SQLite sobreviven mientras el proceso vive pero se resetean al redeploy.
-# La replicación híbrida (DB_MODE=hybrid) vuelca todo a Supabase cada 5s; en el
-# siguiente boot, restore.mjs repuebla SQLite desde Postgres — cero pérdida de trades.
-#
-# Para evitar el sleep del free tier: configura UptimeRobot (gratis) apuntando a
-# /api/health cada 5 minutos.
-#
-# Conecta el repo en https://dashboard.render.com → New → Blueprint
+# Backend + agente + Arbitrage Radar 24/7 en Render (SHADOW only).
+# SQLite is ephemeral on redeploy; DB_MODE=hybrid restores from Supabase.
+# Arbitrage Radar is read-only: no wallet, signer, broadcast, or LIVE authority.
 
 services:
   - type: web
     name: genesis-hq-backend
     runtime: node
     plan: free
-    branch: main
+    branch: feat/genesis-life-os
     autoDeploy: true
     buildCommand: npm install
     startCommand: npm run start:render
     healthCheckPath: /api/health
     envVars:
-      # ── Runtime ──────────────────────────────────────────────────────────────
       - key: NODE_VERSION
         value: "22"
       - key: HOST
         value: 0.0.0.0
       - key: PORT
         value: 10000
-      # Heap cap: keeps server+agent+optimizer under the 512MB free-tier limit.
       - key: NODE_OPTIONS
         value: "--max-old-space-size=400"
 
-      # ── Secrets (set values in Render dashboard, NOT here) ────────────────
       - key: ANTHROPIC_API_KEY
         sync: false
-      # Supabase Postgres URL — hybrid persistence. Set in Render dashboard.
       - key: DATABASE_URL
         sync: false
-      # Google Gemini API key — free tier. Used for supervisor (4h) and commentary (5min).
-      # Get at: https://aistudio.google.com/apikey (free, no credit card needed)
       - key: GEMINI_API_KEY
         sync: false
-      # Groq API key — free tier, fastest LLM inference. Priority provider for supervisor + commentary.
-      # Get at: https://console.groq.com (free, no credit card needed)
       - key: GROQ_API_KEY
         sync: false
+      - key: GENESIS_MEV_RPC_URL
+        sync: false
+      - key: GENESIS_MEV_EXECUTOR_ADDRESS
+        sync: false
+      - key: GENESIS_MEV_SCAN_INTERVAL_MS
+        value: "12000"
 
-      # ── Persistence ───────────────────────────────────────────────────────
       - key: DB_MODE
         value: hybrid
 
-      # ── Engine switches ───────────────────────────────────────────────────
       - key: FUTURES_ONLY_MODE
         value: "true"
       - key: LEGACY_CRYPTO_LOOP_ENABLED
@@ -65,7 +55,6 @@ services:
       - key: FUTURES_BREAKOUT_LONG_ENABLED
         value: "true"
 
-      # ── Signal pair universe (expanded) ───────────────────────────────────
       - key: FUTURES_BREAKOUT_SHORT_MICRO_PAIRS
         value: BTCUSDT,ETHUSDT,SOLUSDT
       - key: FUTURES_BREAKOUT_SHORT_PAIRS
@@ -75,15 +64,8 @@ services:
       - key: FUTURES_BREAKOUT_LONG_PAIRS
         value: BTCUSDT,ETHUSDT,SOLUSDT
 
-      # ── Breakout parameters ────────────────────────────────────────────────
-      # Days of klines fetched per pair per profile. 14d is sufficient warmup for
-      # SMA50 on all timeframes (5m needs 50×5m=250min < 14d; 4h needs 50×4h=200h < 14d)
-      # and cuts cold-start from ~160 API requests to ~25.
       - key: FUTURES_BREAKOUT_DAYS
         value: "14"
-      # Regime SMA: 50 is reactive (flips in 2-3 day trends) vs 200 (multi-month trend).
-      # Lower value = more signals in both bull/bear markets. 200 was blocking all signals
-      # when price sat above SMA200 (uptrend), generating zero shorts for weeks.
       - key: FUTURES_BREAKOUT_SMA
         value: "50"
       - key: FUTURES_BREAKOUT_TP_PCT
@@ -119,24 +101,20 @@ services:
       - key: FUTURES_BREAKOUT_LONG_PROBE_MARGIN
         value: "220"
 
-      # ── Risk controls ─────────────────────────────────────────────────────
       - key: CRYPTO_DAILY_LOSS_CAP
         value: "300"
       - key: CRYPTO_COOLDOWN_MIN
         value: "15"
 
-      # ── Governor thresholds ────────────────────────────────────────────────
       - key: FUTURES_GOV_PROMOTE_MIN_SAMPLES
         value: "8"
       - key: FUTURES_GOV_ATTACK_MIN_SAMPLES
         value: "12"
 
-      # ── Walk-forward OOS auto-scheduler ───────────────────────────────────
       - key: WF_CHECK_INTERVAL_MIN
         value: "60"
       - key: WF_MAX_AGE_HOURS
         value: "24"
-      # 0 = run on boot against real Binance klines (730d), no paper trade accumulation needed
       - key: WF_MIN_TRADES_GATE
         value: "0"
       - key: WF_PAIRS
@@ -146,7 +124,6 @@ services:
       - key: WF_MIN_TRADES
         value: "8"
 
-      # ── Optimizer (tuned for 512MB free tier) ─────────────────────────────
       - key: OPTIMIZER_DAYS
         value: "14"
       - key: OPTIMIZER_INTERVAL_MIN
