@@ -131,6 +131,11 @@ function normalizeTakerFee(market) {
   return Number.isFinite(fee) && fee >= 0 ? fee : null;
 }
 
+function compactError(error) {
+  const raw = error instanceof Error ? error.message : String(error ?? 'unknown_error');
+  return raw.replace(/\s+/g, ' ').slice(0, 320);
+}
+
 async function buildExchange(exchangeId) {
   if (!ccxt[exchangeId]) throw new Error(`Unsupported exchange: ${exchangeId}`);
   const ex = new ccxt[exchangeId]({ enableRateLimit: true });
@@ -150,7 +155,7 @@ async function fetchBook(ex, symbol, limit = 20) {
   };
 }
 
-export async function scanCrossExchangeArbShadow({
+export async function scanCrossExchangeArbShadowDetailed({
   exchanges = DEFAULT_EXCHANGES,
   symbols = DEFAULT_SYMBOLS,
   quoteNotional = Number(process.env.GENESIS_ARB_NOTIONAL_USD || 1000),
@@ -158,22 +163,49 @@ export async function scanCrossExchangeArbShadow({
     ? null
     : Number(process.env.GENESIS_ARB_REBALANCE_BPS),
   maxBookAgeMs = Number(process.env.GENESIS_ARB_MAX_BOOK_AGE_MS || 3000),
+  exchangeBuilder = buildExchange,
+  bookFetcher = fetchBook,
 } = {}) {
   const clients = {};
-  for (const id of exchanges) clients[id] = await buildExchange(id);
+  const failures = [];
 
+  for (const id of exchanges) {
+    try {
+      clients[id] = await exchangeBuilder(id);
+    } catch (error) {
+      failures.push({
+        exchange: id,
+        symbol: null,
+        stage: 'load_markets',
+        error: compactError(error),
+      });
+    }
+  }
+
+  const activeExchanges = exchanges.filter((id) => clients[id]);
   const results = [];
+
   for (const symbol of symbols) {
     const snapshots = {};
-    await Promise.all(exchanges.map(async (id) => {
-      const ex = clients[id];
-      const market = ex.market(symbol);
-      const book = await fetchBook(ex, symbol, 20);
-      snapshots[id] = { ex, market, book };
+    await Promise.all(activeExchanges.map(async (id) => {
+      try {
+        const ex = clients[id];
+        const market = ex.market(symbol);
+        const book = await bookFetcher(ex, symbol, 20);
+        snapshots[id] = { ex, market, book };
+      } catch (error) {
+        failures.push({
+          exchange: id,
+          symbol,
+          stage: 'fetch_order_book',
+          error: compactError(error),
+        });
+      }
     }));
 
-    for (const buyVenue of exchanges) {
-      for (const sellVenue of exchanges) {
+    const quotedVenues = activeExchanges.filter((id) => snapshots[id]);
+    for (const buyVenue of quotedVenues) {
+      for (const sellVenue of quotedVenues) {
         if (buyVenue === sellVenue) continue;
         const buySnap = snapshots[buyVenue];
         const sellSnap = snapshots[sellVenue];
@@ -197,18 +229,36 @@ export async function scanCrossExchangeArbShadow({
     }
   }
 
-  return results
-    .filter(r => r.executable)
+  const sortedResults = results
+    .filter((row) => row.executable)
     .sort((a, b) => (b.netEdgeBps ?? b.edgeAfterTradingFeesBps ?? b.grossEdgeBps)
       - (a.netEdgeBps ?? a.edgeAfterTradingFeesBps ?? a.grossEdgeBps));
+
+  return {
+    mode: MODE,
+    executionAuthority: EXECUTION_AUTHORITY,
+    requestedExchanges: [...exchanges],
+    activeExchanges,
+    requestedSymbols: [...symbols],
+    failures,
+    results: sortedResults,
+  };
+}
+
+export async function scanCrossExchangeArbShadow(options = {}) {
+  const detailed = await scanCrossExchangeArbShadowDetailed(options);
+  return detailed.results;
 }
 
 if (process.argv[1]?.endsWith('crossExchangeArbShadow.mjs')) {
-  const results = await scanCrossExchangeArbShadow();
+  const scan = await scanCrossExchangeArbShadowDetailed();
   console.log(JSON.stringify({
     mode: MODE,
     executionAuthority: EXECUTION_AUTHORITY,
     scannedAt: new Date().toISOString(),
-    opportunities: results.slice(0, 25),
+    requestedExchanges: scan.requestedExchanges,
+    activeExchanges: scan.activeExchanges,
+    failures: scan.failures,
+    opportunities: scan.results.slice(0, 25),
   }, null, 2));
 }
