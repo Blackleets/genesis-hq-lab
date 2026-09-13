@@ -3,6 +3,7 @@ import { Activity, Bot, CandlestickChart, ListChecks, Shield, Target } from 'luc
 import { TradingDeskProvider } from './TradingDeskProvider';
 import { TradingHeader } from './TradingHeader';
 import { FounderCommandBar } from './FounderCommandBar';
+import { ArbitrageRadarPanel } from './ArbitrageRadarPanel';
 import { MarketWatchlist } from './MarketWatchlist';
 import { MarketChart } from './MarketChart';
 import { ActivePosition } from './ActivePosition';
@@ -65,6 +66,7 @@ function TradingWorkspaceContent() {
     <main className="trading-workspace genesis-workstation-v2 genesis-exchange" data-ui="genesis-workstation-v2">
       <TradingHeader onControl={() => setControlOpen(true)} />
       <FounderCommandBar onOpen={showTab} />
+      <ArbitrageRadarPanel compact />
       <MarketWatchlist mobile />
       <div className="trading-workspace__body">
         <MarketWatchlist />
