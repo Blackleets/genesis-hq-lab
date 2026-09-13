@@ -82,3 +82,88 @@ jobs:
             rows,
           }));
           NODE
+      - name: Research Uniswap fee-tier route universe
+        run: |
+          node --input-type=module <<'NODE'
+          import { createPublicClient, formatUnits, getAddress, http, parseAbi, parseUnits } from 'viem';
+          import { mainnet } from 'viem/chains';
+          import { selectHealthyEthereumRpc } from './server/genesis/mevResilientWorker.mjs';
+
+          const selected = await selectHealthyEthereumRpc({ env: {
+            ...process.env,
+            GENESIS_MEV_RPC_URL: '',
+            GENESIS_MEV_RPC_URLS: '',
+            GENESIS_MEV_PUBLIC_RPC_FALLBACK: 'true',
+          }});
+          if (!selected.ok) {
+            console.log(JSON.stringify({ diagnostic: 'expanded_routes', status: 'provider_unavailable' }));
+            process.exit(0);
+          }
+
+          const client = createPublicClient({ chain: mainnet, transport: http(selected.url, { timeout: 10000, retryCount: 1 }) });
+          const USDC = { address: getAddress('0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'), decimals: 6 };
+          const WETH = { address: getAddress('0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'), decimals: 18 };
+          const QUOTER = getAddress('0x61ffe014ba17989e743c5f6cb21bf9697530b21e');
+          const SUSHI = getAddress('0xd9e1ce17f2641f24ae83637ab66a2cca9c378b9f');
+          const quoterAbi = parseAbi(['function quoteExactInputSingle((address tokenIn,address tokenOut,uint256 amountIn,uint24 fee,uint160 sqrtPriceLimitX96) params) returns (uint256 amountOut,uint160 sqrtPriceX96After,uint32 initializedTicksCrossed,uint256 gasEstimate)']);
+          const sushiAbi = parseAbi(['function getAmountsOut(uint256 amountIn,address[] path) view returns (uint256[] amounts)']);
+          const block = await client.getBlockNumber();
+
+          const adapters = [100, 500, 3000, 10000].map((fee) => ({
+            id: `uniswap_v3_${fee}`,
+            quote: async (tokenIn, tokenOut, amountIn) => {
+              const { result } = await client.simulateContract({
+                address: QUOTER,
+                abi: quoterAbi,
+                functionName: 'quoteExactInputSingle',
+                args: [{ tokenIn: tokenIn.address, tokenOut: tokenOut.address, amountIn, fee, sqrtPriceLimitX96: 0n }],
+                blockNumber: block,
+              });
+              return Array.isArray(result) ? result[0] : result?.amountOut;
+            },
+          }));
+          adapters.push({
+            id: 'sushiswap_v2',
+            quote: async (tokenIn, tokenOut, amountIn) => {
+              const amounts = await client.readContract({
+                address: SUSHI,
+                abi: sushiAbi,
+                functionName: 'getAmountsOut',
+                args: [amountIn, [tokenIn.address, tokenOut.address]],
+                blockNumber: block,
+              });
+              return amounts.at(-1);
+            },
+          });
+
+          const start = parseUnits('1000', USDC.decimals);
+          const rows = [];
+          for (const buy of adapters) {
+            for (const sell of adapters) {
+              if (buy.id === sell.id) continue;
+              try {
+                const mid = await buy.quote(USDC, WETH, start);
+                const end = await sell.quote(WETH, USDC, mid);
+                const endUsd = Number(formatUnits(end, USDC.decimals));
+                const grossPnlUsd = endUsd - 1000;
+                rows.push({
+                  route: `${buy.id}->${sell.id}`,
+                  grossPnlUsd: Number(grossPnlUsd.toFixed(6)),
+                  grossEdgeBps: Number((grossPnlUsd * 10).toFixed(6)),
+                });
+              } catch (error) {
+                rows.push({ route: `${buy.id}->${sell.id}`, error: String(error?.shortMessage ?? error?.message ?? error).split('\n')[0].slice(0, 180) });
+              }
+            }
+          }
+          rows.sort((a, b) => (b.grossPnlUsd ?? -Infinity) - (a.grossPnlUsd ?? -Infinity));
+          console.log(JSON.stringify({
+            diagnostic: 'expanded_routes',
+            provider: selected.source,
+            block: block.toString(),
+            notionalUsd: 1000,
+            routesTested: rows.length,
+            grossPositive: rows.filter((row) => (row.grossPnlUsd ?? 0) > 0).length,
+            top: rows.slice(0, 10),
+          }));
+          NODE
