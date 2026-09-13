@@ -1,0 +1,235 @@
+name: Cross-exchange funding walk-forward
+
+on:
+  push:
+    branches:
+      - 'feat/cross-exchange-funding-shadow'
+    paths:
+      - '.github/workflows/cross-exchange-funding-walkforward.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  walk-forward:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Out-of-sample funding plus basis diagnostic
+        run: |
+          node --input-type=module <<'NODE'
+          import ccxt from 'ccxt';
+
+          const pairSpecs = [
+            { base: 'ETH', a: 'mexc', b: 'bitget' },
+            { base: 'ETH', a: 'gate', b: 'bitget' },
+            { base: 'SOL', a: 'mexc', b: 'bitget' },
+            { base: 'SOL', a: 'gate', b: 'bitget' },
+          ];
+          const NOTIONAL_USD = 1000;
+          const TRAIN_EVENTS = 21; // 7 days at 8h funding
+          const TEST_EVENTS = 21;  // next 7 days out of sample
+          const STEP_EVENTS = 21;
+          const clients = new Map();
+          const failures = [];
+
+          async function client(id) {
+            if (clients.has(id)) return clients.get(id);
+            const ex = new ccxt[id]({ enableRateLimit: true, timeout: 15000 });
+            await ex.loadMarkets();
+            clients.set(id, ex);
+            return ex;
+          }
+
+          function marketFor(ex, base) {
+            return Object.values(ex.markets ?? {}).find((m) =>
+              m?.swap === true && m.base === base && m.quote === 'USDT' && m.settle === 'USDT' && m.linear !== false
+            ) ?? null;
+          }
+
+          function bucket8h(ts) {
+            const width = 8 * 3600000;
+            return Math.round(Number(ts) / width) * width;
+          }
+
+          function hourBucket(ts) {
+            return Math.floor(Number(ts) / 3600000) * 3600000;
+          }
+
+          function fee(exMarket) {
+            const n = Number(exMarket?.taker);
+            return Number.isFinite(n) && n >= 0 ? n : null;
+          }
+
+          async function fundingHistory(ex, market) {
+            if (!ex.has?.fetchFundingRateHistory) return [];
+            const since = Date.now() - 40 * 86400000;
+            const rows = await ex.fetchFundingRateHistory(market.symbol, since, 160);
+            return (rows ?? [])
+              .filter((row) => Number.isFinite(Number(row?.fundingRate)) && Number.isFinite(Number(row?.timestamp)))
+              .map((row) => ({ ts: Number(row.timestamp), rate: Number(row.fundingRate) }))
+              .sort((x, y) => x.ts - y.ts);
+          }
+
+          async function hourlyCloses(ex, market, since) {
+            if (!ex.has?.fetchOHLCV) return new Map();
+            const rows = await ex.fetchOHLCV(market.symbol, '1h', since, 1000);
+            return new Map((rows ?? [])
+              .filter((row) => Number.isFinite(Number(row?.[0])) && Number.isFinite(Number(row?.[4])))
+              .map((row) => [hourBucket(row[0]), Number(row[4])]));
+          }
+
+          function priceAt(priceMap, ts) {
+            const target = hourBucket(ts);
+            for (const offset of [0, -3600000, 3600000, -7200000, 7200000]) {
+              const value = priceMap.get(target + offset);
+              if (Number.isFinite(value) && value > 0) return value;
+            }
+            return null;
+          }
+
+          const reports = [];
+          for (const spec of pairSpecs) {
+            try {
+              const [exA, exB] = await Promise.all([client(spec.a), client(spec.b)]);
+              const marketA = marketFor(exA, spec.base);
+              const marketB = marketFor(exB, spec.base);
+              if (!marketA || !marketB) throw new Error('comparable_usdt_swap_missing');
+              const [histA, histB] = await Promise.all([
+                fundingHistory(exA, marketA),
+                fundingHistory(exB, marketB),
+              ]);
+              const aByBucket = new Map(histA.map((row) => [bucket8h(row.ts), row]));
+              const aligned = histB.map((rowB) => {
+                const rowA = aByBucket.get(bucket8h(rowB.ts));
+                return rowA ? { ts: Math.max(rowA.ts, rowB.ts), aRate: rowA.rate, bRate: rowB.rate } : null;
+              }).filter(Boolean).sort((x, y) => x.ts - y.ts);
+
+              if (aligned.length < TRAIN_EVENTS + TEST_EVENTS) {
+                reports.push({ pair: `${spec.a}-${spec.b}:${spec.base}`, status: 'insufficient_aligned_funding', aligned: aligned.length });
+                continue;
+              }
+
+              const since = aligned[0].ts - 2 * 3600000;
+              const [pricesA, pricesB] = await Promise.all([
+                hourlyCloses(exA, marketA, since),
+                hourlyCloses(exB, marketB, since),
+              ]);
+              const takerA = fee(marketA);
+              const takerB = fee(marketB);
+              const windows = [];
+
+              for (let start = 0; start + TRAIN_EVENTS + TEST_EVENTS <= aligned.length; start += STEP_EVENTS) {
+                const train = aligned.slice(start, start + TRAIN_EVENTS);
+                const test = aligned.slice(start + TRAIN_EVENTS, start + TRAIN_EVENTS + TEST_EVENTS);
+                const trainMeanBMinusA = train.reduce((sum, row) => sum + (row.bRate - row.aRate), 0) / train.length;
+                const longVenue = trainMeanBMinusA >= 0 ? spec.a : spec.b;
+                const shortVenue = longVenue === spec.a ? spec.b : spec.a;
+
+                const first = test[0];
+                const last = test.at(-1);
+                const aStart = priceAt(pricesA, first.ts);
+                const bStart = priceAt(pricesB, first.ts);
+                const aEnd = priceAt(pricesA, last.ts);
+                const bEnd = priceAt(pricesB, last.ts);
+                if (![aStart, bStart, aEnd, bEnd].every((x) => Number.isFinite(x) && x > 0)) continue;
+
+                const entryReference = (aStart + bStart) / 2;
+                const qty = NOTIONAL_USD / entryReference;
+                let fundingPnlUsd = 0;
+                let missingFundingPrices = 0;
+                for (const event of test) {
+                  const priceA = priceAt(pricesA, event.ts);
+                  const priceB = priceAt(pricesB, event.ts);
+                  if (![priceA, priceB].every((x) => Number.isFinite(x) && x > 0)) {
+                    missingFundingPrices += 1;
+                    continue;
+                  }
+                  if (longVenue === spec.a) {
+                    fundingPnlUsd += (-event.aRate * qty * priceA) + (event.bRate * qty * priceB);
+                  } else {
+                    fundingPnlUsd += (-event.bRate * qty * priceB) + (event.aRate * qty * priceA);
+                  }
+                }
+
+                const pricePnlUsd = longVenue === spec.a
+                  ? qty * ((aEnd - aStart) - (bEnd - bStart))
+                  : qty * ((bEnd - bStart) - (aEnd - aStart));
+                const feeUsd = takerA == null || takerB == null
+                  ? null
+                  : (qty * (aStart + aEnd) * takerA) + (qty * (bStart + bEnd) * takerB);
+                const economicPreSlippageUsd = feeUsd == null ? null : fundingPnlUsd + pricePnlUsd - feeUsd;
+                const slippage2bpPerFillUsd = 4 * NOTIONAL_USD * (2 / 10000);
+                const slippage5bpPerFillUsd = 4 * NOTIONAL_USD * (5 / 10000);
+
+                windows.push({
+                  trainStart: new Date(train[0].ts).toISOString(),
+                  testStart: new Date(first.ts).toISOString(),
+                  testEnd: new Date(last.ts).toISOString(),
+                  longVenue,
+                  shortVenue,
+                  trainMeanDifferentialBps: Math.abs(trainMeanBMinusA) * 10000,
+                  fundingPnlUsd,
+                  crossVenuePricePnlUsd: pricePnlUsd,
+                  takerFeesUsd: feeUsd,
+                  economicPreSlippageUsd,
+                  economicAfter2bpPerFillUsd: economicPreSlippageUsd == null ? null : economicPreSlippageUsd - slippage2bpPerFillUsd,
+                  economicAfter5bpPerFillUsd: economicPreSlippageUsd == null ? null : economicPreSlippageUsd - slippage5bpPerFillUsd,
+                  fundingEvents: test.length,
+                  missingFundingPrices,
+                });
+              }
+
+              const valid = windows.filter((w) => Number.isFinite(w.economicPreSlippageUsd));
+              const aggregate = {
+                windows: valid.length,
+                positivePreSlippage: valid.filter((w) => w.economicPreSlippageUsd > 0).length,
+                positiveAfter2bp: valid.filter((w) => w.economicAfter2bpPerFillUsd > 0).length,
+                totalFundingPnlUsd: valid.reduce((s, w) => s + w.fundingPnlUsd, 0),
+                totalPricePnlUsd: valid.reduce((s, w) => s + w.crossVenuePricePnlUsd, 0),
+                totalFeesUsd: valid.reduce((s, w) => s + w.takerFeesUsd, 0),
+                totalEconomicPreSlippageUsd: valid.reduce((s, w) => s + w.economicPreSlippageUsd, 0),
+                totalEconomicAfter2bpUsd: valid.reduce((s, w) => s + w.economicAfter2bpPerFillUsd, 0),
+              };
+
+              reports.push({
+                pair: `${spec.a}-${spec.b}:${spec.base}`,
+                status: 'measured',
+                alignedFundingEvents: aligned.length,
+                takerA,
+                takerB,
+                aggregate,
+                windows,
+              });
+            } catch (error) {
+              failures.push({ pair: `${spec.a}-${spec.b}:${spec.base}`, error: String(error?.message ?? error).replace(/\s+/g, ' ').slice(0, 260) });
+            }
+          }
+
+          console.log(JSON.stringify({
+            diagnostic: 'cross_exchange_funding_walkforward',
+            mode: 'SHADOW_RESEARCH',
+            executionAuthority: false,
+            notionalUsdPerLeg: NOTIONAL_USD,
+            trainEvents: TRAIN_EVENTS,
+            testEvents: TEST_EVENTS,
+            warnings: [
+              'candidate venue pairs were preselected from prior research, so pair-selection bias remains',
+              'uses public OHLCV close as a mark-price proxy',
+              'does not model margin interest, liquidation, transfer friction or account-specific fee tiers',
+              '2bp/5bp per-fill slippage are stress assumptions, not measured historical fills',
+            ],
+            reports,
+            failures,
+          }));
+          NODE
