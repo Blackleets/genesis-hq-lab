@@ -1,0 +1,67 @@
+name: Cross-exchange arbitrage live smoke
+
+on:
+  push:
+    branches:
+      - 'experiment/cross-exchange-arb-shadow'
+    paths:
+      - 'server/genesis/crossExchangeArbShadow.mjs'
+      - 'server/tests/crossExchangeArbShadow.test.mjs'
+      - '.github/workflows/cross-exchange-arb-live-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GENESIS_ARB_NOTIONAL_USD: '1000'
+      GENESIS_ARB_REBALANCE_BPS: '5'
+      GENESIS_ARB_MAX_BOOK_AGE_MS: '5000'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Deterministic scanner tests
+        run: node --test server/tests/crossExchangeArbShadow.test.mjs
+      - name: Read-only cross-exchange SHADOW observation
+        run: |
+          node --input-type=module <<'NODE'
+          import { scanCrossExchangeArbShadow, MODE, EXECUTION_AUTHORITY } from './server/genesis/crossExchangeArbShadow.mjs';
+
+          const rows = await scanCrossExchangeArbShadow({
+            quoteNotional: 1000,
+            rebalanceBps: 5,
+            maxBookAgeMs: 5000,
+          });
+          const summary = rows.slice(0, 12).map((row) => ({
+            symbol: row.symbol,
+            buyVenue: row.buyVenue,
+            sellVenue: row.sellVenue,
+            grossEdgeBps: Number(row.grossEdgeBps?.toFixed?.(4) ?? row.grossEdgeBps),
+            edgeAfterTradingFeesBps: row.edgeAfterTradingFeesBps == null ? null : Number(row.edgeAfterTradingFeesBps.toFixed(4)),
+            netEdgeBps: row.netEdgeBps == null ? null : Number(row.netEdgeBps.toFixed(4)),
+            netPnlUsd: row.netPnlUsd == null ? null : Number(row.netPnlUsd.toFixed(6)),
+            verdict: row.verdict,
+          }));
+          console.log(JSON.stringify({
+            diagnostic: 'cross_exchange_shadow',
+            mode: MODE,
+            executionAuthority: EXECUTION_AUTHORITY,
+            notionalUsd: 1000,
+            rebalanceBudgetBps: 5,
+            opportunitiesMeasured: rows.length,
+            positiveNet: rows.filter((row) => row.netEdgeBps != null && row.netEdgeBps > 0).length,
+            best: summary[0] ?? null,
+            top: summary,
+          }));
+          NODE
