@@ -5,6 +5,7 @@ import {
   vwapForQuote,
   vwapForBase,
   evaluateCrossVenueArb,
+  scanCrossExchangeArbShadowDetailed,
   EXECUTION_AUTHORITY,
   MODE,
 } from '../genesis/crossExchangeArbShadow.mjs';
@@ -81,6 +82,42 @@ test('insufficient depth is NO execution candidate', () => {
 
   assert.equal(r.executable, false);
   assert.equal(r.reason, 'insufficient_buy_depth');
+});
+
+test('one unavailable venue is isolated and remaining venues are still compared', async () => {
+  const fakeMarkets = { taker: 0.001 };
+  const exchangeBuilder = async (id) => {
+    if (id === 'binance') throw new Error('451 restricted location');
+    return {
+      id,
+      market: () => fakeMarkets,
+    };
+  };
+  const bookFetcher = async (ex) => {
+    const now = Date.now();
+    if (ex.id === 'bybit') {
+      return { asks: [[100, 20]], bids: [[99.8, 20]], fetchedAt: now };
+    }
+    return { asks: [[100.4, 20]], bids: [[100.7, 20]], fetchedAt: now };
+  };
+
+  const scan = await scanCrossExchangeArbShadowDetailed({
+    exchanges: ['binance', 'bybit', 'okx'],
+    symbols: ['SOL/USDT'],
+    quoteNotional: 1000,
+    rebalanceBps: 5,
+    maxBookAgeMs: 5000,
+    exchangeBuilder,
+    bookFetcher,
+  });
+
+  assert.deepEqual(scan.activeExchanges, ['bybit', 'okx']);
+  assert.equal(scan.failures.length, 1);
+  assert.equal(scan.failures[0].exchange, 'binance');
+  assert.equal(scan.failures[0].stage, 'load_markets');
+  assert.equal(scan.results.length, 2);
+  assert.equal(scan.results[0].buyVenue, 'bybit');
+  assert.equal(scan.results[0].sellVenue, 'okx');
 });
 
 test('module is structurally shadow-only', () => {
