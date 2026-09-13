@@ -16,7 +16,7 @@ services:
     branch: main
     autoDeploy: true
     buildCommand: npm install
-    startCommand: npm run start:render
+    startCommand: npm run start:render:arbitrage
     healthCheckPath: /api/health
     envVars:
       # ── Runtime ──────────────────────────────────────────────────────────────
@@ -26,11 +26,11 @@ services:
         value: 0.0.0.0
       - key: PORT
         value: 10000
-      # Heap cap: keeps server+agent+optimizer under the 512MB free-tier limit.
+      # Heap cap: keeps server+agent+optimizer+shadow radar under the 512MB free-tier limit.
       - key: NODE_OPTIONS
         value: "--max-old-space-size=400"
 
-      # ── Secrets (set values in Render dashboard, NOT here) ────────────────
+      # ── Secrets / provider configuration (set values in Render dashboard) ───
       - key: ANTHROPIC_API_KEY
         sync: false
       # Supabase Postgres URL — hybrid persistence. Set in Render dashboard.
@@ -44,6 +44,16 @@ services:
       # Get at: https://console.groq.com (free, no credit card needed)
       - key: GROQ_API_KEY
         sync: false
+      # Read-only Ethereum RPC for continuous Arbitrage Radar observation.
+      # No wallet/private key is required or accepted by the SHADOW lane.
+      - key: GENESIS_MEV_RPC_URL
+        sync: false
+      # Optional read-only executor address for exact eth_call atomic simulation.
+      # Leave unset until a compatible simulation executor is deployed and audited.
+      - key: GENESIS_MEV_EXECUTOR_ADDRESS
+        sync: false
+      - key: GENESIS_MEV_SCAN_INTERVAL_MS
+        value: "12000"
 
       # ── Persistence ───────────────────────────────────────────────────────
       - key: DB_MODE
