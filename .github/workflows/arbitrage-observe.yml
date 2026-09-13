@@ -1,0 +1,30 @@
+name: Arbitrage periodic evidence
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17,47 * * * *'
+  push:
+    branches: ['feat/genesis-life-os', 'feat/arbitrage-hosted-observation']
+    paths: ['.github/workflows/arbitrage-observe.yml']
+permissions:
+  contents: write
+concurrency:
+  group: arbitrage-periodic-evidence
+  cancel-in-progress: false
+jobs:
+  observe:
+    if: github.repository == 'Blackleets/genesis-hq-lab' && github.event.repository.private == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --omit=dev --no-audit --no-fund
+      - name: Capture public-chain evidence and publish the bounded snapshot
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/arbitrage/runHosted.mjs
