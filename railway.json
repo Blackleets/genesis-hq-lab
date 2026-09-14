@@ -1,13 +1,14 @@
 {
-  "$schema": "https://railway.app/railway.schema.json",
+  "$schema": "https://railway.com/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS"
+    "builder": "RAILPACK",
+    "buildCommand": "npm ci --no-audit --no-fund && npm run build"
   },
   "deploy": {
-    "startCommand": "npm run start:render",
-    "healthcheckPath": "/api/health",
-    "healthcheckTimeout": 60,
+    "startCommand": "node scripts/solanaUiPreviewServer.mjs",
+    "healthcheckPath": "/healthz",
+    "healthcheckTimeout": 120,
     "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 5
+    "restartPolicyMaxRetries": 3
   }
 }
