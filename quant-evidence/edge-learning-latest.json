@@ -5,13 +5,13 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-13T21:07:07.877Z",
+  "completedAt": "2026-09-14T05:25:15.851Z",
   "summary": {
     "hypotheses": 240,
-    "paperCandidates": 8,
-    "interesting": 33,
-    "regimeDivergence": 127,
-    "killed": 180
+    "paperCandidates": 5,
+    "interesting": 36,
+    "regimeDivergence": 125,
+    "killed": 19
   },
   "rules": [
     {
@@ -27,15 +27,25 @@
     {
       "hypothesisKey": "opening_range_breakout:XRPUSDT:4h:LONDON",
       "total": 4,
-      "interesting": 0,
+      "interesting": 3,
       "regimeDivergence": 0,
-      "paper": 4,
+      "paper": 1,
       "reasons": {},
       "dominantFailure": null,
       "action": "PROMOTE_TO_FORWARD_PAPER"
     },
     {
-      "hypothesisKey": "trend_pullback:SOLUSDT:1h:LONDON_NY",
+      "hypothesisKey": "trend_pullback:SOLUSDT:4h:ASIA",
+      "total": 4,
+      "interesting": 4,
+      "regimeDivergence": 0,
+      "paper": 0,
+      "reasons": {},
+      "dominantFailure": null,
+      "action": "MUTATE_AND_RETEST"
+    },
+    {
+      "hypothesisKey": "trend_pullback:XRPUSDT:4h:LONDON_NY",
       "total": 4,
       "interesting": 4,
       "regimeDivergence": 0,
@@ -111,7 +121,8 @@
       "regimeDivergence": 0,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_VALIDATION_EXPECTANCY": 2
+        "NEGATIVE_VALIDATION_EXPECTANCY": 1,
+        "THREE_FAILED_GENERATIONS": 1
       },
       "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
@@ -129,40 +140,15 @@
       "action": "MUTATE_AND_RETEST"
     },
     {
-      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:NY",
-      "total": 4,
-      "interesting": 2,
-      "regimeDivergence": 0,
-      "paper": 0,
-      "reasons": {
-        "NEGATIVE_TRAIN_EXPECTANCY": 1,
-        "NEGATIVE_VALIDATION_EXPECTANCY": 1
-      },
-      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
-      "action": "MUTATE_AND_RETEST"
-    },
-    {
       "hypothesisKey": "failed_breakout:ETHUSDT:4h:ALL",
       "total": 4,
       "interesting": 2,
       "regimeDivergence": 0,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_VALIDATION_EXPECTANCY": 2
+        "THREE_FAILED_GENERATIONS": 2
       },
-      "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
-      "action": "MUTATE_AND_RETEST"
-    },
-    {
-      "hypothesisKey": "opening_range_breakout:XRPUSDT:1h:LONDON",
-      "total": 4,
-      "interesting": 1,
-      "regimeDivergence": 3,
-      "paper": 0,
-      "reasons": {
-        "NEGATIVE_TRAIN_EXPECTANCY": 3
-      },
-      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
+      "dominantFailure": "THREE_FAILED_GENERATIONS",
       "action": "MUTATE_AND_RETEST"
     },
     {
@@ -209,9 +195,8 @@
       "regimeDivergence": 1,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_TRAIN_EXPECTANCY": 1,
-        "NEGATIVE_VALIDATION_EXPECTANCY": 1,
-        "THREE_FAILED_GENERATIONS": 1
+        "NEGATIVE_TRAIN_EXPECTANCY": 2,
+        "NEGATIVE_VALIDATION_EXPECTANCY": 1
       },
       "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
@@ -240,19 +225,6 @@
         "NEGATIVE_VALIDATION_EXPECTANCY": 2
       },
       "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
-      "action": "MUTATE_AND_RETEST"
-    },
-    {
-      "hypothesisKey": "opening_range_breakout:XRPUSDT:30m:LONDON",
-      "total": 4,
-      "interesting": 1,
-      "regimeDivergence": 0,
-      "paper": 0,
-      "reasons": {
-        "NEGATIVE_TRAIN_EXPECTANCY": 2,
-        "THREE_FAILED_GENERATIONS": 1
-      },
-      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
     },
     {
@@ -294,6 +266,30 @@
     },
     {
       "hypothesisKey": "trend_pullback:XRPUSDT:4h:ALL",
+      "total": 4,
+      "interesting": 0,
+      "regimeDivergence": 4,
+      "paper": 0,
+      "reasons": {
+        "NEGATIVE_TRAIN_EXPECTANCY": 4
+      },
+      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
+      "action": "RETEST_ONLY_IF_REGIME_CHANGES"
+    },
+    {
+      "hypothesisKey": "trend_pullback:ETHUSDT:4h:ALL",
+      "total": 4,
+      "interesting": 0,
+      "regimeDivergence": 4,
+      "paper": 0,
+      "reasons": {
+        "NEGATIVE_TRAIN_EXPECTANCY": 4
+      },
+      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
+      "action": "RETEST_ONLY_IF_REGIME_CHANGES"
+    },
+    {
+      "hypothesisKey": "trend_pullback:ETHUSDT:4h:LONDON_NY",
       "total": 4,
       "interesting": 0,
       "regimeDivergence": 4,
