@@ -4,31 +4,147 @@
   "mode": "SHADOW",
   "executionAuthority": false,
   "liveLocked": true,
+  "runId": "2026-09-14T12:07:32.421Z",
+  "events": [
+    {
+      "id": "2026-09-14T12:07:32.421Z:1:SCAN_STARTED",
+      "runId": "2026-09-14T12:07:32.421Z",
+      "observedAt": "2026-09-14T12:07:32.422Z",
+      "recordedAt": "2026-09-14T12:07:32.422Z",
+      "type": "SCAN_STARTED",
+      "chain": "SOLANA",
+      "mode": "SHADOW",
+      "executionAuthority": false,
+      "liveLocked": true,
+      "inputUsdc": 25,
+      "route": "USDC → SOL → USDC"
+    },
+    {
+      "id": "2026-09-14T12:07:32.421Z:2:QUOTE_RECEIVED",
+      "runId": "2026-09-14T12:07:32.421Z",
+      "observedAt": "2026-09-14T12:07:32.713Z",
+      "recordedAt": "2026-09-14T12:07:32.713Z",
+      "type": "QUOTE_RECEIVED",
+      "chain": "SOLANA",
+      "mode": "SHADOW",
+      "executionAuthority": false,
+      "liveLocked": true,
+      "leg": "USDC_TO_SOL",
+      "inputUsdc": 25,
+      "quoteLatencyMs": 291,
+      "slot": 446972655,
+      "venues": [
+        "GoonFi V2"
+      ]
+    },
+    {
+      "id": "2026-09-14T12:07:32.421Z:3:ROUTE_FOUND",
+      "runId": "2026-09-14T12:07:32.421Z",
+      "observedAt": "2026-09-14T12:07:32.734Z",
+      "recordedAt": "2026-09-14T12:07:32.734Z",
+      "type": "ROUTE_FOUND",
+      "chain": "SOLANA",
+      "mode": "SHADOW",
+      "executionAuthority": false,
+      "liveLocked": true,
+      "route": "GoonFi V2 → Quantum",
+      "firstLegVenues": [
+        "GoonFi V2"
+      ],
+      "secondLegVenues": [
+        "Quantum"
+      ],
+      "quoteLatencyMs": 312,
+      "slot": 446972655
+    },
+    {
+      "id": "2026-09-14T12:07:32.421Z:4:QUOTE_RECEIVED",
+      "runId": "2026-09-14T12:07:32.421Z",
+      "observedAt": "2026-09-14T12:07:32.734Z",
+      "recordedAt": "2026-09-14T12:07:32.734Z",
+      "type": "QUOTE_RECEIVED",
+      "chain": "SOLANA",
+      "mode": "SHADOW",
+      "executionAuthority": false,
+      "liveLocked": true,
+      "leg": "SOL_TO_USDC",
+      "route": "GoonFi V2 → Quantum",
+      "inputUsdc": 25,
+      "quotedEndUsdc": 25.000512,
+      "quotedEdgeBps": 0.20480000000020482,
+      "quoteLatencyMs": 21,
+      "slot": 446972655
+    },
+    {
+      "id": "2026-09-14T12:07:32.421Z:5:COSTS_CALCULATED",
+      "runId": "2026-09-14T12:07:32.421Z",
+      "observedAt": "2026-09-14T12:07:33.322Z",
+      "recordedAt": "2026-09-14T12:07:33.322Z",
+      "type": "COSTS_CALCULATED",
+      "chain": "SOLANA",
+      "mode": "SHADOW",
+      "executionAuthority": false,
+      "liveLocked": true,
+      "route": "GoonFi V2 → Quantum",
+      "inputUsdc": 25,
+      "quotedEdgeBps": 0.20480000000020482,
+      "netEdgeBps": -20.302635884735494,
+      "netPnlUsd": -0.05075658971183874,
+      "quoteLatencyMs": 312,
+      "slot": 446972655,
+      "criticalCostsKnown": true
+    },
+    {
+      "id": "2026-09-14T12:07:32.421Z:6:REJECTED",
+      "runId": "2026-09-14T12:07:32.421Z",
+      "observedAt": "2026-09-14T12:07:33.322Z",
+      "recordedAt": "2026-09-14T12:07:33.322Z",
+      "type": "REJECTED",
+      "chain": "SOLANA",
+      "mode": "SHADOW",
+      "executionAuthority": false,
+      "liveLocked": true,
+      "route": "GoonFi V2 → Quantum",
+      "inputUsdc": 25,
+      "quotedEdgeBps": 0.20480000000020482,
+      "netEdgeBps": -20.302635884735494,
+      "netPnlUsd": -0.05075658971183874,
+      "decision": "REJECTED",
+      "reason": "net_not_positive",
+      "blockers": [
+        "net_not_positive",
+        "atomic_simulation_missing",
+        "capture_evidence_missing"
+      ],
+      "quoteLatencyMs": 312,
+      "slot": 446972655
+    }
+  ],
   "observation": {
     "chain": "SOLANA",
     "mode": "SHADOW",
     "executionAuthority": false,
     "liveLocked": true,
-    "observedAt": "2026-09-14T11:56:04.353Z",
+    "observedAt": "2026-09-14T12:07:33.321Z",
     "route": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v->So11111111111111111111111111111111111111112->EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     "inputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     "outputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     "inputUsdc": 25,
-    "quotedEndUsdc": 24.999884,
-    "solOut": 0.246674345,
-    "impliedSolUsd": 101.3481965463413,
+    "quotedEndUsdc": 25.000512,
+    "solOut": 0.246533609,
+    "impliedSolUsd": 101.40605210545553,
     "contextSlots": {
-      "first": 446970454,
-      "second": 446970454
+      "first": 446972655,
+      "second": 446972655
     },
     "slotDrift": 0,
-    "quoteLatencyMs": 177,
+    "quoteLatencyMs": 312,
     "venues": {
       "firstLeg": [
-        "Quantum"
+        "GoonFi V2"
       ],
       "secondLeg": [
-        "HumidiFi"
+        "Quantum"
       ]
     },
     "economics": {
@@ -38,14 +154,14 @@
       "dexFeesEmbeddedInQuotedOutput": true,
       "dexFeeEvidence": [
         {
-          "label": "Quantum",
+          "label": "GoonFi V2",
           "feeAmount": null,
           "feeMint": null,
           "bps": 10000,
           "percent": 0
         },
         {
-          "label": "HumidiFi",
+          "label": "Quantum",
           "feeAmount": null,
           "feeMint": null,
           "bps": 10000,
@@ -53,16 +169,16 @@
         }
       ],
       "dexFeeFullyNormalized": false,
-      "quotedRoundTripProfitUsd": -0.00011599999999845068,
-      "quotedRoundTripEdgeBps": -0.04639999999938027,
+      "quotedRoundTripProfitUsd": 0.000512000000000512,
+      "quotedRoundTripEdgeBps": 0.20480000000020482,
       "slippageReserveBps": 20,
       "slippageReserveUsd": 0.05,
-      "baseFeeUsd": 0.0005067409827317065,
+      "baseFeeUsd": 0.0005070302605272777,
       "priorityFeeUsd": 0,
-      "jitoTipUsd": 0.00023026310255328742,
-      "failedAttemptReserveUsd": 0.0005067409827317065,
-      "netPnlUsd": -0.051359745068015154,
-      "netEdgeBps": -20.543898027206062,
+      "jitoTipUsd": 0.0002545291907846934,
+      "failedAttemptReserveUsd": 0.0005070302605272777,
+      "netPnlUsd": -0.05075658971183874,
+      "netEdgeBps": -20.302635884735494,
       "criticalCostsKnown": true
     },
     "feeEvidence": {
@@ -75,9 +191,9 @@
       },
       "jito": {
         "source": "jito_tip_floor",
-        "tipSol": 0.0000022716008705103174,
-        "tipLamports": 2272,
-        "observedAt": "2026-09-14T11:54:48+00:00"
+        "tipSol": 0.0000025094718135759837,
+        "tipLamports": 2510,
+        "observedAt": "2026-09-14T12:06:18+00:00"
       }
     },
     "atomicSimulation": {
