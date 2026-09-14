@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useState } from 'react';
 import { Activity, Bot, CandlestickChart, ListChecks, Shield, Target } from 'lucide-react';
 import { TradingDeskProvider } from './TradingDeskProvider';
-import { TradingHeader } from './TradingHeader';
+import { TradingHeader, type TradingDeskMode } from './TradingHeader';
 import { FounderCommandBar } from './FounderCommandBar';
 import { ArbitrageRadarPanel } from './ArbitrageRadarPanel';
 import { MarketWatchlist } from './MarketWatchlist';
@@ -53,7 +53,23 @@ function LoadingPanel() {
   return <div className="terminal-empty"><Activity size={13} className="animate-pulse" /> LOADING VERIFIED SURFACE</div>;
 }
 
+function SolanaDesk() {
+  return (
+    <section className="mx-auto w-full max-w-[1500px] px-2 pb-24 pt-2 sm:px-4 sm:pt-4" aria-label="Genesis Solana arbitrage desk">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#14F19522] bg-[#0b1220] px-4 py-3">
+        <div>
+          <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#14F195]">SOLANA ARBITRAGE DESK</div>
+          <div className="mt-1 text-[11px] text-zinc-500">Radar continuo · historial de oportunidades · SHADOW / PAPER</div>
+        </div>
+        <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-zinc-500">Sin wallet · sin firma · sin broadcast · LIVE LOCKED</div>
+      </div>
+      <ArbitrageRadarPanel />
+    </section>
+  );
+}
+
 function TradingWorkspaceContent() {
+  const [deskMode, setDeskMode] = useState<TradingDeskMode>('solana');
   const [tab, setTab] = useState<TerminalTab>('positions');
   const [controlOpen, setControlOpen] = useState(false);
   const closeControl = useCallback(() => setControlOpen(false), []);
@@ -64,48 +80,59 @@ function TradingWorkspaceContent() {
 
   return (
     <main className="trading-workspace genesis-workstation-v2 genesis-exchange" data-ui="genesis-workstation-v2">
-      <TradingHeader onControl={() => setControlOpen(true)} />
-      <FounderCommandBar onOpen={showTab} />
-      <ArbitrageRadarPanel compact />
-      <MarketWatchlist mobile />
-      <div className="trading-workspace__body">
-        <MarketWatchlist />
-        <div id="desk-chart" className="trading-workspace__chart"><MarketChart /></div>
-        <div className="trading-workspace__right">
-          <EngineTelemetry />
-          <RiskPanel />
-          <DecisionTape onViewAll={() => showTab('decisions')} />
-        </div>
-        <div className="trading-workspace__mobile-position"><ActivePosition /></div>
-      </div>
+      <TradingHeader
+        onControl={() => setControlOpen(true)}
+        deskMode={deskMode}
+        onDeskModeChange={setDeskMode}
+      />
 
-      <ProfitEngineRail onOpen={showTab} />
-      <section id="desk-terminal" className="desk-terminal" aria-label="Trading desk terminal">
-        <nav className="desk-terminal__tabs" aria-label="Vistas de operaciones">
-          {TABS.map((item) => <button key={item.id} type="button" onClick={() => setTab(item.id)} className={tab === item.id ? 'is-active' : ''} aria-pressed={tab === item.id}>{item.label}</button>)}
-          <span>PAPER · CAPITAL REAL BLOQUEADO</span>
-        </nav>
-        <div className="desk-terminal__content">
-          {tab === 'research' ? <><EdgeFactoryPanel /><PositioningIntelligencePanel /><ProfitabilitySprintPanel /><ResearchOpportunitySurface onOpenResearch={() => showTab('strategies')} /><ChallengerEvidencePanel /></> : null}
-          {tab === 'connections' ? <ConnectorRack /> : null}
-          {tab === 'engine' ? <EngineTelemetry /> : null}
-          {tab === 'risk' ? <RiskPanel /> : null}
-          {tab === 'positions' ? <PositionsTable /> : null}
-          {tab === 'executions' ? <ExecutionTable /> : null}
-          {tab === 'decisions' ? <DecisionTape limit={8} /> : null}
-          {tab === 'strategies' ? <Suspense fallback={<LoadingPanel />}><StrategyPanel /></Suspense> : null}
-          {tab === 'truth' ? <Suspense fallback={<LoadingPanel />}><EconomicScoreboardPanel /><EconomicTruthPanel /></Suspense> : null}
-          {tab === 'agents' ? <Suspense fallback={<LoadingPanel />}><AgentBar /></Suspense> : null}
-        </div>
-      </section>
-      <DeskStatusRail />
-      <nav className="trading-mobile-nav" aria-label="Mobile trading navigation">
-        <button type="button" onClick={() => document.getElementById('desk-chart')?.scrollIntoView({ behavior: 'smooth' })}><CandlestickChart size={15} />Trading</button>
-        <button type="button" onClick={() => showTab('positions')}><Target size={15} />Posiciones</button>
-        <button type="button" onClick={() => showTab('executions')}><ListChecks size={15} />Operaciones</button>
-        <button type="button" onClick={() => showTab('agents')}><Bot size={15} />Agentes</button>
-        <button type="button" onClick={() => setControlOpen(true)}><Shield size={15} />Control</button>
-      </nav>
+      {deskMode === 'solana' ? (
+        <SolanaDesk />
+      ) : (
+        <>
+          <FounderCommandBar onOpen={showTab} />
+          <MarketWatchlist mobile />
+          <div className="trading-workspace__body">
+            <MarketWatchlist />
+            <div id="desk-chart" className="trading-workspace__chart"><MarketChart /></div>
+            <div className="trading-workspace__right">
+              <EngineTelemetry />
+              <RiskPanel />
+              <DecisionTape onViewAll={() => showTab('decisions')} />
+            </div>
+            <div className="trading-workspace__mobile-position"><ActivePosition /></div>
+          </div>
+
+          <ProfitEngineRail onOpen={showTab} />
+          <section id="desk-terminal" className="desk-terminal" aria-label="Trading desk terminal">
+            <nav className="desk-terminal__tabs" aria-label="Vistas de operaciones">
+              {TABS.map((item) => <button key={item.id} type="button" onClick={() => setTab(item.id)} className={tab === item.id ? 'is-active' : ''} aria-pressed={tab === item.id}>{item.label}</button>)}
+              <span>PAPER · CAPITAL REAL BLOQUEADO</span>
+            </nav>
+            <div className="desk-terminal__content">
+              {tab === 'research' ? <><EdgeFactoryPanel /><PositioningIntelligencePanel /><ProfitabilitySprintPanel /><ResearchOpportunitySurface onOpenResearch={() => showTab('strategies')} /><ChallengerEvidencePanel /></> : null}
+              {tab === 'connections' ? <ConnectorRack /> : null}
+              {tab === 'engine' ? <EngineTelemetry /> : null}
+              {tab === 'risk' ? <RiskPanel /> : null}
+              {tab === 'positions' ? <PositionsTable /> : null}
+              {tab === 'executions' ? <ExecutionTable /> : null}
+              {tab === 'decisions' ? <DecisionTape limit={8} /> : null}
+              {tab === 'strategies' ? <Suspense fallback={<LoadingPanel />}><StrategyPanel /></Suspense> : null}
+              {tab === 'truth' ? <Suspense fallback={<LoadingPanel />}><EconomicScoreboardPanel /><EconomicTruthPanel /></Suspense> : null}
+              {tab === 'agents' ? <Suspense fallback={<LoadingPanel />}><AgentBar /></Suspense> : null}
+            </div>
+          </section>
+          <DeskStatusRail />
+          <nav className="trading-mobile-nav" aria-label="Mobile trading navigation">
+            <button type="button" onClick={() => document.getElementById('desk-chart')?.scrollIntoView({ behavior: 'smooth' })}><CandlestickChart size={15} />Trading</button>
+            <button type="button" onClick={() => showTab('positions')}><Target size={15} />Posiciones</button>
+            <button type="button" onClick={() => showTab('executions')}><ListChecks size={15} />Operaciones</button>
+            <button type="button" onClick={() => showTab('agents')}><Bot size={15} />Agentes</button>
+            <button type="button" onClick={() => setControlOpen(true)}><Shield size={15} />Control</button>
+          </nav>
+        </>
+      )}
+
       <Suspense fallback={null}><ControlDrawer open={controlOpen} onClose={closeControl} /></Suspense>
     </main>
   );
