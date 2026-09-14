@@ -632,5 +632,233 @@
       "priorityFee": null,
       "jitoTip": null
     }
+  },
+  {
+    "recordedAt": "2026-09-14T12:07:50.635Z",
+    "ok": true,
+    "status": "BLOCKED",
+    "mode": "SHADOW",
+    "executionAuthority": false,
+    "liveLocked": true,
+    "runId": "2026-09-14T12:07:48.419Z",
+    "events": [
+      {
+        "id": "2026-09-14T12:07:48.419Z:1:SCAN_STARTED",
+        "runId": "2026-09-14T12:07:48.419Z",
+        "observedAt": "2026-09-14T12:07:48.420Z",
+        "recordedAt": "2026-09-14T12:07:48.420Z",
+        "type": "SCAN_STARTED",
+        "chain": "SOLANA",
+        "mode": "SHADOW",
+        "executionAuthority": false,
+        "liveLocked": true,
+        "inputUsdc": 25,
+        "route": "USDC → SOL → USDC"
+      },
+      {
+        "id": "2026-09-14T12:07:48.419Z:2:QUOTE_RECEIVED",
+        "runId": "2026-09-14T12:07:48.419Z",
+        "observedAt": "2026-09-14T12:07:49.420Z",
+        "recordedAt": "2026-09-14T12:07:49.420Z",
+        "type": "QUOTE_RECEIVED",
+        "chain": "SOLANA",
+        "mode": "SHADOW",
+        "executionAuthority": false,
+        "liveLocked": true,
+        "leg": "USDC_TO_SOL",
+        "inputUsdc": 25,
+        "quoteLatencyMs": 999,
+        "slot": 446972708,
+        "venues": [
+          "JupLend AMM",
+          "Flux"
+        ]
+      },
+      {
+        "id": "2026-09-14T12:07:48.419Z:3:ROUTE_FOUND",
+        "runId": "2026-09-14T12:07:48.419Z",
+        "observedAt": "2026-09-14T12:07:49.471Z",
+        "recordedAt": "2026-09-14T12:07:49.471Z",
+        "type": "ROUTE_FOUND",
+        "chain": "SOLANA",
+        "mode": "SHADOW",
+        "executionAuthority": false,
+        "liveLocked": true,
+        "route": "JupLend AMM · Flux → BisonFi",
+        "firstLegVenues": [
+          "JupLend AMM",
+          "Flux"
+        ],
+        "secondLegVenues": [
+          "BisonFi"
+        ],
+        "quoteLatencyMs": 1050,
+        "slot": 446972708
+      },
+      {
+        "id": "2026-09-14T12:07:48.419Z:4:QUOTE_RECEIVED",
+        "runId": "2026-09-14T12:07:48.419Z",
+        "observedAt": "2026-09-14T12:07:49.471Z",
+        "recordedAt": "2026-09-14T12:07:49.471Z",
+        "type": "QUOTE_RECEIVED",
+        "chain": "SOLANA",
+        "mode": "SHADOW",
+        "executionAuthority": false,
+        "liveLocked": true,
+        "leg": "SOL_TO_USDC",
+        "route": "JupLend AMM · Flux → BisonFi",
+        "inputUsdc": 25,
+        "quotedEndUsdc": 25.000649,
+        "quotedEdgeBps": 0.2595999999996934,
+        "quoteLatencyMs": 51,
+        "slot": 446972708
+      },
+      {
+        "id": "2026-09-14T12:07:48.419Z:5:COSTS_CALCULATED",
+        "runId": "2026-09-14T12:07:48.419Z",
+        "observedAt": "2026-09-14T12:07:50.177Z",
+        "recordedAt": "2026-09-14T12:07:50.177Z",
+        "type": "COSTS_CALCULATED",
+        "chain": "SOLANA",
+        "mode": "SHADOW",
+        "executionAuthority": false,
+        "liveLocked": true,
+        "route": "JupLend AMM · Flux → BisonFi",
+        "inputUsdc": 25,
+        "quotedEdgeBps": 0.2595999999996934,
+        "netEdgeBps": -20.22753713107057,
+        "netPnlUsd": -0.05056884282767642,
+        "quoteLatencyMs": 1050,
+        "slot": 446972708,
+        "criticalCostsKnown": true
+      },
+      {
+        "id": "2026-09-14T12:07:48.419Z:6:REJECTED",
+        "runId": "2026-09-14T12:07:48.419Z",
+        "observedAt": "2026-09-14T12:07:50.177Z",
+        "recordedAt": "2026-09-14T12:07:50.177Z",
+        "type": "REJECTED",
+        "chain": "SOLANA",
+        "mode": "SHADOW",
+        "executionAuthority": false,
+        "liveLocked": true,
+        "route": "JupLend AMM · Flux → BisonFi",
+        "inputUsdc": 25,
+        "quotedEdgeBps": 0.2595999999996934,
+        "netEdgeBps": -20.22753713107057,
+        "netPnlUsd": -0.05056884282767642,
+        "decision": "REJECTED",
+        "reason": "net_not_positive",
+        "blockers": [
+          "net_not_positive",
+          "atomic_simulation_missing",
+          "capture_evidence_missing"
+        ],
+        "quoteLatencyMs": 1050,
+        "slot": 446972708
+      }
+    ],
+    "observation": {
+      "chain": "SOLANA",
+      "mode": "SHADOW",
+      "executionAuthority": false,
+      "liveLocked": true,
+      "observedAt": "2026-09-14T12:07:50.177Z",
+      "route": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v->So11111111111111111111111111111111111111112->EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "inputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "outputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "inputUsdc": 25,
+      "quotedEndUsdc": 25.000649,
+      "solOut": 0.246460375,
+      "impliedSolUsd": 101.4361842141967,
+      "contextSlots": {
+        "first": 446972708,
+        "second": 446972708
+      },
+      "slotDrift": 0,
+      "quoteLatencyMs": 1050,
+      "venues": {
+        "firstLeg": [
+          "JupLend AMM",
+          "Flux"
+        ],
+        "secondLeg": [
+          "BisonFi"
+        ]
+      },
+      "economics": {
+        "grossProfitBeforeDexFeesUsd": null,
+        "grossEdgeBps": null,
+        "dexFeesUsd": null,
+        "dexFeesEmbeddedInQuotedOutput": true,
+        "dexFeeEvidence": [
+          {
+            "label": "JupLend AMM",
+            "feeAmount": null,
+            "feeMint": null,
+            "bps": 10000,
+            "percent": 0
+          },
+          {
+            "label": "Flux",
+            "feeAmount": null,
+            "feeMint": null,
+            "bps": 10000,
+            "percent": 0
+          },
+          {
+            "label": "BisonFi",
+            "feeAmount": null,
+            "feeMint": null,
+            "bps": 10000,
+            "percent": 0
+          }
+        ],
+        "dexFeeFullyNormalized": false,
+        "quotedRoundTripProfitUsd": 0.0006489999999992335,
+        "quotedRoundTripEdgeBps": 0.2595999999996934,
+        "slippageReserveBps": 20,
+        "slippageReserveUsd": 0.05,
+        "baseFeeUsd": 0.0005071809210709836,
+        "priorityFeeUsd": 0,
+        "jitoTipUsd": 0.00020348098553367856,
+        "failedAttemptReserveUsd": 0.0005071809210709836,
+        "netPnlUsd": -0.05056884282767642,
+        "netEdgeBps": -20.22753713107057,
+        "criticalCostsKnown": true
+      },
+      "feeEvidence": {
+        "priority": {
+          "source": "solana_getRecentPrioritizationFees",
+          "percentile": 0.75,
+          "microLamportsPerCu": 0,
+          "computeUnitLimit": 1000000,
+          "priorityFeeLamports": 0
+        },
+        "jito": {
+          "source": "jito_tip_floor",
+          "tipSol": 0.000002005827604698224,
+          "tipLamports": 2006,
+          "observedAt": "2026-09-14T12:06:48+00:00"
+        }
+      },
+      "atomicSimulation": {
+        "attempted": false,
+        "success": false
+      },
+      "captureEvidence": {
+        "measured": false
+      },
+      "blockers": [
+        "net_not_positive",
+        "atomic_simulation_missing",
+        "capture_evidence_missing"
+      ],
+      "status": "BLOCKED"
+    },
+    "evidenceErrors": {
+      "priorityFee": null,
+      "jitoTip": null
+    }
   }
 ]

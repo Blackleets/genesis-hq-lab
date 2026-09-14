@@ -46,5 +46,120 @@
     ],
     "quoteLatencyMs": 312,
     "slot": 446972655
+  },
+  {
+    "id": "2026-09-14T12:07:48.419Z:1:SCAN_STARTED",
+    "runId": "2026-09-14T12:07:48.419Z",
+    "observedAt": "2026-09-14T12:07:48.420Z",
+    "recordedAt": "2026-09-14T12:07:48.420Z",
+    "type": "SCAN_STARTED",
+    "chain": "SOLANA",
+    "mode": "SHADOW",
+    "executionAuthority": false,
+    "liveLocked": true,
+    "inputUsdc": 25,
+    "route": "USDC → SOL → USDC"
+  },
+  {
+    "id": "2026-09-14T12:07:48.419Z:2:QUOTE_RECEIVED",
+    "runId": "2026-09-14T12:07:48.419Z",
+    "observedAt": "2026-09-14T12:07:49.420Z",
+    "recordedAt": "2026-09-14T12:07:49.420Z",
+    "type": "QUOTE_RECEIVED",
+    "chain": "SOLANA",
+    "mode": "SHADOW",
+    "executionAuthority": false,
+    "liveLocked": true,
+    "leg": "USDC_TO_SOL",
+    "inputUsdc": 25,
+    "quoteLatencyMs": 999,
+    "slot": 446972708,
+    "venues": [
+      "JupLend AMM",
+      "Flux"
+    ]
+  },
+  {
+    "id": "2026-09-14T12:07:48.419Z:3:ROUTE_FOUND",
+    "runId": "2026-09-14T12:07:48.419Z",
+    "observedAt": "2026-09-14T12:07:49.471Z",
+    "recordedAt": "2026-09-14T12:07:49.471Z",
+    "type": "ROUTE_FOUND",
+    "chain": "SOLANA",
+    "mode": "SHADOW",
+    "executionAuthority": false,
+    "liveLocked": true,
+    "route": "JupLend AMM · Flux → BisonFi",
+    "firstLegVenues": [
+      "JupLend AMM",
+      "Flux"
+    ],
+    "secondLegVenues": [
+      "BisonFi"
+    ],
+    "quoteLatencyMs": 1050,
+    "slot": 446972708
+  },
+  {
+    "id": "2026-09-14T12:07:48.419Z:4:QUOTE_RECEIVED",
+    "runId": "2026-09-14T12:07:48.419Z",
+    "observedAt": "2026-09-14T12:07:49.471Z",
+    "recordedAt": "2026-09-14T12:07:49.471Z",
+    "type": "QUOTE_RECEIVED",
+    "chain": "SOLANA",
+    "mode": "SHADOW",
+    "executionAuthority": false,
+    "liveLocked": true,
+    "leg": "SOL_TO_USDC",
+    "route": "JupLend AMM · Flux → BisonFi",
+    "inputUsdc": 25,
+    "quotedEndUsdc": 25.000649,
+    "quotedEdgeBps": 0.2595999999996934,
+    "quoteLatencyMs": 51,
+    "slot": 446972708
+  },
+  {
+    "id": "2026-09-14T12:07:48.419Z:5:COSTS_CALCULATED",
+    "runId": "2026-09-14T12:07:48.419Z",
+    "observedAt": "2026-09-14T12:07:50.177Z",
+    "recordedAt": "2026-09-14T12:07:50.177Z",
+    "type": "COSTS_CALCULATED",
+    "chain": "SOLANA",
+    "mode": "SHADOW",
+    "executionAuthority": false,
+    "liveLocked": true,
+    "route": "JupLend AMM · Flux → BisonFi",
+    "inputUsdc": 25,
+    "quotedEdgeBps": 0.2595999999996934,
+    "netEdgeBps": -20.22753713107057,
+    "netPnlUsd": -0.05056884282767642,
+    "quoteLatencyMs": 1050,
+    "slot": 446972708,
+    "criticalCostsKnown": true
+  },
+  {
+    "id": "2026-09-14T12:07:48.419Z:6:REJECTED",
+    "runId": "2026-09-14T12:07:48.419Z",
+    "observedAt": "2026-09-14T12:07:50.177Z",
+    "recordedAt": "2026-09-14T12:07:50.177Z",
+    "type": "REJECTED",
+    "chain": "SOLANA",
+    "mode": "SHADOW",
+    "executionAuthority": false,
+    "liveLocked": true,
+    "route": "JupLend AMM · Flux → BisonFi",
+    "inputUsdc": 25,
+    "quotedEdgeBps": 0.2595999999996934,
+    "netEdgeBps": -20.22753713107057,
+    "netPnlUsd": -0.05056884282767642,
+    "decision": "REJECTED",
+    "reason": "net_not_positive",
+    "blockers": [
+      "net_not_positive",
+      "atomic_simulation_missing",
+      "capture_evidence_missing"
+    ],
+    "quoteLatencyMs": 1050,
+    "slot": 446972708
   }
 ]
