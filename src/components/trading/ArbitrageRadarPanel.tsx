@@ -1,25 +1,41 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Activity, ChevronDown, LockKeyhole, WifiOff } from 'lucide-react';
 
+type ArbitrageEventType =
+  | 'SCAN_STARTED'
+  | 'QUOTE_RECEIVED'
+  | 'ROUTE_FOUND'
+  | 'COSTS_CALCULATED'
+  | 'QUALIFIED'
+  | 'REJECTED'
+  | 'SCAN_FAILED';
+
 interface ArbitrageEvent {
   id: string;
+  runId?: string;
   recordedAt: string;
   observedAt: string;
-  type: 'ARBITRAGE_OBSERVATION';
+  type: ArbitrageEventType;
   chain: 'SOLANA';
   mode: 'SHADOW';
   executionAuthority: false;
   liveLocked: true;
-  route: string;
-  inputUsdc: number | null;
-  quotedEdgeBps: number | null;
-  netEdgeBps: number | null;
-  netPnlUsd: number | null;
-  decision: 'QUALIFIED' | 'REJECTED';
-  reason: string | null;
-  blockers: string[];
-  quoteLatencyMs: number | null;
-  slot: number | null;
+  route?: string;
+  leg?: string;
+  venues?: string[];
+  firstLegVenues?: string[];
+  secondLegVenues?: string[];
+  inputUsdc?: number | null;
+  quotedEndUsdc?: number | null;
+  quotedEdgeBps?: number | null;
+  netEdgeBps?: number | null;
+  netPnlUsd?: number | null;
+  decision?: 'QUALIFIED' | 'REJECTED';
+  reason?: string | null;
+  blockers?: string[];
+  quoteLatencyMs?: number | null;
+  slot?: number | null;
+  criticalCostsKnown?: boolean;
 }
 
 interface RadarResponse {
@@ -101,8 +117,8 @@ export function ArbitrageRadarPanel() {
 
   const latest = events[0] ?? null;
   const stats = useMemo(() => {
-    const qualified = events.filter((event) => event.decision === 'QUALIFIED').length;
-    const rejected = events.filter((event) => event.decision === 'REJECTED').length;
+    const qualified = events.filter((event) => event.type === 'QUALIFIED').length;
+    const rejected = events.filter((event) => event.type === 'REJECTED' || event.type === 'SCAN_FAILED').length;
     return { total: events.length, qualified, rejected };
   }, [events]);
 
@@ -139,6 +155,10 @@ export function ArbitrageRadarPanel() {
             {events.map((event) => {
               const open = openId === event.id;
               const positive = (event.netEdgeBps ?? 0) > 0;
+              const terminal = event.type === 'QUALIFIED' || event.type === 'REJECTED' || event.type === 'SCAN_FAILED';
+              const eventLabel = event.type.replaceAll('_', ' ');
+              const route = event.route
+                ?? (event.leg === 'USDC_TO_SOL' ? 'USDC → SOL quote' : event.leg === 'SOL_TO_USDC' ? 'SOL → USDC quote' : 'Solana scan');
               return (
                 <div key={event.id} className="border-b border-white/5 last:border-b-0">
                   <button
@@ -152,26 +172,32 @@ export function ArbitrageRadarPanel() {
                     <span className="min-w-0">
                       <span className="flex min-w-0 items-center gap-2">
                         <ChevronDown size={11} className={`shrink-0 text-zinc-600 transition-transform ${open ? 'rotate-180' : ''}`} />
-                        <span className="truncate text-[11px] font-medium text-zinc-200">{event.route}</span>
+                        <span className="truncate text-[11px] font-medium text-zinc-200">{route}</span>
                       </span>
                       <span className="ml-[19px] mt-0.5 block truncate font-mono text-[8px] uppercase tracking-wider text-zinc-600">
-                        observed · {money(event.netPnlUsd)} shadow · {ageLabel(event.observedAt)} ago
+                        {eventLabel} · {ageLabel(event.observedAt)} ago
                       </span>
                     </span>
                     <span className={`text-right font-mono text-[10px] tabular-nums ${positive ? 'text-[#14F195]' : 'text-zinc-400'}`}>
                       {bps(event.netEdgeBps)}
                     </span>
-                    <span className={`justify-self-end rounded border px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-wider ${event.decision === 'QUALIFIED' ? 'border-[#14F19555] text-[#14F195]' : 'border-zinc-700 text-zinc-400'}`}>
-                      {event.decision}
+                    <span className={`justify-self-end rounded border px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-wider ${
+                      event.type === 'QUALIFIED'
+                        ? 'border-[#14F19555] text-[#14F195]'
+                        : event.type === 'REJECTED' || event.type === 'SCAN_FAILED'
+                          ? 'border-red-500/35 text-red-300'
+                          : 'border-[#00C2FF33] text-[#73ddff]'
+                    }`}>
+                      {terminal ? event.type : event.type.replace('_', ' ')}
                     </span>
                   </button>
 
                   {open ? (
                     <div className="grid gap-2 bg-black/15 px-4 py-3 sm:grid-cols-4">
                       <div><div className="font-mono text-[8px] uppercase tracking-wider text-zinc-600">Notional</div><div className="mt-1 font-mono text-[10px] text-zinc-300">{event.inputUsdc ?? '—'} USDC</div></div>
-                      <div><div className="font-mono text-[8px] uppercase tracking-wider text-zinc-600">Quoted edge</div><div className="mt-1 font-mono text-[10px] text-zinc-300">{bps(event.quotedEdgeBps)}</div></div>
+                      <div><div className="font-mono text-[8px] uppercase tracking-wider text-zinc-600">Quoted / net edge</div><div className="mt-1 font-mono text-[10px] text-zinc-300">{bps(event.quotedEdgeBps)} · {bps(event.netEdgeBps)}</div></div>
                       <div><div className="font-mono text-[8px] uppercase tracking-wider text-zinc-600">Latency / slot</div><div className="mt-1 font-mono text-[10px] text-zinc-300">{event.quoteLatencyMs ?? '—'} ms · {event.slot ?? '—'}</div></div>
-                      <div><div className="font-mono text-[8px] uppercase tracking-wider text-zinc-600">Reason</div><div className="mt-1 font-mono text-[10px] text-zinc-300">{reasonLabel(event.reason)}</div></div>
+                      <div><div className="font-mono text-[8px] uppercase tracking-wider text-zinc-600">Result / reason</div><div className="mt-1 font-mono text-[10px] text-zinc-300">{money(event.netPnlUsd)} · {reasonLabel(event.reason)}</div></div>
                     </div>
                   ) : null}
                 </div>
