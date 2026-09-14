@@ -39,6 +39,19 @@ function isMobileBrowser(): boolean {
   return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
+function isAndroidChrome(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  return /Android/i.test(ua)
+    && /Chrome\/[\d.]+/i.test(ua)
+    && !/(EdgA|OPR|Opera|SamsungBrowser|Firefox|FxiOS)/i.test(ua);
+}
+
+function isIOSBrowser(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
 function hasInjectedSolanaWallet(): boolean {
   if (typeof window === 'undefined') return false;
   const candidate = window as Window & {
@@ -107,10 +120,19 @@ export function GenesisSettingsDrawer({ open, onClose }: { open: boolean; onClos
 
   const toggle = (key: NotificationKey) => setNotifications((current) => ({ ...current, [key]: !current[key] }));
   const authBusy = auth.status === 'connecting' || auth.status === 'signing' || auth.status === 'verifying';
-  const mobileNeedsWalletBrowser = isMobileBrowser() && !hasInjectedSolanaWallet();
+  const injectedWallet = hasInjectedSolanaWallet();
+  const androidChromeExternal = isAndroidChrome() && !injectedWallet;
+  const iosExternal = isIOSBrowser() && !injectedWallet;
+  const unsupportedMobileExternal = isMobileBrowser() && !injectedWallet && !androidChromeExternal && !iosExternal;
+  const needsWalletBrowserFallback = iosExternal || unsupportedMobileExternal;
   const ownerLabel = auth.session
     ? `SOLANA OWNER SESSION ACTIVE · ${auth.session.address.slice(0, 6)}…${auth.session.address.slice(-4)}`
     : 'SOLANA OWNER SESSION REQUIRED';
+  const ownerActionLabel = auth.status === 'awaiting_signature'
+    ? 'SIGN OWNER ACCESS'
+    : androidChromeExternal
+      ? 'CONNECT INSTALLED SOLANA WALLET'
+      : 'AUTHENTICATE SOLANA WALLET';
 
   return (
     <div className="genesis-settings" role="dialog" aria-modal="true" aria-label="Genesis settings">
@@ -126,13 +148,19 @@ export function GenesisSettingsDrawer({ open, onClose }: { open: boolean; onClos
             <span>{ownerLabel}</span>
           </div>
           {!auth.session ? <>
-            <div className="genesis-settings__notice"><LockKeyhole size={12} />Genesis autentica al propietario con Phantom o Solflare mediante una firma off-chain. No crea transacciones, no aprueba tokens y no mueve fondos.</div>
-            {mobileNeedsWalletBrowser ? <>
-              <div className="genesis-settings__notice"><LockKeyhole size={12} />Estás en un navegador móvil externo. Android/iPhone no expone Phantom o Solflare aquí aunque estén instaladas. Abre Genesis dentro del navegador de la wallet y luego autentica.</div>
+            <div className="genesis-settings__notice"><LockKeyhole size={12} />Genesis autentica al propietario con una firma Solana off-chain. No crea transacciones, no aprueba tokens y no mueve fondos.</div>
+
+            {androidChromeExternal ? <>
+              <div className="genesis-settings__notice"><LockKeyhole size={12} />Android Chrome detectado. Genesis usa Mobile Wallet Adapter: puedes quedarte en Chrome y elegir Phantom, Solflare u otra wallet compatible instalada.</div>
+              {auth.status === 'awaiting_signature' ? <div className="genesis-settings__notice"><Check size={12} />Wallet conectada. Pulsa SIGN OWNER ACCESS para abrir la firma y volver automáticamente a Genesis.</div> : null}
+              <button type="button" className="genesis-settings__save" onClick={() => void auth.connectAndSign()} disabled={authBusy}>{authBusy ? <LoaderCircle size={14} className="animate-spin" /> : <LockKeyhole size={14} />}{ownerActionLabel}</button>
+            </> : needsWalletBrowserFallback ? <>
+              <div className="genesis-settings__notice"><LockKeyhole size={12} />Este navegador móvil no soporta Mobile Wallet Adapter. Abre Genesis dentro de Phantom o Solflare para autenticar.</div>
               <button type="button" className="genesis-settings__save" onClick={() => openSolanaWalletBrowser('phantom')}>OPEN IN PHANTOM</button>
               <button type="button" className="genesis-settings__save" onClick={() => openSolanaWalletBrowser('solflare')}>OPEN IN SOLFLARE</button>
-            </> : <button type="button" className="genesis-settings__save" onClick={() => void auth.connectAndSign()} disabled={authBusy}>{authBusy ? <LoaderCircle size={14} className="animate-spin" /> : <LockKeyhole size={14} />}AUTHENTICATE SOLANA WALLET</button>}
-            {!mobileNeedsWalletBrowser && auth.error ? <p className="genesis-settings__message is-error">{auth.error}</p> : null}
+            </> : <button type="button" className="genesis-settings__save" onClick={() => void auth.connectAndSign()} disabled={authBusy}>{authBusy ? <LoaderCircle size={14} className="animate-spin" /> : <LockKeyhole size={14} />}{ownerActionLabel}</button>}
+
+            {auth.error ? <p className="genesis-settings__message is-error">{auth.error}</p> : null}
           </> : null}
           <dl className="genesis-settings__facts"><div><dt>Futures</dt><dd>PAPER</dd></div><div><dt>Solana</dt><dd>SHADOW / PAPER</dd></div></dl>
         </section> : null}
