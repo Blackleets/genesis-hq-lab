@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useState } from 'react';
-import { Activity, Bot, CandlestickChart, ListChecks, Shield, Target } from 'lucide-react';
+import { Activity, Bot, CandlestickChart, ListChecks, Radar, Shield, Target } from 'lucide-react';
 import { TradingDeskProvider } from './TradingDeskProvider';
 import { TradingHeader, type TradingDeskMode } from './TradingHeader';
 import { FounderCommandBar } from './FounderCommandBar';
@@ -62,7 +62,7 @@ function SolanaDesk() {
 }
 
 function TradingWorkspaceContent() {
-  const [deskMode, setDeskMode] = useState<TradingDeskMode>('solana');
+  const [deskMode, setDeskMode] = useState<TradingDeskMode>('futures');
   const [tab, setTab] = useState<TerminalTab>('positions');
   const [controlOpen, setControlOpen] = useState(false);
   const closeControl = useCallback(() => setControlOpen(false), []);
@@ -117,6 +117,7 @@ function TradingWorkspaceContent() {
           </section>
           <DeskStatusRail />
           <nav className="trading-mobile-nav" aria-label="Mobile trading navigation">
+            <button type="button" onClick={() => setDeskMode('solana')}><Radar size={15} />Solana</button>
             <button type="button" onClick={() => document.getElementById('desk-chart')?.scrollIntoView({ behavior: 'smooth' })}><CandlestickChart size={15} />Trading</button>
             <button type="button" onClick={() => showTab('positions')}><Target size={15} />Posiciones</button>
             <button type="button" onClick={() => showTab('executions')}><ListChecks size={15} />Operaciones</button>
