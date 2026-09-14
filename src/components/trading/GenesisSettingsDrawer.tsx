@@ -34,7 +34,7 @@ const TELEGRAM_API = '/api/genesis/founder?view=telegram';
 
 export function GenesisSettingsDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const auth = useWalletAuth();
-  const [section, setSection] = useState<SettingsSection>('telegram');
+  const [section, setSection] = useState<SettingsSection>('general');
   const [botToken, setBotToken] = useState('');
   const [chatId, setChatId] = useState('');
   const [status, setStatus] = useState<TelegramStatus | null>(null);
@@ -51,7 +51,7 @@ export function GenesisSettingsDrawer({ open, onClose }: { open: boolean; onClos
     fetch(TELEGRAM_API, { cache: 'no-store', credentials: 'same-origin' })
       .then(async (response) => {
         const body = await response.json();
-        if (!response.ok) throw new Error(response.status === 401 ? 'Conecta tu sesión para configurar Telegram.' : (body.message || 'No se pudo leer la configuración.'));
+        if (!response.ok) throw new Error(response.status === 401 ? 'La sesión del propietario expiró. Vuelve a autenticarte en GENERAL.' : (body.message || 'No se pudo leer la configuración.'));
         setStatus(body.telegram);
         setNotifications({ ...DEFAULT_NOTIFICATIONS, ...body.telegram?.notifications });
         setPhase('idle');
@@ -79,6 +79,10 @@ export function GenesisSettingsDrawer({ open, onClose }: { open: boolean; onClos
   };
 
   const toggle = (key: NotificationKey) => setNotifications((current) => ({ ...current, [key]: !current[key] }));
+  const authBusy = auth.status === 'connecting' || auth.status === 'signing' || auth.status === 'verifying';
+  const ownerLabel = auth.session
+    ? `OWNER SESSION ACTIVE · ${auth.session.address.slice(0, 6)}…${auth.session.address.slice(-4)}`
+    : 'OWNER SESSION REQUIRED';
 
   return (
     <div className="genesis-settings" role="dialog" aria-modal="true" aria-label="Genesis settings">
@@ -87,30 +91,45 @@ export function GenesisSettingsDrawer({ open, onClose }: { open: boolean; onClos
         <header><div><Settings size={16} /><span>SETTINGS</span></div><button type="button" onClick={closeDrawer} aria-label="Close settings"><X size={16} /></button></header>
         <nav aria-label="Settings sections">{SECTIONS.map((item) => <button key={item.id} type="button" className={section === item.id ? 'is-active' : ''} onClick={() => setSection(item.id)}>{item.label}</button>)}</nav>
 
+        {section === 'general' ? <section className="genesis-settings__content">
+          <div className="genesis-settings__title"><Settings size={16} /><div><strong>GENERAL</strong><span>Identidad del propietario y estado operativo de Genesis HQ.</span></div></div>
+          <div className={`genesis-settings__status ${auth.session ? 'is-connected' : ''}`}>
+            {auth.session ? <Check size={14} /> : <LockKeyhole size={14} />}
+            <span>{ownerLabel}</span>
+          </div>
+          {!auth.session ? <>
+            <div className="genesis-settings__notice"><LockKeyhole size={12} />Esta autenticación protege los ajustes privados de Genesis. MetaMask solo firma un mensaje de acceso: no es Telegram, no aprueba tokens y no mueve fondos.</div>
+            <button type="button" className="genesis-settings__save" onClick={() => void auth.connectAndSign()} disabled={authBusy}>{authBusy ? <LoaderCircle size={14} className="animate-spin" /> : <LockKeyhole size={14} />}AUTHENTICATE OWNER</button>
+            {auth.error ? <p className="genesis-settings__message is-error">{auth.error}</p> : null}
+          </> : null}
+          <dl className="genesis-settings__facts"><div><dt>Futures</dt><dd>PAPER</dd></div><div><dt>Solana</dt><dd>SHADOW / PAPER</dd></div></dl>
+        </section> : null}
+
         {section === 'telegram' ? <section className="genesis-settings__content">
-          <div className="genesis-settings__title"><Bell size={16} /><div><strong>TELEGRAM</strong><span>Oportunidades calificadas y resultados de ejecución.</span></div></div>
+          <div className="genesis-settings__title"><Bell size={16} /><div><strong>TELEGRAM</strong><span>Configura únicamente el bot y las notificaciones. La identidad del propietario vive en GENERAL.</span></div></div>
           <div className={`genesis-settings__status ${status?.connected ? 'is-connected' : ''}`}>
             {status?.connected ? <Check size={14} /> : <LockKeyhole size={14} />}
             <span>{status?.connected ? `TELEGRAM CONNECTED · ${status.chatIdMasked || ''}` : 'TELEGRAM NOT CONFIGURED'}</span>
           </div>
-          {!auth.session ? <button type="button" className="genesis-settings__save" onClick={() => void auth.connectAndSign()} disabled={auth.status === 'connecting' || auth.status === 'signing' || auth.status === 'verifying'}>{['connecting','signing','verifying'].includes(auth.status) ? <LoaderCircle size={14} className="animate-spin" /> : <LockKeyhole size={14} />}CONNECT & SIGN IN</button> : null}
-          {auth.error ? <p className="genesis-settings__message is-error">{auth.error}</p> : null}
-          <label><span>BOT TOKEN</span><input type="password" value={botToken} onChange={(event) => setBotToken(event.target.value)} autoComplete="new-password" placeholder={status?.configured ? 'Enter token again to replace' : '123456789:AA…'} /></label>
-          <label><span>CHAT ID</span><input type="text" value={chatId} onChange={(event) => setChatId(event.target.value)} inputMode="text" placeholder={status?.chatIdMasked || '-100…'} /></label>
+          {!auth.session ? <>
+            <div className="genesis-settings__notice"><LockKeyhole size={12} />Los ajustes de Telegram están bloqueados hasta autenticar al propietario. Telegram y MetaMask no están conectados entre sí.</div>
+            <button type="button" className="genesis-settings__save" onClick={() => setSection('general')}><LockKeyhole size={14} />OPEN OWNER ACCESS</button>
+          </> : null}
+          <label><span>BOT TOKEN</span><input type="password" value={botToken} onChange={(event) => setBotToken(event.target.value)} autoComplete="new-password" placeholder={status?.configured ? 'Enter token again to replace' : '123456789:AA…'} disabled={!auth.session} /></label>
+          <label><span>CHAT ID</span><input type="text" value={chatId} onChange={(event) => setChatId(event.target.value)} inputMode="text" placeholder={status?.chatIdMasked || '-100…'} disabled={!auth.session} /></label>
           <div className="genesis-settings__notice"><LockKeyhole size={12} />El token viaja solo al backend, se cifra antes de persistir y nunca vuelve al navegador.</div>
-          <button type="button" className="genesis-settings__save" onClick={saveAndTest} disabled={!auth.session || phase === 'saving' || !botToken.trim() || !chatId.trim()}>{phase === 'saving' ? <LoaderCircle size={14} className="animate-spin" /> : <Check size={14} />}SAVE & TEST</button>
+          <button type="button" className="genesis-settings__save" onClick={saveAndTest} disabled={!auth.session || phase === 'saving' || !botToken.trim() || !chatId.trim()}>{phase === 'saving' ? <LoaderCircle size={14} className="animate-spin" /> : <Check size={14} />}SAVE & TEST TELEGRAM</button>
           {message ? <p className={`genesis-settings__message ${phase === 'error' ? 'is-error' : 'is-success'}`}>{message}</p> : null}
         </section> : null}
 
         {section === 'notifications' ? <section className="genesis-settings__content">
           <div className="genesis-settings__title"><Bell size={16} /><div><strong>NOTIFICATIONS</strong><span>Signal first. Scan noise stays hidden.</span></div></div>
           <div className="genesis-settings__toggles">
-            {(Object.keys(notifications) as NotificationKey[]).map((key) => <button key={key} type="button" onClick={() => toggle(key)} aria-pressed={notifications[key]}><span>{key.replace(/([A-Z])/g, ' $1').toUpperCase()}</span><i className={notifications[key] ? 'is-on' : ''} /></button>)}
+            {(Object.keys(notifications) as NotificationKey[]).map((key) => <button key={key} type="button" onClick={() => toggle(key)} aria-pressed={notifications[key]} disabled={!auth.session}><span>{key.replace(/([A-Z])/g, ' $1').toUpperCase()}</span><i className={notifications[key] ? 'is-on' : ''} /></button>)}
           </div>
-          <p className="genesis-settings__hint">Los cambios se guardan junto con Telegram al pulsar SAVE & TEST.</p>
+          <p className="genesis-settings__hint">Los cambios se guardan junto con Telegram al pulsar SAVE & TEST TELEGRAM.</p>
         </section> : null}
 
-        {section === 'general' ? <section className="genesis-settings__content"><div className="genesis-settings__title"><Settings size={16} /><div><strong>GENERAL</strong><span>Genesis HQ operating surface.</span></div></div><dl className="genesis-settings__facts"><div><dt>Futures</dt><dd>PAPER</dd></div><div><dt>Solana</dt><dd>SHADOW / PAPER</dd></div></dl></section> : null}
         {section === 'solana' ? <section className="genesis-settings__content"><div className="genesis-settings__title"><Settings size={16} /><div><strong>SOLANA</strong><span>Economic qualification uses net edge after all modeled costs.</span></div></div><dl className="genesis-settings__facts"><div><dt>Route</dt><dd>USDC → SOL → USDC</dd></div><div><dt>Fresh quote gate</dt><dd>REQUIRED</dd></div><div><dt>Atomic simulation</dt><dd>REQUIRED</dd></div></dl></section> : null}
         {section === 'execution' ? <section className="genesis-settings__content"><div className="genesis-settings__title"><LockKeyhole size={16} /><div><strong>EXECUTION</strong><span>Deterministic gates own execution authority.</span></div></div><dl className="genesis-settings__facts"><div><dt>LIVE</dt><dd className="is-locked">LOCKED</dd></div><div><dt>Secrets in browser</dt><dd>NONE</dd></div><div><dt>Emergency stop</dt><dd>SERVER CONTROLLED</dd></div></dl></section> : null}
       </aside>
