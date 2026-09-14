@@ -1,0 +1,69 @@
+name: Solana arbitrage observation
+
+on:
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/genesis-life-os
+    paths:
+      - '.github/workflows/solana-arbitrage-observation.yml'
+      - 'server/genesis/solanaArbitrageObserver.mjs'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: solana-arbitrage-observation
+  cancel-in-progress: true
+
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      JUPITER_API_KEY: ${{ secrets.JUPITER_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/genesis-life-os
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Capture read-only Solana evidence
+        shell: bash
+        run: |
+          set +e
+          mkdir -p /tmp/genesis-solana
+          node server/genesis/solanaArbitrageObserver.mjs > /tmp/genesis-solana/solana-arbitrage-latest.json
+          observer_exit=$?
+          set -e
+          echo "observer_exit=$observer_exit" >> "$GITHUB_ENV"
+          node -e "const fs=require('fs'); const p='/tmp/genesis-solana/solana-arbitrage-latest.json'; const x=JSON.parse(fs.readFileSync(p,'utf8')); if(x.executionAuthority!==false||x.liveLocked!==true||x.mode!=='SHADOW') throw new Error('safety invariant failed'); if(x.observation&&x.observation.chain!=='SOLANA') throw new Error('wrong chain'); console.log(JSON.stringify({ok:x.ok,status:x.status,error:x.error||null,netPnlUsd:x.observation?.economics?.netPnlUsd??null,netEdgeBps:x.observation?.economics?.netEdgeBps??null,venues:x.observation?.venues??null},null,2));"
+
+      - name: Publish isolated snapshot branch
+        shell: bash
+        run: |
+          git config user.name "genesis-solana-observer"
+          git config user.email "actions@users.noreply.github.com"
+          git fetch origin data/solana-arbitrage-observations || true
+          if git show-ref --verify --quiet refs/remotes/origin/data/solana-arbitrage-observations; then
+            git checkout -B data/solana-arbitrage-observations origin/data/solana-arbitrage-observations
+          else
+            git checkout --orphan data/solana-arbitrage-observations
+            git rm -rf .
+          fi
+          mkdir -p data
+          cp /tmp/genesis-solana/solana-arbitrage-latest.json data/solana-arbitrage-latest.json
+          node -e "const fs=require('fs'); const p='data/solana-arbitrage-latest.json'; const x=JSON.parse(fs.readFileSync(p,'utf8')); const historyPath='data/solana-arbitrage-history.json'; let h=[]; try{h=JSON.parse(fs.readFileSync(historyPath,'utf8'))}catch{}; h.push({recordedAt:new Date().toISOString(),...x}); h=h.slice(-96); fs.writeFileSync(historyPath,JSON.stringify(h,null,2)+'\n');"
+          git add data/solana-arbitrage-latest.json data/solana-arbitrage-history.json
+          if git diff --cached --quiet; then
+            echo "No snapshot change"
+            exit 0
+          fi
+          git commit -m "data(solana): periodic arbitrage observation"
+          git push origin HEAD:data/solana-arbitrage-observations
