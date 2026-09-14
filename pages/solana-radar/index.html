@@ -1,60 +1,66 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Genesis HQ · Solana Arbitrage Radar</title>
-  <style>
-    :root{color-scheme:dark;--bg:#0B1020;--panel:#111827;--green:#14F195;--purple:#9945FF;--cyan:#00C2FF;--text:#F8FAFC;--muted:#94A3B8;--red:#EF4444;--amber:#F59E0B}*{box-sizing:border-box}body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:radial-gradient(circle at 15% 0%,rgba(153,69,255,.18),transparent 35%),radial-gradient(circle at 100% 5%,rgba(20,241,149,.13),transparent 30%),var(--bg);color:var(--text);min-height:100vh}.wrap{max-width:1180px;margin:auto;padding:20px}.top{display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:18px}.brand{display:flex;align-items:center;gap:12px}.orb{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--purple),var(--cyan));box-shadow:0 0 30px rgba(20,241,149,.25)}h1{font-size:clamp(20px,4vw,32px);margin:0}.sub{color:var(--muted);font-size:13px;margin-top:4px}.badges{display:flex;gap:8px;flex-wrap:wrap}.badge{padding:7px 10px;border-radius:999px;border:1px solid #334155;background:#0F172A;font-size:12px;font-weight:800;letter-spacing:.04em}.green{border-color:rgba(20,241,149,.45);color:var(--green)}.purple{border-color:rgba(153,69,255,.55);color:#C4B5FD}.red{border-color:rgba(239,68,68,.55);color:#FCA5A5}.amber{border-color:rgba(245,158,11,.55);color:#FCD34D}.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}.card{grid-column:span 12;background:linear-gradient(180deg,rgba(17,24,39,.95),rgba(10,15,28,.96));border:1px solid #1E293B;border-radius:18px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.18)}.half{grid-column:span 6}.third{grid-column:span 4}.label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.1em;font-weight:800}.value{font-size:22px;font-weight:900;margin-top:6px}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.route{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}.token{padding:8px 10px;border-radius:10px;background:#0F172A;border:1px solid #243044;font-weight:800}.arrow{color:var(--green);font-weight:900}.costs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:12px}.cost{padding:10px;border:1px solid #243044;border-radius:12px;background:#0F172A}.cost b{float:right}.statusBox{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}.bigStatus{font-size:28px;font-weight:950;letter-spacing:.05em}.reason{color:var(--muted);font-size:13px;max-width:720px;margin-top:6px}.fresh{font-size:12px;color:var(--muted)}.venues{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.venue{padding:7px 9px;border-radius:9px;background:#0B1222;border:1px solid #26354B;color:#CBD5E1;font-size:12px}.error{border-color:rgba(239,68,68,.45);background:rgba(127,29,29,.12)}footer{color:#64748B;font-size:11px;text-align:center;margin:20px 0 8px}.skeleton{opacity:.45;animation:pulse 1.4s ease-in-out infinite}@keyframes pulse{50%{opacity:.75}}@media(max-width:760px){.half,.third{grid-column:span 12}.costs{grid-template-columns:1fr}.wrap{padding:14px}.card{border-radius:15px}}
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Genesis HQ · Solana Arbitrage Desk</title>
+<style>
+:root{color-scheme:dark;--bg:#070b12;--panel:#0d1422;--line:#1d2a3f;--green:#14F195;--cyan:#39c5ff;--purple:#9945FF;--text:#f5f7fb;--muted:#7f8da3;--red:#ff7d86;--amber:#f6c55b}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#06090f,#0a101b 40%,#070b12);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh}
+.wrap{max-width:1360px;margin:0 auto;padding:14px}.top{display:flex;align-items:center;justify-content:space-between;gap:14px;border:1px solid var(--line);background:#090f19;border-radius:16px;padding:14px 16px;position:sticky;top:8px;z-index:5;backdrop-filter:blur(12px)}
+.brand{display:flex;align-items:center;gap:12px}.mark{width:34px;height:34px;border-radius:9px;border:1px solid rgba(20,241,149,.35);display:grid;place-items:center;color:var(--green);font:700 15px ui-monospace,monospace;background:rgba(20,241,149,.06)}
+h1{font-size:16px;margin:0;letter-spacing:.08em}.sub{font:10px ui-monospace,monospace;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.12em}
+.badges{display:flex;gap:6px;flex-wrap:wrap}.badge{font:700 9px ui-monospace,monospace;letter-spacing:.11em;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:#0b1220}.green{color:var(--green);border-color:rgba(20,241,149,.35)}.red{color:#ff9aa1;border-color:rgba(255,100,110,.3)}.amber{color:#ffd77a;border-color:rgba(246,197,91,.3)}
+.hero{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}.metric{border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:14px}.label{font:700 9px ui-monospace,monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}.value{font:700 22px ui-monospace,monospace;margin-top:7px}.hint{font-size:10px;color:#59677c;margin-top:5px}.pos{color:var(--green)}.neg{color:var(--red)}
+.grid{display:grid;grid-template-columns:1.15fr .85fr;gap:10px;margin-top:10px}.card{border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:14px}.title{display:flex;align-items:center;justify-content:space-between;gap:10px}.title strong{font:700 10px ui-monospace,monospace;letter-spacing:.16em;color:var(--cyan);text-transform:uppercase}.fresh{font:9px ui-monospace,monospace;color:var(--muted)}
+.route{margin-top:12px;border:1px solid rgba(153,69,255,.25);background:rgba(153,69,255,.05);border-radius:12px;padding:14px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center}.route .side:last-child{text-align:right}.small{font:9px ui-monospace,monospace;color:var(--muted);text-transform:uppercase;letter-spacing:.12em}.venue{font-weight:750;margin-top:5px}.arrow{color:var(--purple);font-size:22px}
+.costs{margin-top:8px}.row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:11px}.row:last-child{border-bottom:0}.row span:first-child{color:#8f9aad}.row b{font-family:ui-monospace,monospace}
+.ledger{grid-column:1/-1}.ledgerHead,.ledgerRow{display:grid;grid-template-columns:86px minmax(0,1fr) 110px 110px;gap:10px;align-items:center}.ledgerHead{padding:9px 10px;border-bottom:1px solid var(--line);font:8px ui-monospace,monospace;color:#657289;text-transform:uppercase;letter-spacing:.14em}.ledgerRows{max-height:420px;overflow:auto}.ledgerRow{padding:11px 10px;border-bottom:1px solid rgba(255,255,255,.045);font-size:11px}.ledgerRow:last-child{border-bottom:0}.time,.edge,.decision{font-family:ui-monospace,monospace}.edge,.decision{text-align:right}.decision span{display:inline-block;padding:4px 6px;border:1px solid var(--line);border-radius:6px;font-size:8px;letter-spacing:.08em}.decision .q{color:var(--green);border-color:rgba(20,241,149,.35)}.decision .f{color:#a9b1bf}.statusline{margin-top:8px;font:10px ui-monospace,monospace;color:#8793a6}
+footer{text-align:center;color:#536074;font:9px ui-monospace,monospace;margin:16px 0 6px}
+@media(max-width:800px){.hero{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}.ledgerHead,.ledgerRow{grid-template-columns:72px minmax(0,1fr) 86px 78px}.wrap{padding:8px}.top{top:4px}.value{font-size:18px}}
+</style>
 </head>
 <body>
-  <main class="wrap">
-    <section class="top">
-      <div class="brand"><div class="orb"></div><div><h1>Arbitrage Radar · Solana</h1><div class="sub">Genesis HQ · evidence-only observability</div></div></div>
-      <div class="badges"><span class="badge green">SHADOW / PAPER</span><span class="badge red">LIVE LOCKED</span><span id="freshBadge" class="badge amber">LOADING</span></div>
-    </section>
-
-    <section id="root" class="grid skeleton">
-      <article class="card"><div class="label">Estado</div><div class="value">Cargando evidencia Solana…</div></article>
-    </section>
-    <footer>Genesis HQ · Sin wallets · Sin signing · Sin broadcast · Sin capital real</footer>
-  </main>
+<main class="wrap">
+<section class="top">
+  <div class="brand"><div class="mark">G</div><div><h1>GENESIS HQ · SOLANA ARBITRAGE</h1><div class="sub">Opportunity ledger · evidence-first shadow desk</div></div></div>
+  <div class="badges"><span class="badge green">SCANNING SOLANA</span><span class="badge amber">SHADOW / PAPER</span><span class="badge red">LIVE LOCKED</span><span id="freshBadge" class="badge amber">LOADING</span></div>
+</section>
+<section id="hero" class="hero"></section>
+<section class="grid">
+  <article class="card"><div class="title"><strong>Latest observed route</strong><span id="latestAge" class="fresh">—</span></div><div id="routeBox"></div></article>
+  <article class="card"><div class="title"><strong>Cost reconciliation</strong><span class="fresh">Measured / reserved</span></div><div id="costBox" class="costs"></div></article>
+  <article class="card ledger"><div class="title"><strong>Opportunity ledger</strong><span id="ledgerMeta" class="fresh">—</span></div><div class="statusline">Cada fila es una observación real registrada por Genesis. No es una transacción ejecutada ni P&L realizado.</div><div class="ledgerHead"><span>Time</span><span>Route</span><span style="text-align:right">Net edge</span><span style="text-align:right">Decision</span></div><div id="ledgerRows" class="ledgerRows"></div></article>
+</section>
+<footer>Sin wallets · Sin signing · Sin broadcast · executionAuthority=false · LIVE_LOCKED=true</footer>
+</main>
 <script>
 const SNAP='https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/data/solana-arbitrage-observations/data/solana-arbitrage-latest.json';
-const $=s=>document.querySelector(s);
-const n=(v,d=4)=>Number.isFinite(Number(v))?Number(v).toFixed(d):'—';
-const usd=v=>Number.isFinite(Number(v))?`$${Number(v).toFixed(6)}`:'—';
-const txt=v=>v===null||v===undefined||v===''?'—':String(v);
-function esc(s){return txt(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
-function arr(v){return Array.isArray(v)?v:[]}
-function statusClass(s){return s==='QUALIFIED'?'green':s==='BLOCKED'?'red':s==='FILTERED'?'amber':'purple'}
-function routeLabels(obs){const labels=[];for(const q of [obs?.outboundQuote,obs?.returnQuote])for(const r of arr(q?.routePlan)) {const l=r?.swapInfo?.label||r?.label;if(l&&!labels.includes(l))labels.push(l)}return labels}
+const HIST='https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/data/solana-arbitrage-observations/data/solana-arbitrage-history.json';
+const $=s=>document.querySelector(s), arr=v=>Array.isArray(v)?v:[], num=v=>Number.isFinite(Number(v))?Number(v):null;
+const bps=v=>num(v)==null?'—':`${num(v)>=0?'+':''}${num(v).toFixed(2)} bps`;
+const money=v=>num(v)==null?'—':`${num(v)>=0?'+':'-'}$${Math.abs(num(v)).toFixed(Math.abs(num(v))<1?4:2)}`;
+const esc=s=>String(s??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+const age=t=>{const ms=Date.now()-new Date(t).getTime();if(!Number.isFinite(ms))return'—';const s=Math.max(0,Math.floor(ms/1000));if(s<60)return s+'s ago';const m=Math.floor(s/60);if(m<60)return m+'m ago';return Math.floor(m/60)+'h ago'};
+const routeText=o=>`${arr(o?.venues?.firstLeg).join(' · ')||'Jupiter'} → ${arr(o?.venues?.secondLeg).join(' · ')||'Jupiter'}`;
+function valid(s){return s?.mode==='SHADOW'&&s?.executionAuthority===false&&s?.liveLocked===true&&(!s?.observation||s.observation.chain==='SOLANA')}
+function metric(label,value,hint,cls=''){return `<div class="metric"><div class="label">${label}</div><div class="value ${cls}">${value}</div><div class="hint">${hint}</div></div>`}
 async function load(){
-  const root=$('#root');
-  try{
-    const r=await fetch(`${SNAP}?t=${Date.now()}`,{cache:'no-store'}); if(!r.ok) throw new Error(`snapshot HTTP ${r.status}`);
-    const s=await r.json(),o=s?.observation||null;
-    const valid=s?.mode==='SHADOW'&&s?.executionAuthority===false&&s?.liveLocked===true&&(!o||o?.chain==='SOLANA');
-    if(!valid) throw new Error('snapshot contract violation');
-    const ts=new Date(o?.observedAt||s?.observedAt||s?.generatedAt||0);const age=Date.now()-ts.getTime();
-    $('#freshBadge').textContent=Number.isFinite(age)?(age<45*60*1000?'FRESH':'STALE'):'UNKNOWN';
-    $('#freshBadge').className=`badge ${Number.isFinite(age)&&age<45*60*1000?'green':'amber'}`;
-    const st=o?.status||s?.status||'OBSERVING',venues=routeLabels(o);
-    const c=o?.costs||o?.economics?.costs||{};const econ=o?.economics||o||{};
-    const blockers=arr(o?.blockers||s?.blockers);
-    root.classList.remove('skeleton');
-    root.innerHTML=`
-      <article class="card"><div class="statusBox"><div><div class="label">Decision engine</div><div class="bigStatus ${statusClass(st)}">${esc(st)}</div><div class="reason">${blockers.length?blockers.map(esc).join(' · '):'Observación read-only. Ninguna ejecución real está autorizada.'}</div></div><div class="fresh">Observed: ${ts.getTime()?ts.toLocaleString('es-ES'):'—'}</div></div></article>
-      <article class="card half"><div class="label">Round-trip route</div><div class="route"><span class="token">USDC</span><span class="arrow">→</span><span class="token">SOL</span><span class="arrow">→</span><span class="token">USDC</span></div><div class="venues">${venues.length?venues.map(v=>`<span class="venue">${esc(v)}</span>`).join(''):'<span class="venue">Sin venue evidence</span>'}</div></article>
-      <article class="card half"><div class="label">Quote / slot evidence</div><div class="costs"><div class="cost">Context slot <b class="mono">${esc(o?.contextSlot||o?.outboundQuote?.contextSlot)}</b></div><div class="cost">Return slot <b class="mono">${esc(o?.returnQuote?.contextSlot)}</b></div><div class="cost">Latency ms <b>${n(o?.latencyMs||o?.quoteLatencyMs,0)}</b></div><div class="cost">Input size <b>${n(o?.inputAmountUsd||o?.inputUsd||25,2)} USDC</b></div></div></article>
-      <article class="card third"><div class="label">Gross edge</div><div class="value">${n(econ?.grossEdgeBps??o?.grossEdgeBps,4)} bps</div><div class="sub">Before explicit reserves</div></article>
-      <article class="card third"><div class="label">Net edge</div><div class="value">${n(econ?.netEdgeBps??o?.netEdgeBps,4)} bps</div><div class="sub">After known/modelled costs</div></article>
-      <article class="card third"><div class="label">Net PnL</div><div class="value">${usd(econ?.netPnlUsd??o?.netPnlUsd)}</div><div class="sub">Paper / quote economics only</div></article>
-      <article class="card half"><div class="label">Cost reconciliation</div><div class="costs"><div class="cost">Swap / DEX fees <b>${n(c?.swapFeeBps??c?.dexFeeBps??o?.swapFeeBps,4)} bps</b></div><div class="cost">Slippage reserve <b>${n(c?.slippageReserveBps??o?.slippageReserveBps,4)} bps</b></div><div class="cost">Priority fee <b>${txt(c?.priorityFeeLamports??o?.priorityFeeLamports)} lamports</b></div><div class="cost">Jito tip <b>${txt(c?.jitoTipLamports??o?.jitoTipLamports)} lamports</b></div><div class="cost">Failed-attempt reserve <b>${n(c?.failedAttemptCostBps??o?.failedAttemptCostBps,4)} bps</b></div><div class="cost">Safety buffer <b>${n(c?.safetyBufferBps??o?.safetyBufferBps,4)} bps</b></div></div></article>
-      <article class="card half"><div class="label">Evidence gates</div><div class="costs"><div class="cost">Atomic simulation <b>${esc(o?.atomicSimulation?.status||o?.atomicSimulationStatus||'—')}</b></div><div class="cost">Capture evidence <b>${esc(o?.captureEvidence?.status||o?.captureEvidenceStatus||'—')}</b></div><div class="cost">Liquidity / depth <b>${esc(o?.liquidityStatus||o?.depthStatus||'—')}</b></div><div class="cost">Viable size <b>${esc(o?.viableSizeUsd||'—')}</b></div></div></article>`;
-  }catch(e){root.classList.remove('skeleton');$('#freshBadge').textContent='UNAVAILABLE';$('#freshBadge').className='badge red';root.innerHTML=`<article class="card error"><div class="label">Radar unavailable</div><div class="value">BLOCKED</div><div class="reason">${esc(e.message)}. No se inventan oportunidades ni PnL cuando falta evidencia.</div></article>`}
+  const [sr,hr]=await Promise.all([fetch(SNAP+'?t='+Date.now(),{cache:'no-store'}),fetch(HIST+'?t='+Date.now(),{cache:'no-store'})]);
+  if(!sr.ok)throw new Error('snapshot '+sr.status);
+  const s=await sr.json(); if(!valid(s))throw new Error('snapshot contract violation');
+  const h=hr.ok?await hr.json():[]; const rows=arr(h).filter(valid).filter(x=>x.observation).slice(-120).reverse();
+  const o=s.observation,e=o?.economics||{};
+  const tracked=rows.length, positive=rows.filter(x=>num(x.observation?.economics?.netPnlUsd)>0).length, qualified=rows.filter(x=>String(x.observation?.status).toUpperCase()==='QUALIFIED').length;
+  const sum=rows.reduce((a,x)=>a+(num(x.observation?.economics?.netPnlUsd)||0),0);
+  $('#hero').innerHTML=metric('Observations',String(tracked),'retained evidence window')+metric('Positive net',String(positive),'after measured reserves',positive?'pos':'')+metric('Qualified',String(qualified),'all current gates passed',qualified?'pos':'')+metric('Shadow net sum',money(sum),'opportunity economics · not realized',sum>0?'pos':sum<0?'neg':'');
+  $('#freshBadge').textContent=age(o?.observedAt).toUpperCase(); $('#freshBadge').className='badge '+((Date.now()-new Date(o?.observedAt).getTime())<10*60*1000?'green':'amber'); $('#latestAge').textContent=age(o?.observedAt);
+  $('#routeBox').innerHTML=`<div class="route"><div class="side"><div class="small">USDC → SOL</div><div class="venue">${esc(arr(o?.venues?.firstLeg).join(' · ')||'—')}</div></div><div class="arrow">→</div><div class="side"><div class="small">SOL → USDC</div><div class="venue">${esc(arr(o?.venues?.secondLeg).join(' · ')||'—')}</div></div></div><div class="statusline">Slot ${esc(o?.contextSlots?.second)} · drift ${esc(o?.slotDrift)} · latency ${esc(o?.quoteLatencyMs)} ms · notional ${esc(o?.inputUsdc)} USDC</div>`;
+  $('#costBox').innerHTML=[['Quoted edge',bps(e.quotedRoundTripEdgeBps)],['Slippage reserve',money(-(e.slippageReserveUsd||0))],['Base fee',money(-(e.baseFeeUsd||0))],['Priority fee',money(-(e.priorityFeeUsd||0))],['Jito tip',money(-(e.jitoTipUsd||0))],['Failed-attempt reserve',money(-(e.failedAttemptReserveUsd||0))],['Net opportunity',money(e.netPnlUsd)]].map(x=>`<div class="row"><span>${x[0]}</span><b>${x[1]}</b></div>`).join('');
+  $('#ledgerMeta').textContent=`${tracked} observations retained`;
+  $('#ledgerRows').innerHTML=rows.slice(0,40).map(x=>{const r=x.observation,st=String(r.status||'BLOCKED').toUpperCase(),shown=st==='BLOCKED'?'FILTERED':st,tm=new Date(r.observedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}),ed=num(r.economics?.netEdgeBps),cl=ed>0?'pos':'';return `<div class="ledgerRow"><span class="time">${tm}</span><span>${esc(routeText(r))}<div class="small">${money(r.economics?.netPnlUsd)} shadow opportunity</div></span><span class="edge ${cl}">${bps(ed)}</span><span class="decision"><span class="${shown==='QUALIFIED'?'q':'f'}">${shown}</span></span></div>`}).join('')||'<div class="ledgerRow"><span>—</span><span>Waiting for observations…</span><span>—</span><span>—</span></div>';
 }
-load();setInterval(load,60_000);
+load().catch(e=>{document.body.insertAdjacentHTML('beforeend',`<div style="padding:18px;color:#ff9aa1;font-family:monospace">Radar unavailable: ${esc(e.message)}</div>`)}); setInterval(()=>load().catch(()=>{}),15000);
 </script>
-</body></html>
+</body>
+</html>
