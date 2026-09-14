@@ -1,14 +1,14 @@
-// api/auth/verify.js — verify an owner-login signature and issue a scoped JWT.
-// EVM remains supported for legacy surfaces; Genesis' owner flow uses Solana
-// signMessage. Neither path grants transaction authority.
+// api/auth/verify.js — verify an owner-login signature and issue a scoped session.
+// Production verification is performed by the dedicated Supabase auth gateway;
+// the returned session token is opaque, random, HttpOnly, and grants no execution authority.
 import { getAddress, verifyMessage } from 'viem';
 import { sendJson, sendMethodNotAllowed } from '../_lib/http.js';
 import { buildSiwesMessage, signSessionJwt, SESSION_TTL_SECONDS } from '../_lib/sessions.js';
 import { nonceStore, nonceKey, canUseProcessLocalNonceStore } from './nonce.js';
 import { makeRateLimit } from '../_lib/rateLimit.js';
 import { sameOriginRequest, setSessionCookie } from '../_lib/sessionCookie.js';
-import { getStore, DEGRADED_MESSAGE } from '../_lib/store.js';
-import { takeRemoteAuthNonce } from '../_lib/authNonceRemote.js';
+import { getStore } from '../_lib/store.js';
+import { verifyRemoteAuthChallenge } from '../_lib/authNonceRemote.js';
 import {
   canonicalWalletAddress,
   isValidSolanaPublicKey,
@@ -39,18 +39,9 @@ function validAddress(address, chain) {
 async function consumeNonce(nonce) {
   const store = await getStore();
   if (store.isDurable()) return store.take(nonceKey(nonce));
-  if (canUseProcessLocalNonceStore()) {
-    const record = nonceStore.get(nonce) ?? null;
-    nonceStore.delete(nonce);
-    return record;
-  }
-
-  const remote = await takeRemoteAuthNonce(nonce);
-  if (remote.available) return remote.record;
-
-  const error = new Error('durable_store_not_configured');
-  error.code = 'durable_store_not_configured';
-  throw error;
+  const record = nonceStore.get(nonce) ?? null;
+  nonceStore.delete(nonce);
+  return record;
 }
 
 export default async function handler(req, res) {
@@ -62,21 +53,46 @@ export default async function handler(req, res) {
   const address = String(body.address || '').trim();
   const signature = String(body.signature || '').trim();
   const nonce = String(body.nonce || '').trim();
+  const requestedChain = body.chain === 'solana' ? 'solana' : 'evm';
   if (!address || !signature || !nonce) {
     return sendJson(res, 400, { ok: false, error: 'invalid_request' });
   }
 
+  // Production primary path. Supabase consumes the nonce, verifies the wallet
+  // signature, and returns a random opaque session capability.
+  if (!canUseProcessLocalNonceStore()) {
+    try {
+      const remote = await verifyRemoteAuthChallenge({
+        address,
+        chain: requestedChain,
+        signature,
+        nonce,
+      });
+      if (remote.status !== 200 || !remote.body?.ok) {
+        return sendJson(res, remote.status, remote.body);
+      }
+      const token = String(remote.body?.token || '');
+      const session = remote.body?.session;
+      if (!/^[0-9a-f]{64}$/.test(token) || !session?.address || !session?.expiresAt) {
+        return sendJson(res, 503, { ok: false, error: 'invalid_auth_gateway_response' });
+      }
+      const maxAge = Math.max(1, Number(session.expiresAt) - Math.floor(Date.now() / 1000));
+      setSessionCookie(res, token, maxAge);
+      return sendJson(res, 200, { ok: true, session });
+    } catch {
+      return sendJson(res, 503, {
+        ok: false,
+        error: 'auth_gateway_unavailable',
+        message: 'El servicio seguro de autenticación no está disponible temporalmente.',
+      });
+    }
+  }
+
+  // Local/test compatibility path.
   let record;
   try {
     record = await consumeNonce(nonce);
-  } catch (error) {
-    if (error?.code === 'durable_store_not_configured' || error?.message === 'durable_store_not_configured') {
-      return sendJson(res, 503, {
-        ok: false,
-        error: 'durable_store_not_configured',
-        message: DEGRADED_MESSAGE,
-      });
-    }
+  } catch {
     return sendJson(res, 503, {
       ok: false,
       error: 'auth_store_unavailable',
@@ -106,11 +122,7 @@ export default async function handler(req, res) {
   let valid = false;
   try {
     if (chain === 'solana') {
-      valid = verifySolanaMessageSignature({
-        address: canonicalAddress,
-        message,
-        signatureBase64: signature,
-      });
+      valid = verifySolanaMessageSignature({ address: canonicalAddress, message, signatureBase64: signature });
     } else {
       valid = await verifyMessage({ address: canonicalAddress, message, signature });
     }

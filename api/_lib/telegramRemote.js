@@ -1,6 +1,6 @@
-// api/_lib/telegramRemote.js — Vercel OIDC bridge to the Supabase Telegram gateway.
-// The gateway owns encrypted-at-rest Telegram persistence and GitHub OIDC dispatch.
-// No Supabase service key or Telegram encryption key is required in Vercel.
+// api/_lib/telegramRemote.js — owner-session bridge to the Supabase Telegram gateway.
+// The user's opaque Genesis session authenticates owner-scoped configuration.
+// GitHub OIDC remains isolated to automatic observer dispatch inside the Edge Function.
 
 const DEFAULT_EDGE_URL =
   'https://swgixcbwyhxttnmrglbk.supabase.co/functions/v1/genesis-telegram';
@@ -9,13 +9,9 @@ function edgeUrl() {
   return String(process.env.GENESIS_TELEGRAM_EDGE_URL || DEFAULT_EDGE_URL).replace(/\/+$/, '');
 }
 
-function vercelOidcToken() {
-  return String(process.env.VERCEL_OIDC_TOKEN || '').trim();
-}
-
-export async function callTelegramGateway(payload) {
-  const token = vercelOidcToken();
-  if (!token) return { available: false, status: 0, body: null };
+export async function callTelegramGateway(payload, sessionToken) {
+  const token = String(sessionToken || '').trim();
+  if (!/^[0-9a-f]{64}$/.test(token)) return { available: false, status: 0, body: null };
 
   const response = await fetch(edgeUrl(), {
     method: 'POST',

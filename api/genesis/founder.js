@@ -46,11 +46,11 @@ function publicStatus(stored) {
   };
 }
 
-async function tryRemoteTelegram({ method, ownerHash, body }) {
+async function tryRemoteTelegram({ method, ownerHash, body, sessionToken }) {
   const action = method === 'GET' ? 'status' : method === 'DELETE' ? 'delete' : method === 'POST' ? 'save' : null;
   if (!action) return { available: false, status: 0, body: null };
   try {
-    return await callTelegramGateway({ action, ownerHash, ...(body || {}) });
+    return await callTelegramGateway({ action, ownerHash, ...(body || {}) }, sessionToken);
   } catch {
     return { available: false, status: 0, body: null };
   }
@@ -71,9 +71,14 @@ async function handleTelegramUserRequest(req, res) {
     }
   }
 
-  // Production primary path: Vercel project OIDC -> Supabase Edge -> Vault.
-  // This removes the need for a Supabase service key or Telegram encryption key in Vercel.
-  const remote = await tryRemoteTelegram({ method: req.method, ownerHash, body });
+  // Production primary path: the authenticated owner session is forwarded to
+  // Supabase Edge, which derives the owner identity and persists config in Vault.
+  const remote = await tryRemoteTelegram({
+    method: req.method,
+    ownerHash,
+    body,
+    sessionToken: req.sessionToken,
+  });
   if (remote.available) return sendJson(res, remote.status, remote.body);
 
   // Local/legacy fallback retained for development or an explicitly configured durable store.
@@ -146,7 +151,7 @@ async function handleTelegramDispatch(req, res) {
 // One Vercel Function serves two isolated surfaces:
 // - default GET: public allowlisted founder/readiness projection
 // - ?view=telegram: authenticated Telegram config; legacy PUT dispatch remains fail-closed
-// Production Telegram persistence/automatic dispatch now use Supabase Vault + OIDC.
+// Production Telegram persistence uses Supabase Vault; automatic dispatch uses GitHub OIDC.
 export default async function handler(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   if (url.searchParams.get('view') === 'telegram') {

@@ -5,8 +5,8 @@ import { randomBytes } from 'node:crypto';
 import { sendJson, sendMethodNotAllowed } from '../_lib/http.js';
 import { buildSiwesMessage } from '../_lib/sessions.js';
 import { makeRateLimit } from '../_lib/rateLimit.js';
-import { getStore, DEGRADED_MESSAGE } from '../_lib/store.js';
-import { putRemoteAuthNonce } from '../_lib/authNonceRemote.js';
+import { getStore } from '../_lib/store.js';
+import { issueRemoteAuthChallenge } from '../_lib/authNonceRemote.js';
 import { canonicalWalletAddress, isValidSolanaPublicKey } from '../_lib/solanaAuth.js';
 
 export const NONCE_TTL_MS = 5 * 60 * 1000;
@@ -45,12 +45,27 @@ export default async function handler(req, res) {
     return sendJson(res, 400, { ok: false, error: 'invalid_address' });
   }
 
+  // Production primary path: Supabase owns nonce generation/persistence.
+  // No Vercel secret or durable-store credential is required.
+  if (!canUseProcessLocalNonceStore()) {
+    try {
+      const remote = await issueRemoteAuthChallenge({ address, chain });
+      return sendJson(res, remote.status, remote.body);
+    } catch {
+      return sendJson(res, 503, {
+        ok: false,
+        error: 'auth_gateway_unavailable',
+        message: 'El servicio seguro de autenticación no está disponible temporalmente.',
+      });
+    }
+  }
+
+  // Local/test compatibility path.
   const canonicalAddress = canonicalWalletAddress(address, chain);
   const nonce = randomBytes(16).toString('hex');
   const issuedAtIso = new Date().toISOString();
   const record = {
     addressCanonical: canonicalAddress,
-    // Kept for backwards-compatible tests and old local callers.
     addressLower: chain === 'evm' ? canonicalAddress : undefined,
     chain,
     issuedAtIso,
@@ -61,18 +76,9 @@ export default async function handler(req, res) {
     const store = await getStore();
     if (store.isDurable()) {
       await store.set(nonceKey(nonce), record, Math.ceil(NONCE_TTL_MS / 1000));
-    } else if (canUseProcessLocalNonceStore()) {
+    } else {
       nonceStore.set(nonce, record);
       for (const [key, value] of nonceStore) if (value.expiresAt < Date.now()) nonceStore.delete(key);
-    } else {
-      const remote = await putRemoteAuthNonce(nonce, record);
-      if (!remote.available) {
-        return sendJson(res, 503, {
-          ok: false,
-          error: 'durable_store_not_configured',
-          message: DEGRADED_MESSAGE,
-        });
-      }
     }
   } catch {
     return sendJson(res, 503, {
