@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Activity, ChevronDown, LockKeyhole, WifiOff } from 'lucide-react';
+import { Activity, Bell, ChevronDown, LockKeyhole, WifiOff } from 'lucide-react';
 
 type ArbitrageEventType =
   | 'SCAN_STARTED'
@@ -129,12 +129,11 @@ export function ArbitrageRadarPanel() {
           <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-[#14F195]">
             <Activity size={13} className="animate-pulse" /> SOLANA EVENT LOG
           </div>
-          <div className="mt-1 text-[11px] text-zinc-500">Registro cronológico de lo que observa y decide Genesis.</div>
+          <div className="mt-1 text-[11px] text-zinc-500">Actividad y oportunidades detectadas por el motor Solana.</div>
         </div>
         <div className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-wider">
-          <span className="text-zinc-500">{stats.total} events</span>
-          <span className="text-[#14F195]">{stats.qualified} qualified</span>
-          <span className="text-zinc-500">{stats.rejected} rejected</span>
+          <span className="text-zinc-500">{stats.total} eventos</span>
+          <span className="text-[#14F195]"><Bell size={10} className="mr-1 inline" />{stats.qualified} oportunidades</span>
           <span className="rounded border border-red-500/30 px-2 py-1 text-red-300"><LockKeyhole size={10} className="mr-1 inline" />LIVE LOCKED</span>
         </div>
       </header>
@@ -148,7 +147,7 @@ export function ArbitrageRadarPanel() {
       ) : (
         <>
           <div className="grid grid-cols-[76px_minmax(0,1fr)_92px_92px] gap-2 border-b border-white/8 bg-white/[0.02] px-3 py-2 font-mono text-[8px] uppercase tracking-[0.14em] text-zinc-600">
-            <span>Time</span><span>Event</span><span className="text-right">Net edge</span><span className="text-right">Decision</span>
+            <span>Hora</span><span>Actividad</span><span className="text-right">Edge neto</span><span className="text-right">Estado</span>
           </div>
 
           <div className="max-h-[68vh] overflow-y-auto">
@@ -156,7 +155,16 @@ export function ArbitrageRadarPanel() {
               const open = openId === event.id;
               const positive = (event.netEdgeBps ?? 0) > 0;
               const terminal = event.type === 'QUALIFIED' || event.type === 'REJECTED' || event.type === 'SCAN_FAILED';
-              const eventLabel = event.type.replaceAll('_', ' ');
+              const eventLabels: Record<ArbitrageEventType, string> = {
+                SCAN_STARTED: 'Buscando',
+                QUOTE_RECEIVED: 'Precio recibido',
+                ROUTE_FOUND: 'Ruta encontrada',
+                COSTS_CALCULATED: 'Costes calculados',
+                QUALIFIED: 'Oportunidad',
+                REJECTED: 'Descartada',
+                SCAN_FAILED: 'Error de escaneo',
+              };
+              const eventLabel = eventLabels[event.type];
               const route = event.route
                 ?? (event.leg === 'USDC_TO_SOL' ? 'USDC → SOL quote' : event.leg === 'SOL_TO_USDC' ? 'SOL → USDC quote' : 'Solana scan');
               return (
@@ -188,7 +196,7 @@ export function ArbitrageRadarPanel() {
                           ? 'border-red-500/35 text-red-300'
                           : 'border-[#00C2FF33] text-[#73ddff]'
                     }`}>
-                      {terminal ? event.type : event.type.replace('_', ' ')}
+                      {eventLabel}
                     </span>
                   </button>
 
@@ -206,8 +214,8 @@ export function ArbitrageRadarPanel() {
           </div>
 
           <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-white/8 px-4 py-2 font-mono text-[8px] uppercase tracking-wider text-zinc-600">
-            <span>Latest event: {latest ? ageLabel(latest.observedAt) + ' ago' : '—'}</span>
-            <span>SHADOW · executionAuthority=false · no signing · no broadcast</span>
+            <span>Última actividad: {latest ? ageLabel(latest.observedAt) : '—'}</span>
+            <span>Solo observación · capital real bloqueado</span>
           </footer>
         </>
       )}
