@@ -1,6 +1,7 @@
 import { sendJson, sendMethodNotAllowed } from '../_lib/http.js';
 import { requireSession, ownerHashFor } from '../_lib/sessionAuth.js';
 import { getStore, DEGRADED_MESSAGE } from '../_lib/store.js';
+import { callTelegramGateway } from '../_lib/telegramRemote.js';
 import { founderResponse } from '../../server/genesis/founderHttp.mjs';
 import {
   constantTimeSecretMatch,
@@ -45,11 +46,38 @@ function publicStatus(stored) {
   };
 }
 
+async function tryRemoteTelegram({ method, ownerHash, body }) {
+  const action = method === 'GET' ? 'status' : method === 'DELETE' ? 'delete' : method === 'POST' ? 'save' : null;
+  if (!action) return { available: false, status: 0, body: null };
+  try {
+    return await callTelegramGateway({ action, ownerHash, ...(body || {}) });
+  } catch {
+    return { available: false, status: 0, body: null };
+  }
+}
+
 async function handleTelegramUserRequest(req, res) {
   const session = await requireSession(req, res);
   if (!session) return;
-  const store = await getStore();
   const ownerHash = ownerHashFor(session.address);
+
+  let body = null;
+  if (req.method === 'POST') {
+    try { body = await readBody(req); }
+    catch (error) {
+      const code = error instanceof Error ? error.message : 'invalid_json';
+      const status = code === 'invalid_json' || code === 'request_too_large' ? 400 : 500;
+      return sendJson(res, status, { ok: false, error: code });
+    }
+  }
+
+  // Production primary path: Vercel project OIDC -> Supabase Edge -> Vault.
+  // This removes the need for a Supabase service key or Telegram encryption key in Vercel.
+  const remote = await tryRemoteTelegram({ method: req.method, ownerHash, body });
+  if (remote.available) return sendJson(res, remote.status, remote.body);
+
+  // Local/legacy fallback retained for development or an explicitly configured durable store.
+  const store = await getStore();
   const key = `${CONFIG_PREFIX}${ownerHash}`;
 
   if (req.method === 'GET') return sendJson(res, 200, { ok: true, telegram: publicStatus(await store.get(key)) });
@@ -63,9 +91,8 @@ async function handleTelegramUserRequest(req, res) {
   if (!secret) return sendJson(res, 503, { ok: false, error: 'secret_store_not_configured', message: 'Configura TELEGRAM_CONFIG_ENCRYPTION_KEY en el entorno del backend.' });
 
   try {
-    const body = await readBody(req);
-    const valid = validateTelegramInput({ botToken: body.botToken, chatId: body.chatId });
-    const notifications = normalizeTelegramPreferences(body.notifications);
+    const valid = validateTelegramInput({ botToken: body?.botToken, chatId: body?.chatId });
+    const notifications = normalizeTelegramPreferences(body?.notifications);
     await testTelegramConnection({ ...valid });
     const encrypted = encryptTelegramConfig({ ...valid, notifications }, secret);
     const verifiedAt = new Date().toISOString();
@@ -74,7 +101,7 @@ async function handleTelegramUserRequest(req, res) {
     return sendJson(res, 200, { ok: true, telegram: publicStatus({ verifiedAt, chatIdMasked, notifications }) });
   } catch (error) {
     const code = error instanceof Error ? error.message : 'telegram_test_failed';
-    const status = code === 'invalid_bot_token' || code === 'invalid_chat_id' || code === 'invalid_json' || code === 'request_too_large' ? 400 : 502;
+    const status = code === 'invalid_bot_token' || code === 'invalid_chat_id' ? 400 : 502;
     return sendJson(res, status, { ok: false, error: code.split(':')[0], message: code.startsWith('telegram_') ? 'Telegram rechazó la conexión. Revisa el token y el Chat ID.' : code.replaceAll('_', ' ') });
   }
 }
@@ -118,8 +145,8 @@ async function handleTelegramDispatch(req, res) {
 
 // One Vercel Function serves two isolated surfaces:
 // - default GET: public allowlisted founder/readiness projection
-// - ?view=telegram: authenticated Telegram config + secret-gated Solana dispatch
-// This consolidation is purely infrastructural and does not grant execution authority.
+// - ?view=telegram: authenticated Telegram config; legacy PUT dispatch remains fail-closed
+// Production Telegram persistence/automatic dispatch now use Supabase Vault + OIDC.
 export default async function handler(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   if (url.searchParams.get('view') === 'telegram') {

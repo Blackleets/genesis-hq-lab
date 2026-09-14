@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 concurrency:
   group: solana-arbitrage-observation
@@ -25,8 +26,6 @@ jobs:
     timeout-minutes: 5
     env:
       JUPITER_API_KEY: ${{ secrets.JUPITER_API_KEY }}
-      GENESIS_NOTIFY_URL: ${{ secrets.GENESIS_NOTIFY_URL }}
-      GENESIS_NOTIFICATION_DISPATCH_SECRET: ${{ secrets.GENESIS_NOTIFICATION_DISPATCH_SECRET }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -72,13 +71,17 @@ jobs:
           git push origin HEAD:data/solana-arbitrage-observations
 
       - name: Dispatch qualified Telegram notifications
-        if: ${{ env.GENESIS_NOTIFY_URL != '' && env.GENESIS_NOTIFICATION_DISPATCH_SECRET != '' }}
         shell: bash
         run: |
-          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/tmp/genesis-solana/solana-arbitrage-latest.json','utf8'));fs.writeFileSync('/tmp/genesis-solana/telegram-events.json',JSON.stringify({events:x.events||[]}));"
+          set -euo pipefail
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/tmp/genesis-solana/solana-arbitrage-latest.json','utf8'));fs.writeFileSync('/tmp/genesis-solana/telegram-events.json',JSON.stringify({action:'dispatch',events:x.events||[]}));"
+          oidc_response=$(curl --fail-with-body --silent --show-error \
+            --header "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=genesis-telegram-dispatch")
+          oidc_token=$(printf '%s' "$oidc_response" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.value)process.exit(2);process.stdout.write(x.value)})")
           curl --fail-with-body --silent --show-error \
-            --request PUT \
-            --header "Authorization: Bearer ${GENESIS_NOTIFICATION_DISPATCH_SECRET}" \
+            --request POST \
+            --header "Authorization: Bearer ${oidc_token}" \
             --header "Content-Type: application/json" \
             --data-binary @/tmp/genesis-solana/telegram-events.json \
-            "${GENESIS_NOTIFY_URL%/}/api/genesis/founder?view=telegram"
+            "https://swgixcbwyhxttnmrglbk.supabase.co/functions/v1/genesis-telegram"
