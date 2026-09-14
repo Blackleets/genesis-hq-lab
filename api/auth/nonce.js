@@ -6,6 +6,7 @@ import { sendJson, sendMethodNotAllowed } from '../_lib/http.js';
 import { buildSiwesMessage } from '../_lib/sessions.js';
 import { makeRateLimit } from '../_lib/rateLimit.js';
 import { getStore, DEGRADED_MESSAGE } from '../_lib/store.js';
+import { putRemoteAuthNonce } from '../_lib/authNonceRemote.js';
 import { canonicalWalletAddress, isValidSolanaPublicKey } from '../_lib/solanaAuth.js';
 
 export const NONCE_TTL_MS = 5 * 60 * 1000;
@@ -64,17 +65,20 @@ export default async function handler(req, res) {
       nonceStore.set(nonce, record);
       for (const [key, value] of nonceStore) if (value.expiresAt < Date.now()) nonceStore.delete(key);
     } else {
-      return sendJson(res, 503, {
-        ok: false,
-        error: 'durable_store_not_configured',
-        message: DEGRADED_MESSAGE,
-      });
+      const remote = await putRemoteAuthNonce(nonce, record);
+      if (!remote.available) {
+        return sendJson(res, 503, {
+          ok: false,
+          error: 'durable_store_not_configured',
+          message: DEGRADED_MESSAGE,
+        });
+      }
     }
   } catch {
     return sendJson(res, 503, {
       ok: false,
       error: 'auth_store_unavailable',
-      message: 'El almacenamiento de autenticación no está disponible.',
+      message: 'El almacenamiento seguro de autenticación no está disponible.',
     });
   }
 

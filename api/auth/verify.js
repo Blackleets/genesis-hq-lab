@@ -1,6 +1,6 @@
 // api/auth/verify.js — verify an owner-login signature and issue a scoped JWT.
 // EVM remains supported for legacy surfaces; Genesis' owner flow uses Solana
-// signMessage (Phantom/Solflare). Neither path grants transaction authority.
+// signMessage. Neither path grants transaction authority.
 import { getAddress, verifyMessage } from 'viem';
 import { sendJson, sendMethodNotAllowed } from '../_lib/http.js';
 import { buildSiwesMessage, signSessionJwt, SESSION_TTL_SECONDS } from '../_lib/sessions.js';
@@ -8,6 +8,7 @@ import { nonceStore, nonceKey, canUseProcessLocalNonceStore } from './nonce.js';
 import { makeRateLimit } from '../_lib/rateLimit.js';
 import { sameOriginRequest, setSessionCookie } from '../_lib/sessionCookie.js';
 import { getStore, DEGRADED_MESSAGE } from '../_lib/store.js';
+import { takeRemoteAuthNonce } from '../_lib/authNonceRemote.js';
 import {
   canonicalWalletAddress,
   isValidSolanaPublicKey,
@@ -43,6 +44,10 @@ async function consumeNonce(nonce) {
     nonceStore.delete(nonce);
     return record;
   }
+
+  const remote = await takeRemoteAuthNonce(nonce);
+  if (remote.available) return remote.record;
+
   const error = new Error('durable_store_not_configured');
   error.code = 'durable_store_not_configured';
   throw error;
@@ -75,7 +80,7 @@ export default async function handler(req, res) {
     return sendJson(res, 503, {
       ok: false,
       error: 'auth_store_unavailable',
-      message: 'El almacenamiento de autenticación no está disponible.',
+      message: 'El almacenamiento seguro de autenticación no está disponible.',
     });
   }
 
