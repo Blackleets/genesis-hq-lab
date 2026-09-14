@@ -12,9 +12,10 @@ import { getAddress } from 'viem';
 import { verifyMessage } from 'viem';
 import { sendJson, sendMethodNotAllowed } from '../_lib/http.js';
 import { buildSiwesMessage, signSessionJwt, SESSION_TTL_SECONDS } from '../_lib/sessions.js';
-import { nonceStore } from './nonce.js';
+import { nonceStore, nonceKey, canUseProcessLocalNonceStore } from './nonce.js';
 import { makeRateLimit } from '../_lib/rateLimit.js';
 import { sameOriginRequest, setSessionCookie } from '../_lib/sessionCookie.js';
+import { getStore, DEGRADED_MESSAGE } from '../_lib/store.js';
 
 const rateLimit = makeRateLimit({ windowMs: 60_000, max: 10, blockMs: 15 * 60_000 });
 
@@ -23,6 +24,21 @@ function operatorAddresses() {
     .split(',')
     .map(s => s.trim().toLowerCase())
     .filter(Boolean);
+}
+
+async function consumeNonce(nonce) {
+  const store = await getStore();
+  if (store.isDurable()) {
+    return store.take(nonceKey(nonce));
+  }
+  if (canUseProcessLocalNonceStore()) {
+    const record = nonceStore.get(nonce) ?? null;
+    nonceStore.delete(nonce);
+    return record;
+  }
+  const err = new Error('durable_store_not_configured');
+  err.code = 'durable_store_not_configured';
+  throw err;
 }
 
 export default async function handler(req, res) {
@@ -38,10 +54,26 @@ export default async function handler(req, res) {
     return sendJson(res, 400, { ok: false, error: 'invalid_request' });
   }
 
-  // Nonce must exist, be unexpired and unclaimed -> claim it atomically
-  // (single use). Delete-first so two concurrent verifies can't both pass.
-  const record = nonceStore.get(nonce);
-  nonceStore.delete(nonce);
+  // Claim the nonce before any cryptographic verification. Durable adapters
+  // implement take() atomically so two concurrent verifies cannot both pass.
+  let record;
+  try {
+    record = await consumeNonce(nonce);
+  } catch (error) {
+    if (error?.code === 'durable_store_not_configured' || error?.message === 'durable_store_not_configured') {
+      return sendJson(res, 503, {
+        ok: false,
+        error: 'durable_store_not_configured',
+        message: DEGRADED_MESSAGE,
+      });
+    }
+    return sendJson(res, 503, {
+      ok: false,
+      error: 'auth_store_unavailable',
+      message: 'El almacenamiento de autenticación no está disponible.',
+    });
+  }
+
   if (!record || record.expiresAt < Date.now()) {
     return sendJson(res, 401, { ok: false, error: 'invalid_or_expired_nonce' });
   }

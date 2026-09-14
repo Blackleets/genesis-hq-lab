@@ -13,11 +13,12 @@
 // APIs, which is what serverless wants anyway.
 //
 // Interface (all async):
-//   get(key)            -> parsed value | null
+//   get(key)                 -> parsed value | null
 //   set(key, value, ttlSec?) -> true on success (throws on failure)
-//   del(key)            -> true if deleted, false if key was absent
-//   keys(prefix)        -> array of matching keys
-//   isDurable()         -> bool; false ONLY for the memory fallback
+//   del(key)                 -> true if deleted, false if key was absent
+//   take(key)                -> atomically remove and return value | null
+//   keys(prefix)             -> array of matching keys
+//   isDurable()              -> bool; false ONLY for the memory fallback
 
 const DEGRADED_MESSAGE =
   'Configura UPSTASH_REDIS_REST_URL+TOKEN o SUPABASE_URL+SERVICE_KEY en Vercel para persistir bots';
@@ -67,12 +68,14 @@ function redisAdapter(baseUrl, token) {
     if (j.error) throw new Error(`upstash: ${j.error}`);
     return j.result;
   }
+  function parse(raw) {
+    if (raw == null) return null;
+    try { return JSON.parse(raw); } catch { return raw; }
+  }
   return {
     name: 'upstash-redis',
     async get(key) {
-      const raw = await cmd('get', key);
-      if (raw == null) return null;
-      try { return JSON.parse(raw); } catch { return raw; } // tolerate plain strings
+      return parse(await cmd('get', key));
     },
     async set(key, value, ttlSec) {
       // SET key value [EX ttl] — EX keeps TTL semantics server-side.
@@ -84,6 +87,10 @@ function redisAdapter(baseUrl, token) {
     async del(key) {
       const n = await cmd('del', key);
       return Number(n) > 0;
+    },
+    async take(key) {
+      // GETDEL is atomic: two concurrent consumers cannot both claim a nonce.
+      return parse(await cmd('getdel', key));
     },
     async keys(prefix) {
       // KEYS is fine at this scale (< thousands of bot keys); SCAN would need
@@ -119,7 +126,7 @@ function supabaseAdapter(baseUrl, serviceKey) {
     },
     async set(key, value, ttlSec) {
       // Upsert on primary key. PostgREST has no row TTL; ttlSec accepted but
-      // ignored (bots are permanent until archived/deleted anyway).
+      // ignored. Callers that need expiry also store/validate expiresAt.
       void ttlSec;
       const r = await fetch(`${baseUrl}/rest/v1/bots`, {
         method: 'POST',
@@ -141,6 +148,17 @@ function supabaseAdapter(baseUrl, serviceKey) {
       const rows = await r.json().catch(() => []);
       return Array.isArray(rows) && rows.length > 0;
     },
+    async take(key) {
+      // One DELETE statement claims + removes the row atomically and returns
+      // the deleted representation. This preserves nonce single-use semantics.
+      const r = await fetch(
+        `${baseUrl}/rest/v1/bots?select=value&key=eq.${encodeURIComponent(key)}`,
+        { method: 'DELETE', headers: { ...headers, Prefer: 'return=representation' } }
+      );
+      if (!r.ok) throw new Error(`supabase_take_${r.status}`);
+      const rows = await r.json().catch(() => []);
+      return Array.isArray(rows) && rows.length ? rows[0].value : null;
+    },
     async keys(prefix) {
       const r = await fetch(
         `${baseUrl}/rest/v1/bots?select=key&key=like.${encodeURIComponent(prefix + '*')}`,
@@ -161,6 +179,9 @@ function supabaseAdapter(baseUrl, serviceKey) {
 function memoryAdapter() {
   const map = new Map();
   const timers = new Map(); // best-effort expiry while the instance lives
+  function clearTimer(key) {
+    if (timers.has(key)) { clearTimeout(timers.get(key)); timers.delete(key); }
+  }
   return {
     name: 'memory',
     degraded: true, // explicit honest signal: this adapter loses data
@@ -169,15 +190,22 @@ function memoryAdapter() {
     },
     async set(key, value, ttlSec) {
       map.set(key, value);
-      if (timers.has(key)) clearTimeout(timers.get(key));
+      clearTimer(key);
       if (Number.isFinite(ttlSec) && ttlSec > 0) {
         timers.set(key, setTimeout(() => { map.delete(key); timers.delete(key); }, ttlSec * 1000));
       }
       return true;
     },
     async del(key) {
-      if (timers.has(key)) { clearTimeout(timers.get(key)); timers.delete(key); }
+      clearTimer(key);
       return map.delete(key);
+    },
+    async take(key) {
+      if (!map.has(key)) return null;
+      const value = map.get(key);
+      clearTimer(key);
+      map.delete(key);
+      return value;
     },
     async keys(prefix) {
       return [...map.keys()].filter(k => k.startsWith(prefix));

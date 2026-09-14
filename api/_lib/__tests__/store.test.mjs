@@ -1,10 +1,18 @@
 // api/_lib/__tests__/store.test.mjs — storage layer + bots policy unit tests.
-// Covers: memory adapter contract (get/set/del/keys/isDurable), adapter
+// Covers: memory adapter contract (get/set/del/take/keys/isDurable), adapter
 // resolution from env, and the wallet whitelist logic with mocked env.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { getStore, resetStoreCache, DEGRADED_MESSAGE } from '../store.js';
 
-const ENV_KEYS = ['UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN', 'SUPABASE_URL', 'SUPABASE_SERVICE_KEY', 'ALLOWED_WALLETS'];
+const ENV_KEYS = [
+  'UPSTASH_REDIS_REST_URL',
+  'UPSTASH_REDIS_REST_TOKEN',
+  'SUPABASE_URL',
+  'SUPABASE_SECRET_KEY',
+  'SUPABASE_SERVICE_KEY',
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'ALLOWED_WALLETS',
+];
 let savedEnv;
 
 beforeEach(() => {
@@ -55,6 +63,14 @@ describe('memory adapter', () => {
     expect(await store.del('k1')).toBe(true);
     expect(await store.get('k1')).toBeNull();
     expect(await store.del('k1')).toBe(false); // absent -> false
+  });
+
+  it('take atomically returns and removes a key', async () => {
+    const store = await mem();
+    await store.set('nonce:1', { address: '0xabc' });
+    expect(await store.take('nonce:1')).toEqual({ address: '0xabc' });
+    expect(await store.take('nonce:1')).toBeNull();
+    expect(await store.get('nonce:1')).toBeNull();
   });
 
   it('keys(prefix) returns only matching keys', async () => {
