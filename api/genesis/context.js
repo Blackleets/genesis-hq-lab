@@ -6,13 +6,14 @@
 // backend's /api/genesis/context (context.fearGreed* fields present).
 //
 // SESSION REQUIRED, NO TENANT FILTERING for the default context response.
-// `?view=arbitrage-radar` is a read-only public system-evidence view backed by
-// one allowlisted org_state key; it never exposes credentials or execution authority.
+// Read-only arbitrage views expose public system evidence only; they never
+// expose credentials, wallet material, signing capability, or execution authority.
 import { sendJson, sendMethodNotAllowed } from '../_lib/http.js';
 import { requireSession } from '../_lib/sessionAuth.js';
 
 const FNG = 'https://api.alternative.me/fng/';
 const RADAR_STATE_KEY = 'mev_shadow_radar_public';
+const SOLANA_RADAR_SNAPSHOT_URL = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/data/solana-arbitrage-observations/data/solana-arbitrage-latest.json';
 
 function supabaseConfig() {
   const url = process.env.SUPABASE_URL?.replace(/\/+$/, '');
@@ -51,7 +52,7 @@ async function readRadarState() {
   }
 }
 
-async function sendRadarView(res) {
+async function sendLegacyRadarView(res) {
   try {
     const { configured, state } = await readRadarState();
     if (!configured) {
@@ -80,11 +81,57 @@ async function sendRadarView(res) {
   }
 }
 
+async function readSolanaRadarSnapshot() {
+  const response = await fetch(SOLANA_RADAR_SNAPSHOT_URL, {
+    headers: { accept: 'application/json' },
+    signal: AbortSignal.timeout(5_000),
+  });
+  if (!response.ok) throw new Error(`solana_snapshot_${response.status}`);
+
+  const snapshot = await response.json();
+  const observation = snapshot?.observation;
+  const safetyValid = snapshot?.mode === 'SHADOW'
+    && snapshot?.executionAuthority === false
+    && snapshot?.liveLocked === true;
+  const chainValid = !observation || observation?.chain === 'SOLANA';
+
+  if (!safetyValid || !chainValid) throw new Error('solana_snapshot_contract_violation');
+  return snapshot;
+}
+
+async function sendSolanaRadarView(res) {
+  try {
+    const snapshot = await readSolanaRadarSnapshot();
+    return sendJson(res, 200, {
+      ok: true,
+      status: snapshot?.observation?.status ?? snapshot?.status ?? 'OBSERVING',
+      radar: snapshot,
+      executionAuthority: false,
+      liveLocked: true,
+      mode: 'SHADOW',
+      chain: 'SOLANA',
+    });
+  } catch (error) {
+    return sendJson(res, 503, {
+      ok: false,
+      status: 'unavailable',
+      error: error instanceof Error ? error.message : 'solana_radar_unavailable',
+      radar: null,
+      executionAuthority: false,
+      liveLocked: true,
+      mode: 'SHADOW',
+      chain: 'SOLANA',
+    });
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') return sendMethodNotAllowed(res);
 
   const url = new URL(req.url, `http://${req.headers.host}`);
-  if (url.searchParams.get('view') === 'arbitrage-radar') return sendRadarView(res);
+  const view = url.searchParams.get('view');
+  if (view === 'solana-arbitrage-radar') return sendSolanaRadarView(res);
+  if (view === 'arbitrage-radar') return sendLegacyRadarView(res);
 
   // Public market data: session gate only (anti-scraping), no tenant filter.
   const session = await requireSession(req, res);
