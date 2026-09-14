@@ -66,12 +66,12 @@ export function TradingHeader({
         </div>
         <div className="trading-header__nav-wrap">
           <button type="button" className="trading-header__desk-button" onClick={() => setMenuOpen((value) => !value)} aria-expanded={menuOpen}>
-            {isSolana ? 'SOLANA DESK' : 'FUTURES DESK'} <ChevronDown size={12} />
+            {isSolana ? 'SOLANA' : 'FUTURES'} <ChevronDown size={12} />
           </button>
           {menuOpen ? (
             <div className="trading-header__nav-menu">
-              <button type="button" onClick={() => chooseDesk('solana')}>SOLANA ARBITRAGE</button>
-              <button type="button" onClick={() => chooseDesk('futures')}>FUTURES DESK</button>
+              <button type="button" onClick={() => chooseDesk('futures')}>FUTURES · TRADING</button>
+              <button type="button" onClick={() => chooseDesk('solana')}>SOLANA · OPPORTUNITIES</button>
               {NAV.map((item) => (
                 <button key={item.id} type="button" onClick={() => { actions.setSelectedModule(item.id); setMenuOpen(false); }}>
                   {item.label}
@@ -85,10 +85,8 @@ export function TradingHeader({
       <div className="trading-header__telemetry">
         {isSolana ? (
           <>
-            <Status label="MODE" value="SHADOW" tone="warn" />
-            <Status label="NETWORK" value="SOLANA" tone="good" />
             <Status label="RADAR" value="ACTIVE" tone="good" />
-            <Status label="EXECUTION" value="DISABLED" tone="warn" />
+            <Status label="MODE" value="SHADOW" tone="warn" />
           </>
         ) : (
           <>
