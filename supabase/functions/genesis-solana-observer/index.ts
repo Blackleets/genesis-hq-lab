@@ -24,6 +24,39 @@ const BASE_FEE_LAMPORTS = 5_000;
 const PRIORITY_FEE_PERCENTILE = 0.75;
 const MAX_SLOT_DRIFT = 4;
 const REQUEST_TIMEOUT_MS = 5_000;
+const PAPER_CAPTURE_DELAY_MS = 1_500;
+
+type Db = ReturnType<typeof createClient>;
+
+type Economics = {
+  startUsdc: number;
+  endUsdc: number;
+  solOut: number;
+  solUsd: number;
+  quotedProfitUsd: number;
+  quotedEdgeBps: number;
+  netPnlUsd: number | null;
+  netEdgeBps: number | null;
+  totalCostUsd: number | null;
+  firstVenues: string[];
+  secondVenues: string[];
+  route: string;
+  quoteLatencyMs: number;
+  slot: number | null;
+  slotDrift: number | null;
+  blockers: string[];
+  costs: {
+    totalUsd: number | null;
+    baseFeeUsd: number | null;
+    priorityFeeUsd: number | null;
+    jitoTipUsd: number | null;
+    slippageReserveUsd: number;
+    latencyDegradationUsd: number;
+    adverseSelectionReserveUsd: number;
+    failureReserveUsd: number | null;
+  };
+  evidenceErrors: { priorityFee: string | null; jitoTip: string | null };
+};
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -49,6 +82,10 @@ async function fetchJson(url: string, init: RequestInit = {}, timeoutMs = REQUES
     throw new Error(`http_${response.status}${body ? `:${body.slice(0, 120)}` : ""}`);
   }
   return await response.json();
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function quantile(values: number[], p: number) {
@@ -111,6 +148,55 @@ function money(value: unknown) {
   return Number.isFinite(n) ? `${n >= 0 ? "+" : "-"}$${Math.abs(n).toFixed(4)}` : "—";
 }
 
+function usd(value: unknown) {
+  const n = Number(value);
+  return Number.isFinite(n) ? `$${Math.abs(n).toFixed(4)}` : "—";
+}
+
+function madridTime(value: unknown) {
+  const date = new Date(String(value ?? ""));
+  if (Number.isNaN(date.getTime())) return String(value ?? "—");
+  try {
+    return new Intl.DateTimeFormat("es-ES", {
+      timeZone: "Europe/Madrid",
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }).format(date) + " Madrid";
+  } catch {
+    return date.toISOString();
+  }
+}
+
+function humanReason(reason: unknown) {
+  const code = String(reason ?? "");
+  const labels: Record<string, string> = {
+    net_not_positive: "El edge neto no cubre los costes",
+    critical_cost_unknown: "Faltan costes críticos · fail-closed",
+    context_slot_unknown: "No se pudo verificar el slot de mercado",
+    slot_drift: "La cotización quedó desfasada entre slots",
+    positive_expected_net_pnl: "Edge neto positivo después de costes",
+    rejected: "No supera los gates económicos",
+    capture_economics_incomplete: "La recotización PAPER quedó incompleta",
+  };
+  return (labels[code] ?? code.replaceAll("_", " ")) || "Sin motivo disponible";
+}
+
+function decisionLabel(event: any) {
+  if (event.type === "OPPORTUNITY_DETECTED" || event.decision === "SHADOW_QUALIFIED") return "🟢 CANDIDATA · PAPER";
+  return "⛔ DESCARTADA";
+}
+
+function captureStatusLabel(status: unknown) {
+  if (status === "CAPTURED") return "✅ CAPTURADO";
+  if (status === "DECAYED") return "🟠 EDGE DECAÍDO";
+  if (status === "FAILED") return "🔴 FALLÓ";
+  return `ℹ️ ${String(status ?? "UNKNOWN")}`;
+}
+
 async function telegramRequest(botToken: string, chatId: string, text: string) {
   const response = await fetch(`${TELEGRAM_API}/bot${botToken}/sendMessage`, {
     method: "POST",
@@ -122,56 +208,114 @@ async function telegramRequest(botToken: string, chatId: string, text: string) {
   if (!response.ok || body?.ok !== true) throw new Error(`telegram_${response.status}`);
 }
 
-function formatScan(event: any) {
-  const title = event.type === "OPPORTUNITY_DETECTED" ? "🔥 GENESIS · SOLANA OPPORTUNITY" : "🛰️ GENESIS · SOLANA SCAN";
+function notificationPreference(event: any) {
+  if (event.type === "OPPORTUNITY_DETECTED") return "opportunities";
+  if (event.type === "CAPTURE_MEASURED") return "executions";
+  if (event.type === "SIMULATION_FAILED") return "important";
+  return "debug";
+}
+
+function formatTelegramEvent(event: any) {
+  if (event.type === "CAPTURE_MEASURED") {
+    const capturedPositive = Number(event.capturedNetPnlUsd) > 0;
+    return [
+      "⚡ GENESIS HQ · PAPER CAPTURE",
+      "━━━━━━━━━━━━━━━━━━━━",
+      "🔀 RUTA",
+      event.route,
+      "",
+      `🎯 ESPERADO     ${money(event.expectedNetPnlUsd)} · ${bps(event.expectedNetEdgeBps)}`,
+      `${capturedPositive ? "✅" : "📉"} CAPTURADO    ${money(event.capturedNetPnlUsd)} · ${bps(event.capturedNetEdgeBps)}`,
+      `🌊 EDGE DECAY   ${money(event.quoteDecayUsd)} · ${bps(event.quoteDecayBps)}`,
+      `📊 CAPTURE      ${Number.isFinite(Number(event.captureRatio)) ? `${(Number(event.captureRatio) * 100).toFixed(1)}%` : "—"}`,
+      "",
+      "🧠 RESULTADO",
+      captureStatusLabel(event.status),
+      "",
+      "🛡️ SEGURIDAD",
+      "🧪 PAPER ONLY · 🔒 LIVE LOCKED",
+      "🚫 Sin transacción real",
+      "",
+      `🕒 ${madridTime(event.timestamp)}`,
+    ].join("\n");
+  }
+
+  if (event.type === "SIMULATION_FAILED") {
+    return [
+      "🚨 GENESIS HQ · PAPER CAPTURE",
+      "━━━━━━━━━━━━━━━━━━━━",
+      "🔀 RUTA",
+      event.route,
+      "",
+      "❌ RECOTIZACIÓN FALLIDA",
+      `⚙️ ${humanReason(event.reason)}`,
+      "",
+      "🛡️ SEGURIDAD",
+      "🚫 No se envió ninguna transacción",
+      "🔒 LIVE LOCKED",
+      "",
+      `🕒 ${madridTime(event.timestamp)}`,
+    ].join("\n");
+  }
+
+  const opportunity = event.type === "OPPORTUNITY_DETECTED";
+  const edgeIcon = Number(event.netEdgeBps) > 0 ? "🟢" : "🔴";
+  const costValue = event.estimatedCosts?.totalUsd;
   return [
-    title,
+    opportunity ? "🔥 GENESIS HQ · OPORTUNIDAD SOLANA" : "🛰️ GENESIS HQ · SOLANA SCAN",
+    "━━━━━━━━━━━━━━━━━━━━",
+    "🔀 RUTA",
+    event.route,
     "",
-    `Route:\n${event.route}`,
+    `💵 CAPITAL       $${Number(event.inputAmountUsd).toFixed(2)}`,
+    `📈 EDGE BRUTO    ${bps(event.quotedEdgeBps)}`,
+    `💸 COSTES EST.   ${usd(costValue)}`,
+    `${edgeIcon} EDGE NETO     ${bps(event.netEdgeBps)}`,
+    `💰 PNL NETO      ${money(event.expectedNetPnlUsd)}`,
     "",
-    `Capital:\n$${Number(event.inputAmountUsd).toFixed(2)}`,
+    "🧠 VEREDICTO",
+    decisionLabel(event),
+    `↳ ${humanReason(event.reason)}`,
     "",
-    `Quoted Edge:\n${bps(event.quotedEdgeBps)}`,
+    "⚙️ MERCADO",
+    `⚡ Quote         ${Number.isFinite(Number(event.quoteLatencyMs)) ? `${Number(event.quoteLatencyMs)} ms` : "—"}`,
+    `🧱 Slot drift    ${event.slotDrift ?? "—"}`,
+    opportunity ? "🧪 PAPER capture: activado" : "🔎 Sigue buscando edge rentable",
     "",
-    `Net Edge:\n${bps(event.netEdgeBps)}`,
+    "🛡️ SEGURIDAD",
+    "👻 SHADOW · 🔒 LIVE LOCKED",
+    "🚫 Sin firma · sin transacción · sin capital real",
     "",
-    `Expected Net:\n${money(event.expectedNetPnlUsd)}`,
-    "",
-    `Decision:\n${event.decision}`,
-    "",
-    `Reason:\n${event.reason}`,
-    "",
-    "LIVE: LOCKED · SHADOW/PAPER",
-    "",
-    event.timestamp,
+    `🕒 ${madridTime(event.timestamp)}`,
   ].join("\n");
 }
 
-async function persistLatest(db: ReturnType<typeof createClient>, payload: unknown) {
-  await db.from("org_state").upsert({
-    key: "solana_arbitrage_supabase_observer_v1",
-    value: JSON.stringify(payload),
-    updated_at: new Date().toISOString(),
-  }, { onConflict: "key" });
-}
-
-async function dispatchTelegram(db: ReturnType<typeof createClient>, event: any) {
+async function dispatchTelegram(db: Db, event: any) {
   const { data: configs, error } = await db.rpc("genesis_telegram_configs_for_dispatch");
   if (error) throw new Error("telegram_config_store_unavailable");
   let sent = 0, skipped = 0, failed = 0;
+  const preference = notificationPreference(event);
   for (const row of configs ?? []) {
     const config = row?.config && typeof row.config === "object" ? row.config : {};
     const notifications = row?.notifications && typeof row.notifications === "object" ? row.notifications : config.notifications ?? {};
-    const wants = event.type === "OPPORTUNITY_DETECTED" ? notifications.opportunities !== false : notifications.debug === true;
+    const wants = preference === "opportunities"
+      ? notifications.opportunities !== false
+      : preference === "executions"
+        ? notifications.executions !== false
+        : preference === "important"
+          ? notifications.important !== false
+          : notifications.debug === true;
     if (!wants) { skipped++; continue; }
     const botToken = typeof config.botToken === "string" ? config.botToken.trim() : "";
     const chatId = config.chatId == null ? "" : String(config.chatId).trim();
     if (!botToken || !chatId) { failed++; continue; }
-    const { data: existing } = await db.from("genesis_telegram_deliveries").select("event_id").eq("owner_hash", row.owner_hash).eq("event_id", event.eventId).maybeSingle();
+    const eventId = String(event.eventId ?? event.id ?? "").trim();
+    if (!eventId) { skipped++; continue; }
+    const { data: existing } = await db.from("genesis_telegram_deliveries").select("event_id").eq("owner_hash", row.owner_hash).eq("event_id", eventId).maybeSingle();
     if (existing) { skipped++; continue; }
     try {
-      await telegramRequest(botToken, chatId, formatScan(event));
-      const { error: insertError } = await db.from("genesis_telegram_deliveries").insert({ owner_hash: row.owner_hash, event_id: event.eventId });
+      await telegramRequest(botToken, chatId, formatTelegramEvent(event));
+      const { error: insertError } = await db.from("genesis_telegram_deliveries").insert({ owner_hash: row.owner_hash, event_id: eventId });
       if (insertError && insertError.code !== "23505") throw insertError;
       sent++;
     } catch {
@@ -181,13 +325,11 @@ async function dispatchTelegram(db: ReturnType<typeof createClient>, event: any)
   return { configs: (configs ?? []).length, sent, skipped, failed };
 }
 
-async function scanOnce() {
-  const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
-  const startedAt = new Date().toISOString();
+async function calculateEconomics(): Promise<Economics> {
   const first = await jupiterQuote(USDC_MINT, SOL_MINT, BigInt(Math.round(NOTIONAL_USDC * USDC_SCALE)));
   const second = await jupiterQuote(SOL_MINT, USDC_MINT, BigInt(first.quote.outAmount));
-
   const [priority, jito] = await Promise.allSettled([priorityFeeEvidence(), jitoTipLamports()]);
+
   const startUsdc = Number(first.quote.inAmount) / USDC_SCALE;
   const solOut = Number(first.quote.outAmount) / LAMPORTS_PER_SOL;
   const endUsdc = Number(second.quote.outAmount) / USDC_SCALE;
@@ -204,9 +346,10 @@ async function scanOnce() {
   const jitoTipUsd = usdFromLamports(jito.status === "fulfilled" ? jito.value : null, solUsd);
   const criticalCostsKnown = [baseFeeUsd, priorityFeeUsd, jitoTipUsd].every((v) => Number.isFinite(v));
   const failureReserveUsd = criticalCostsKnown ? (Number(baseFeeUsd) + Number(priorityFeeUsd) + Number(jitoTipUsd)) * FAILURE_PROBABILITY_RESERVE : null;
-  const netPnlUsd = criticalCostsKnown
-    ? quotedProfitUsd - slippageReserveUsd - latencyDegradationUsd - adverseSelectionReserveUsd - Number(baseFeeUsd) - Number(priorityFeeUsd) - Number(jitoTipUsd) - Number(failureReserveUsd)
+  const totalCostUsd = criticalCostsKnown
+    ? slippageReserveUsd + latencyDegradationUsd + adverseSelectionReserveUsd + Number(baseFeeUsd) + Number(priorityFeeUsd) + Number(jitoTipUsd) + Number(failureReserveUsd)
     : null;
+  const netPnlUsd = totalCostUsd == null ? null : quotedProfitUsd - totalCostUsd;
   const netEdgeBps = netPnlUsd == null ? null : (netPnlUsd / startUsdc) * 10_000;
   const firstSlot = Number(first.quote.contextSlot);
   const secondSlot = Number(second.quote.contextSlot);
@@ -220,36 +363,25 @@ async function scanOnce() {
   const firstVenues = venueLabels(first.quote);
   const secondVenues = venueLabels(second.quote);
   const route = `${firstVenues.join(" · ") || "Jupiter"} → ${secondVenues.join(" · ") || "Jupiter"}`;
-  const qualified = blockers.length === 0 && Number(netPnlUsd) > 0;
-  const event = {
-    runId: startedAt,
-    eventId: `supabase-sol-${crypto.randomUUID()}`,
-    id: `supabase-sol-${crypto.randomUUID()}`,
-    timestamp: new Date().toISOString(),
-    observedAt: new Date().toISOString(),
-    type: qualified ? "OPPORTUNITY_DETECTED" : "REJECTED",
-    chain: "SOLANA",
-    mode: "SHADOW",
-    executionAuthority: false,
-    liveLocked: true,
-    route,
-    tokens: ["USDC", "SOL", "USDC"],
-    mints: [USDC_MINT, SOL_MINT],
-    venues: [...firstVenues, ...secondVenues],
-    inputAmountUsd: startUsdc,
-    quotedOutputUsd: endUsdc,
-    grossEdgeBps: quotedEdgeBps,
+  return {
+    startUsdc,
+    endUsdc,
+    solOut,
+    solUsd,
+    quotedProfitUsd,
     quotedEdgeBps,
+    netPnlUsd,
     netEdgeBps,
-    expectedNetPnlUsd: netPnlUsd,
-    decision: qualified ? "SHADOW_QUALIFIED" : "REJECTED",
-    reason: qualified ? "positive_expected_net_pnl" : blockers[0] ?? "rejected",
-    blockers,
+    totalCostUsd,
+    firstVenues,
+    secondVenues,
+    route,
     quoteLatencyMs: first.latencyMs + second.latencyMs,
     slot: Number.isFinite(secondSlot) ? secondSlot : null,
     slotDrift,
-    estimatedCosts: {
-      totalUsd: netPnlUsd == null ? null : quotedProfitUsd - netPnlUsd,
+    blockers,
+    costs: {
+      totalUsd: totalCostUsd,
       baseFeeUsd,
       priorityFeeUsd,
       jitoTipUsd,
@@ -258,9 +390,203 @@ async function scanOnce() {
       adverseSelectionReserveUsd,
       failureReserveUsd,
     },
+    evidenceErrors: {
+      priorityFee: priority.status === "rejected" ? String((priority.reason as any)?.message ?? priority.reason) : null,
+      jitoTip: jito.status === "rejected" ? String((jito.reason as any)?.message ?? jito.reason) : null,
+    },
+  };
+}
+
+async function persistObservation(db: Db, event: any) {
+  const { error } = await db.from("solana_arbitrage_observations").insert({
+    event_id: event.eventId,
+    observed_at: event.observedAt,
+    source: "supabase_pgcron",
+    route: event.route,
+    venues: event.venues,
+    input_usd: event.inputAmountUsd,
+    quoted_output_usdc: event.quotedOutputUsd,
+    quoted_edge_bps: event.quotedEdgeBps,
+    net_edge_bps: event.netEdgeBps,
+    expected_net_pnl_usd: event.expectedNetPnlUsd,
+    total_cost_usd: event.estimatedCosts?.totalUsd ?? null,
+    quote_latency_ms: event.quoteLatencyMs,
+    slot: event.slot,
+    slot_drift: event.slotDrift,
+    decision: event.decision,
+    reason: event.reason,
+    blockers: event.blockers,
+    cost_model: event.estimatedCosts,
+    mode: "SHADOW",
+    execution_authority: false,
+    live_locked: true,
+    raw_event: event,
+  });
+  if (error) throw new Error(`observation_store_failed:${error.code}`);
+}
+
+async function persistCapture(db: Db, opportunityEvent: any, capture: any) {
+  const { error } = await db.from("solana_paper_captures").insert({
+    opportunity_event_id: opportunityEvent.eventId,
+    captured_at: capture.timestamp,
+    route: opportunityEvent.route,
+    expected_net_pnl_usd: opportunityEvent.expectedNetPnlUsd,
+    expected_net_edge_bps: opportunityEvent.netEdgeBps,
+    captured_net_pnl_usd: capture.capturedNetPnlUsd,
+    captured_net_edge_bps: capture.capturedNetEdgeBps,
+    quote_decay_usd: capture.quoteDecayUsd,
+    quote_decay_bps: capture.quoteDecayBps,
+    capture_ratio: capture.captureRatio,
+    initial_quote_end_usdc: opportunityEvent.quotedOutputUsd,
+    capture_quote_end_usdc: capture.captureQuoteEndUsdc,
+    initial_cost_usd: opportunityEvent.estimatedCosts?.totalUsd ?? null,
+    capture_cost_usd: capture.captureCostUsd,
+    initial_slot: opportunityEvent.slot,
+    capture_slot: capture.captureSlot,
+    slot_drift: capture.captureSlotDrift,
+    venues: opportunityEvent.venues,
+    capture_venues: capture.captureVenues,
+    status: capture.status,
+    failure_reason: capture.failureReason ?? null,
+    mode: "PAPER",
+    execution_authority: false,
+    live_locked: true,
+    raw_capture: capture,
+  });
+  if (error) throw new Error(`capture_store_failed:${error.code}`);
+}
+
+async function persistLatest(db: Db, payload: unknown) {
+  await db.from("org_state").upsert({
+    key: "solana_arbitrage_supabase_observer_v2",
+    value: JSON.stringify(payload),
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "key" });
+}
+
+async function paperCapture(db: Db, opportunityEvent: any) {
+  await sleep(PAPER_CAPTURE_DELAY_MS);
+  try {
+    const economics = await calculateEconomics();
+    const captured = Number(economics.netPnlUsd);
+    const expected = Number(opportunityEvent.expectedNetPnlUsd);
+    const capturedEdge = economics.netEdgeBps;
+    const expectedEdge = Number(opportunityEvent.netEdgeBps);
+    const capturedFinite = Number.isFinite(captured) && Number.isFinite(Number(capturedEdge));
+    if (!capturedFinite) throw new Error("capture_economics_incomplete");
+    const quoteDecayUsd = expected - captured;
+    const quoteDecayBps = expectedEdge - Number(capturedEdge);
+    const captureRatio = expected > 0 ? captured / expected : null;
+    const captureEventId = `paper-capture-${crypto.randomUUID()}`;
+    const capture = {
+      eventId: captureEventId,
+      id: captureEventId,
+      type: "CAPTURE_MEASURED",
+      chain: "SOLANA",
+      mode: "PAPER",
+      executionAuthority: false,
+      liveLocked: true,
+      timestamp: new Date().toISOString(),
+      route: opportunityEvent.route,
+      expectedNetPnlUsd: expected,
+      expectedNetEdgeBps: expectedEdge,
+      capturedNetPnlUsd: captured,
+      capturedNetEdgeBps: Number(capturedEdge),
+      quoteDecayUsd,
+      quoteDecayBps,
+      captureRatio,
+      captureQuoteEndUsdc: economics.endUsdc,
+      captureCostUsd: economics.totalCostUsd,
+      captureSlot: economics.slot,
+      captureSlotDrift: economics.slotDrift,
+      captureVenues: [...economics.firstVenues, ...economics.secondVenues],
+      actualSlippageBps: quoteDecayBps,
+      actualFeesUsd: economics.totalCostUsd,
+      status: captured > 0 ? "CAPTURED" : "DECAYED",
+      failureReason: null,
+    };
+    await persistCapture(db, opportunityEvent, capture);
+    const telegram = await dispatchTelegram(db, capture);
+    return { ok: true, ...capture, telegram };
+  } catch (error) {
+    const failureReason = error instanceof Error ? error.message : String(error);
+    const failed = {
+      eventId: `paper-capture-failed-${crypto.randomUUID()}`,
+      id: `paper-capture-failed-${crypto.randomUUID()}`,
+      type: "SIMULATION_FAILED",
+      chain: "SOLANA",
+      mode: "PAPER",
+      executionAuthority: false,
+      liveLocked: true,
+      timestamp: new Date().toISOString(),
+      route: opportunityEvent.route,
+      reason: failureReason,
+    };
+    try {
+      await persistCapture(db, opportunityEvent, {
+        ...failed,
+        expectedNetPnlUsd: opportunityEvent.expectedNetPnlUsd,
+        expectedNetEdgeBps: opportunityEvent.netEdgeBps,
+        capturedNetPnlUsd: null,
+        capturedNetEdgeBps: null,
+        quoteDecayUsd: null,
+        quoteDecayBps: null,
+        captureRatio: null,
+        captureQuoteEndUsdc: null,
+        captureCostUsd: null,
+        captureSlot: null,
+        captureSlotDrift: null,
+        captureVenues: [],
+        status: "FAILED",
+        failureReason,
+      });
+    } catch {
+      // Preserve the original capture failure; ledger failure is surfaced in the returned payload below.
+    }
+    const telegram = await dispatchTelegram(db, failed).catch(() => ({ configs: 0, sent: 0, skipped: 0, failed: 1 }));
+    return { ok: false, ...failed, telegram };
+  }
+}
+
+async function scanOnce() {
+  const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+  const startedAt = new Date().toISOString();
+  const economics = await calculateEconomics();
+  const qualified = economics.blockers.length === 0 && Number(economics.netPnlUsd) > 0;
+  const eventId = `supabase-sol-${crypto.randomUUID()}`;
+  const event = {
+    runId: startedAt,
+    eventId,
+    id: eventId,
+    timestamp: new Date().toISOString(),
+    observedAt: new Date().toISOString(),
+    type: qualified ? "OPPORTUNITY_DETECTED" : "REJECTED",
+    chain: "SOLANA",
+    mode: "SHADOW",
+    executionAuthority: false,
+    liveLocked: true,
+    route: economics.route,
+    tokens: ["USDC", "SOL", "USDC"],
+    mints: [USDC_MINT, SOL_MINT],
+    venues: [...economics.firstVenues, ...economics.secondVenues],
+    inputAmountUsd: economics.startUsdc,
+    quotedOutputUsd: economics.endUsdc,
+    grossEdgeBps: economics.quotedEdgeBps,
+    quotedEdgeBps: economics.quotedEdgeBps,
+    netEdgeBps: economics.netEdgeBps,
+    expectedNetPnlUsd: economics.netPnlUsd,
+    decision: qualified ? "SHADOW_QUALIFIED" : "REJECTED",
+    reason: qualified ? "positive_expected_net_pnl" : economics.blockers[0] ?? "rejected",
+    blockers: economics.blockers,
+    quoteLatencyMs: economics.quoteLatencyMs,
+    slot: economics.slot,
+    slotDrift: economics.slotDrift,
+    estimatedCosts: economics.costs,
   };
 
+  await persistObservation(db, event);
   const telegram = await dispatchTelegram(db, event);
+  const capture = qualified ? await paperCapture(db, event) : null;
   const result = {
     ok: true,
     source: "supabase_pgcron",
@@ -269,10 +595,8 @@ async function scanOnce() {
     liveLocked: true,
     event,
     telegram,
-    evidenceErrors: {
-      priorityFee: priority.status === "rejected" ? String(priority.reason?.message ?? priority.reason) : null,
-      jitoTip: jito.status === "rejected" ? String(jito.reason?.message ?? jito.reason) : null,
-    },
+    capture,
+    evidenceErrors: economics.evidenceErrors,
   };
   await persistLatest(db, result);
   return result;
