@@ -154,7 +154,6 @@ export function ArbitrageRadarPanel() {
             {events.map((event) => {
               const open = openId === event.id;
               const positive = (event.netEdgeBps ?? 0) > 0;
-              const terminal = event.type === 'QUALIFIED' || event.type === 'REJECTED' || event.type === 'SCAN_FAILED';
               const eventLabels: Record<ArbitrageEventType, string> = {
                 SCAN_STARTED: 'Buscando',
                 QUOTE_RECEIVED: 'Precio recibido',
