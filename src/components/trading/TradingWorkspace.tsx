@@ -55,14 +55,7 @@ function LoadingPanel() {
 
 function SolanaDesk() {
   return (
-    <section className="mx-auto w-full max-w-[1500px] px-2 pb-24 pt-2 sm:px-4 sm:pt-4" aria-label="Genesis Solana arbitrage desk">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#14F19522] bg-[#0b1220] px-4 py-3">
-        <div>
-          <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#14F195]">SOLANA ARBITRAGE DESK</div>
-          <div className="mt-1 text-[11px] text-zinc-500">Radar continuo · historial de oportunidades · SHADOW / PAPER</div>
-        </div>
-        <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-zinc-500">Sin wallet · sin firma · sin broadcast · LIVE LOCKED</div>
-      </div>
+    <section className="mx-auto w-full max-w-[1500px] px-2 pb-24 pt-2 sm:px-4 sm:pt-4" aria-label="Genesis Solana arbitrage event desk">
       <ArbitrageRadarPanel />
     </section>
   );
