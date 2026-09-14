@@ -2,7 +2,7 @@ name: Solana arbitrage observation
 
 on:
   schedule:
-    - cron: '7,37 * * * *'
+    - cron: '*/5 * * * *'
   workflow_dispatch:
   push:
     branches:
@@ -59,7 +59,7 @@ jobs:
           fi
           mkdir -p data
           cp /tmp/genesis-solana/solana-arbitrage-latest.json data/solana-arbitrage-latest.json
-          node -e "const fs=require('fs'); const p='data/solana-arbitrage-latest.json'; const x=JSON.parse(fs.readFileSync(p,'utf8')); const historyPath='data/solana-arbitrage-history.json'; let h=[]; try{h=JSON.parse(fs.readFileSync(historyPath,'utf8'))}catch{}; h.push({recordedAt:new Date().toISOString(),...x}); h=h.slice(-96); fs.writeFileSync(historyPath,JSON.stringify(h,null,2)+'\n');"
+          node -e "const fs=require('fs'); const p='data/solana-arbitrage-latest.json'; const x=JSON.parse(fs.readFileSync(p,'utf8')); const historyPath='data/solana-arbitrage-history.json'; let h=[]; try{h=JSON.parse(fs.readFileSync(historyPath,'utf8'))}catch{}; h.push({recordedAt:new Date().toISOString(),...x}); h=h.slice(-576); fs.writeFileSync(historyPath,JSON.stringify(h,null,2)+'\\n');"
           git add data/solana-arbitrage-latest.json data/solana-arbitrage-history.json
           if git diff --cached --quiet; then
             echo "No snapshot change"
