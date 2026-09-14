@@ -21,7 +21,12 @@ Allow Genesis HQ owner authentication from ordinary Android Chrome without forci
 - Futures and Solana economic engines are unchanged.
 
 ## Supabase
-The existing `public.bots` durable-store table was verified present with RLS enabled. No public RLS policy was added; the table remains intended for server-only access through a backend Supabase secret/service role key.
+- `public.genesis_auth_nonces` exists with RLS enabled and no public policies.
+- `genesis-auth-nonce` Edge Function is deployed for auth-only nonce persistence.
+- Vercel calls that function with project OIDC; no Supabase service-role secret is exposed to the browser or committed to the repo.
+- The existing `public.bots` table remains RLS-protected for server-only persistence.
 
-## Verification
-Pending Vercel production build and Android Chrome UAT after commit.
+## Release state
+- `package.json` and `package-lock.json` are synchronized for Mobile Wallet Adapter dependencies.
+- Production release is triggered only after the dependency lock is synchronized.
+- Android Chrome UAT remains the final runtime acceptance check after Vercel reports READY.
