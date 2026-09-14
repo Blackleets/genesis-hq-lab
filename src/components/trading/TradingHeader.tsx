@@ -38,10 +38,35 @@ export function TradingHeader({
   const { capture, truth } = useRiskState();
   const [now, setNow] = useState(() => new Date());
   const [menuOpen, setMenuOpen] = useState(false);
+  const [solanaOpportunities, setSolanaOpportunities] = useState(0);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    let disposed = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const load = async () => {
+      try {
+        const response = await fetch('/api/genesis/context?view=solana-arbitrage-radar', { cache: 'no-store' });
+        if (!response.ok) return;
+        const body = await response.json() as { events?: Array<{ type?: string }> };
+        if (disposed) return;
+        const qualified = Array.isArray(body.events)
+          ? body.events.filter((event) => event?.type === 'QUALIFIED').length
+          : 0;
+        setSolanaOpportunities(qualified);
+      } finally {
+        if (!disposed) timer = setTimeout(load, 30_000);
+      }
+    };
+    void load();
+    return () => {
+      disposed = true;
+      if (timer) clearTimeout(timer);
+    };
   }, []);
 
   const runnerReady = runner?.agentAlive === true && runner.paperOnly === true && runner.liveOrders === false;
@@ -71,7 +96,7 @@ export function TradingHeader({
           {menuOpen ? (
             <div className="trading-header__nav-menu">
               <button type="button" onClick={() => chooseDesk('futures')}>FUTURES · TRADING</button>
-              <button type="button" onClick={() => chooseDesk('solana')}>SOLANA · OPPORTUNITIES</button>
+              <button type="button" onClick={() => chooseDesk('solana')}>SOLANA · {solanaOpportunities > 0 ? `${solanaOpportunities} OPORTUNIDAD${solanaOpportunities === 1 ? '' : 'ES'}` : 'BUSCANDO'}</button>
               {NAV.map((item) => (
                 <button key={item.id} type="button" onClick={() => { actions.setSelectedModule(item.id); setMenuOpen(false); }}>
                   {item.label}
@@ -94,6 +119,7 @@ export function TradingHeader({
             <Status label="RUNNER" value={runnerReady ? 'ACTIVE' : runner ? 'NOT VERIFIED' : stateLabel(truth.state)} tone={runnerReady ? 'good' : 'bad'} />
             <Status label="MARKET" value={stateLabel(market.state)} tone={market.state === 'ready' ? 'good' : market.state === 'stale' ? 'warn' : 'bad'} />
             <Status label="SENTINEL" value={riskBand} tone={riskBand === 'HEALTHY' ? 'good' : riskBand === 'WATCH' ? 'warn' : 'bad'} />
+            <Status label="SOLANA" value={solanaOpportunities > 0 ? `${solanaOpportunities} OPP` : 'SCANNING'} tone={solanaOpportunities > 0 ? 'good' : 'neutral'} />
             <div className="trading-header__equity"><span>FUNDING EQ</span><strong>{capture.state === 'ready' ? formatMoney(equity) : stateLabel(capture.state)}</strong></div>
           </>
         )}
