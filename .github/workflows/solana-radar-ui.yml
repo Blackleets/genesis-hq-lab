@@ -47,3 +47,11 @@ jobs:
         run: npm run typecheck
       - name: Production build
         run: npm run build
+      - name: Upload production dist
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: solana-radar-dist
+          path: dist
+          if-no-files-found: error
+          retention-days: 1
