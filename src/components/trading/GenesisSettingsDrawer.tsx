@@ -5,6 +5,7 @@ import './genesisSettings.css';
 
 type SettingsSection = 'general' | 'telegram' | 'solana' | 'execution' | 'notifications';
 type NotificationKey = 'important' | 'opportunities' | 'executions' | 'dailySummary' | 'debug';
+type SolanaWalletBrowser = 'phantom' | 'solflare';
 
 interface TelegramStatus {
   configured: boolean;
@@ -31,6 +32,32 @@ const SECTIONS: Array<{ id: SettingsSection; label: string }> = [
 ];
 
 const TELEGRAM_API = '/api/genesis/founder?view=telegram';
+const GENESIS_PRODUCTION_URL = 'https://genesis-hq-lab.vercel.app';
+
+function isMobileBrowser(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
+function hasInjectedSolanaWallet(): boolean {
+  if (typeof window === 'undefined') return false;
+  const candidate = window as Window & {
+    phantom?: { solana?: unknown };
+    solflare?: unknown;
+    solana?: unknown;
+  };
+  return Boolean(candidate.phantom?.solana || candidate.solflare || candidate.solana);
+}
+
+function openSolanaWalletBrowser(wallet: SolanaWalletBrowser) {
+  if (typeof window === 'undefined') return;
+  const target = encodeURIComponent(GENESIS_PRODUCTION_URL);
+  const ref = encodeURIComponent(window.location.origin);
+  const deepLink = wallet === 'phantom'
+    ? `https://phantom.app/ul/browse/${target}?ref=${ref}`
+    : `https://solflare.com/ul/v1/browse/${target}?ref=${ref}`;
+  window.location.assign(deepLink);
+}
 
 export function GenesisSettingsDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const auth = useWalletAuth();
@@ -80,6 +107,7 @@ export function GenesisSettingsDrawer({ open, onClose }: { open: boolean; onClos
 
   const toggle = (key: NotificationKey) => setNotifications((current) => ({ ...current, [key]: !current[key] }));
   const authBusy = auth.status === 'connecting' || auth.status === 'signing' || auth.status === 'verifying';
+  const mobileNeedsWalletBrowser = isMobileBrowser() && !hasInjectedSolanaWallet();
   const ownerLabel = auth.session
     ? `SOLANA OWNER SESSION ACTIVE · ${auth.session.address.slice(0, 6)}…${auth.session.address.slice(-4)}`
     : 'SOLANA OWNER SESSION REQUIRED';
@@ -99,8 +127,12 @@ export function GenesisSettingsDrawer({ open, onClose }: { open: boolean; onClos
           </div>
           {!auth.session ? <>
             <div className="genesis-settings__notice"><LockKeyhole size={12} />Genesis autentica al propietario con Phantom o Solflare mediante una firma off-chain. No crea transacciones, no aprueba tokens y no mueve fondos.</div>
-            <button type="button" className="genesis-settings__save" onClick={() => void auth.connectAndSign()} disabled={authBusy}>{authBusy ? <LoaderCircle size={14} className="animate-spin" /> : <LockKeyhole size={14} />}AUTHENTICATE SOLANA WALLET</button>
-            {auth.error ? <p className="genesis-settings__message is-error">{auth.error}</p> : null}
+            {mobileNeedsWalletBrowser ? <>
+              <div className="genesis-settings__notice"><LockKeyhole size={12} />Estás en un navegador móvil externo. Android/iPhone no expone Phantom o Solflare aquí aunque estén instaladas. Abre Genesis dentro del navegador de la wallet y luego autentica.</div>
+              <button type="button" className="genesis-settings__save" onClick={() => openSolanaWalletBrowser('phantom')}>OPEN IN PHANTOM</button>
+              <button type="button" className="genesis-settings__save" onClick={() => openSolanaWalletBrowser('solflare')}>OPEN IN SOLFLARE</button>
+            </> : <button type="button" className="genesis-settings__save" onClick={() => void auth.connectAndSign()} disabled={authBusy}>{authBusy ? <LoaderCircle size={14} className="animate-spin" /> : <LockKeyhole size={14} />}AUTHENTICATE SOLANA WALLET</button>}
+            {!mobileNeedsWalletBrowser && auth.error ? <p className="genesis-settings__message is-error">{auth.error}</p> : null}
           </> : null}
           <dl className="genesis-settings__facts"><div><dt>Futures</dt><dd>PAPER</dd></div><div><dt>Solana</dt><dd>SHADOW / PAPER</dd></div></dl>
         </section> : null}
