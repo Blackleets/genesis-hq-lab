@@ -282,6 +282,29 @@ export async function observeSolanaArbitrageOnce({
   now = () => new Date(),
 } = {}) {
   const amountRaw = BigInt(Math.round(config.notionalUsdc * USDC_SCALE));
+  const runId = now().toISOString();
+  const events = [];
+  const pushEvent = (type, payload = {}) => {
+    const observedAt = now().toISOString();
+    events.push({
+      id: `${runId}:${events.length + 1}:${type}`,
+      runId,
+      observedAt,
+      recordedAt: observedAt,
+      type,
+      chain: 'SOLANA',
+      mode: SOLANA_ARBITRAGE_MODE,
+      executionAuthority: SOLANA_EXECUTION_AUTHORITY,
+      liveLocked: SOLANA_LIVE_LOCKED,
+      ...payload,
+    });
+  };
+
+  pushEvent('SCAN_STARTED', {
+    inputUsdc: config.notionalUsdc,
+    route: 'USDC → SOL → USDC',
+  });
+
   try {
     const firstLeg = await fetchJupiterQuote({
       inputMint: USDC_MINT,
@@ -290,12 +313,48 @@ export async function observeSolanaArbitrageOnce({
       config,
       fetchImpl,
     });
+
+    pushEvent('QUOTE_RECEIVED', {
+      leg: 'USDC_TO_SOL',
+      inputUsdc: config.notionalUsdc,
+      quoteLatencyMs: firstLeg.latencyMs,
+      slot: Number(firstLeg.quote.contextSlot) || null,
+      venues: extractVenueLabels(firstLeg.quote),
+    });
+
     const secondLeg = await fetchJupiterQuote({
       inputMint: SOL_MINT,
       outputMint: USDC_MINT,
       amountRaw: BigInt(firstLeg.quote.outAmount),
       config,
       fetchImpl,
+    });
+
+    const firstVenues = extractVenueLabels(firstLeg.quote);
+    const secondVenues = extractVenueLabels(secondLeg.quote);
+    const route = `${firstVenues.join(' · ') || 'Jupiter'} → ${secondVenues.join(' · ') || 'Jupiter'}`;
+
+    pushEvent('ROUTE_FOUND', {
+      route,
+      firstLegVenues: firstVenues,
+      secondLegVenues: secondVenues,
+      quoteLatencyMs: firstLeg.latencyMs + secondLeg.latencyMs,
+      slot: Number(secondLeg.quote.contextSlot) || null,
+    });
+
+    const quotedStartUsdc = Number(firstLeg.quote.inAmount) / USDC_SCALE;
+    const quotedEndUsdc = Number(secondLeg.quote.outAmount) / USDC_SCALE;
+    const quotedProfitUsd = quotedEndUsdc - quotedStartUsdc;
+    const quotedEdgeBps = quotedStartUsdc > 0 ? (quotedProfitUsd / quotedStartUsdc) * 10_000 : null;
+
+    pushEvent('QUOTE_RECEIVED', {
+      leg: 'SOL_TO_USDC',
+      route,
+      inputUsdc: quotedStartUsdc,
+      quotedEndUsdc,
+      quotedEdgeBps,
+      quoteLatencyMs: secondLeg.latencyMs,
+      slot: Number(secondLeg.quote.contextSlot) || null,
     });
 
     const [priorityResult, jitoResult] = await Promise.allSettled([
@@ -312,12 +371,38 @@ export async function observeSolanaArbitrageOnce({
       observedAt: now().toISOString(),
     });
 
+    pushEvent('COSTS_CALCULATED', {
+      route,
+      inputUsdc: observation.inputUsdc,
+      quotedEdgeBps: observation.economics.quotedRoundTripEdgeBps,
+      netEdgeBps: observation.economics.netEdgeBps,
+      netPnlUsd: observation.economics.netPnlUsd,
+      quoteLatencyMs: observation.quoteLatencyMs,
+      slot: observation.contextSlots.second,
+      criticalCostsKnown: observation.economics.criticalCostsKnown,
+    });
+
+    pushEvent(observation.status === 'QUALIFIED' ? 'QUALIFIED' : 'REJECTED', {
+      route,
+      inputUsdc: observation.inputUsdc,
+      quotedEdgeBps: observation.economics.quotedRoundTripEdgeBps,
+      netEdgeBps: observation.economics.netEdgeBps,
+      netPnlUsd: observation.economics.netPnlUsd,
+      decision: observation.status === 'QUALIFIED' ? 'QUALIFIED' : 'REJECTED',
+      reason: observation.blockers[0] ?? null,
+      blockers: observation.blockers,
+      quoteLatencyMs: observation.quoteLatencyMs,
+      slot: observation.contextSlots.second,
+    });
+
     return {
       ok: true,
       status: observation.status,
       mode: SOLANA_ARBITRAGE_MODE,
       executionAuthority: SOLANA_EXECUTION_AUTHORITY,
       liveLocked: SOLANA_LIVE_LOCKED,
+      runId,
+      events,
       observation,
       evidenceErrors: {
         priorityFee: priorityResult.status === 'rejected' ? String(priorityResult.reason?.message ?? priorityResult.reason) : null,
@@ -325,12 +410,18 @@ export async function observeSolanaArbitrageOnce({
       },
     };
   } catch (error) {
+    pushEvent('SCAN_FAILED', {
+      decision: 'REJECTED',
+      reason: String(error?.message ?? error),
+    });
     return {
       ok: false,
       status: 'BLOCKED',
       mode: SOLANA_ARBITRAGE_MODE,
       executionAuthority: SOLANA_EXECUTION_AUTHORITY,
       liveLocked: SOLANA_LIVE_LOCKED,
+      runId,
+      events,
       observation: null,
       error: String(error?.message ?? error),
     };
