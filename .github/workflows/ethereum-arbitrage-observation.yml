@@ -1,0 +1,139 @@
+name: Ethereum arbitrage shadow observation
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/genesis-life-os
+    paths:
+      - '.github/workflows/ethereum-arbitrage-observation.yml'
+      - 'server/genesis/mev*.mjs'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ethereum-arbitrage-shadow-observation
+  cancel-in-progress: true
+
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      GENESIS_MEV_RPC_URL: https://ethereum-rpc.publicnode.com
+      GENESIS_MEV_SCAN_INTERVAL_MS: '12000'
+      GENESIS_MEV_PUBLIC_RPC_FALLBACK: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/genesis-life-os
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Capture one real Ethereum SHADOW cycle
+        shell: bash
+        run: |
+          mkdir -p /tmp/genesis-eth
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import { runResilientMevShadowWorker } from './server/genesis/mevResilientWorker.mjs';
+          import { readMevRadarPublicSnapshot } from './server/genesis/mevRadarState.mjs';
+
+          let outcome = null;
+          let error = null;
+          try {
+            outcome = await runResilientMevShadowWorker({ once: true });
+          } catch (err) {
+            error = err instanceof Error ? err.message : String(err);
+          }
+
+          const radar = readMevRadarPublicSnapshot();
+          const snapshot = {
+            ok: outcome?.ok === true || radar?.blockNumber != null,
+            status: radar?.status ?? outcome?.status ?? (error ? 'degraded' : 'idle'),
+            mode: 'SHADOW',
+            executionAuthority: false,
+            liveLocked: true,
+            chain: 'ETHEREUM',
+            observedAt: new Date().toISOString(),
+            provider: outcome?.providerSource ?? null,
+            blockNumber: radar?.blockNumber ?? outcome?.blockNumber ?? null,
+            routesScanned: radar?.routesScanned ?? outcome?.routesScanned ?? 0,
+            routesQuoted: radar?.routesQuoted ?? outcome?.routesQuoted ?? 0,
+            evaluated: radar?.evaluated ?? 0,
+            qualified: radar?.qualified ?? 0,
+            filtered: radar?.filtered ?? 0,
+            preCaptureReady: radar?.preCaptureReady ?? 0,
+            topRoutes: Array.isArray(radar?.topRoutes) ? radar.topRoutes : [],
+            captureState: radar?.captureState ?? 'BUILDING_EVIDENCE',
+            error: radar?.error ?? error,
+            paperOrderIntents: Array.isArray(radar?.topRoutes)
+              ? radar.topRoutes
+                  .filter((route) => route?.status === 'qualified')
+                  .map((route) => ({
+                    route: route.route,
+                    status: 'PAPER_SHADOW_ONLY',
+                    expectedNetPnlUsd: route.expectedNetPnlUsd ?? null,
+                    stressNetPnlUsd: route.stressNetPnlUsd ?? null,
+                    netEdgeBps: route.netEdgeBps ?? null,
+                    executionAuthority: false,
+                    broadcast: false,
+                  }))
+              : [],
+            safety: {
+              wallet: false,
+              privateKey: false,
+              signing: false,
+              broadcast: false,
+              live: false,
+            },
+          };
+
+          if (snapshot.executionAuthority !== false || snapshot.liveLocked !== true || snapshot.mode !== 'SHADOW') {
+            throw new Error('safety invariant failed');
+          }
+
+          fs.writeFileSync('/tmp/genesis-eth/ethereum-arbitrage-latest.json', JSON.stringify(snapshot, null, 2) + '\n');
+          console.log(JSON.stringify({
+            ok: snapshot.ok,
+            blockNumber: snapshot.blockNumber,
+            routesScanned: snapshot.routesScanned,
+            routesQuoted: snapshot.routesQuoted,
+            qualified: snapshot.qualified,
+            paperOrderIntents: snapshot.paperOrderIntents.length,
+            error: snapshot.error,
+          }, null, 2));
+          NODE
+
+      - name: Publish isolated Ethereum snapshot branch
+        shell: bash
+        run: |
+          git config user.name "genesis-ethereum-observer"
+          git config user.email "actions@users.noreply.github.com"
+          git fetch origin data/ethereum-arbitrage-observations || true
+          if git show-ref --verify --quiet refs/remotes/origin/data/ethereum-arbitrage-observations; then
+            git checkout -B data/ethereum-arbitrage-observations origin/data/ethereum-arbitrage-observations
+          else
+            git checkout --orphan data/ethereum-arbitrage-observations
+            git rm -rf .
+          fi
+          mkdir -p data
+          cp /tmp/genesis-eth/ethereum-arbitrage-latest.json data/ethereum-arbitrage-latest.json
+          node -e "const fs=require('fs'); const p='data/ethereum-arbitrage-latest.json'; const x=JSON.parse(fs.readFileSync(p,'utf8')); const hp='data/ethereum-arbitrage-history.json'; let h=[]; try{h=JSON.parse(fs.readFileSync(hp,'utf8'))}catch{}; h.push({recordedAt:new Date().toISOString(),...x}); h=h.slice(-288); fs.writeFileSync(hp,JSON.stringify(h,null,2)+'\\n');"
+          git add data/ethereum-arbitrage-latest.json data/ethereum-arbitrage-history.json
+          if git diff --cached --quiet; then
+            echo "No snapshot change"
+            exit 0
+          fi
+          git commit -m "data(ethereum): periodic arbitrage shadow observation"
+          git push origin HEAD:data/ethereum-arbitrage-observations
