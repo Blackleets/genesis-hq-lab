@@ -91,10 +91,25 @@ interface SolanaRadarSnapshot {
   } | null;
 }
 
+interface SolanaHistoryRow extends SolanaRadarSnapshot {
+  recordedAt?: string;
+}
+
+interface SolanaRadarSummary {
+  observations: number;
+  positiveNet: number;
+  qualified: number;
+  blocked: number;
+  theoreticalNetOpportunityUsd: number;
+  note?: string;
+}
+
 interface RadarResponse {
   ok: boolean;
   status: string;
   radar: SolanaRadarSnapshot | null;
+  history?: SolanaHistoryRow[];
+  summary?: SolanaRadarSummary;
   executionAuthority?: false;
   liveLocked?: true;
   mode?: 'SHADOW';
@@ -201,6 +216,8 @@ function CostRow({ label, value, note }: { label: string; value: string; note?: 
 
 export function ArbitrageRadarPanel({ compact = false }: { compact?: boolean }) {
   const [snapshot, setSnapshot] = useState<SolanaRadarSnapshot | null>(null);
+  const [history, setHistory] = useState<SolanaHistoryRow[]>([]);
+  const [summary, setSummary] = useState<SolanaRadarSummary | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'offline' | 'error'>('loading');
 
   useEffect(() => {
@@ -232,11 +249,15 @@ export function ArbitrageRadarPanel({ compact = false }: { compact?: boolean }) 
         }
 
         setSnapshot(next);
+        setHistory(Array.isArray(body.history) ? body.history.slice(0, 40) : []);
+        setSummary(body.summary ?? null);
         setState('ready');
       } catch {
         if (alive) {
           setState('offline');
           setSnapshot(null);
+          setHistory([]);
+          setSummary(null);
         }
       } finally {
         if (alive) timer = setTimeout(tick, 30_000);
@@ -266,6 +287,17 @@ export function ArbitrageRadarPanel({ compact = false }: { compact?: boolean }) 
     : economics?.dexFeesEmbeddedInQuotedOutput
       ? 'DEX fees embedded in Jupiter quote'
       : 'awaiting fee normalization';
+
+  const ledgerRows = useMemo(() => history
+    .map((row) => row.observation)
+    .filter((row): row is SolanaObservation => Boolean(row))
+    .slice(0, 16), [history]);
+
+  const tracked = summary?.observations ?? ledgerRows.length;
+  const positiveNet = summary?.positiveNet ?? ledgerRows.filter((row) => Number(row.economics?.netPnlUsd) > 0).length;
+  const qualifiedCount = summary?.qualified ?? ledgerRows.filter((row) => normalizeStatus(row.status) === 'QUALIFIED').length;
+  const theoreticalNet = summary?.theoreticalNetOpportunityUsd
+    ?? ledgerRows.reduce((sum, row) => sum + (Number.isFinite(row.economics?.netPnlUsd) ? Number(row.economics.netPnlUsd) : 0), 0);
 
   return (
     <section
@@ -374,6 +406,64 @@ export function ArbitrageRadarPanel({ compact = false }: { compact?: boolean }) 
               </div>
             </div>
           </div>
+
+          {!compact && (
+            <div className="border-t border-white/7 p-3 sm:p-4">
+              <div className="rounded-xl border border-[#00C2FF22] bg-[#0c1424]/85 p-4">
+                <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-[#00C2FF]">
+                      <Activity size={13} className="animate-pulse" />Opportunity ledger
+                    </div>
+                    <div className="mt-1 text-[11px] text-zinc-500">Cada fila es una observación real del radar. No es una transacción ejecutada ni P&L realizado.</div>
+                  </div>
+                  <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-[#14F195]">SCANNING SOLANA · {ageLabel(observation.observedAt)}</div>
+                </div>
+
+                <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <Metric label="Observations" value={String(tracked)} hint="retained evidence window" />
+                  <Metric label="Positive net" value={String(positiveNet)} hint="after measured reserves" accent={positiveNet > 0} />
+                  <Metric label="Qualified" value={String(qualifiedCount)} hint="all current gates passed" accent={qualifiedCount > 0} />
+                  <Metric label="Shadow net sum" value={money(theoreticalNet)} hint="opportunity economics · not realized" accent={theoreticalNet > 0} danger={theoreticalNet < 0} />
+                </div>
+
+                <div className="overflow-hidden rounded-lg border border-white/7">
+                  <div className="grid grid-cols-[70px_minmax(0,1fr)_88px_92px] gap-2 border-b border-white/7 bg-white/[0.025] px-3 py-2 font-mono text-[8px] uppercase tracking-[0.16em] text-zinc-600">
+                    <span>Time</span><span>Route</span><span className="text-right">Net edge</span><span className="text-right">Decision</span>
+                  </div>
+                  {ledgerRows.length === 0 ? (
+                    <div className="px-3 py-5 text-[11px] text-zinc-500">Waiting for recorded Solana observations…</div>
+                  ) : (
+                    <div className="max-h-[330px] overflow-y-auto">
+                      {ledgerRows.map((row, index) => {
+                        const rowStatus = normalizeStatus(row.status);
+                        const left = row.venues?.firstLeg?.length ? row.venues.firstLeg.join(' · ') : 'Jupiter';
+                        const right = row.venues?.secondLeg?.length ? row.venues.secondLeg.join(' · ') : 'Jupiter';
+                        const time = row.observedAt ? new Date(row.observedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—';
+                        return (
+                          <div key={`${row.observedAt ?? 'row'}-${index}`} className="grid grid-cols-[70px_minmax(0,1fr)_88px_92px] items-center gap-2 border-b border-white/5 px-3 py-2.5 last:border-b-0">
+                            <span className="font-mono text-[10px] tabular-nums text-zinc-500">{time}</span>
+                            <div className="min-w-0">
+                              <div className="truncate text-[11px] font-medium text-zinc-200">{left} → {right}</div>
+                              <div className="mt-0.5 truncate font-mono text-[8px] uppercase tracking-wider text-zinc-600">
+                                {money(row.economics?.netPnlUsd)} shadow opportunity
+                              </div>
+                            </div>
+                            <span className={`text-right font-mono text-[10px] tabular-nums ${(row.economics?.netEdgeBps ?? 0) > 0 ? 'text-[#14F195]' : 'text-zinc-400'}`}>
+                              {bps(row.economics?.netEdgeBps)}
+                            </span>
+                            <span className={`justify-self-end rounded border px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-wider ${statusClasses(rowStatus)}`}>
+                              {rowStatus === 'BLOCKED' ? 'FILTERED' : rowStatus}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {!compact && (
             <div className="grid gap-3 border-t border-white/7 p-3 sm:p-4 md:grid-cols-2">
