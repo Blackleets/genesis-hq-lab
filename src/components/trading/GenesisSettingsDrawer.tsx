@@ -30,6 +30,8 @@ const SECTIONS: Array<{ id: SettingsSection; label: string }> = [
   { id: 'notifications', label: 'NOTIFICATIONS' },
 ];
 
+const TELEGRAM_API = '/api/genesis/founder?view=telegram';
+
 export function GenesisSettingsDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const auth = useWalletAuth();
   const [section, setSection] = useState<SettingsSection>('telegram');
@@ -46,7 +48,7 @@ export function GenesisSettingsDrawer({ open, onClose }: { open: boolean; onClos
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') closeDrawer(); };
     window.addEventListener('keydown', onKey);
     if (!auth.session) return () => window.removeEventListener('keydown', onKey);
-    fetch('/api/genesis/telegram', { cache: 'no-store', credentials: 'same-origin' })
+    fetch(TELEGRAM_API, { cache: 'no-store', credentials: 'same-origin' })
       .then(async (response) => {
         const body = await response.json();
         if (!response.ok) throw new Error(response.status === 401 ? 'Conecta tu sesión para configurar Telegram.' : (body.message || 'No se pudo leer la configuración.'));
@@ -63,7 +65,7 @@ export function GenesisSettingsDrawer({ open, onClose }: { open: boolean; onClos
   const saveAndTest = async () => {
     setPhase('saving'); setMessage('');
     try {
-      const response = await fetch('/api/genesis/telegram', {
+      const response = await fetch(TELEGRAM_API, {
         method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ botToken, chatId, notifications }),
       });
