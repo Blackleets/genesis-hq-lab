@@ -1,4 +1,6 @@
 import { pathToFileURL } from 'node:url';
+import { createSolanaEvent } from './solanaEventModel.mjs';
+import { getSolanaRiskPolicy, SolanaExecutionAdapter } from './solanaExecutionEngine.mjs';
 
 export const SOLANA_ARBITRAGE_MODE = 'SHADOW';
 export const SOLANA_EXECUTION_AUTHORITY = false;
@@ -25,11 +27,16 @@ export function getSolanaArbitrageConfig(env = process.env) {
     jitoTipFloorUrl: env.GENESIS_JITO_TIP_FLOOR_URL || 'https://bundles.jito.wtf/api/v1/bundles/tip_floor',
     notionalUsdc: Math.max(1, numberFromEnv(env.GENESIS_SOLANA_ARB_NOTIONAL_USDC, 25)),
     slippageBpsPerLeg: Math.max(0, numberFromEnv(env.GENESIS_SOLANA_ARB_SLIPPAGE_BPS, 10)),
+    latencyDegradationBps: Math.max(0, numberFromEnv(env.GENESIS_SOLANA_LATENCY_DEGRADATION_BPS, 5)),
+    adverseSelectionReserveBps: Math.max(0, numberFromEnv(env.GENESIS_SOLANA_ADVERSE_SELECTION_BPS, 5)),
+    failureProbabilityReserve: Math.min(1, Math.max(0, numberFromEnv(env.GENESIS_SOLANA_FAILURE_PROBABILITY_RESERVE, 0.10))),
     computeUnitLimit: Math.max(1, Math.round(numberFromEnv(env.GENESIS_SOLANA_ARB_CU_LIMIT, 1_000_000))),
     baseFeeLamports: Math.max(0, Math.round(numberFromEnv(env.GENESIS_SOLANA_BASE_FEE_LAMPORTS, 5_000))),
     priorityFeePercentile: Math.min(1, Math.max(0, numberFromEnv(env.GENESIS_SOLANA_PRIORITY_FEE_PERCENTILE, 0.75))),
     maxSlotDrift: Math.max(0, Math.round(numberFromEnv(env.GENESIS_SOLANA_MAX_SLOT_DRIFT, 4))),
     requestTimeoutMs: Math.max(500, Math.round(numberFromEnv(env.GENESIS_SOLANA_REQUEST_TIMEOUT_MS, 5_000))),
+    executionMode: String(env.GENESIS_SOLANA_EXECUTION_MODE || 'SHADOW').toUpperCase() === 'PAPER' ? 'PAPER' : 'SHADOW',
+    riskPolicy: getSolanaRiskPolicy(env),
   };
 }
 
@@ -183,6 +190,8 @@ export function buildSolanaArbitrageObservation({
   const solUsd = startUsdc / solOut;
   const quotedProfitUsd = endUsdc - startUsdc;
   const quotedEdgeBps = (quotedProfitUsd / startUsdc) * 10_000;
+  const priceImpactBps = [firstLeg.quote.priceImpactPct, secondLeg.quote.priceImpactPct]
+    .map(Number).filter(Number.isFinite).reduce((sum, value) => sum + (value * 100), 0);
 
   const feeEntries = [
     ...extractDexFeeEvidence(firstLeg.quote),
@@ -198,17 +207,19 @@ export function buildSolanaArbitrageObservation({
 
   const slippageReserveBps = config.slippageBpsPerLeg * 2;
   const slippageReserveUsd = startUsdc * (slippageReserveBps / 10_000);
+  const latencyDegradationUsd = startUsdc * (config.latencyDegradationBps / 10_000);
+  const adverseSelectionReserveUsd = startUsdc * (config.adverseSelectionReserveBps / 10_000);
   const baseFeeUsd = lamportsToUsd(config.baseFeeLamports, solUsd);
   const priorityFeeUsd = lamportsToUsd(priorityFeeEvidence?.priorityFeeLamports, solUsd);
   const jitoTipUsd = lamportsToUsd(jitoTipEvidence?.tipLamports, solUsd);
-  const failedAttemptReserveUsd = (baseFeeUsd != null && priorityFeeUsd != null)
-    ? baseFeeUsd + priorityFeeUsd
+  const failedAttemptReserveUsd = (baseFeeUsd != null && priorityFeeUsd != null && jitoTipUsd != null)
+    ? (baseFeeUsd + priorityFeeUsd + jitoTipUsd) * config.failureProbabilityReserve
     : null;
 
-  const criticalCostsKnown = [slippageReserveUsd, baseFeeUsd, priorityFeeUsd, jitoTipUsd, failedAttemptReserveUsd]
+  const criticalCostsKnown = [slippageReserveUsd, latencyDegradationUsd, adverseSelectionReserveUsd, baseFeeUsd, priorityFeeUsd, jitoTipUsd, failedAttemptReserveUsd]
     .every(Number.isFinite);
   const netPnlUsd = criticalCostsKnown
-    ? quotedProfitUsd - slippageReserveUsd - baseFeeUsd - priorityFeeUsd - jitoTipUsd - failedAttemptReserveUsd
+    ? quotedProfitUsd - slippageReserveUsd - latencyDegradationUsd - adverseSelectionReserveUsd - baseFeeUsd - priorityFeeUsd - jitoTipUsd - failedAttemptReserveUsd
     : null;
   const netEdgeBps = netPnlUsd == null ? null : (netPnlUsd / startUsdc) * 10_000;
 
@@ -228,7 +239,7 @@ export function buildSolanaArbitrageObservation({
 
   return {
     chain: 'SOLANA',
-    mode: SOLANA_ARBITRAGE_MODE,
+    mode: config.executionMode ?? SOLANA_ARBITRAGE_MODE,
     executionAuthority: SOLANA_EXECUTION_AUTHORITY,
     liveLocked: SOLANA_LIVE_LOCKED,
     observedAt,
@@ -255,8 +266,13 @@ export function buildSolanaArbitrageObservation({
       dexFeeFullyNormalized: feeNormalization.fullyNormalized,
       quotedRoundTripProfitUsd: quotedProfitUsd,
       quotedRoundTripEdgeBps: quotedEdgeBps,
+      priceImpactBps,
       slippageReserveBps,
       slippageReserveUsd,
+      latencyDegradationBps: config.latencyDegradationBps,
+      latencyDegradationUsd,
+      adverseSelectionReserveBps: config.adverseSelectionReserveBps,
+      adverseSelectionReserveUsd,
       baseFeeUsd,
       priorityFeeUsd,
       jitoTipUsd,
@@ -280,24 +296,17 @@ export async function observeSolanaArbitrageOnce({
   config = getSolanaArbitrageConfig(),
   fetchImpl = fetch,
   now = () => new Date(),
+  transactionBuilder = null,
+  transactionSimulator = null,
+  executionAdapter = null,
+  runtime = {},
 } = {}) {
   const amountRaw = BigInt(Math.round(config.notionalUsdc * USDC_SCALE));
   const runId = now().toISOString();
   const events = [];
   const pushEvent = (type, payload = {}) => {
     const observedAt = now().toISOString();
-    events.push({
-      id: `${runId}:${events.length + 1}:${type}`,
-      runId,
-      observedAt,
-      recordedAt: observedAt,
-      type,
-      chain: 'SOLANA',
-      mode: SOLANA_ARBITRAGE_MODE,
-      executionAuthority: SOLANA_EXECUTION_AUTHORITY,
-      liveLocked: SOLANA_LIVE_LOCKED,
-      ...payload,
-    });
+    events.push(createSolanaEvent({ runId, type, sequence: events.length + 1, timestamp: observedAt, mode: config.executionMode, ...payload }));
   };
 
   pushEvent('SCAN_STARTED', {
@@ -374,50 +383,243 @@ export async function observeSolanaArbitrageOnce({
     pushEvent('COSTS_CALCULATED', {
       route,
       inputUsdc: observation.inputUsdc,
+      quotedOutputUsd: observation.quotedEndUsdc,
+      grossEdgeBps: observation.economics.grossEdgeBps,
       quotedEdgeBps: observation.economics.quotedRoundTripEdgeBps,
+      totalCostBps: observation.economics.grossEdgeBps == null || observation.economics.netEdgeBps == null
+        ? null
+        : observation.economics.grossEdgeBps - observation.economics.netEdgeBps,
       netEdgeBps: observation.economics.netEdgeBps,
-      netPnlUsd: observation.economics.netPnlUsd,
+      expectedNetPnlUsd: observation.economics.netPnlUsd,
+      priorityFeeUsd: observation.economics.priorityFeeUsd,
+      baseFeeUsd: observation.economics.baseFeeUsd,
+      dexFeesUsd: observation.economics.dexFeesUsd,
+      jitoTipUsd: observation.economics.jitoTipUsd,
+      slippageReserveUsd: observation.economics.slippageReserveUsd,
+      failureReserveUsd: observation.economics.failedAttemptReserveUsd,
+      estimatedCosts: {
+        totalUsd: observation.economics.grossProfitBeforeDexFeesUsd == null || observation.economics.netPnlUsd == null
+          ? null
+          : observation.economics.grossProfitBeforeDexFeesUsd - observation.economics.netPnlUsd,
+        dexFeesUsd: observation.economics.dexFeesUsd,
+        baseFeeUsd: observation.economics.baseFeeUsd,
+        priorityFeeUsd: observation.economics.priorityFeeUsd,
+        jitoTipUsd: observation.economics.jitoTipUsd,
+        slippageReserveUsd: observation.economics.slippageReserveUsd,
+        latencyDegradationUsd: observation.economics.latencyDegradationUsd,
+        adverseSelectionReserveUsd: observation.economics.adverseSelectionReserveUsd,
+        failureReserveUsd: observation.economics.failedAttemptReserveUsd,
+      },
+      priceImpactBps: observation.economics.priceImpactBps,
       quoteLatencyMs: observation.quoteLatencyMs,
       slot: observation.contextSlots.second,
+      slotDrift: observation.slotDrift,
       criticalCostsKnown: observation.economics.criticalCostsKnown,
     });
 
-    pushEvent(observation.status === 'QUALIFIED' ? 'QUALIFIED' : 'REJECTED', {
+    const preSimulationBlockers = observation.blockers.filter((blocker) => !['atomic_simulation_missing', 'capture_evidence_missing'].includes(blocker));
+    const opportunityDetected = observation.economics.netPnlUsd > 0 && preSimulationBlockers.length === 0;
+    if (!opportunityDetected) {
+      pushEvent('REJECTED', {
+        route,
+        inputUsdc: observation.inputUsdc,
+        grossEdgeBps: observation.economics.grossEdgeBps,
+        quotedEdgeBps: observation.economics.quotedRoundTripEdgeBps,
+        netEdgeBps: observation.economics.netEdgeBps,
+        expectedNetPnlUsd: observation.economics.netPnlUsd,
+        decision: 'REJECTED',
+        reason: preSimulationBlockers[0] ?? 'net_not_positive',
+        blockers: preSimulationBlockers,
+        quoteLatencyMs: observation.quoteLatencyMs,
+        slot: observation.contextSlots.second,
+        venues: [...firstVenues, ...secondVenues],
+        tokens: ['USDC', 'SOL', 'USDC'],
+        mints: [USDC_MINT, SOL_MINT],
+      });
+      return {
+        ok: true,
+        status: 'BLOCKED',
+        mode: config.executionMode,
+        executionAuthority: SOLANA_EXECUTION_AUTHORITY,
+        liveLocked: SOLANA_LIVE_LOCKED,
+        runId,
+        events,
+        observation,
+        evidenceErrors: {
+          priorityFee: priorityResult.status === 'rejected' ? String(priorityResult.reason?.message ?? priorityResult.reason) : null,
+          jitoTip: jitoResult.status === 'rejected' ? String(jitoResult.reason?.message ?? jitoResult.reason) : null,
+        },
+      };
+    }
+
+    pushEvent('OPPORTUNITY_DETECTED', {
       route,
       inputUsdc: observation.inputUsdc,
+      quotedOutputUsd: observation.quotedEndUsdc,
+      grossEdgeBps: observation.economics.grossEdgeBps,
       quotedEdgeBps: observation.economics.quotedRoundTripEdgeBps,
       netEdgeBps: observation.economics.netEdgeBps,
-      netPnlUsd: observation.economics.netPnlUsd,
-      decision: observation.status === 'QUALIFIED' ? 'QUALIFIED' : 'REJECTED',
-      reason: observation.blockers[0] ?? null,
-      blockers: observation.blockers,
+      expectedNetPnlUsd: observation.economics.netPnlUsd,
+      estimatedCosts: {
+        totalUsd: observation.economics.grossProfitBeforeDexFeesUsd - observation.economics.netPnlUsd,
+        dexFeesUsd: observation.economics.dexFeesUsd,
+        baseFeeUsd: observation.economics.baseFeeUsd,
+        priorityFeeUsd: observation.economics.priorityFeeUsd,
+        jitoTipUsd: observation.economics.jitoTipUsd,
+        slippageReserveUsd: observation.economics.slippageReserveUsd,
+        latencyDegradationUsd: observation.economics.latencyDegradationUsd,
+        adverseSelectionReserveUsd: observation.economics.adverseSelectionReserveUsd,
+        failureReserveUsd: observation.economics.failedAttemptReserveUsd,
+      },
+      decision: config.executionMode === 'PAPER' ? 'PAPER_PENDING' : 'SHADOW_PENDING',
+      reason: 'positive_expected_net_pnl',
       quoteLatencyMs: observation.quoteLatencyMs,
       slot: observation.contextSlots.second,
+      slotDrift: observation.slotDrift,
+      priceImpactBps: observation.economics.priceImpactBps,
+      venues: [...firstVenues, ...secondVenues],
+      tokens: ['USDC', 'SOL', 'USDC'],
+      mints: [USDC_MINT, SOL_MINT],
     });
+
+    if (typeof transactionBuilder !== 'function' || typeof transactionSimulator !== 'function') {
+      pushEvent('REJECTED', {
+        route,
+        inputUsdc: observation.inputUsdc,
+        netEdgeBps: observation.economics.netEdgeBps,
+        expectedNetPnlUsd: observation.economics.netPnlUsd,
+        decision: 'REJECTED',
+        reason: 'simulation_adapter_not_configured',
+        blockers: ['simulation_adapter_not_configured'],
+        quoteLatencyMs: observation.quoteLatencyMs,
+        slot: observation.contextSlots.second,
+      });
+      return {
+        ok: true,
+        status: 'BLOCKED',
+        mode: config.executionMode,
+        executionAuthority: false,
+        liveLocked: true,
+        runId,
+        events,
+        observation,
+        evidenceErrors: {
+          priorityFee: priorityResult.status === 'rejected' ? String(priorityResult.reason?.message ?? priorityResult.reason) : null,
+          jitoTip: jitoResult.status === 'rejected' ? String(jitoResult.reason?.message ?? jitoResult.reason) : null,
+        },
+      };
+    }
+
+    pushEvent('SIMULATION_STARTED', { route, inputUsdc: observation.inputUsdc, decision: 'PENDING' });
+    const freshFirstLeg = await fetchJupiterQuote({ inputMint: USDC_MINT, outputMint: SOL_MINT, amountRaw, config, fetchImpl });
+    const freshSecondLeg = await fetchJupiterQuote({ inputMint: SOL_MINT, outputMint: USDC_MINT, amountRaw: BigInt(freshFirstLeg.quote.outAmount), config, fetchImpl });
+    const freshObservation = buildSolanaArbitrageObservation({
+      firstLeg: freshFirstLeg,
+      secondLeg: freshSecondLeg,
+      priorityFeeEvidence: priorityResult.status === 'fulfilled' ? priorityResult.value : null,
+      jitoTipEvidence: jitoResult.status === 'fulfilled' ? jitoResult.value : null,
+      config,
+      observedAt: now().toISOString(),
+    });
+    const built = await transactionBuilder({ firstLeg: freshFirstLeg, secondLeg: freshSecondLeg, observation: freshObservation, config });
+    const simulation = await transactionSimulator({ transaction: built?.transaction, minOut: built?.minOut, observation: freshObservation, config });
+    const simulationResult = {
+      attempted: true,
+      success: simulation?.success === true,
+      balancesVerified: simulation?.balancesVerified === true,
+      minOutVerified: simulation?.minOutVerified === true,
+      unitsConsumed: Number.isFinite(Number(simulation?.unitsConsumed)) ? Number(simulation.unitsConsumed) : null,
+      error: simulation?.error ? String(simulation.error).slice(0, 240) : null,
+    };
+    pushEvent(simulationResult.success ? 'SIMULATION_PASSED' : 'SIMULATION_FAILED', {
+      route,
+      inputUsdc: freshObservation.inputUsdc,
+      expectedNetPnlUsd: freshObservation.economics.netPnlUsd,
+      netEdgeBps: freshObservation.economics.netEdgeBps,
+      simulationResult,
+      decision: simulationResult.success ? 'PASSED' : 'REJECTED',
+      reason: simulationResult.success ? 'atomic_simulation_passed' : (simulationResult.error ?? 'atomic_simulation_failed'),
+      slot: freshObservation.contextSlots.second,
+    });
+
+    const adapter = executionAdapter ?? new SolanaExecutionAdapter({ mode: config.executionMode });
+    const execution = await adapter.decide({
+      opportunity: freshObservation,
+      simulation: simulationResult,
+      runtime: { ...runtime, quoteAt: freshObservation.observedAt, nowMs: now().getTime() },
+      policy: config.riskPolicy,
+    });
+    if (execution.decision === 'PAPER_EXECUTED') {
+      pushEvent('PAPER_EXECUTED', {
+        route,
+        inputUsdc: freshObservation.inputUsdc,
+        expectedNetPnlUsd: freshObservation.economics.netPnlUsd,
+        netEdgeBps: freshObservation.economics.netEdgeBps,
+        simulationResult,
+        decision: 'PAPER_EXECUTED',
+        reason: execution.reason,
+        venues: [...firstVenues, ...secondVenues],
+        tokens: ['USDC', 'SOL', 'USDC'],
+      });
+      pushEvent('CAPTURE_MEASURED', {
+        route,
+        inputUsdc: freshObservation.inputUsdc,
+        expectedNetPnlUsd: execution.capture.expectedNetPnlUsd,
+        capturedNetPnlUsd: execution.capture.capturedNetPnlUsd,
+        capturedEdgeBps: execution.capture.capturedEdgeBps,
+        captureRatio: execution.capture.captureRatio,
+        actualFeesUsd: execution.capture.actualFeesUsd,
+        actualOutputUsd: execution.capture.capturedOutputUsd,
+        actualSlippageBps: execution.capture.actualSlippageBps,
+        priorityFeeUsd: freshObservation.economics.priorityFeeUsd,
+        quoteLatencyMs: freshObservation.quoteLatencyMs,
+        slot: freshObservation.contextSlots.second,
+        decision: 'CAPTURED',
+        reason: 'expected_vs_captured_measured',
+        venues: [...firstVenues, ...secondVenues],
+        tokens: ['USDC', 'SOL', 'USDC'],
+      });
+    } else if (execution.decision === 'REJECTED') {
+      pushEvent('REJECTED', {
+        route,
+        inputUsdc: freshObservation.inputUsdc,
+        expectedNetPnlUsd: freshObservation.economics.netPnlUsd,
+        netEdgeBps: freshObservation.economics.netEdgeBps,
+        decision: 'REJECTED',
+        reason: execution.reason,
+        blockers: execution.risk?.reasons ?? [execution.reason],
+        simulationResult,
+      });
+    }
 
     return {
       ok: true,
-      status: observation.status,
-      mode: SOLANA_ARBITRAGE_MODE,
+      status: execution.decision,
+      mode: config.executionMode,
       executionAuthority: SOLANA_EXECUTION_AUTHORITY,
       liveLocked: SOLANA_LIVE_LOCKED,
       runId,
       events,
-      observation,
+      observation: {
+        ...freshObservation,
+        atomicSimulation: simulationResult,
+        captureEvidence: execution.capture ?? { measured: false },
+        status: execution.decision,
+      },
       evidenceErrors: {
         priorityFee: priorityResult.status === 'rejected' ? String(priorityResult.reason?.message ?? priorityResult.reason) : null,
         jitoTip: jitoResult.status === 'rejected' ? String(jitoResult.reason?.message ?? jitoResult.reason) : null,
       },
     };
   } catch (error) {
-    pushEvent('SCAN_FAILED', {
+    pushEvent('FAILED', {
       decision: 'REJECTED',
       reason: String(error?.message ?? error),
     });
     return {
       ok: false,
       status: 'BLOCKED',
-      mode: SOLANA_ARBITRAGE_MODE,
+      mode: config.executionMode,
       executionAuthority: SOLANA_EXECUTION_AUTHORITY,
       liveLocked: SOLANA_LIVE_LOCKED,
       runId,

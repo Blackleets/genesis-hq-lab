@@ -19,25 +19,14 @@ import {
   type ReactNode,
 } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createConfig, http, injected, WagmiProvider } from 'wagmi';
+import { WagmiProvider } from 'wagmi';
 import { connect, disconnect, getAccount, signMessage } from 'wagmi/actions';
-import { mainnet, polygon } from 'wagmi/chains';
+import { wagmiConfig } from '@services/walletConfig';
 import {
   isSessionValid,
   type UserRole,
   type WalletSession,
 } from '@core/auth/walletTypes';
-
-// Off-chain signing only — mainnet + polygon are just the networks the
-// injected wallet defaults to; no transactions are ever broadcast.
-const wagmiConfig = createConfig({
-  chains: [mainnet, polygon],
-  connectors: [injected()],
-  transports: {
-    [mainnet.id]: http(),
-    [polygon.id]: http(),
-  },
-});
 
 const queryClient = new QueryClient();
 

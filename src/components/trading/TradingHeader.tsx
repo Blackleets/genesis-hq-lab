@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Activity, ChevronDown, LockKeyhole, RefreshCw, Shield, X } from 'lucide-react';
+import { Activity, ChevronDown, LockKeyhole, RefreshCw, Settings, Shield, X } from 'lucide-react';
 import { actions } from '@core/store/genesisStore';
 import type { ModuleId } from '@core/data/moduleRegistry';
 import { useMarketData, useRiskState, useRunnerTelemetry } from './useTradingDesk';
@@ -26,10 +26,12 @@ function Status({ label, value, tone = 'neutral' }: { label: string; value: stri
 
 export function TradingHeader({
   onControl,
+  onSettings,
   deskMode,
   onDeskModeChange,
 }: {
   onControl: () => void;
+  onSettings: () => void;
   deskMode: TradingDeskMode;
   onDeskModeChange: (mode: TradingDeskMode) => void;
 }) {
@@ -55,7 +57,7 @@ export function TradingHeader({
         const body = await response.json() as { events?: Array<{ type?: string }> };
         if (disposed) return;
         const qualified = Array.isArray(body.events)
-          ? body.events.filter((event) => event?.type === 'QUALIFIED').length
+          ? body.events.filter((event) => event?.type === 'OPPORTUNITY_DETECTED' || event?.type === 'QUALIFIED').length
           : 0;
         setSolanaOpportunities(qualified);
       } finally {
@@ -119,7 +121,7 @@ export function TradingHeader({
             <Status label="RUNNER" value={runnerReady ? 'ACTIVE' : runner ? 'NOT VERIFIED' : stateLabel(truth.state)} tone={runnerReady ? 'good' : 'bad'} />
             <Status label="MARKET" value={stateLabel(market.state)} tone={market.state === 'ready' ? 'good' : market.state === 'stale' ? 'warn' : 'bad'} />
             <Status label="SENTINEL" value={riskBand} tone={riskBand === 'HEALTHY' ? 'good' : riskBand === 'WATCH' ? 'warn' : 'bad'} />
-            <Status label="SOLANA" value={solanaOpportunities > 0 ? `${solanaOpportunities} OPP` : 'SCANNING'} tone={solanaOpportunities > 0 ? 'good' : 'neutral'} />
+            <button type="button" className={`trading-header__solana-signal ${solanaOpportunities > 0 ? 'is-active' : ''}`} onClick={() => chooseDesk('solana')}>SOLANA · {solanaOpportunities > 0 ? `${solanaOpportunities} OPP` : 'SCANNING'}</button>
             <div className="trading-header__equity"><span>FUNDING EQ</span><strong>{capture.state === 'ready' ? formatMoney(equity) : stateLabel(capture.state)}</strong></div>
           </>
         )}
@@ -128,6 +130,7 @@ export function TradingHeader({
       <div className="trading-header__controls">
         <button type="button" className="trading-header__live" onClick={onControl}><LockKeyhole size={12} /> LIVE LOCKED</button>
         {!isSolana ? <button type="button" className="trading-header__control" onClick={onControl}><Shield size={13} /><span>CONTROL</span></button> : null}
+        <button type="button" className="trading-header__refresh" onClick={onSettings} aria-label="Open Genesis settings"><Settings size={14} /></button>
         <div className="trading-header__clock"><span>{utc} UTC</span><span>{local} LOCAL</span></div>
         <button type="button" className="trading-header__refresh" onClick={refresh} aria-label="Refresh trading desk data"><RefreshCw size={13} /></button>
         {menuOpen ? <button type="button" className="trading-header__menu-close" onClick={() => setMenuOpen(false)} aria-label="Close navigation"><X size={12} /></button> : null}

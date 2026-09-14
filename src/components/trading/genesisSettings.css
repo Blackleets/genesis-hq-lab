@@ -1,0 +1,30 @@
+.genesis-settings { position: fixed; inset: 0; z-index: 120; display: flex; justify-content: flex-end; }
+.genesis-settings__backdrop { position: absolute; inset: 0; width: 100%; border: 0; background: rgb(0 0 0 / 72%); backdrop-filter: blur(3px); }
+.genesis-settings__panel { position: relative; width: min(520px, 96vw); height: 100%; overflow-y: auto; border-left: 1px solid #263244; background: #080b10; box-shadow: -28px 0 80px rgb(0 0 0 / 72%); }
+.genesis-settings__panel > header { position: sticky; z-index: 2; top: 0; height: 56px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #253041; background: rgb(8 11 16 / 96%); }
+.genesis-settings__panel > header div { display: flex; align-items: center; gap: 9px; color: #e6edf3; font: 700 11px/1 ui-monospace, monospace; letter-spacing: .12em; }
+.genesis-settings__panel > header button { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid #293548; border-radius: 50%; background: #0d121a; color: #93a2b7; }
+.genesis-settings__panel > nav { display: flex; gap: 4px; overflow-x: auto; padding: 12px 14px; border-bottom: 1px solid #1d2633; }
+.genesis-settings__panel > nav button { min-height: 32px; padding: 0 10px; border: 1px solid #242f40; border-radius: 7px; background: #0b1017; color: #66758a; font: 650 8px/1 ui-monospace, monospace; letter-spacing: .09em; white-space: nowrap; }
+.genesis-settings__panel > nav button.is-active { border-color: rgb(20 241 149 / 38%); background: rgb(20 241 149 / 8%); color: #7cf6c3; }
+.genesis-settings__content { padding: 20px 16px 40px; }
+.genesis-settings__title { display: flex; align-items: center; gap: 10px; color: #14f195; }
+.genesis-settings__title div { display: grid; gap: 5px; }
+.genesis-settings__title strong { font: 750 12px/1 ui-monospace, monospace; letter-spacing: .12em; }
+.genesis-settings__title span { color: #6f7d90; font: 500 10px/1.35 Inter, sans-serif; }
+.genesis-settings__status { margin-top: 18px; min-height: 42px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid #344154; border-radius: 8px; background: #0c1119; color: #8f9db0; font: 700 9px/1 ui-monospace, monospace; }
+.genesis-settings__status.is-connected { border-color: rgb(20 241 149 / 34%); background: rgb(20 241 149 / 7%); color: #72f5bd; }
+.genesis-settings__content > label { display: grid; gap: 7px; margin-top: 15px; }
+.genesis-settings__content > label > span { color: #768499; font: 650 9px/1 ui-monospace, monospace; letter-spacing: .1em; }
+.genesis-settings__content input { width: 100%; min-height: 44px; border: 1px solid #2a3749; border-radius: 8px; background: #0b1017; padding: 0 12px; color: #dce5ef; outline: 0; font: 500 12px/1 ui-monospace, monospace; }
+.genesis-settings__content input:focus { border-color: rgb(20 241 149 / 52%); box-shadow: 0 0 0 3px rgb(20 241 149 / 7%); }
+.genesis-settings__notice { margin-top: 13px; display: flex; align-items: flex-start; gap: 7px; color: #718095; font: 500 10px/1.45 Inter, sans-serif; }
+.genesis-settings__save { margin-top: 18px; width: 100%; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid rgb(20 241 149 / 46%); border-radius: 8px; background: linear-gradient(135deg, rgb(20 241 149 / 18%), rgb(0 194 255 / 9%)); color: #8ff8cc; font: 750 10px/1 ui-monospace, monospace; letter-spacing: .11em; }
+.genesis-settings__save:disabled { cursor: not-allowed; opacity: .4; }
+.genesis-settings__message { margin: 12px 0 0; font: 550 10px/1.4 Inter, sans-serif; }
+.genesis-settings__message.is-error { color: #fca5a5; }.genesis-settings__message.is-success { color: #7cf6c3; }
+.genesis-settings__toggles { margin-top: 18px; border: 1px solid #253142; border-radius: 9px; overflow: hidden; }
+.genesis-settings__toggles button { width: 100%; min-height: 44px; padding: 0 12px; display: flex; align-items: center; justify-content: space-between; border: 0; border-bottom: 1px solid #202a38; background: #0b1017; color: #a6b2c2; font: 650 9px/1 ui-monospace, monospace; }
+.genesis-settings__toggles button:last-child { border-bottom: 0; }.genesis-settings__toggles i { width: 30px; height: 16px; position: relative; border-radius: 999px; background: #283344; }.genesis-settings__toggles i::after { content: ''; position: absolute; width: 12px; height: 12px; left: 2px; top: 2px; border-radius: 50%; background: #738096; transition: transform .16s ease; }.genesis-settings__toggles i.is-on { background: rgb(20 241 149 / 28%); }.genesis-settings__toggles i.is-on::after { transform: translateX(14px); background: #14f195; }
+.genesis-settings__hint { color: #627084; font: 500 10px/1.4 Inter, sans-serif; }.genesis-settings__facts { margin-top: 18px; border-top: 1px solid #263142; }.genesis-settings__facts div { min-height: 42px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #202936; }.genesis-settings__facts dt { color: #748297; font: 500 10px/1 Inter, sans-serif; }.genesis-settings__facts dd { color: #b7c2d0; font: 700 9px/1 ui-monospace, monospace; }.genesis-settings__facts dd.is-locked { color: #fca5a5; }
+@media (max-width: 430px) { .genesis-settings__panel { width: 100%; border-left: 0; }.genesis-settings__content { padding-inline: 14px; }.genesis-settings__panel > nav { padding-inline: 10px; } }

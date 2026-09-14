@@ -25,6 +25,8 @@ jobs:
     timeout-minutes: 5
     env:
       JUPITER_API_KEY: ${{ secrets.JUPITER_API_KEY }}
+      GENESIS_NOTIFY_URL: ${{ secrets.GENESIS_NOTIFY_URL }}
+      GENESIS_NOTIFICATION_DISPATCH_SECRET: ${{ secrets.GENESIS_NOTIFICATION_DISPATCH_SECRET }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -68,3 +70,15 @@ jobs:
           fi
           git commit -m "data(solana): periodic arbitrage observation"
           git push origin HEAD:data/solana-arbitrage-observations
+
+      - name: Dispatch qualified Telegram notifications
+        if: ${{ env.GENESIS_NOTIFY_URL != '' && env.GENESIS_NOTIFICATION_DISPATCH_SECRET != '' }}
+        shell: bash
+        run: |
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/tmp/genesis-solana/solana-arbitrage-latest.json','utf8'));fs.writeFileSync('/tmp/genesis-solana/telegram-events.json',JSON.stringify({events:x.events||[]}));"
+          curl --fail-with-body --silent --show-error \
+            --request PUT \
+            --header "Authorization: Bearer ${GENESIS_NOTIFICATION_DISPATCH_SECRET}" \
+            --header "Content-Type: application/json" \
+            --data-binary @/tmp/genesis-solana/telegram-events.json \
+            "${GENESIS_NOTIFY_URL%/}/api/genesis/telegram"

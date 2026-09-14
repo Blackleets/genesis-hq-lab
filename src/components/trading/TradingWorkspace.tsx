@@ -17,6 +17,7 @@ import { ResearchOpportunitySurface } from './ResearchOpportunitySurface';
 import { ChallengerEvidencePanel } from './ChallengerEvidencePanel';
 import { ProfitabilitySprintPanel } from './ProfitabilitySprintPanel';
 import { EdgeFactoryPanel } from './EdgeFactoryPanel';
+import { GenesisSettingsDrawer } from './GenesisSettingsDrawer';
 import { PositioningIntelligencePanel } from './PositioningIntelligencePanel';
 import { ConnectorRack } from './ConnectorRack';
 import { ProfitEngineRail } from './ProfitEngineRail';
@@ -65,7 +66,9 @@ function TradingWorkspaceContent() {
   const [deskMode, setDeskMode] = useState<TradingDeskMode>('futures');
   const [tab, setTab] = useState<TerminalTab>('positions');
   const [controlOpen, setControlOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const closeControl = useCallback(() => setControlOpen(false), []);
+  const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const showTab = (next: TerminalTab) => {
     setTab(next);
     window.requestAnimationFrame(() => document.getElementById('desk-terminal')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
@@ -75,6 +78,7 @@ function TradingWorkspaceContent() {
     <main className="trading-workspace genesis-workstation-v2 genesis-exchange" data-ui="genesis-workstation-v2">
       <TradingHeader
         onControl={() => setControlOpen(true)}
+        onSettings={() => setSettingsOpen(true)}
         deskMode={deskMode}
         onDeskModeChange={setDeskMode}
       />
@@ -128,6 +132,7 @@ function TradingWorkspaceContent() {
       )}
 
       <Suspense fallback={null}><ControlDrawer open={controlOpen} onClose={closeControl} /></Suspense>
+      <GenesisSettingsDrawer open={settingsOpen} onClose={closeSettings} />
     </main>
   );
 }

@@ -19,7 +19,7 @@ const SOLANA_RADAR_EVENTS_URL = 'https://raw.githubusercontent.com/Blackleets/ge
 
 function supabaseConfig() {
   const url = process.env.SUPABASE_URL?.replace(/\/+$/, '');
-  const key = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
   return url && key ? { url, key } : null;
 }
 
@@ -92,7 +92,7 @@ async function readSolanaRadarSnapshot() {
 
   const snapshot = await response.json();
   const observation = snapshot?.observation;
-  const safetyValid = snapshot?.mode === 'SHADOW'
+  const safetyValid = ['SHADOW', 'PAPER'].includes(snapshot?.mode)
     && snapshot?.executionAuthority === false
     && snapshot?.liveLocked === true;
   const chainValid = !observation || observation?.chain === 'SOLANA';
@@ -103,7 +103,7 @@ async function readSolanaRadarSnapshot() {
 
 function isSafeSolanaSnapshot(snapshot) {
   const observation = snapshot?.observation;
-  return snapshot?.mode === 'SHADOW'
+  return ['SHADOW', 'PAPER'].includes(snapshot?.mode)
     && snapshot?.executionAuthority === false
     && snapshot?.liveLocked === true
     && (!observation || observation?.chain === 'SOLANA');
@@ -137,7 +137,7 @@ async function readSolanaRadarEvents() {
   if (!Array.isArray(rows)) throw new Error('solana_events_invalid');
   return rows
     .filter((row) => row?.chain === 'SOLANA')
-    .filter((row) => row?.mode === 'SHADOW')
+    .filter((row) => ['SHADOW', 'PAPER'].includes(row?.mode))
     .filter((row) => row?.executionAuthority === false && row?.liveLocked === true)
     .slice(-250)
     .reverse();
@@ -148,6 +148,7 @@ function summarizeSolanaHistory(rows) {
   const positiveNet = observations.filter((o) => Number(o?.economics?.netPnlUsd) > 0).length;
   const qualified = observations.filter((o) => String(o?.status ?? '').toUpperCase() === 'QUALIFIED').length;
   const blocked = observations.filter((o) => String(o?.status ?? '').toUpperCase() === 'BLOCKED').length;
+  const captures = observations.map((o) => o?.captureEvidence).filter((capture) => capture?.measured === true);
   const knownNet = observations
     .map((o) => Number(o?.economics?.netPnlUsd))
     .filter(Number.isFinite);
@@ -156,6 +157,9 @@ function summarizeSolanaHistory(rows) {
     positiveNet,
     qualified,
     blocked,
+    captures: captures.length,
+    capturedNetPnlUsd: captures.reduce((sum, capture) => sum + (Number(capture?.capturedNetPnlUsd) || 0), 0),
+    captureRate: captures.length ? captures.reduce((sum, capture) => sum + (Number(capture?.captureRatio) || 0), 0) / captures.length : null,
     theoreticalNetOpportunityUsd: knownNet.reduce((sum, value) => sum + value, 0),
     note: 'Observed opportunity economics only; not realized account P&L.',
   };

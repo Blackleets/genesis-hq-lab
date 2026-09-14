@@ -32,10 +32,10 @@ export async function getStore() {
       process.env.UPSTASH_REDIS_REST_URL.replace(/\/+$/, ''),
       process.env.UPSTASH_REDIS_REST_TOKEN
     );
-  } else if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY) {
+  } else if (process.env.SUPABASE_URL && (process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY)) {
     cached = supabaseAdapter(
       process.env.SUPABASE_URL.replace(/\/+$/, ''),
-      process.env.SUPABASE_SERVICE_KEY
+      process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
     );
   } else {
     cached = memoryAdapter();

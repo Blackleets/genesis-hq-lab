@@ -11,6 +11,7 @@ import {
   getSolanaArbitrageConfig,
   observeSolanaArbitrageOnce,
 } from '../genesis/solanaArbitrageObserver.mjs';
+import { SolanaExecutionAdapter, measurePaperCapture } from '../genesis/solanaExecutionEngine.mjs';
 
 function quote({ inputMint, outputMint, inAmount, outAmount, contextSlot = 100, label = 'Raydium', feeAmount = '0', feeMint = inputMint }) {
   return {
@@ -203,4 +204,32 @@ test('live observer uses exact first-leg output as second-leg input and never su
   assert.equal(seen.some((request) => String(request.url).includes('/swap/v1/swap')), false);
   assert.equal(seen.some((request) => String(request.url).includes('sendTransaction')), false);
   assert.equal(seen.some((request) => String(request.url).includes('sendBundle')), false);
+  assert.ok(result.events.some((event) => event.type === 'OPPORTUNITY_DETECTED'));
+  assert.ok(result.events.some((event) => event.type === 'REJECTED' && event.reason === 'simulation_adapter_not_configured'));
+  assert.equal(new Set(result.events.map((event) => event.eventId)).size, result.events.length);
+
+  const paperResult = await observeSolanaArbitrageOnce({
+    config: { ...config, executionMode: 'PAPER', riskPolicy: { ...config.riskPolicy, minNetEdgeBps: 1 } },
+    fetchImpl: fakeFetch,
+    now: () => new Date('2026-09-14T07:00:00Z'),
+    transactionBuilder: async ({ observation }) => ({ transaction: { route: observation.route }, minOut: observation.quotedEndUsdc }),
+    transactionSimulator: async () => ({ success: true, balancesVerified: true, minOutVerified: true, unitsConsumed: 500_000 }),
+    executionAdapter: new SolanaExecutionAdapter({ mode: 'PAPER', paperCapture: async ({ opportunity }) => measurePaperCapture({ opportunity, capturedOutputUsd: 25.2, actualFeesUsd: 0.01, measuredAt: '2026-09-14T07:00:01Z' }) }),
+  });
+  assert.equal(paperResult.status, 'PAPER_EXECUTED');
+  assert.ok(paperResult.events.some((event) => event.type === 'SIMULATION_PASSED'));
+  assert.ok(paperResult.events.some((event) => event.type === 'PAPER_EXECUTED'));
+  const captureEvent = paperResult.events.find((event) => event.type === 'CAPTURE_MEASURED');
+  assert.ok(captureEvent); assert.ok(captureEvent.expectedNetPnlUsd > 0); assert.ok(captureEvent.capturedNetPnlUsd > 0);
+});
+
+test('provider failures terminate in a normalized FAILED event', async () => {
+  const result = await observeSolanaArbitrageOnce({
+    config: { ...config, jupiterQuoteUrl: 'https://example.test/swap/v1/quote' },
+    fetchImpl: async () => new Response('offline', { status: 503 }),
+    now: () => new Date('2026-09-14T08:00:00Z'),
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.events.at(-1)?.type, 'FAILED');
+  assert.equal(result.events.at(-1)?.decision, 'REJECTED');
 });
