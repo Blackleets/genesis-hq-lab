@@ -1,13 +1,12 @@
-// WalletAuthProvider.tsx — SIWES-style wallet authentication provider.
+// WalletAuthProvider.tsx — Solana-first owner authentication for Genesis HQ.
 //
-// Security model (non-negotiable):
-// - The ONLY signature ever requested is the login nonce challenge returned
-//   by POST /api/auth/nonce (EIP-191 personal_sign). We NEVER sign a message
-//   that did not come verbatim from the backend. No approvals, no transfers,
-//   nothing that moves funds.
-// - Authentication lives in a Secure HttpOnly cookie; JavaScript only sees
-//   public identity metadata, never a bearer token.
-// - A user-rejected signature surfaces a clean error — it never crashes.
+// Security model:
+// - Owner authentication uses Phantom/Solflare signMessage over a backend nonce.
+// - This is an off-chain Ed25519 signature only. No transaction is created,
+//   no approval is requested and no funds can move.
+// - The authenticated session is stored only in a Secure HttpOnly cookie.
+// - Wagmi stays mounted because legacy EVM wallet surfaces elsewhere in Genesis
+//   still depend on it; owner authentication itself does NOT use MetaMask.
 
 import {
   createContext,
@@ -20,7 +19,6 @@ import {
 } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
-import { connect, disconnect, getAccount, signMessage } from 'wagmi/actions';
 import { wagmiConfig } from '@services/walletConfig';
 import {
   isSessionValid,
@@ -29,64 +27,88 @@ import {
 } from '@core/auth/walletTypes';
 
 const queryClient = new QueryClient();
-
 const SESSION_KEY = 'ghq_wallet_session';
 
-export type AuthStatus =
-  | 'idle'
-  | 'connecting'
-  | 'signing'
-  | 'verifying'
-  | 'error'
-  | 'authenticated';
+interface SolanaPublicKeyLike { toString(): string; }
+interface SolanaSignResult { signature: Uint8Array; publicKey?: SolanaPublicKeyLike; }
+interface SolanaConnectResult { publicKey?: SolanaPublicKeyLike; }
+interface SolanaProvider {
+  isPhantom?: boolean;
+  isSolflare?: boolean;
+  publicKey?: SolanaPublicKeyLike | null;
+  connect: (options?: { onlyIfTrusted?: boolean }) => Promise<SolanaConnectResult | undefined>;
+  disconnect?: () => Promise<void>;
+  signMessage: (message: Uint8Array, display?: 'utf8' | 'hex') => Promise<SolanaSignResult>;
+}
+
+declare global {
+  interface Window {
+    phantom?: { solana?: SolanaProvider };
+    solflare?: SolanaProvider;
+    solana?: SolanaProvider;
+  }
+}
+
+export type AuthStatus = 'idle' | 'connecting' | 'signing' | 'verifying' | 'error' | 'authenticated';
 
 interface WalletAuthContextValue {
-  /** Live session, or null when logged out. */
   session: WalletSession | null;
-  /** Convenience accessor: session?.role ?? null. */
   role: UserRole | null;
   status: AuthStatus;
-  /** Last human-readable failure (already localized-friendly). */
   error: string | null;
-  /** connect -> nonce -> personal_sign(backend message) -> verify -> session. */
   connectAndSign: () => Promise<void>;
-  /** Clears the stored session and disconnects the wallet. */
   logout: () => void;
 }
 
 const WalletAuthContext = createContext<WalletAuthContextValue | null>(null);
 
+function getSolanaProvider(): SolanaProvider | null {
+  if (typeof window === 'undefined') return null;
+  return window.phantom?.solana || window.solflare || window.solana || null;
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
 function isUserRejection(err: unknown): boolean {
-  const e = err as { code?: number; name?: string; message?: string } | undefined;
-  if (!e) return false;
-  // EIP-1193: 4001 = user rejected request. MetaMask also names it ActionRejected.
+  const value = err as { code?: number; name?: string; message?: string } | undefined;
+  if (!value) return false;
   return (
-    e.code === 4001 ||
-    e.name === 'ActionRejected' ||
-    e.name === 'UserRejectedRequestError' ||
-    /user rejected|user denied|rejected the request/i.test(e.message ?? '')
+    value.code === 4001 ||
+    value.name === 'ActionRejected' ||
+    value.name === 'UserRejectedRequestError' ||
+    /user rejected|user denied|rejected the request|declined/i.test(value.message ?? '')
   );
 }
 
 function errMessage(err: unknown): string {
-  if (isUserRejection(err)) {
-    return 'Firma rechazada. No se ha movido nada — puedes volver a intentarlo.';
-  }
-  const msg = err instanceof Error ? err.message : String(err);
-  return msg || 'Error desconocido durante la autenticación.';
+  if (isUserRejection(err)) return 'Firma rechazada. No se ha movido nada — puedes volver a intentarlo.';
+  const message = err instanceof Error ? err.message : String(err);
+  return message || 'Error desconocido durante la autenticación.';
 }
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  const r = await fetch(url, { method: 'POST', credentials: 'same-origin', headers, body: JSON.stringify(body) });
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  return (await r.json()) as T;
+  const response = await fetch(url, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    throw new Error(payload?.message || payload?.error || `HTTP ${response.status}`);
+  }
+  return (await response.json()) as T;
 }
 
 interface NonceResponse {
   ok: boolean;
   nonce: string;
   message: string;
+  chain?: 'solana' | 'evm';
 }
 
 interface VerifyResponse {
@@ -94,12 +116,12 @@ interface VerifyResponse {
   session: WalletSession;
 }
 
-function isValidVerifySession(s: VerifyResponse['session'] | undefined): s is WalletSession {
+function isValidVerifySession(session: VerifyResponse['session'] | undefined): session is WalletSession {
   return Boolean(
-    s &&
-      typeof s.address === 'string' &&
-      (s.role === 'user' || s.role === 'operator') &&
-      typeof s.expiresAt === 'number',
+    session &&
+    typeof session.address === 'string' &&
+    (session.role === 'user' || session.role === 'operator') &&
+    typeof session.expiresAt === 'number',
   );
 }
 
@@ -109,89 +131,93 @@ function WalletAuthContextProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Remove the legacy token without reading it into a component.
     sessionStorage.removeItem(SESSION_KEY);
     let alive = true;
     fetch('/api/auth/session', { credentials: 'same-origin', cache: 'no-store' })
-      .then(r => r.ok ? r.json() : null)
+      .then(response => response.ok ? response.json() : null)
       .then(data => {
         if (alive && isValidVerifySession(data?.session) && isSessionValid(data.session)) {
           const next = data.session;
           setSession({ address: next.address, role: next.role, issuedAt: next.issuedAt, expiresAt: next.expiresAt });
           setStatus('authenticated');
         }
-      }).catch(() => {});
+      })
+      .catch(() => {});
     return () => { alive = false; };
   }, []);
 
   const logout = useCallback(() => {
-    void postJson('/api/auth/logout', {}).catch(() => setError('Server logout unavailable. Close the session on the server before sharing this browser.'));
+    void postJson('/api/auth/logout', {}).catch(() => setError('No se pudo cerrar la sesión del servidor.'));
     setSession(null);
     setError(null);
     setStatus('idle');
-    // Best-effort disconnect; ignore failures (wallet may already be gone).
-    void Promise.resolve(disconnect(wagmiConfig)).catch(() => {});
+    const provider = getSolanaProvider();
+    if (provider?.disconnect) void provider.disconnect().catch(() => {});
   }, []);
 
   const connectAndSign = useCallback(async () => {
     setError(null);
     try {
-      // 1) Connect the injected wallet (MetaMask/Rabbit/etc).
-      setStatus('connecting');
-      const connector = wagmiConfig.connectors[0];
-      await connect(wagmiConfig, { connector });
-      const account = getAccount(wagmiConfig);
-      const address = account.address;
-      if (!address) throw new Error('No se pudo obtener la dirección de la wallet.');
+      const provider = getSolanaProvider();
+      if (!provider) {
+        throw new Error('No se detectó una wallet Solana. Activa Phantom o Solflare y vuelve a intentarlo.');
+      }
+      if (typeof provider.signMessage !== 'function') {
+        throw new Error('La wallet Solana detectada no permite firmar mensajes de autenticación.');
+      }
 
-      // 2) Ask the backend for a fresh nonce challenge.
-      const challenge = await postJson<NonceResponse>('/api/auth/nonce', { address });
+      setStatus('connecting');
+      const connection = await provider.connect();
+      const address = connection?.publicKey?.toString() || provider.publicKey?.toString();
+      if (!address) throw new Error('No se pudo obtener la dirección pública de la wallet Solana.');
+
+      const challenge = await postJson<NonceResponse>('/api/auth/nonce', { address, chain: 'solana' });
       if (!challenge?.ok || !challenge.nonce || !challenge.message) {
         throw new Error('El servidor no emitió un reto de autenticación válido.');
       }
 
-      // 3) personal_sign of EXACTLY the backend message — nothing else, ever.
       setStatus('signing');
-      const signature = await signMessage(wagmiConfig, { message: challenge.message });
+      const signed = await provider.signMessage(new TextEncoder().encode(challenge.message), 'utf8');
+      if (!signed?.signature || typeof signed.signature.length !== 'number') {
+        throw new Error('La wallet no devolvió una firma válida.');
+      }
+      const signature = bytesToBase64(Uint8Array.from(signed.signature));
 
-      // 4) Verify server-side and store the issued scoped session.
       setStatus('verifying');
-      const res = await postJson<VerifyResponse>('/api/auth/verify', {
+      const result = await postJson<VerifyResponse>('/api/auth/verify', {
         address,
+        chain: 'solana',
         signature,
         nonce: challenge.nonce,
       });
-      if (!res?.ok || !isValidVerifySession(res.session)) {
-        throw new Error('Verificación de firma fallida.');
+      if (!result?.ok || !isValidVerifySession(result.session)) {
+        throw new Error('Verificación de firma Solana fallida.');
       }
-      const next: WalletSession = { address: res.session.address, role: res.session.role, issuedAt: res.session.issuedAt, expiresAt: res.session.expiresAt };
+
+      const next: WalletSession = {
+        address: result.session.address,
+        role: result.session.role,
+        issuedAt: result.session.issuedAt,
+        expiresAt: result.session.expiresAt,
+      };
       if (!isSessionValid(next)) throw new Error('Sesión emitida inválida o expirada.');
 
       setSession(next);
       setStatus('authenticated');
     } catch (err) {
-      // Clean, non-crashing failure path.
       setStatus('error');
       setError(errMessage(err));
     }
   }, []);
 
   const value = useMemo<WalletAuthContextValue>(
-    () => ({
-      session,
-      role: session?.role ?? null,
-      status,
-      error,
-      connectAndSign,
-      logout,
-    }),
+    () => ({ session, role: session?.role ?? null, status, error, connectAndSign, logout }),
     [session, status, error, connectAndSign, logout],
   );
 
   return <WalletAuthContext.Provider value={value}>{children}</WalletAuthContext.Provider>;
 }
 
-/** Outer provider: wagmi + react-query required by wagmi hooks, then auth context. */
 export default function WalletAuthProvider({ children }: { children: ReactNode }) {
   return (
     <WagmiProvider config={wagmiConfig}>
@@ -203,7 +229,7 @@ export default function WalletAuthProvider({ children }: { children: ReactNode }
 }
 
 export function useWalletAuth(): WalletAuthContextValue {
-  const ctx = useContext(WalletAuthContext);
-  if (!ctx) throw new Error('useWalletAuth must be used within WalletAuthProvider');
-  return ctx;
+  const context = useContext(WalletAuthContext);
+  if (!context) throw new Error('useWalletAuth must be used within WalletAuthProvider');
+  return context;
 }

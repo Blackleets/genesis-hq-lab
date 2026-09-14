@@ -51,7 +51,7 @@ export function GenesisSettingsDrawer({ open, onClose }: { open: boolean; onClos
     fetch(TELEGRAM_API, { cache: 'no-store', credentials: 'same-origin' })
       .then(async (response) => {
         const body = await response.json();
-        if (!response.ok) throw new Error(response.status === 401 ? 'La sesión del propietario expiró. Vuelve a autenticarte en GENERAL.' : (body.message || 'No se pudo leer la configuración.'));
+        if (!response.ok) throw new Error(response.status === 401 ? 'La sesión Solana del propietario expiró. Vuelve a autenticarte en GENERAL.' : (body.message || 'No se pudo leer la configuración.'));
         setStatus(body.telegram);
         setNotifications({ ...DEFAULT_NOTIFICATIONS, ...body.telegram?.notifications });
         setPhase('idle');
@@ -81,8 +81,8 @@ export function GenesisSettingsDrawer({ open, onClose }: { open: boolean; onClos
   const toggle = (key: NotificationKey) => setNotifications((current) => ({ ...current, [key]: !current[key] }));
   const authBusy = auth.status === 'connecting' || auth.status === 'signing' || auth.status === 'verifying';
   const ownerLabel = auth.session
-    ? `OWNER SESSION ACTIVE · ${auth.session.address.slice(0, 6)}…${auth.session.address.slice(-4)}`
-    : 'OWNER SESSION REQUIRED';
+    ? `SOLANA OWNER SESSION ACTIVE · ${auth.session.address.slice(0, 6)}…${auth.session.address.slice(-4)}`
+    : 'SOLANA OWNER SESSION REQUIRED';
 
   return (
     <div className="genesis-settings" role="dialog" aria-modal="true" aria-label="Genesis settings">
@@ -92,28 +92,28 @@ export function GenesisSettingsDrawer({ open, onClose }: { open: boolean; onClos
         <nav aria-label="Settings sections">{SECTIONS.map((item) => <button key={item.id} type="button" className={section === item.id ? 'is-active' : ''} onClick={() => setSection(item.id)}>{item.label}</button>)}</nav>
 
         {section === 'general' ? <section className="genesis-settings__content">
-          <div className="genesis-settings__title"><Settings size={16} /><div><strong>GENERAL</strong><span>Identidad del propietario y estado operativo de Genesis HQ.</span></div></div>
+          <div className="genesis-settings__title"><Settings size={16} /><div><strong>GENERAL</strong><span>Identidad Solana del propietario y estado operativo de Genesis HQ.</span></div></div>
           <div className={`genesis-settings__status ${auth.session ? 'is-connected' : ''}`}>
             {auth.session ? <Check size={14} /> : <LockKeyhole size={14} />}
             <span>{ownerLabel}</span>
           </div>
           {!auth.session ? <>
-            <div className="genesis-settings__notice"><LockKeyhole size={12} />Esta autenticación protege los ajustes privados de Genesis. MetaMask solo firma un mensaje de acceso: no es Telegram, no aprueba tokens y no mueve fondos.</div>
-            <button type="button" className="genesis-settings__save" onClick={() => void auth.connectAndSign()} disabled={authBusy}>{authBusy ? <LoaderCircle size={14} className="animate-spin" /> : <LockKeyhole size={14} />}AUTHENTICATE OWNER</button>
+            <div className="genesis-settings__notice"><LockKeyhole size={12} />Genesis autentica al propietario con Phantom o Solflare mediante una firma off-chain. No crea transacciones, no aprueba tokens y no mueve fondos.</div>
+            <button type="button" className="genesis-settings__save" onClick={() => void auth.connectAndSign()} disabled={authBusy}>{authBusy ? <LoaderCircle size={14} className="animate-spin" /> : <LockKeyhole size={14} />}AUTHENTICATE SOLANA WALLET</button>
             {auth.error ? <p className="genesis-settings__message is-error">{auth.error}</p> : null}
           </> : null}
           <dl className="genesis-settings__facts"><div><dt>Futures</dt><dd>PAPER</dd></div><div><dt>Solana</dt><dd>SHADOW / PAPER</dd></div></dl>
         </section> : null}
 
         {section === 'telegram' ? <section className="genesis-settings__content">
-          <div className="genesis-settings__title"><Bell size={16} /><div><strong>TELEGRAM</strong><span>Configura únicamente el bot y las notificaciones. La identidad del propietario vive en GENERAL.</span></div></div>
+          <div className="genesis-settings__title"><Bell size={16} /><div><strong>TELEGRAM</strong><span>Configura el bot y las notificaciones después de autenticar la wallet Solana del propietario.</span></div></div>
           <div className={`genesis-settings__status ${status?.connected ? 'is-connected' : ''}`}>
             {status?.connected ? <Check size={14} /> : <LockKeyhole size={14} />}
             <span>{status?.connected ? `TELEGRAM CONNECTED · ${status.chatIdMasked || ''}` : 'TELEGRAM NOT CONFIGURED'}</span>
           </div>
           {!auth.session ? <>
-            <div className="genesis-settings__notice"><LockKeyhole size={12} />Los ajustes de Telegram están bloqueados hasta autenticar al propietario. Telegram y MetaMask no están conectados entre sí.</div>
-            <button type="button" className="genesis-settings__save" onClick={() => setSection('general')}><LockKeyhole size={14} />OPEN OWNER ACCESS</button>
+            <div className="genesis-settings__notice"><LockKeyhole size={12} />Telegram no se conecta a la wallet. La firma Solana solo protege los ajustes privados del propietario.</div>
+            <button type="button" className="genesis-settings__save" onClick={() => setSection('general')}><LockKeyhole size={14} />OPEN SOLANA OWNER ACCESS</button>
           </> : null}
           <label><span>BOT TOKEN</span><input type="password" value={botToken} onChange={(event) => setBotToken(event.target.value)} autoComplete="new-password" placeholder={status?.configured ? 'Enter token again to replace' : '123456789:AA…'} disabled={!auth.session} /></label>
           <label><span>CHAT ID</span><input type="text" value={chatId} onChange={(event) => setChatId(event.target.value)} inputMode="text" placeholder={status?.chatIdMasked || '-100…'} disabled={!auth.session} /></label>
