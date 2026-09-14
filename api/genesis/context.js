@@ -15,6 +15,7 @@ const FNG = 'https://api.alternative.me/fng/';
 const RADAR_STATE_KEY = 'mev_shadow_radar_public';
 const SOLANA_RADAR_SNAPSHOT_URL = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/data/solana-arbitrage-observations/data/solana-arbitrage-latest.json';
 const SOLANA_RADAR_HISTORY_URL = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/data/solana-arbitrage-observations/data/solana-arbitrage-history.json';
+const SOLANA_RADAR_EVENTS_URL = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/data/solana-arbitrage-observations/data/solana-arbitrage-events.json';
 
 function supabaseConfig() {
   const url = process.env.SUPABASE_URL?.replace(/\/+$/, '');
@@ -125,6 +126,23 @@ async function readSolanaRadarHistory() {
     .reverse();
 }
 
+
+async function readSolanaRadarEvents() {
+  const response = await fetch(SOLANA_RADAR_EVENTS_URL, {
+    headers: { accept: 'application/json' },
+    signal: AbortSignal.timeout(5_000),
+  });
+  if (!response.ok) throw new Error(`solana_events_${response.status}`);
+  const rows = await response.json();
+  if (!Array.isArray(rows)) throw new Error('solana_events_invalid');
+  return rows
+    .filter((row) => row?.chain === 'SOLANA')
+    .filter((row) => row?.mode === 'SHADOW')
+    .filter((row) => row?.executionAuthority === false && row?.liveLocked === true)
+    .slice(-250)
+    .reverse();
+}
+
 function summarizeSolanaHistory(rows) {
   const observations = rows.map((row) => row.observation).filter(Boolean);
   const positiveNet = observations.filter((o) => Number(o?.economics?.netPnlUsd) > 0).length;
@@ -145,15 +163,17 @@ function summarizeSolanaHistory(rows) {
 
 async function sendSolanaRadarView(res) {
   try {
-    const [snapshot, historyResult] = await Promise.all([
+    const [snapshot, historyResult, eventsResult] = await Promise.all([
       readSolanaRadarSnapshot(),
       readSolanaRadarHistory().catch(() => []),
+      readSolanaRadarEvents().catch(() => []),
     ]);
     return sendJson(res, 200, {
       ok: true,
       status: snapshot?.observation?.status ?? snapshot?.status ?? 'OBSERVING',
       radar: snapshot,
       history: historyResult,
+      events: eventsResult,
       summary: summarizeSolanaHistory(historyResult),
       executionAuthority: false,
       liveLocked: true,
@@ -167,6 +187,7 @@ async function sendSolanaRadarView(res) {
       error: error instanceof Error ? error.message : 'solana_radar_unavailable',
       radar: null,
       history: [],
+      events: [],
       summary: summarizeSolanaHistory([]),
       executionAuthority: false,
       liveLocked: true,
