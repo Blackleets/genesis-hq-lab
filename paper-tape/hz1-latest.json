@@ -1,54 +1,60 @@
 {
-  "ts": "2026-09-14T18:34:41.214Z",
+  "ts": "2026-09-14T22:02:03.841Z",
   "liveOff": true,
   "paper": true,
   "go": false,
   "hz": 1,
   "tickers": 464,
-  "preQuote": 2,
+  "preQuote": 0,
   "full": 4,
   "quoted": 0,
   "quotedNames": [],
   "filled": 0,
   "paperPnl": 0,
   "reasons": {
-    "TAPE_PENDING": 4
+    "TAPE_PENDING": 3,
+    "WOULD_CROSS": 1
   },
-  "ms": 1024,
+  "ms": 1030,
   "scored": [
     {
-      "symbol": "SENT-USDT-SWAP",
-      "preH": 0.11280846063437977,
-      "spread": 11.750881316098228,
+      "symbol": "BEAT-USDT-SWAP",
+      "preH": 0.1941282204914323,
+      "spread": 11.983223487118378,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
-      "symbol": "BEAT-USDT-SWAP",
-      "preH": 0.07687827606301667,
-      "spread": 11.648223645894333,
+      "symbol": "UP-USDT-SWAP",
+      "preH": 0.08878504672908782,
+      "spread": 11.682242990654538,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
       "symbol": "ROBO-USDT-SWAP",
-      "preH": 0.10557184750716431,
-      "spread": 11.730205278591898,
+      "preH": 0.15923945335693013,
+      "spread": 11.883541295305516,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
-      "symbol": "TRB-USDT-SWAP",
-      "preH": 0.05327156919504894,
-      "spread": 11.580775911985855,
+      "symbol": "IREN-USDT-SWAP",
+      "preH": 0.04764658262958399,
+      "spread": 11.564704521798811,
       "quote": false,
-      "reason": "TAPE_PENDING"
+      "reason": "WOULD_CROSS",
+      "harvestBps": 0.0476,
+      "vpin": 0.6415,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "WOULD_CROSS"
     }
   ],
   "intersection": {
-    "liquid": 233,
-    "hGe": 2,
-    "band": 136,
+    "liquid": 237,
+    "hGe": 0,
+    "band": 144,
     "both": 0
   },
   "formula": "H=spread*0.35-4bps; width is a toxicity prior. Kalman+VPIN+GLFT. not a GO."
