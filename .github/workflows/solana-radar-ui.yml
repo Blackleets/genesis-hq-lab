@@ -1,0 +1,49 @@
+name: Solana radar UI
+
+on:
+  pull_request:
+    branches: [feat/genesis-life-os]
+    paths:
+      - '.github/workflows/solana-radar-ui.yml'
+      - 'api/genesis/context.js'
+      - 'src/components/trading/ArbitrageRadarPanel.tsx'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig*.json'
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - '.github/workflows/solana-radar-ui.yml'
+      - 'api/genesis/context.js'
+      - 'src/components/trading/ArbitrageRadarPanel.tsx'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig*.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: solana-radar-ui-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: API syntax
+        run: node --check api/genesis/context.js
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
