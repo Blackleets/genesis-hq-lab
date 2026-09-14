@@ -14,6 +14,7 @@ import { requireSession } from '../_lib/sessionAuth.js';
 const FNG = 'https://api.alternative.me/fng/';
 const RADAR_STATE_KEY = 'mev_shadow_radar_public';
 const SOLANA_RADAR_SNAPSHOT_URL = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/data/solana-arbitrage-observations/data/solana-arbitrage-latest.json';
+const SOLANA_RADAR_HISTORY_URL = 'https://raw.githubusercontent.com/Blackleets/genesis-hq-lab/data/solana-arbitrage-observations/data/solana-arbitrage-history.json';
 
 function supabaseConfig() {
   const url = process.env.SUPABASE_URL?.replace(/\/+$/, '');
@@ -99,13 +100,61 @@ async function readSolanaRadarSnapshot() {
   return snapshot;
 }
 
+function isSafeSolanaSnapshot(snapshot) {
+  const observation = snapshot?.observation;
+  return snapshot?.mode === 'SHADOW'
+    && snapshot?.executionAuthority === false
+    && snapshot?.liveLocked === true
+    && (!observation || observation?.chain === 'SOLANA');
+}
+
+async function readSolanaRadarHistory() {
+  const response = await fetch(SOLANA_RADAR_HISTORY_URL, {
+    headers: { accept: 'application/json' },
+    signal: AbortSignal.timeout(5_000),
+  });
+  if (!response.ok) throw new Error(`solana_history_${response.status}`);
+
+  const rows = await response.json();
+  if (!Array.isArray(rows)) throw new Error('solana_history_invalid');
+
+  return rows
+    .filter(isSafeSolanaSnapshot)
+    .filter((row) => row?.observation)
+    .slice(-120)
+    .reverse();
+}
+
+function summarizeSolanaHistory(rows) {
+  const observations = rows.map((row) => row.observation).filter(Boolean);
+  const positiveNet = observations.filter((o) => Number(o?.economics?.netPnlUsd) > 0).length;
+  const qualified = observations.filter((o) => String(o?.status ?? '').toUpperCase() === 'QUALIFIED').length;
+  const blocked = observations.filter((o) => String(o?.status ?? '').toUpperCase() === 'BLOCKED').length;
+  const knownNet = observations
+    .map((o) => Number(o?.economics?.netPnlUsd))
+    .filter(Number.isFinite);
+  return {
+    observations: observations.length,
+    positiveNet,
+    qualified,
+    blocked,
+    theoreticalNetOpportunityUsd: knownNet.reduce((sum, value) => sum + value, 0),
+    note: 'Observed opportunity economics only; not realized account P&L.',
+  };
+}
+
 async function sendSolanaRadarView(res) {
   try {
-    const snapshot = await readSolanaRadarSnapshot();
+    const [snapshot, historyResult] = await Promise.all([
+      readSolanaRadarSnapshot(),
+      readSolanaRadarHistory().catch(() => []),
+    ]);
     return sendJson(res, 200, {
       ok: true,
       status: snapshot?.observation?.status ?? snapshot?.status ?? 'OBSERVING',
       radar: snapshot,
+      history: historyResult,
+      summary: summarizeSolanaHistory(historyResult),
       executionAuthority: false,
       liveLocked: true,
       mode: 'SHADOW',
@@ -117,6 +166,8 @@ async function sendSolanaRadarView(res) {
       status: 'unavailable',
       error: error instanceof Error ? error.message : 'solana_radar_unavailable',
       radar: null,
+      history: [],
+      summary: summarizeSolanaHistory([]),
       executionAuthority: false,
       liveLocked: true,
       mode: 'SHADOW',
