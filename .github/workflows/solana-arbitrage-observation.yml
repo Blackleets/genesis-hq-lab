@@ -1,9 +1,7 @@
 name: Solana arbitrage observation
-# canonical default-branch scheduler; offset cadence refreshed after default-branch switch
+# Manual/push fallback only. Canonical 5m scheduling now runs in Supabase pg_cron.
 
 on:
-  schedule:
-    - cron: '2-57/5 * * * *'
   workflow_dispatch:
   push:
     branches:
