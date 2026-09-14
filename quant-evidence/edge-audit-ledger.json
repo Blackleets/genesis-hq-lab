@@ -1,6 +1,6 @@
 {
   "version": "edge_audit_ledger_v3_family_budget",
-  "updatedAt": "2026-09-14T05:24:56.539Z",
+  "updatedAt": "2026-09-14T13:19:18.766Z",
   "auditedIds": [
     "opening_range_breakout:BTCUSDT:1h:LONDON:p24:ta2:sa0.75:tb8",
     "opening_range_breakout:BTCUSDT:1h:LONDON:p20:ta2:sa0.75:tb6",
@@ -26,7 +26,10 @@
     "failed_breakout:BNBUSDT:1h:ASIA:p24:ta1:sa0.75:tb8",
     "failed_breakout:BNBUSDT:1h:ASIA:p16:ta1:sa0.75:tb8",
     "opening_range_breakout:BNBUSDT:4h:ASIA:p20:ta1.5:sa0.9:tb8",
-    "opening_range_breakout:BNBUSDT:4h:ASIA:p24:ta1.5:sa0.75:tb8"
+    "opening_range_breakout:BNBUSDT:4h:ASIA:p24:ta1.5:sa0.75:tb8",
+    "trend_pullback:XRPUSDT:4h:LONDON_NY:p20:ta1.5:sa0.75:tb6",
+    "trend_pullback:XRPUSDT:4h:LONDON_NY:p16:ta1.5:sa0.75:tb8",
+    "trend_pullback:XRPUSDT:4h:LONDON_NY:p20:ta1.25:sa0.75:tb8"
   ],
   "passedCandidates": {
     "opening_range_breakout:XRPUSDT:4h:LONDON:p20:ta2.25:sa0.75:tb8": {
@@ -138,6 +141,90 @@
       "status": "PAPER_RESEARCH_CANDIDATE",
       "rejectReason": null,
       "auditedAt": "2026-09-10T05:13:53.417Z"
+    },
+    "trend_pullback:XRPUSDT:4h:LONDON_NY:p20:ta1.5:sa0.75:tb6": {
+      "id": "trend_pullback:XRPUSDT:4h:LONDON_NY:p20:ta1.5:sa0.75:tb6",
+      "hypothesisKey": "trend_pullback:XRPUSDT:4h:LONDON_NY",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 6,
+        "session": "LONDON_NY"
+      },
+      "parentVariant": "trend_pullback:XRPUSDT:4h:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "selectionScore": 67.13,
+      "holdout": {
+        "trades": 20,
+        "expectancyBps": 51.16,
+        "profitFactor": 1.805,
+        "tStat": 1.097,
+        "maxDrawdownPct": 6.27
+      },
+      "status": "PAPER_RESEARCH_CANDIDATE",
+      "rejectReason": null,
+      "auditedAt": "2026-09-14T13:19:18.762Z"
+    },
+    "trend_pullback:XRPUSDT:4h:LONDON_NY:p16:ta1.5:sa0.75:tb8": {
+      "id": "trend_pullback:XRPUSDT:4h:LONDON_NY:p16:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:XRPUSDT:4h:LONDON_NY",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 16,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "parentVariant": "trend_pullback:XRPUSDT:4h:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "selectionScore": 62.12,
+      "holdout": {
+        "trades": 20,
+        "expectancyBps": 53.01,
+        "profitFactor": 1.818,
+        "tStat": 1.128,
+        "maxDrawdownPct": 5.9
+      },
+      "status": "PAPER_RESEARCH_CANDIDATE",
+      "rejectReason": null,
+      "auditedAt": "2026-09-14T13:19:18.764Z"
+    },
+    "trend_pullback:XRPUSDT:4h:LONDON_NY:p20:ta1.25:sa0.75:tb8": {
+      "id": "trend_pullback:XRPUSDT:4h:LONDON_NY:p20:ta1.25:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:XRPUSDT:4h:LONDON_NY",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 1.25,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "parentVariant": "trend_pullback:XRPUSDT:4h:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "selectionScore": 46.41,
+      "holdout": {
+        "trades": 20,
+        "expectancyBps": 32.81,
+        "profitFactor": 1.506,
+        "tStat": 0.793,
+        "maxDrawdownPct": 6.76
+      },
+      "status": "PAPER_RESEARCH_CANDIDATE",
+      "rejectReason": null,
+      "auditedAt": "2026-09-14T13:19:18.766Z"
     }
   },
   "familyStats": {
@@ -210,6 +297,14 @@
       "reasons": {},
       "status": "PASSED",
       "updatedAt": "2026-09-10T05:13:53.417Z"
+    },
+    "trend_pullback:XRPUSDT:4h:LONDON_NY": {
+      "audits": 3,
+      "passes": 3,
+      "rejects": 0,
+      "reasons": {},
+      "status": "PASSED",
+      "updatedAt": "2026-09-14T13:19:18.766Z"
     }
   }
 }
