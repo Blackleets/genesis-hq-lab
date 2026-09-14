@@ -36,6 +36,12 @@ function validAddress(address, chain) {
     : /^0x[0-9a-fA-F]{40}$/.test(address);
 }
 
+function toEpochMs(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return NaN;
+  return numeric < 1_000_000_000_000 ? numeric * 1000 : numeric;
+}
+
 async function consumeNonce(nonce) {
   const store = await getStore();
   if (store.isDurable()) return store.take(nonceKey(nonce));
@@ -72,11 +78,14 @@ export default async function handler(req, res) {
         return sendJson(res, remote.status, remote.body);
       }
       const token = String(remote.body?.token || '');
-      const session = remote.body?.session;
-      if (!/^[0-9a-f]{64}$/.test(token) || !session?.address || !session?.expiresAt) {
+      const remoteSession = remote.body?.session;
+      const issuedAt = toEpochMs(remoteSession?.issuedAt);
+      const expiresAt = toEpochMs(remoteSession?.expiresAt);
+      if (!/^[0-9a-f]{64}$/.test(token) || !remoteSession?.address || !Number.isFinite(issuedAt) || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
         return sendJson(res, 503, { ok: false, error: 'invalid_auth_gateway_response' });
       }
-      const maxAge = Math.max(1, Number(session.expiresAt) - Math.floor(Date.now() / 1000));
+      const session = { ...remoteSession, issuedAt, expiresAt };
+      const maxAge = Math.max(1, Math.floor((expiresAt - Date.now()) / 1000));
       setSessionCookie(res, token, maxAge);
       return sendJson(res, 200, { ok: true, session });
     } catch {
@@ -142,8 +151,8 @@ export default async function handler(req, res) {
       address: chain === 'solana' ? canonicalAddress : getAddress(canonicalAddress),
       chain,
       role,
-      issuedAt: nowSeconds,
-      expiresAt: nowSeconds + SESSION_TTL_SECONDS,
+      issuedAt: nowSeconds * 1000,
+      expiresAt: (nowSeconds + SESSION_TTL_SECONDS) * 1000,
     },
   });
 }
