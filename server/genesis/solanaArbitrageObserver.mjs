@@ -5,6 +5,7 @@ import { getSolanaRiskPolicy, SolanaExecutionAdapter } from './solanaExecutionEn
 export const SOLANA_ARBITRAGE_MODE = 'SHADOW';
 export const SOLANA_EXECUTION_AUTHORITY = false;
 export const SOLANA_LIVE_LOCKED = true;
+export const SOLANA_INFRA_POLICY = Object.freeze({ tier: 'FREE_ONLY', monthlyBudgetUsd: 0, autoUpgrade: false });
 
 export const SOL_MINT = 'So11111111111111111111111111111111111111112';
 export const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
@@ -36,8 +37,17 @@ export function getSolanaArbitrageConfig(env = process.env) {
     maxSlotDrift: Math.max(0, Math.round(numberFromEnv(env.GENESIS_SOLANA_MAX_SLOT_DRIFT, 4))),
     requestTimeoutMs: Math.max(500, Math.round(numberFromEnv(env.GENESIS_SOLANA_REQUEST_TIMEOUT_MS, 5_000))),
     executionMode: String(env.GENESIS_SOLANA_EXECUTION_MODE || 'SHADOW').toUpperCase() === 'PAPER' ? 'PAPER' : 'SHADOW',
+    infraPolicy: SOLANA_INFRA_POLICY,
     riskPolicy: getSolanaRiskPolicy(env),
   };
+}
+
+export function normalizeWritableAccounts(accounts) {
+  if (!Array.isArray(accounts)) return [];
+  return [...new Set(accounts
+    .map((account) => String(account?.toBase58?.() ?? account ?? '').trim())
+    .filter((account) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(account)))]
+    .slice(0, 128);
 }
 
 function quantile(values, p) {
@@ -89,12 +99,13 @@ export async function fetchJupiterQuote({
   return { quote, latencyMs };
 }
 
-export async function fetchPriorityFeeEvidence({ config, fetchImpl = fetch }) {
+export async function fetchPriorityFeeEvidence({ config, fetchImpl = fetch, writableAccounts = [] }) {
+  const lockedWritableAccounts = normalizeWritableAccounts(writableAccounts);
   const payload = {
     jsonrpc: '2.0',
     id: 1,
     method: 'getRecentPrioritizationFees',
-    params: [[]],
+    params: [lockedWritableAccounts],
   };
   const body = await fetchJson(fetchImpl, config.solanaRpcUrl, {
     method: 'POST',
@@ -112,6 +123,8 @@ export async function fetchPriorityFeeEvidence({ config, fetchImpl = fetch }) {
   const priorityFeeLamports = Math.ceil((microLamportsPerCu * config.computeUnitLimit) / 1_000_000);
   return {
     source: 'solana_getRecentPrioritizationFees',
+    localized: lockedWritableAccounts.length > 0,
+    writableAccountCount: lockedWritableAccounts.length,
     percentile: config.priorityFeePercentile,
     microLamportsPerCu,
     computeUnitLimit: config.computeUnitLimit,
@@ -231,6 +244,7 @@ export function buildSolanaArbitrageObservation({
 
   const blockers = [];
   if (!criticalCostsKnown) blockers.push('critical_cost_unknown');
+  if (priorityFeeEvidence?.localized !== true) blockers.push('priority_fee_not_localized');
   if (slotDrift == null) blockers.push('context_slot_unknown');
   else if (slotDrift > config.maxSlotDrift) blockers.push('slot_drift');
   if (netPnlUsd != null && netPnlUsd <= 0) blockers.push('net_not_positive');
@@ -298,6 +312,7 @@ export async function observeSolanaArbitrageOnce({
   now = () => new Date(),
   transactionBuilder = null,
   transactionSimulator = null,
+  writableAccountResolver = null,
   executionAdapter = null,
   runtime = {},
 } = {}) {
@@ -366,8 +381,19 @@ export async function observeSolanaArbitrageOnce({
       slot: Number(secondLeg.quote.contextSlot) || null,
     });
 
+    let writableAccounts = [];
+    let writableAccountError = null;
+    if (typeof writableAccountResolver === 'function') {
+      try {
+        const resolved = await writableAccountResolver({ firstLeg, secondLeg, config });
+        writableAccounts = normalizeWritableAccounts(resolved?.writableAccounts ?? resolved);
+      } catch (error) {
+        writableAccountError = String(error?.message ?? error);
+      }
+    }
+
     const [priorityResult, jitoResult] = await Promise.allSettled([
-      fetchPriorityFeeEvidence({ config, fetchImpl }),
+      fetchPriorityFeeEvidence({ config, fetchImpl, writableAccounts }),
       fetchJitoTipEvidence({ config, fetchImpl }),
     ]);
 
@@ -447,6 +473,7 @@ export async function observeSolanaArbitrageOnce({
         observation,
         evidenceErrors: {
           priorityFee: priorityResult.status === 'rejected' ? String(priorityResult.reason?.message ?? priorityResult.reason) : null,
+          writableAccounts: writableAccountError,
           jitoTip: jitoResult.status === 'rejected' ? String(jitoResult.reason?.message ?? jitoResult.reason) : null,
         },
       };
@@ -505,6 +532,7 @@ export async function observeSolanaArbitrageOnce({
         observation,
         evidenceErrors: {
           priorityFee: priorityResult.status === 'rejected' ? String(priorityResult.reason?.message ?? priorityResult.reason) : null,
+          writableAccounts: writableAccountError,
           jitoTip: jitoResult.status === 'rejected' ? String(jitoResult.reason?.message ?? jitoResult.reason) : null,
         },
       };
@@ -608,6 +636,7 @@ export async function observeSolanaArbitrageOnce({
       },
       evidenceErrors: {
         priorityFee: priorityResult.status === 'rejected' ? String(priorityResult.reason?.message ?? priorityResult.reason) : null,
+        writableAccounts: writableAccountError,
         jitoTip: jitoResult.status === 'rejected' ? String(jitoResult.reason?.message ?? jitoResult.reason) : null,
       },
     };

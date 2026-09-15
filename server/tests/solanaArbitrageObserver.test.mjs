@@ -9,6 +9,7 @@ import {
   USDC_MINT,
   buildSolanaArbitrageObservation,
   getSolanaArbitrageConfig,
+  normalizeWritableAccounts,
   observeSolanaArbitrageOnce,
 } from '../genesis/solanaArbitrageObserver.mjs';
 import { SolanaExecutionAdapter, measurePaperCapture } from '../genesis/solanaExecutionEngine.mjs';
@@ -47,6 +48,11 @@ test('Solana observer is structurally read-only and LIVE locked', () => {
   assert.equal(SOLANA_LIVE_LOCKED, true);
 });
 
+test('normalizes and deduplicates writable route accounts', () => {
+  const account = '11111111111111111111111111111111';
+  assert.deepEqual(normalizeWritableAccounts([account, account, '', 'not-base58']), [account]);
+});
+
 test('builds net economics after slippage, network fees, Jito tip and failure reserve', () => {
   const firstLeg = {
     latencyMs: 20,
@@ -78,7 +84,7 @@ test('builds net economics after slippage, network fees, Jito tip and failure re
   const observation = buildSolanaArbitrageObservation({
     firstLeg,
     secondLeg,
-    priorityFeeEvidence: { priorityFeeLamports: 20_000 },
+    priorityFeeEvidence: { priorityFeeLamports: 20_000, localized: true },
     jitoTipEvidence: { tipLamports: 10_000 },
     config,
     observedAt: '2026-09-14T07:00:00.000Z',
@@ -110,7 +116,7 @@ test('missing critical cost evidence leaves net PnL unknown and blocked', () => 
   const observation = buildSolanaArbitrageObservation({
     firstLeg,
     secondLeg,
-    priorityFeeEvidence: { priorityFeeLamports: 10_000 },
+    priorityFeeEvidence: { priorityFeeLamports: 10_000, localized: true },
     jitoTipEvidence: null,
     config,
   });
@@ -160,6 +166,7 @@ test('live observer uses exact first-leg output as second-leg input and never su
     if (options.method === 'POST' && options.body) {
       const body = JSON.parse(options.body);
       assert.equal(body.method, 'getRecentPrioritizationFees');
+      assert.deepEqual(body.params, [['11111111111111111111111111111111']]);
       return new Response(JSON.stringify({
         jsonrpc: '2.0',
         result: [
@@ -192,6 +199,7 @@ test('live observer uses exact first-leg output as second-leg input and never su
     },
     fetchImpl: fakeFetch,
     now: () => new Date('2026-09-14T07:00:00Z'),
+    writableAccountResolver: async () => ['11111111111111111111111111111111'],
   });
 
   assert.equal(result.ok, true);
@@ -212,6 +220,7 @@ test('live observer uses exact first-leg output as second-leg input and never su
     config: { ...config, executionMode: 'PAPER', riskPolicy: { ...config.riskPolicy, minNetEdgeBps: 1 } },
     fetchImpl: fakeFetch,
     now: () => new Date('2026-09-14T07:00:00Z'),
+    writableAccountResolver: async () => ['11111111111111111111111111111111'],
     transactionBuilder: async ({ observation }) => ({ transaction: { route: observation.route }, minOut: observation.quotedEndUsdc }),
     transactionSimulator: async () => ({ success: true, balancesVerified: true, minOutVerified: true, unitsConsumed: 500_000 }),
     executionAdapter: new SolanaExecutionAdapter({ mode: 'PAPER', paperCapture: async ({ opportunity }) => measurePaperCapture({ opportunity, capturedOutputUsd: 25.2, actualFeesUsd: 0.01, measuredAt: '2026-09-14T07:00:01Z' }) }),
@@ -221,6 +230,19 @@ test('live observer uses exact first-leg output as second-leg input and never su
   assert.ok(paperResult.events.some((event) => event.type === 'PAPER_EXECUTED'));
   const captureEvent = paperResult.events.find((event) => event.type === 'CAPTURE_MEASURED');
   assert.ok(captureEvent); assert.ok(captureEvent.expectedNetPnlUsd > 0); assert.ok(captureEvent.capturedNetPnlUsd > 0);
+});
+
+test('global priority fee remains visible but blocks promotion when route accounts are unavailable', async () => {
+  const firstLeg = { latencyMs: 1, quote: quote({ inputMint: USDC_MINT, outputMint: SOL_MINT, inAmount: 25_000_000, outAmount: 125_000_000 }) };
+  const secondLeg = { latencyMs: 1, quote: quote({ inputMint: SOL_MINT, outputMint: USDC_MINT, inAmount: 125_000_000, outAmount: 25_500_000 }) };
+  const observation = buildSolanaArbitrageObservation({
+    firstLeg,
+    secondLeg,
+    priorityFeeEvidence: { priorityFeeLamports: 10_000, localized: false },
+    jitoTipEvidence: { tipLamports: 1_000 },
+    config,
+  });
+  assert.ok(observation.blockers.includes('priority_fee_not_localized'));
 });
 
 test('provider failures terminate in a normalized FAILED event', async () => {
