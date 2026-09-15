@@ -1,6 +1,6 @@
 {
   "version": "edge_audit_ledger_v3_family_budget",
-  "updatedAt": "2026-09-15T19:51:02.024Z",
+  "updatedAt": "2026-09-15T23:12:00.174Z",
   "auditedIds": [
     "opening_range_breakout:BTCUSDT:1h:LONDON:p24:ta2:sa0.75:tb8",
     "opening_range_breakout:BTCUSDT:1h:LONDON:p20:ta2:sa0.75:tb6",
@@ -40,7 +40,10 @@
     "trend_pullback:AVAXUSDT:4h:LONDON_NY:p20:ta1.75:sa0.75:tb8",
     "trend_pullback:SOLUSDT:1h:ASIA:p20:ta1.75:sa0.75:tb8",
     "trend_pullback:SOLUSDT:1h:ASIA:p16:ta1.5:sa0.75:tb8",
-    "failed_breakout:BTCUSDT:1h:ASIA:p30:ta1:sa0.75:tb8"
+    "failed_breakout:BTCUSDT:1h:ASIA:p30:ta1:sa0.75:tb8",
+    "trend_pullback:SOLUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb6",
+    "failed_breakout:BTCUSDT:1h:ASIA:p34:ta1:sa0.75:tb6",
+    "trend_pullback:DOGEUSDT:1h:LONDON_NY:p20:ta2:sa0.75:tb6"
   ],
   "passedCandidates": {
     "opening_range_breakout:XRPUSDT:4h:LONDON:p20:ta2.25:sa0.75:tb8": {
@@ -432,24 +435,35 @@
       "updatedAt": "2026-09-15T08:47:42.125Z"
     },
     "trend_pullback:SOLUSDT:1h:ASIA": {
+      "audits": 3,
+      "passes": 0,
+      "rejects": 3,
+      "reasons": {
+        "NEGATIVE_HOLDOUT_EXPECTANCY": 3
+      },
+      "status": "AUDIT_BUDGET_EXHAUSTED",
+      "updatedAt": "2026-09-15T23:12:00.167Z"
+    },
+    "failed_breakout:BTCUSDT:1h:ASIA": {
       "audits": 2,
       "passes": 0,
       "rejects": 2,
       "reasons": {
-        "NEGATIVE_HOLDOUT_EXPECTANCY": 2
+        "NEGATIVE_HOLDOUT_EXPECTANCY": 1,
+        "WEAK_HOLDOUT_PROFIT_FACTOR": 1
       },
       "status": "OPEN",
-      "updatedAt": "2026-09-15T19:51:02.018Z"
+      "updatedAt": "2026-09-15T23:12:00.171Z"
     },
-    "failed_breakout:BTCUSDT:1h:ASIA": {
+    "trend_pullback:DOGEUSDT:1h:LONDON_NY": {
       "audits": 1,
       "passes": 0,
       "rejects": 1,
       "reasons": {
-        "NEGATIVE_HOLDOUT_EXPECTANCY": 1
+        "LOW_HOLDOUT_TSTAT": 1
       },
       "status": "OPEN",
-      "updatedAt": "2026-09-15T19:51:02.023Z"
+      "updatedAt": "2026-09-15T23:12:00.173Z"
     }
   }
 }

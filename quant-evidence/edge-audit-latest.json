@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-15T19:51:02.024Z",
+  "completedAt": "2026-09-15T23:12:00.174Z",
   "methodology": {
     "oneShot": true,
     "holdoutStart": 0.8,
@@ -22,7 +22,7 @@
     "familyAuditBudget": true,
     "historyRebuild": true
   },
-  "sourceAdaptiveCompletedAt": "2026-09-15T19:50:57.430Z",
+  "sourceAdaptiveCompletedAt": "2026-09-15T23:11:53.560Z",
   "newAudits": 3,
   "passed": 0,
   "totalPassedRegistered": 10,
@@ -30,12 +30,13 @@
     "opening_range_breakout:ETHUSDT:4h:NY",
     "opening_range_breakout:BNBUSDT:4h:NY",
     "volatility_squeeze:SOLUSDT:4h:NY",
-    "volatility_squeeze:SOLUSDT:4h:ASIA"
+    "volatility_squeeze:SOLUSDT:4h:ASIA",
+    "trend_pullback:SOLUSDT:1h:ASIA"
   ],
   "verdict": "AUDIT_REJECTED",
   "results": [
     {
-      "id": "trend_pullback:SOLUSDT:1h:ASIA:p20:ta1.75:sa0.75:tb8",
+      "id": "trend_pullback:SOLUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb6",
       "hypothesisKey": "trend_pullback:SOLUSDT:1h:ASIA",
       "market": {
         "pair": "SOLUSDT",
@@ -44,54 +45,26 @@
       "spec": {
         "family": "trend_pullback",
         "period": 20,
-        "targetAtr": 1.75,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "parentVariant": "trend_pullback:SOLUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8",
-      "selectionScore": 53.39,
-      "holdout": {
-        "trades": 24,
-        "expectancyBps": -31.37,
-        "profitFactor": 0.413,
-        "tStat": -1.885,
-        "maxDrawdownPct": 9.62
-      },
-      "status": "AUDIT_REJECTED",
-      "rejectReason": "NEGATIVE_HOLDOUT_EXPECTANCY",
-      "auditedAt": "2026-09-15T19:51:02.015Z"
-    },
-    {
-      "id": "trend_pullback:SOLUSDT:1h:ASIA:p16:ta1.5:sa0.75:tb8",
-      "hypothesisKey": "trend_pullback:SOLUSDT:1h:ASIA",
-      "market": {
-        "pair": "SOLUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "trend_pullback",
-        "period": 16,
         "targetAtr": 1.5,
         "stopAtr": 0.75,
-        "timeoutBars": 8,
+        "timeoutBars": 6,
         "session": "ASIA"
       },
       "parentVariant": "trend_pullback:SOLUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8",
-      "selectionScore": 41.21,
+      "selectionScore": 39.32,
       "holdout": {
         "trades": 24,
-        "expectancyBps": -27.15,
-        "profitFactor": 0.464,
-        "tStat": -1.694,
-        "maxDrawdownPct": 8.35
+        "expectancyBps": -32.95,
+        "profitFactor": 0.313,
+        "tStat": -2.591,
+        "maxDrawdownPct": 9.75
       },
       "status": "AUDIT_REJECTED",
       "rejectReason": "NEGATIVE_HOLDOUT_EXPECTANCY",
-      "auditedAt": "2026-09-15T19:51:02.018Z"
+      "auditedAt": "2026-09-15T23:12:00.167Z"
     },
     {
-      "id": "failed_breakout:BTCUSDT:1h:ASIA:p30:ta1:sa0.75:tb8",
+      "id": "failed_breakout:BTCUSDT:1h:ASIA:p34:ta1:sa0.75:tb6",
       "hypothesisKey": "failed_breakout:BTCUSDT:1h:ASIA",
       "market": {
         "pair": "BTCUSDT",
@@ -99,24 +72,52 @@
       },
       "spec": {
         "family": "failed_breakout",
-        "period": 30,
+        "period": 34,
         "targetAtr": 1,
         "stopAtr": 0.75,
-        "timeoutBars": 8,
+        "timeoutBars": 6,
         "session": "ASIA"
       },
       "parentVariant": "failed_breakout:BTCUSDT:1h:ASIA:p34:ta1:sa0.75:tb8",
-      "selectionScore": 40.1,
+      "selectionScore": 39.26,
       "holdout": {
         "trades": 12,
-        "expectancyBps": -2.3,
-        "profitFactor": 0.918,
-        "tStat": -0.13,
-        "maxDrawdownPct": 1.84
+        "expectancyBps": 1.85,
+        "profitFactor": 1.079,
+        "tStat": 0.11,
+        "maxDrawdownPct": 1.29
       },
       "status": "AUDIT_REJECTED",
-      "rejectReason": "NEGATIVE_HOLDOUT_EXPECTANCY",
-      "auditedAt": "2026-09-15T19:51:02.023Z"
+      "rejectReason": "WEAK_HOLDOUT_PROFIT_FACTOR",
+      "auditedAt": "2026-09-15T23:12:00.171Z"
+    },
+    {
+      "id": "trend_pullback:DOGEUSDT:1h:LONDON_NY:p20:ta2:sa0.75:tb6",
+      "hypothesisKey": "trend_pullback:DOGEUSDT:1h:LONDON_NY",
+      "market": {
+        "pair": "DOGEUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 6,
+        "session": "LONDON_NY"
+      },
+      "parentVariant": "trend_pullback:DOGEUSDT:1h:LONDON_NY:p20:ta2:sa0.75:tb8",
+      "selectionScore": 37.9,
+      "holdout": {
+        "trades": 14,
+        "expectancyBps": 7.8,
+        "profitFactor": 1.2,
+        "tStat": 0.303,
+        "maxDrawdownPct": 2.19
+      },
+      "status": "AUDIT_REJECTED",
+      "rejectReason": "LOW_HOLDOUT_TSTAT",
+      "auditedAt": "2026-09-15T23:12:00.173Z"
     }
   ]
 }
