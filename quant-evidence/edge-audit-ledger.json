@@ -1,6 +1,6 @@
 {
   "version": "edge_audit_ledger_v3_family_budget",
-  "updatedAt": "2026-09-15T08:41:36.975Z",
+  "updatedAt": "2026-09-15T08:45:05.873Z",
   "auditedIds": [
     "opening_range_breakout:BTCUSDT:1h:LONDON:p24:ta2:sa0.75:tb8",
     "opening_range_breakout:BTCUSDT:1h:LONDON:p20:ta2:sa0.75:tb6",
@@ -32,7 +32,10 @@
     "trend_pullback:XRPUSDT:4h:LONDON_NY:p20:ta1.25:sa0.75:tb8",
     "volatility_squeeze:SOLUSDT:4h:ASIA:p34:ta1.75:sa0.75:tb8",
     "volatility_squeeze:SOLUSDT:4h:ASIA:p34:ta2:sa0.75:tb6",
-    "volatility_squeeze:SOLUSDT:4h:ASIA:p30:ta2:sa0.75:tb8"
+    "volatility_squeeze:SOLUSDT:4h:ASIA:p30:ta2:sa0.75:tb8",
+    "failed_breakout:AVAXUSDT:1h:ASIA:p30:ta1.5:sa0.75:tb8",
+    "failed_breakout:AVAXUSDT:1h:ASIA:p34:ta1.75:sa0.75:tb8",
+    "failed_breakout:AVAXUSDT:1h:ASIA:p34:ta1.25:sa0.75:tb8"
   ],
   "passedCandidates": {
     "opening_range_breakout:XRPUSDT:4h:LONDON:p20:ta2.25:sa0.75:tb8": {
@@ -228,6 +231,62 @@
       "status": "PAPER_RESEARCH_CANDIDATE",
       "rejectReason": null,
       "auditedAt": "2026-09-14T13:19:18.766Z"
+    },
+    "failed_breakout:AVAXUSDT:1h:ASIA:p30:ta1.5:sa0.75:tb8": {
+      "id": "failed_breakout:AVAXUSDT:1h:ASIA:p30:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "failed_breakout:AVAXUSDT:1h:ASIA",
+      "market": {
+        "pair": "AVAXUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 30,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "parentVariant": "failed_breakout:AVAXUSDT:1h:ASIA:p34:ta1.5:sa0.75:tb8",
+      "selectionScore": 176.54,
+      "holdout": {
+        "trades": 12,
+        "expectancyBps": 39.52,
+        "profitFactor": 2.009,
+        "tStat": 0.871,
+        "maxDrawdownPct": 1.46
+      },
+      "status": "PAPER_RESEARCH_CANDIDATE",
+      "rejectReason": null,
+      "auditedAt": "2026-09-15T08:45:05.864Z"
+    },
+    "failed_breakout:AVAXUSDT:1h:ASIA:p34:ta1.75:sa0.75:tb8": {
+      "id": "failed_breakout:AVAXUSDT:1h:ASIA:p34:ta1.75:sa0.75:tb8",
+      "hypothesisKey": "failed_breakout:AVAXUSDT:1h:ASIA",
+      "market": {
+        "pair": "AVAXUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 34,
+        "targetAtr": 1.75,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "parentVariant": "failed_breakout:AVAXUSDT:1h:ASIA:p34:ta1.5:sa0.75:tb8",
+      "selectionScore": 123,
+      "holdout": {
+        "trades": 13,
+        "expectancyBps": 27.85,
+        "profitFactor": 1.733,
+        "tStat": 0.797,
+        "maxDrawdownPct": 1.46
+      },
+      "status": "PAPER_RESEARCH_CANDIDATE",
+      "rejectReason": null,
+      "auditedAt": "2026-09-15T08:45:05.869Z"
     }
   },
   "familyStats": {
@@ -318,6 +377,16 @@
       },
       "status": "AUDIT_BUDGET_EXHAUSTED",
       "updatedAt": "2026-09-15T08:41:36.975Z"
+    },
+    "failed_breakout:AVAXUSDT:1h:ASIA": {
+      "audits": 3,
+      "passes": 2,
+      "rejects": 1,
+      "reasons": {
+        "LOW_HOLDOUT_TSTAT": 1
+      },
+      "status": "PASSED",
+      "updatedAt": "2026-09-15T08:45:05.873Z"
     }
   }
 }
