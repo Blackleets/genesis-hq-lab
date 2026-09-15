@@ -64,6 +64,10 @@ jobs:
           deploy_fn() {
             local slug="$1"
             local file="supabase/functions/$slug/index.ts"
+            if [ ! -f "$file" ]; then
+              echo "::warning::Skipping $slug because $file is not present"
+              return 0
+            fi
             echo "→ deploying $slug"
             BODY=$(python3 -c "import json,sys; print(json.dumps(open('$file').read()))")
             # PATCH first (update existing), fall back to POST (create new)
