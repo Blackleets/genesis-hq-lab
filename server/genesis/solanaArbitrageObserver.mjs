@@ -1,6 +1,7 @@
 import { pathToFileURL } from 'node:url';
 import { createSolanaEvent } from './solanaEventModel.mjs';
 import { getSolanaRiskPolicy, SolanaExecutionAdapter } from './solanaExecutionEngine.mjs';
+import { buildUnsignedAtomicRoundTrip, simulateUnsignedAtomicRoundTrip } from './solanaAtomicShadowSimulator.mjs';
 
 export const SOLANA_ARBITRAGE_MODE = 'SHADOW';
 export const SOLANA_EXECUTION_AUTHORITY = false;
@@ -150,7 +151,7 @@ export async function resolveJupiterWritableAccounts({ firstLeg, secondLeg, conf
     ...extractWritableAccountsFromJupiterInstructions(second),
   ]);
   if (!writableAccounts.length) throw new Error('jupiter_writable_accounts_missing');
-  return { writableAccounts, source: 'jupiter_swap_instructions' };
+  return { writableAccounts, instructionSets: { first, second }, source: 'jupiter_swap_instructions' };
 }
 
 export async function fetchPriorityFeeEvidence({ config, fetchImpl = fetch, writableAccounts = [] }) {
@@ -436,6 +437,7 @@ export async function observeSolanaArbitrageOnce({
     });
 
     let writableAccounts = [];
+    let instructionSets = null;
     let writableAccountError = null;
     const accountResolver = typeof writableAccountResolver === 'function'
       ? writableAccountResolver
@@ -444,6 +446,7 @@ export async function observeSolanaArbitrageOnce({
       try {
         const resolved = await accountResolver({ firstLeg, secondLeg, config });
         writableAccounts = normalizeWritableAccounts(resolved?.writableAccounts ?? resolved);
+        instructionSets = resolved?.instructionSets ?? null;
       } catch (error) {
         writableAccountError = String(error?.message ?? error);
       }
@@ -566,7 +569,13 @@ export async function observeSolanaArbitrageOnce({
       mints: [USDC_MINT, SOL_MINT],
     });
 
-    if (typeof transactionBuilder !== 'function' || typeof transactionSimulator !== 'function') {
+    const atomicBuilder = typeof transactionBuilder === 'function'
+      ? transactionBuilder
+      : (config.observerPublicKey ? (input) => buildUnsignedAtomicRoundTrip({ ...input, instructionSets: input.instructionSets ?? instructionSets, fetchImpl, usdcMint: USDC_MINT }) : null);
+    const atomicSimulator = typeof transactionSimulator === 'function'
+      ? transactionSimulator
+      : (config.observerPublicKey ? (input) => simulateUnsignedAtomicRoundTrip({ ...input, fetchImpl }) : null);
+    if (typeof atomicBuilder !== 'function' || typeof atomicSimulator !== 'function') {
       pushEvent('REJECTED', {
         route,
         inputUsdc: observation.inputUsdc,
@@ -606,8 +615,16 @@ export async function observeSolanaArbitrageOnce({
       config,
       observedAt: now().toISOString(),
     });
-    const built = await transactionBuilder({ firstLeg: freshFirstLeg, secondLeg: freshSecondLeg, observation: freshObservation, config });
-    const simulation = await transactionSimulator({ transaction: built?.transaction, minOut: built?.minOut, observation: freshObservation, config });
+    const freshInstructionEvidence = typeof transactionBuilder === 'function'
+      ? { instructionSets: null }
+      : await resolveJupiterWritableAccounts({ firstLeg: freshFirstLeg, secondLeg: freshSecondLeg, config, fetchImpl });
+    const built = await atomicBuilder({ firstLeg: freshFirstLeg, secondLeg: freshSecondLeg, instructionSets: freshInstructionEvidence.instructionSets, observation: freshObservation, config });
+    const simulation = await atomicSimulator({
+      transaction: typeof transactionSimulator === 'function' ? built?.transaction : built,
+      minOut: built?.minOut,
+      observation: freshObservation,
+      config,
+    });
     const simulationResult = {
       attempted: true,
       success: simulation?.success === true,
