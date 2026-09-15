@@ -24,6 +24,7 @@ env:
   GENESIS_RUNNER_TOKEN: ${{ secrets.GENESIS_RUNNER_TOKEN }}
   TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
   TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+  GENESIS_SOLANA_OBSERVER_PUBLIC_KEY: '2V7qrcSqH59hG4BgQdZonefx27uUNyyXCfozDzi1w5zL'
 
 jobs:
   deploy:
@@ -44,6 +45,9 @@ jobs:
           fi
           if [ -n "$TELEGRAM_CHAT_ID" ]; then
             PAYLOAD=$(echo "$PAYLOAD" | python3 -c "import json,sys; d=json.load(sys.stdin); d.append({'name':'TELEGRAM_CHAT_ID','value':'$TELEGRAM_CHAT_ID'}); print(json.dumps(d))")
+          fi
+          if [ -n "$GENESIS_SOLANA_OBSERVER_PUBLIC_KEY" ]; then
+            PAYLOAD=$(echo "$PAYLOAD" | python3 -c "import json,sys; d=json.load(sys.stdin); d.append({'name':'GENESIS_SOLANA_OBSERVER_PUBLIC_KEY','value':'$GENESIS_SOLANA_OBSERVER_PUBLIC_KEY'}); print(json.dumps(d))")
           fi
           if [ "$PAYLOAD" != "[]" ]; then
             curl -sf -X POST \
@@ -82,6 +86,7 @@ jobs:
           deploy_fn genesis-runner
           deploy_fn genesis-fallback
           deploy_fn genesis-alerts
+          deploy_fn genesis-solana-observer
 
       - name: Aviso si falta el token
         if: env.SUPABASE_ACCESS_TOKEN == ''
