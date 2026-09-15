@@ -27,6 +27,8 @@ jobs:
     timeout-minutes: 5
     env:
       JUPITER_API_KEY: ${{ secrets.JUPITER_API_KEY }}
+      # Public simulation identity only. Never place a seed phrase or private key here.
+      GENESIS_SOLANA_OBSERVER_PUBLIC_KEY: '2V7qrcSqH59hG4BgQdZonefx27uUNyyXCfozDzi1w5zL'
     steps:
       - uses: actions/checkout@v4
         with:
