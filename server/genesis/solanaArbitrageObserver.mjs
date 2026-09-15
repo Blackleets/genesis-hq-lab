@@ -20,10 +20,14 @@ function numberFromEnv(value, fallback) {
 
 export function getSolanaArbitrageConfig(env = process.env) {
   const apiKey = env.JUPITER_API_KEY || env.GENESIS_JUPITER_API_KEY || null;
+  const jupiterQuoteUrl = env.GENESIS_SOLANA_JUPITER_QUOTE_URL
+    || (apiKey ? 'https://api.jup.ag/swap/v1/quote' : 'https://lite-api.jup.ag/swap/v1/quote');
   return {
     jupiterApiKey: apiKey,
-    jupiterQuoteUrl: env.GENESIS_SOLANA_JUPITER_QUOTE_URL
-      || (apiKey ? 'https://api.jup.ag/swap/v1/quote' : 'https://lite-api.jup.ag/swap/v1/quote'),
+    jupiterQuoteUrl,
+    jupiterSwapInstructionsUrl: env.GENESIS_SOLANA_JUPITER_SWAP_INSTRUCTIONS_URL
+      || jupiterQuoteUrl.replace(/\/quote(?:\?.*)?$/, '/swap-instructions'),
+    observerPublicKey: normalizeWritableAccounts([env.GENESIS_SOLANA_OBSERVER_PUBLIC_KEY])[0] ?? null,
     solanaRpcUrl: env.GENESIS_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com',
     jitoTipFloorUrl: env.GENESIS_JITO_TIP_FLOOR_URL || 'https://bundles.jito.wtf/api/v1/bundles/tip_floor',
     notionalUsdc: Math.max(1, numberFromEnv(env.GENESIS_SOLANA_ARB_NOTIONAL_USDC, 25)),
@@ -97,6 +101,56 @@ export async function fetchJupiterQuote({
   }
 
   return { quote, latencyMs };
+}
+
+function instructionGroups(body) {
+  return [
+    ...(body?.computeBudgetInstructions ?? []),
+    ...(body?.setupInstructions ?? []),
+    body?.swapInstruction,
+    body?.cleanupInstruction,
+    ...(body?.otherInstructions ?? []),
+  ].filter(Boolean);
+}
+
+export function extractWritableAccountsFromJupiterInstructions(body) {
+  return normalizeWritableAccounts(instructionGroups(body)
+    .flatMap((instruction) => instruction?.accounts ?? [])
+    .filter((account) => account?.isWritable === true)
+    .map((account) => account.pubkey));
+}
+
+export async function fetchJupiterSwapInstructions({ quote, config, fetchImpl = fetch }) {
+  if (!config.observerPublicKey) throw new Error('observer_public_key_not_configured');
+  const headers = { 'content-type': 'application/json' };
+  if (config.jupiterApiKey) headers['x-api-key'] = config.jupiterApiKey;
+  const body = await fetchJson(fetchImpl, config.jupiterSwapInstructionsUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      userPublicKey: config.observerPublicKey,
+      quoteResponse: quote,
+      wrapAndUnwrapSol: false,
+      useSharedAccounts: true,
+      dynamicComputeUnitLimit: false,
+      skipUserAccountsRpcCalls: true,
+    }),
+  }, config.requestTimeoutMs);
+  if (!body?.swapInstruction) throw new Error('invalid_jupiter_swap_instructions');
+  return body;
+}
+
+export async function resolveJupiterWritableAccounts({ firstLeg, secondLeg, config, fetchImpl = fetch }) {
+  const [first, second] = await Promise.all([
+    fetchJupiterSwapInstructions({ quote: firstLeg.quote, config, fetchImpl }),
+    fetchJupiterSwapInstructions({ quote: secondLeg.quote, config, fetchImpl }),
+  ]);
+  const writableAccounts = normalizeWritableAccounts([
+    ...extractWritableAccountsFromJupiterInstructions(first),
+    ...extractWritableAccountsFromJupiterInstructions(second),
+  ]);
+  if (!writableAccounts.length) throw new Error('jupiter_writable_accounts_missing');
+  return { writableAccounts, source: 'jupiter_swap_instructions' };
 }
 
 export async function fetchPriorityFeeEvidence({ config, fetchImpl = fetch, writableAccounts = [] }) {
@@ -383,9 +437,12 @@ export async function observeSolanaArbitrageOnce({
 
     let writableAccounts = [];
     let writableAccountError = null;
-    if (typeof writableAccountResolver === 'function') {
+    const accountResolver = typeof writableAccountResolver === 'function'
+      ? writableAccountResolver
+      : (config.observerPublicKey ? (input) => resolveJupiterWritableAccounts({ ...input, fetchImpl }) : null);
+    if (accountResolver) {
       try {
-        const resolved = await writableAccountResolver({ firstLeg, secondLeg, config });
+        const resolved = await accountResolver({ firstLeg, secondLeg, config });
         writableAccounts = normalizeWritableAccounts(resolved?.writableAccounts ?? resolved);
       } catch (error) {
         writableAccountError = String(error?.message ?? error);

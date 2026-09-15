@@ -8,6 +8,8 @@ import {
   SOL_MINT,
   USDC_MINT,
   buildSolanaArbitrageObservation,
+  extractWritableAccountsFromJupiterInstructions,
+  fetchJupiterSwapInstructions,
   getSolanaArbitrageConfig,
   normalizeWritableAccounts,
   observeSolanaArbitrageOnce,
@@ -51,6 +53,40 @@ test('Solana observer is structurally read-only and LIVE locked', () => {
 test('normalizes and deduplicates writable route accounts', () => {
   const account = '11111111111111111111111111111111';
   assert.deepEqual(normalizeWritableAccounts([account, account, '', 'not-base58']), [account]);
+});
+
+test('extracts only writable accounts from every Jupiter instruction group', () => {
+  const writable = '11111111111111111111111111111111';
+  const readonly = 'So11111111111111111111111111111111111111112';
+  const body = {
+    setupInstructions: [{ accounts: [{ pubkey: writable, isWritable: true }, { pubkey: readonly, isWritable: false }] }],
+    swapInstruction: { accounts: [{ pubkey: writable, isWritable: true }] },
+    cleanupInstruction: null,
+  };
+  assert.deepEqual(extractWritableAccountsFromJupiterInstructions(body), [writable]);
+});
+
+test('Jupiter instruction request uses a public observer identity and never asks for signing', async () => {
+  const calls = [];
+  const localConfig = {
+    ...config,
+    observerPublicKey: '11111111111111111111111111111111',
+    jupiterSwapInstructionsUrl: 'https://example.test/swap/v1/swap-instructions',
+  };
+  const result = await fetchJupiterSwapInstructions({
+    quote: quote({ inputMint: USDC_MINT, outputMint: SOL_MINT, inAmount: 25_000_000, outAmount: 125_000_000 }),
+    config: localConfig,
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      return new Response(JSON.stringify({ swapInstruction: { accounts: [] } }), { status: 200 });
+    },
+  });
+  const payload = JSON.parse(calls[0].options.body);
+  assert.ok(result.swapInstruction);
+  assert.equal(payload.userPublicKey, localConfig.observerPublicKey);
+  assert.equal(payload.wrapAndUnwrapSol, false);
+  assert.equal(payload.skipUserAccountsRpcCalls, true);
+  assert.equal(JSON.stringify(payload).includes('privateKey'), false);
 });
 
 test('builds net economics after slippage, network fees, Jito tip and failure reserve', () => {
@@ -209,7 +245,7 @@ test('live observer uses exact first-leg output as second-leg input and never su
   assert.deepEqual(result.observation.venues.firstLeg, ['Meteora DLMM']);
   assert.deepEqual(result.observation.venues.secondLeg, ['Orca Whirlpool']);
   assert.ok(result.observation.economics.netPnlUsd !== null);
-  assert.equal(seen.some((request) => String(request.url).includes('/swap/v1/swap')), false);
+  assert.equal(seen.some((request) => new URL(String(request.url)).pathname === '/swap/v1/swap'), false);
   assert.equal(seen.some((request) => String(request.url).includes('sendTransaction')), false);
   assert.equal(seen.some((request) => String(request.url).includes('sendBundle')), false);
   assert.ok(result.events.some((event) => event.type === 'OPPORTUNITY_DETECTED'));
