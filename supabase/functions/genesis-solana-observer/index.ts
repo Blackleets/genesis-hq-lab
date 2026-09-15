@@ -6,6 +6,7 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("S
 const RUNNER_TOKEN_SHA256 = "e9f02987e836a6eaf8ef8d7afaed805580cd31264aef5ed86fc3ebb756c59d91";
 
 const JUPITER_QUOTE_URL = "https://lite-api.jup.ag/swap/v1/quote";
+const JUPITER_SWAP_INSTRUCTIONS_URL = "https://lite-api.jup.ag/swap/v1/swap-instructions";
 const SOLANA_RPC_URL = "https://api.mainnet-beta.solana.com";
 const JITO_TIP_URL = "https://bundles.jito.wtf/api/v1/bundles/tip_floor";
 const TELEGRAM_API = "https://api.telegram.org";
@@ -25,6 +26,7 @@ const PRIORITY_FEE_PERCENTILE = 0.75;
 const MAX_SLOT_DRIFT = 4;
 const REQUEST_TIMEOUT_MS = 5_000;
 const PAPER_CAPTURE_DELAY_MS = 1_500;
+const OBSERVER_PUBLIC_KEY = Deno.env.get("GENESIS_SOLANA_OBSERVER_PUBLIC_KEY") || "";
 
 type Db = ReturnType<typeof createClient>;
 
@@ -56,6 +58,8 @@ type Economics = {
     failureReserveUsd: number | null;
   };
   evidenceErrors: { priorityFee: string | null; jitoTip: string | null };
+  priorityFeeEvidence: Record<string, unknown> | null;
+  atomicPreflight: Record<string, unknown>;
 };
 
 function json(status: number, body: unknown) {
@@ -114,16 +118,78 @@ async function jupiterQuote(inputMint: string, outputMint: string, amountRaw: bi
   return { quote, latencyMs: Date.now() - started };
 }
 
-async function priorityFeeEvidence() {
+function validPublicKey(value: unknown) {
+  return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(value ?? ""));
+}
+
+function instructionList(body: any) {
+  return [
+    ...(body?.computeBudgetInstructions ?? []),
+    ...(body?.setupInstructions ?? []),
+    body?.swapInstruction,
+    body?.cleanupInstruction,
+    ...(body?.otherInstructions ?? []),
+  ].filter(Boolean);
+}
+
+function validateInstruction(value: any) {
+  return validPublicKey(value?.programId)
+    && typeof value?.data === "string"
+    && Array.isArray(value?.accounts)
+    && value.accounts.every((account: any) => validPublicKey(account?.pubkey));
+}
+
+async function jupiterSwapInstructions(quote: any) {
+  if (!validPublicKey(OBSERVER_PUBLIC_KEY)) throw new Error("observer_public_key_not_configured");
+  const body = await fetchJson(JUPITER_SWAP_INSTRUCTIONS_URL, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      userPublicKey: OBSERVER_PUBLIC_KEY,
+      quoteResponse: quote,
+      wrapAndUnwrapSol: false,
+      useSharedAccounts: true,
+      dynamicComputeUnitLimit: false,
+      skipUserAccountsRpcCalls: true,
+    }),
+  });
+  if (!body?.swapInstruction || !instructionList(body).every(validateInstruction)) {
+    throw new Error("invalid_jupiter_swap_instructions");
+  }
+  return body;
+}
+
+function writableAccounts(...sets: any[]) {
+  return [...new Set(sets
+    .flatMap((body) => instructionList(body))
+    .flatMap((instruction) => instruction.accounts ?? [])
+    .filter((account) => account?.isWritable === true && validPublicKey(account?.pubkey))
+    .map((account) => String(account.pubkey)))]
+    .slice(0, 128);
+}
+
+async function priorityFeeEvidence(accounts: string[]) {
+  if (!accounts.length) throw new Error("route_writable_accounts_missing");
+  const started = Date.now();
   const body = await fetchJson(SOLANA_RPC_URL, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getRecentPrioritizationFees", params: [[]] }),
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getRecentPrioritizationFees", params: [accounts] }),
   });
   if (!Array.isArray(body?.result)) throw new Error("priority_fee_unavailable");
   const microLamportsPerCu = quantile(body.result.map((row: any) => Number(row?.prioritizationFee)), PRIORITY_FEE_PERCENTILE);
   if (!Number.isFinite(microLamportsPerCu)) throw new Error("priority_fee_unavailable");
-  return Math.ceil((Number(microLamportsPerCu) * COMPUTE_UNIT_LIMIT) / 1_000_000);
+  return {
+    source: "solana_getRecentPrioritizationFees",
+    localized: true,
+    writableAccountCount: accounts.length,
+    percentile: PRIORITY_FEE_PERCENTILE,
+    microLamportsPerCu: Number(microLamportsPerCu),
+    computeUnitLimit: COMPUTE_UNIT_LIMIT,
+    priorityFeeLamports: Math.ceil((Number(microLamportsPerCu) * COMPUTE_UNIT_LIMIT) / 1_000_000),
+    rpcLatencyMs: Date.now() - started,
+    rpcTier: "FREE_ONLY",
+  };
 }
 
 async function jitoTipLamports() {
@@ -328,7 +394,15 @@ async function dispatchTelegram(db: Db, event: any) {
 async function calculateEconomics(): Promise<Economics> {
   const first = await jupiterQuote(USDC_MINT, SOL_MINT, BigInt(Math.round(NOTIONAL_USDC * USDC_SCALE)));
   const second = await jupiterQuote(SOL_MINT, USDC_MINT, BigInt(first.quote.outAmount));
-  const [priority, jito] = await Promise.allSettled([priorityFeeEvidence(), jitoTipLamports()]);
+  const instructions = await Promise.allSettled([
+    jupiterSwapInstructions(first.quote),
+    jupiterSwapInstructions(second.quote),
+  ]);
+  const instructionSetsReady = instructions.every((result) => result.status === "fulfilled");
+  const accounts = instructionSetsReady
+    ? writableAccounts((instructions[0] as PromiseFulfilledResult<any>).value, (instructions[1] as PromiseFulfilledResult<any>).value)
+    : [];
+  const [priority, jito] = await Promise.allSettled([priorityFeeEvidence(accounts), jitoTipLamports()]);
 
   const startUsdc = Number(first.quote.inAmount) / USDC_SCALE;
   const solOut = Number(first.quote.outAmount) / LAMPORTS_PER_SOL;
@@ -342,7 +416,7 @@ async function calculateEconomics(): Promise<Economics> {
   const latencyDegradationUsd = startUsdc * (LATENCY_DEGRADATION_BPS / 10_000);
   const adverseSelectionReserveUsd = startUsdc * (ADVERSE_SELECTION_BPS / 10_000);
   const baseFeeUsd = usdFromLamports(BASE_FEE_LAMPORTS, solUsd);
-  const priorityFeeUsd = usdFromLamports(priority.status === "fulfilled" ? priority.value : null, solUsd);
+  const priorityFeeUsd = usdFromLamports(priority.status === "fulfilled" ? priority.value.priorityFeeLamports : null, solUsd);
   const jitoTipUsd = usdFromLamports(jito.status === "fulfilled" ? jito.value : null, solUsd);
   const criticalCostsKnown = [baseFeeUsd, priorityFeeUsd, jitoTipUsd].every((v) => Number.isFinite(v));
   const failureReserveUsd = criticalCostsKnown ? (Number(baseFeeUsd) + Number(priorityFeeUsd) + Number(jitoTipUsd)) * FAILURE_PROBABILITY_RESERVE : null;
@@ -355,6 +429,7 @@ async function calculateEconomics(): Promise<Economics> {
   const secondSlot = Number(second.quote.contextSlot);
   const slotDrift = Number.isFinite(firstSlot) && Number.isFinite(secondSlot) ? Math.abs(secondSlot - firstSlot) : null;
   const blockers: string[] = [];
+  if (!instructionSetsReady) blockers.push("atomic_plan_missing");
   if (!criticalCostsKnown) blockers.push("critical_cost_unknown");
   if (slotDrift == null) blockers.push("context_slot_unknown");
   else if (slotDrift > MAX_SLOT_DRIFT) blockers.push("slot_drift");
@@ -393,6 +468,20 @@ async function calculateEconomics(): Promise<Economics> {
     evidenceErrors: {
       priorityFee: priority.status === "rejected" ? String((priority.reason as any)?.message ?? priority.reason) : null,
       jitoTip: jito.status === "rejected" ? String((jito.reason as any)?.message ?? jito.reason) : null,
+    },
+    priorityFeeEvidence: priority.status === "fulfilled" ? priority.value : null,
+    atomicPreflight: {
+      version: "solana-atomic-plan-v1",
+      validated: instructionSetsReady && accounts.length > 0,
+      instructionSets: instructionSetsReady ? 2 : 0,
+      writableAccountCount: accounts.length,
+      balanceRequired: false,
+      transactionSimulationAttempted: false,
+      simulationReason: "unfunded_shadow_observer",
+      signs: false,
+      broadcasts: false,
+      executionAuthority: false,
+      liveLocked: true,
     },
   };
 }
@@ -582,6 +671,8 @@ async function scanOnce() {
     slot: economics.slot,
     slotDrift: economics.slotDrift,
     estimatedCosts: economics.costs,
+    priorityFeeEvidence: economics.priorityFeeEvidence,
+    atomicPreflight: economics.atomicPreflight,
   };
 
   await persistObservation(db, event);
