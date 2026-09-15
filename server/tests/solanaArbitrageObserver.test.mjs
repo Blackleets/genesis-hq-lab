@@ -8,7 +8,10 @@ import {
   SOL_MINT,
   USDC_MINT,
   buildSolanaArbitrageObservation,
+  extractWritableAccountsFromJupiterInstructions,
+  fetchJupiterSwapInstructions,
   getSolanaArbitrageConfig,
+  normalizeWritableAccounts,
   observeSolanaArbitrageOnce,
 } from '../genesis/solanaArbitrageObserver.mjs';
 import { SolanaExecutionAdapter, measurePaperCapture } from '../genesis/solanaExecutionEngine.mjs';
@@ -47,6 +50,45 @@ test('Solana observer is structurally read-only and LIVE locked', () => {
   assert.equal(SOLANA_LIVE_LOCKED, true);
 });
 
+test('normalizes and deduplicates writable route accounts', () => {
+  const account = '11111111111111111111111111111111';
+  assert.deepEqual(normalizeWritableAccounts([account, account, '', 'not-base58']), [account]);
+});
+
+test('extracts only writable accounts from every Jupiter instruction group', () => {
+  const writable = '11111111111111111111111111111111';
+  const readonly = 'So11111111111111111111111111111111111111112';
+  const body = {
+    setupInstructions: [{ accounts: [{ pubkey: writable, isWritable: true }, { pubkey: readonly, isWritable: false }] }],
+    swapInstruction: { accounts: [{ pubkey: writable, isWritable: true }] },
+    cleanupInstruction: null,
+  };
+  assert.deepEqual(extractWritableAccountsFromJupiterInstructions(body), [writable]);
+});
+
+test('Jupiter instruction request uses a public observer identity and never asks for signing', async () => {
+  const calls = [];
+  const localConfig = {
+    ...config,
+    observerPublicKey: '11111111111111111111111111111111',
+    jupiterSwapInstructionsUrl: 'https://example.test/swap/v1/swap-instructions',
+  };
+  const result = await fetchJupiterSwapInstructions({
+    quote: quote({ inputMint: USDC_MINT, outputMint: SOL_MINT, inAmount: 25_000_000, outAmount: 125_000_000 }),
+    config: localConfig,
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      return new Response(JSON.stringify({ swapInstruction: { accounts: [] } }), { status: 200 });
+    },
+  });
+  const payload = JSON.parse(calls[0].options.body);
+  assert.ok(result.swapInstruction);
+  assert.equal(payload.userPublicKey, localConfig.observerPublicKey);
+  assert.equal(payload.wrapAndUnwrapSol, false);
+  assert.equal(payload.skipUserAccountsRpcCalls, true);
+  assert.equal(JSON.stringify(payload).includes('privateKey'), false);
+});
+
 test('builds net economics after slippage, network fees, Jito tip and failure reserve', () => {
   const firstLeg = {
     latencyMs: 20,
@@ -78,7 +120,7 @@ test('builds net economics after slippage, network fees, Jito tip and failure re
   const observation = buildSolanaArbitrageObservation({
     firstLeg,
     secondLeg,
-    priorityFeeEvidence: { priorityFeeLamports: 20_000 },
+    priorityFeeEvidence: { priorityFeeLamports: 20_000, localized: true },
     jitoTipEvidence: { tipLamports: 10_000 },
     config,
     observedAt: '2026-09-14T07:00:00.000Z',
@@ -110,7 +152,7 @@ test('missing critical cost evidence leaves net PnL unknown and blocked', () => 
   const observation = buildSolanaArbitrageObservation({
     firstLeg,
     secondLeg,
-    priorityFeeEvidence: { priorityFeeLamports: 10_000 },
+    priorityFeeEvidence: { priorityFeeLamports: 10_000, localized: true },
     jitoTipEvidence: null,
     config,
   });
@@ -160,6 +202,7 @@ test('live observer uses exact first-leg output as second-leg input and never su
     if (options.method === 'POST' && options.body) {
       const body = JSON.parse(options.body);
       assert.equal(body.method, 'getRecentPrioritizationFees');
+      assert.deepEqual(body.params, [['11111111111111111111111111111111']]);
       return new Response(JSON.stringify({
         jsonrpc: '2.0',
         result: [
@@ -192,6 +235,7 @@ test('live observer uses exact first-leg output as second-leg input and never su
     },
     fetchImpl: fakeFetch,
     now: () => new Date('2026-09-14T07:00:00Z'),
+    writableAccountResolver: async () => ['11111111111111111111111111111111'],
   });
 
   assert.equal(result.ok, true);
@@ -201,7 +245,7 @@ test('live observer uses exact first-leg output as second-leg input and never su
   assert.deepEqual(result.observation.venues.firstLeg, ['Meteora DLMM']);
   assert.deepEqual(result.observation.venues.secondLeg, ['Orca Whirlpool']);
   assert.ok(result.observation.economics.netPnlUsd !== null);
-  assert.equal(seen.some((request) => String(request.url).includes('/swap/v1/swap')), false);
+  assert.equal(seen.some((request) => new URL(String(request.url)).pathname === '/swap/v1/swap'), false);
   assert.equal(seen.some((request) => String(request.url).includes('sendTransaction')), false);
   assert.equal(seen.some((request) => String(request.url).includes('sendBundle')), false);
   assert.ok(result.events.some((event) => event.type === 'OPPORTUNITY_DETECTED'));
@@ -212,6 +256,7 @@ test('live observer uses exact first-leg output as second-leg input and never su
     config: { ...config, executionMode: 'PAPER', riskPolicy: { ...config.riskPolicy, minNetEdgeBps: 1 } },
     fetchImpl: fakeFetch,
     now: () => new Date('2026-09-14T07:00:00Z'),
+    writableAccountResolver: async () => ['11111111111111111111111111111111'],
     transactionBuilder: async ({ observation }) => ({ transaction: { route: observation.route }, minOut: observation.quotedEndUsdc }),
     transactionSimulator: async () => ({ success: true, balancesVerified: true, minOutVerified: true, unitsConsumed: 500_000 }),
     executionAdapter: new SolanaExecutionAdapter({ mode: 'PAPER', paperCapture: async ({ opportunity }) => measurePaperCapture({ opportunity, capturedOutputUsd: 25.2, actualFeesUsd: 0.01, measuredAt: '2026-09-14T07:00:01Z' }) }),
@@ -221,6 +266,19 @@ test('live observer uses exact first-leg output as second-leg input and never su
   assert.ok(paperResult.events.some((event) => event.type === 'PAPER_EXECUTED'));
   const captureEvent = paperResult.events.find((event) => event.type === 'CAPTURE_MEASURED');
   assert.ok(captureEvent); assert.ok(captureEvent.expectedNetPnlUsd > 0); assert.ok(captureEvent.capturedNetPnlUsd > 0);
+});
+
+test('global priority fee remains visible but blocks promotion when route accounts are unavailable', async () => {
+  const firstLeg = { latencyMs: 1, quote: quote({ inputMint: USDC_MINT, outputMint: SOL_MINT, inAmount: 25_000_000, outAmount: 125_000_000 }) };
+  const secondLeg = { latencyMs: 1, quote: quote({ inputMint: SOL_MINT, outputMint: USDC_MINT, inAmount: 125_000_000, outAmount: 25_500_000 }) };
+  const observation = buildSolanaArbitrageObservation({
+    firstLeg,
+    secondLeg,
+    priorityFeeEvidence: { priorityFeeLamports: 10_000, localized: false },
+    jitoTipEvidence: { tipLamports: 1_000 },
+    config,
+  });
+  assert.ok(observation.blockers.includes('priority_fee_not_localized'));
 });
 
 test('provider failures terminate in a normalized FAILED event', async () => {

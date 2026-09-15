@@ -147,10 +147,10 @@ test('HTTP method contract includes OPTIONS, HEAD and write methods', () => {
   for (const method of ['POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD', undefined]) assert.equal(founderResponse(method, {}, NOW).status, 405);
   assert.equal(founderResponse('GET', {}, NOW).status, 200);
 });
-test('Vercel handler sends no-store JSON and 405 + Allow for non-GET', () => {
+test('Vercel handler sends no-store JSON and 405 + Allow for non-GET', async () => {
   for (const method of ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD']) {
     const res = { headers: {}, status(n) { this.code = n; return this; }, setHeader(k, v) { this.headers[k] = v; return this; }, send(body) { this.body = body; } };
-    vercelHandler({ method }, res);
+    await vercelHandler({ method, url: '/api/genesis/founder', headers: {} }, res);
     assert.equal(res.code, method === 'GET' ? 200 : 405);
     assert.match(res.headers['Cache-Control'], /no-store/);
     if (method !== 'GET') assert.equal(res.headers.Allow, 'GET');

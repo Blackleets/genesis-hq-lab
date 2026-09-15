@@ -1,10 +1,12 @@
 import { pathToFileURL } from 'node:url';
 import { createSolanaEvent } from './solanaEventModel.mjs';
 import { getSolanaRiskPolicy, SolanaExecutionAdapter } from './solanaExecutionEngine.mjs';
+import { buildUnsignedAtomicRoundTrip, simulateUnsignedAtomicRoundTrip } from './solanaAtomicShadowSimulator.mjs';
 
 export const SOLANA_ARBITRAGE_MODE = 'SHADOW';
 export const SOLANA_EXECUTION_AUTHORITY = false;
 export const SOLANA_LIVE_LOCKED = true;
+export const SOLANA_INFRA_POLICY = Object.freeze({ tier: 'FREE_ONLY', monthlyBudgetUsd: 0, autoUpgrade: false });
 
 export const SOL_MINT = 'So11111111111111111111111111111111111111112';
 export const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
@@ -19,10 +21,14 @@ function numberFromEnv(value, fallback) {
 
 export function getSolanaArbitrageConfig(env = process.env) {
   const apiKey = env.JUPITER_API_KEY || env.GENESIS_JUPITER_API_KEY || null;
+  const jupiterQuoteUrl = env.GENESIS_SOLANA_JUPITER_QUOTE_URL
+    || (apiKey ? 'https://api.jup.ag/swap/v1/quote' : 'https://lite-api.jup.ag/swap/v1/quote');
   return {
     jupiterApiKey: apiKey,
-    jupiterQuoteUrl: env.GENESIS_SOLANA_JUPITER_QUOTE_URL
-      || (apiKey ? 'https://api.jup.ag/swap/v1/quote' : 'https://lite-api.jup.ag/swap/v1/quote'),
+    jupiterQuoteUrl,
+    jupiterSwapInstructionsUrl: env.GENESIS_SOLANA_JUPITER_SWAP_INSTRUCTIONS_URL
+      || jupiterQuoteUrl.replace(/\/quote(?:\?.*)?$/, '/swap-instructions'),
+    observerPublicKey: normalizeWritableAccounts([env.GENESIS_SOLANA_OBSERVER_PUBLIC_KEY])[0] ?? null,
     solanaRpcUrl: env.GENESIS_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com',
     jitoTipFloorUrl: env.GENESIS_JITO_TIP_FLOOR_URL || 'https://bundles.jito.wtf/api/v1/bundles/tip_floor',
     notionalUsdc: Math.max(1, numberFromEnv(env.GENESIS_SOLANA_ARB_NOTIONAL_USDC, 25)),
@@ -36,8 +42,17 @@ export function getSolanaArbitrageConfig(env = process.env) {
     maxSlotDrift: Math.max(0, Math.round(numberFromEnv(env.GENESIS_SOLANA_MAX_SLOT_DRIFT, 4))),
     requestTimeoutMs: Math.max(500, Math.round(numberFromEnv(env.GENESIS_SOLANA_REQUEST_TIMEOUT_MS, 5_000))),
     executionMode: String(env.GENESIS_SOLANA_EXECUTION_MODE || 'SHADOW').toUpperCase() === 'PAPER' ? 'PAPER' : 'SHADOW',
+    infraPolicy: SOLANA_INFRA_POLICY,
     riskPolicy: getSolanaRiskPolicy(env),
   };
+}
+
+export function normalizeWritableAccounts(accounts) {
+  if (!Array.isArray(accounts)) return [];
+  return [...new Set(accounts
+    .map((account) => String(account?.toBase58?.() ?? account ?? '').trim())
+    .filter((account) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(account)))]
+    .slice(0, 128);
 }
 
 function quantile(values, p) {
@@ -89,12 +104,63 @@ export async function fetchJupiterQuote({
   return { quote, latencyMs };
 }
 
-export async function fetchPriorityFeeEvidence({ config, fetchImpl = fetch }) {
+function instructionGroups(body) {
+  return [
+    ...(body?.computeBudgetInstructions ?? []),
+    ...(body?.setupInstructions ?? []),
+    body?.swapInstruction,
+    body?.cleanupInstruction,
+    ...(body?.otherInstructions ?? []),
+  ].filter(Boolean);
+}
+
+export function extractWritableAccountsFromJupiterInstructions(body) {
+  return normalizeWritableAccounts(instructionGroups(body)
+    .flatMap((instruction) => instruction?.accounts ?? [])
+    .filter((account) => account?.isWritable === true)
+    .map((account) => account.pubkey));
+}
+
+export async function fetchJupiterSwapInstructions({ quote, config, fetchImpl = fetch }) {
+  if (!config.observerPublicKey) throw new Error('observer_public_key_not_configured');
+  const headers = { 'content-type': 'application/json' };
+  if (config.jupiterApiKey) headers['x-api-key'] = config.jupiterApiKey;
+  const body = await fetchJson(fetchImpl, config.jupiterSwapInstructionsUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      userPublicKey: config.observerPublicKey,
+      quoteResponse: quote,
+      wrapAndUnwrapSol: false,
+      useSharedAccounts: true,
+      dynamicComputeUnitLimit: false,
+      skipUserAccountsRpcCalls: true,
+    }),
+  }, config.requestTimeoutMs);
+  if (!body?.swapInstruction) throw new Error('invalid_jupiter_swap_instructions');
+  return body;
+}
+
+export async function resolveJupiterWritableAccounts({ firstLeg, secondLeg, config, fetchImpl = fetch }) {
+  const [first, second] = await Promise.all([
+    fetchJupiterSwapInstructions({ quote: firstLeg.quote, config, fetchImpl }),
+    fetchJupiterSwapInstructions({ quote: secondLeg.quote, config, fetchImpl }),
+  ]);
+  const writableAccounts = normalizeWritableAccounts([
+    ...extractWritableAccountsFromJupiterInstructions(first),
+    ...extractWritableAccountsFromJupiterInstructions(second),
+  ]);
+  if (!writableAccounts.length) throw new Error('jupiter_writable_accounts_missing');
+  return { writableAccounts, instructionSets: { first, second }, source: 'jupiter_swap_instructions' };
+}
+
+export async function fetchPriorityFeeEvidence({ config, fetchImpl = fetch, writableAccounts = [] }) {
+  const lockedWritableAccounts = normalizeWritableAccounts(writableAccounts);
   const payload = {
     jsonrpc: '2.0',
     id: 1,
     method: 'getRecentPrioritizationFees',
-    params: [[]],
+    params: [lockedWritableAccounts],
   };
   const body = await fetchJson(fetchImpl, config.solanaRpcUrl, {
     method: 'POST',
@@ -112,6 +178,8 @@ export async function fetchPriorityFeeEvidence({ config, fetchImpl = fetch }) {
   const priorityFeeLamports = Math.ceil((microLamportsPerCu * config.computeUnitLimit) / 1_000_000);
   return {
     source: 'solana_getRecentPrioritizationFees',
+    localized: lockedWritableAccounts.length > 0,
+    writableAccountCount: lockedWritableAccounts.length,
     percentile: config.priorityFeePercentile,
     microLamportsPerCu,
     computeUnitLimit: config.computeUnitLimit,
@@ -231,6 +299,7 @@ export function buildSolanaArbitrageObservation({
 
   const blockers = [];
   if (!criticalCostsKnown) blockers.push('critical_cost_unknown');
+  if (priorityFeeEvidence?.localized !== true) blockers.push('priority_fee_not_localized');
   if (slotDrift == null) blockers.push('context_slot_unknown');
   else if (slotDrift > config.maxSlotDrift) blockers.push('slot_drift');
   if (netPnlUsd != null && netPnlUsd <= 0) blockers.push('net_not_positive');
@@ -298,6 +367,7 @@ export async function observeSolanaArbitrageOnce({
   now = () => new Date(),
   transactionBuilder = null,
   transactionSimulator = null,
+  writableAccountResolver = null,
   executionAdapter = null,
   runtime = {},
 } = {}) {
@@ -366,8 +436,24 @@ export async function observeSolanaArbitrageOnce({
       slot: Number(secondLeg.quote.contextSlot) || null,
     });
 
+    let writableAccounts = [];
+    let instructionSets = null;
+    let writableAccountError = null;
+    const accountResolver = typeof writableAccountResolver === 'function'
+      ? writableAccountResolver
+      : (config.observerPublicKey ? (input) => resolveJupiterWritableAccounts({ ...input, fetchImpl }) : null);
+    if (accountResolver) {
+      try {
+        const resolved = await accountResolver({ firstLeg, secondLeg, config });
+        writableAccounts = normalizeWritableAccounts(resolved?.writableAccounts ?? resolved);
+        instructionSets = resolved?.instructionSets ?? null;
+      } catch (error) {
+        writableAccountError = String(error?.message ?? error);
+      }
+    }
+
     const [priorityResult, jitoResult] = await Promise.allSettled([
-      fetchPriorityFeeEvidence({ config, fetchImpl }),
+      fetchPriorityFeeEvidence({ config, fetchImpl, writableAccounts }),
       fetchJitoTipEvidence({ config, fetchImpl }),
     ]);
 
@@ -447,6 +533,7 @@ export async function observeSolanaArbitrageOnce({
         observation,
         evidenceErrors: {
           priorityFee: priorityResult.status === 'rejected' ? String(priorityResult.reason?.message ?? priorityResult.reason) : null,
+          writableAccounts: writableAccountError,
           jitoTip: jitoResult.status === 'rejected' ? String(jitoResult.reason?.message ?? jitoResult.reason) : null,
         },
       };
@@ -482,7 +569,13 @@ export async function observeSolanaArbitrageOnce({
       mints: [USDC_MINT, SOL_MINT],
     });
 
-    if (typeof transactionBuilder !== 'function' || typeof transactionSimulator !== 'function') {
+    const atomicBuilder = typeof transactionBuilder === 'function'
+      ? transactionBuilder
+      : (config.observerPublicKey ? (input) => buildUnsignedAtomicRoundTrip({ ...input, instructionSets: input.instructionSets ?? instructionSets, fetchImpl, usdcMint: USDC_MINT }) : null);
+    const atomicSimulator = typeof transactionSimulator === 'function'
+      ? transactionSimulator
+      : (config.observerPublicKey ? (input) => simulateUnsignedAtomicRoundTrip({ ...input, fetchImpl }) : null);
+    if (typeof atomicBuilder !== 'function' || typeof atomicSimulator !== 'function') {
       pushEvent('REJECTED', {
         route,
         inputUsdc: observation.inputUsdc,
@@ -505,6 +598,7 @@ export async function observeSolanaArbitrageOnce({
         observation,
         evidenceErrors: {
           priorityFee: priorityResult.status === 'rejected' ? String(priorityResult.reason?.message ?? priorityResult.reason) : null,
+          writableAccounts: writableAccountError,
           jitoTip: jitoResult.status === 'rejected' ? String(jitoResult.reason?.message ?? jitoResult.reason) : null,
         },
       };
@@ -521,8 +615,16 @@ export async function observeSolanaArbitrageOnce({
       config,
       observedAt: now().toISOString(),
     });
-    const built = await transactionBuilder({ firstLeg: freshFirstLeg, secondLeg: freshSecondLeg, observation: freshObservation, config });
-    const simulation = await transactionSimulator({ transaction: built?.transaction, minOut: built?.minOut, observation: freshObservation, config });
+    const freshInstructionEvidence = typeof transactionBuilder === 'function'
+      ? { instructionSets: null }
+      : await resolveJupiterWritableAccounts({ firstLeg: freshFirstLeg, secondLeg: freshSecondLeg, config, fetchImpl });
+    const built = await atomicBuilder({ firstLeg: freshFirstLeg, secondLeg: freshSecondLeg, instructionSets: freshInstructionEvidence.instructionSets, observation: freshObservation, config });
+    const simulation = await atomicSimulator({
+      transaction: typeof transactionSimulator === 'function' ? built?.transaction : built,
+      minOut: built?.minOut,
+      observation: freshObservation,
+      config,
+    });
     const simulationResult = {
       attempted: true,
       success: simulation?.success === true,
@@ -608,6 +710,7 @@ export async function observeSolanaArbitrageOnce({
       },
       evidenceErrors: {
         priorityFee: priorityResult.status === 'rejected' ? String(priorityResult.reason?.message ?? priorityResult.reason) : null,
+        writableAccounts: writableAccountError,
         jitoTip: jitoResult.status === 'rejected' ? String(jitoResult.reason?.message ?? jitoResult.reason) : null,
       },
     };

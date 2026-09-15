@@ -109,7 +109,7 @@ describe('POST /api/auth/verify', () => {
     expect(json.session.role).toBe('user');
     expect(json.session.token).toBeUndefined();
     expect(res.headers['Set-Cookie']).toContain('HttpOnly; Secure; SameSite=Strict');
-    expect(json.session.expiresAt - json.session.issuedAt).toBe(24 * 60 * 60);
+    expect(json.session.expiresAt - json.session.issuedAt).toBe(24 * 60 * 60 * 1000);
     expect(nonceStore.has(n.nonce)).toBe(false); // consumed
   });
 

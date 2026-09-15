@@ -44,11 +44,13 @@
     "mev:radar:once": "node --env-file-if-exists=.env server/genesis/mevShadowWorker.mjs --once",
     "mev:radar:resilient:once": "node --env-file-if-exists=.env server/genesis/mevResilientWorker.mjs --once",
     "mev:radar:watch": "node --env-file-if-exists=.env server/genesis/mevResilientWorker.mjs",
+    "solana:rpc:benchmark:free": "node --env-file-if-exists=.env server/genesis/solanaFreeRpcBenchmark.mjs",
     "mev:shadow:test": "node --test --test-concurrency=1 server/tests/mevArbitrageShadow.test.mjs server/tests/mevShadowLedger.test.mjs server/tests/mevShadowEngine.test.mjs server/tests/mevOnchainRadar.test.mjs server/tests/mevAtomicSimulator.test.mjs server/tests/mevAtomicRadarIntegration.test.mjs server/tests/mevLiquidityProof.test.mjs server/tests/mevCaptureReadiness.test.mjs server/tests/mevCompetitionObserver.test.mjs server/tests/mevPreflight.test.mjs server/tests/mevRpcResilience.test.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@solana-mobile/wallet-standard-mobile": "0.6.0",
+    "@solana/web3.js": "^1.98.4",
     "@tanstack/react-query": "^5.102.2",
     "@wagmi/core": "3.6.4",
     "@wallet-standard/app": "1.1.1",
