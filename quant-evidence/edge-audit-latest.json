@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-15T05:18:20.606Z",
+  "completedAt": "2026-09-15T08:41:36.975Z",
   "methodology": {
     "oneShot": true,
     "holdoutStart": 0.8,
@@ -22,15 +22,101 @@
     "familyAuditBudget": true,
     "historyRebuild": true
   },
-  "sourceAdaptiveCompletedAt": "2026-09-15T05:18:20.505Z",
-  "newAudits": 0,
+  "sourceAdaptiveCompletedAt": "2026-09-15T08:41:33.842Z",
+  "newAudits": 3,
   "passed": 0,
   "totalPassedRegistered": 7,
   "exhaustedFamilies": [
     "opening_range_breakout:ETHUSDT:4h:NY",
     "opening_range_breakout:BNBUSDT:4h:NY",
-    "volatility_squeeze:SOLUSDT:4h:NY"
+    "volatility_squeeze:SOLUSDT:4h:NY",
+    "volatility_squeeze:SOLUSDT:4h:ASIA"
   ],
-  "verdict": "NO_NEW_AUDIT_CANDIDATES",
-  "results": []
+  "verdict": "AUDIT_REJECTED",
+  "results": [
+    {
+      "id": "volatility_squeeze:SOLUSDT:4h:ASIA:p34:ta1.75:sa0.75:tb8",
+      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:ASIA",
+      "market": {
+        "pair": "SOLUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "volatility_squeeze",
+        "period": 34,
+        "targetAtr": 1.75,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "parentVariant": "volatility_squeeze:SOLUSDT:4h:ASIA:p34:ta2:sa0.75:tb8",
+      "selectionScore": 93.64,
+      "holdout": {
+        "trades": 15,
+        "expectancyBps": -37.51,
+        "profitFactor": 0.619,
+        "tStat": -0.822,
+        "maxDrawdownPct": 9.64
+      },
+      "status": "AUDIT_REJECTED",
+      "rejectReason": "NEGATIVE_HOLDOUT_EXPECTANCY",
+      "auditedAt": "2026-09-15T08:41:36.968Z"
+    },
+    {
+      "id": "volatility_squeeze:SOLUSDT:4h:ASIA:p34:ta2:sa0.75:tb6",
+      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:ASIA",
+      "market": {
+        "pair": "SOLUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "volatility_squeeze",
+        "period": 34,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 6,
+        "session": "ASIA"
+      },
+      "parentVariant": "volatility_squeeze:SOLUSDT:4h:ASIA:p34:ta2:sa0.75:tb8",
+      "selectionScore": 92.04,
+      "holdout": {
+        "trades": 15,
+        "expectancyBps": -14.04,
+        "profitFactor": 0.842,
+        "tStat": -0.281,
+        "maxDrawdownPct": 9.64
+      },
+      "status": "AUDIT_REJECTED",
+      "rejectReason": "NEGATIVE_HOLDOUT_EXPECTANCY",
+      "auditedAt": "2026-09-15T08:41:36.972Z"
+    },
+    {
+      "id": "volatility_squeeze:SOLUSDT:4h:ASIA:p30:ta2:sa0.75:tb8",
+      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:ASIA",
+      "market": {
+        "pair": "SOLUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "volatility_squeeze",
+        "period": 30,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "parentVariant": "volatility_squeeze:SOLUSDT:4h:ASIA:p34:ta2:sa0.75:tb8",
+      "selectionScore": 81.91,
+      "holdout": {
+        "trades": 17,
+        "expectancyBps": -45.06,
+        "profitFactor": 0.574,
+        "tStat": -1.002,
+        "maxDrawdownPct": 11.2
+      },
+      "status": "AUDIT_REJECTED",
+      "rejectReason": "NEGATIVE_HOLDOUT_EXPECTANCY",
+      "auditedAt": "2026-09-15T08:41:36.975Z"
+    }
+  ]
 }
