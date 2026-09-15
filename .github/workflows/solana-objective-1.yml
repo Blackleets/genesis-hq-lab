@@ -6,14 +6,22 @@ on:
       - feat/solana-readonly-observer-v1
     paths:
       - 'server/genesis/solanaArbitrageObserver.mjs'
+      - 'server/genesis/solanaAtomicShadowSimulator.mjs'
       - 'server/tests/solanaArbitrageObserver.test.mjs'
+      - 'server/tests/solanaAtomicShadowSimulator.test.mjs'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/solana-objective-1.yml'
   pull_request:
     branches:
       - feat/genesis-life-os
     paths:
       - 'server/genesis/solanaArbitrageObserver.mjs'
+      - 'server/genesis/solanaAtomicShadowSimulator.mjs'
       - 'server/tests/solanaArbitrageObserver.test.mjs'
+      - 'server/tests/solanaAtomicShadowSimulator.test.mjs'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/solana-objective-1.yml'
   workflow_dispatch:
 
@@ -29,7 +37,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
       - name: Syntax check
-        run: node --check server/genesis/solanaArbitrageObserver.mjs
+        run: node --check server/genesis/solanaArbitrageObserver.mjs && node --check server/genesis/solanaAtomicShadowSimulator.mjs
       - name: Read-only observer tests
-        run: node --test server/tests/solanaArbitrageObserver.test.mjs
+        run: node --test server/tests/solanaArbitrageObserver.test.mjs server/tests/solanaAtomicShadowSimulator.test.mjs
