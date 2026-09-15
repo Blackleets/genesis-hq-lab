@@ -1,11 +1,11 @@
 import { mkdir, readFile, writeFile, appendFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
-const VERSION='edge_factory_v4_research_pool';
+const VERSION='edge_factory_v5_liquid_universe';
 const BASE=process.env.BINANCE_BASE||'https://data-api.binance.vision/api/v3';
 const MAX_BARS=Number(process.env.GENESIS_EDGE_BARS||5000);
 const FEE=.0004,SLIP=.00015,FUNDING=.0001,TRAIN=.6,VALID=.8;
-const SYMBOLS=['BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT'];
+const SYMBOLS=['BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT','DOGEUSDT','ADAUSDT','LINKUSDT','AVAXUSDT'];
 const TIMEFRAMES=['15m','30m','1h','4h'];
 const MARKETS=SYMBOLS.flatMap(pair=>TIMEFRAMES.map(tf=>({pair,tf})));
 const SESSIONS={ALL:h=>true,ASIA:h=>h>=0&&h<7,LONDON:h=>h>=7&&h<12,NY:h=>h>=13&&h<17,LONDON_NY:h=>h>=12&&h<16};
