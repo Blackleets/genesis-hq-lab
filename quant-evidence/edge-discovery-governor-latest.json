@@ -6,20 +6,20 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-14T22:02:12.178Z",
+  "completedAt": "2026-09-15T05:18:38.309Z",
   "discoveryStatus": "FORWARD_EVIDENCE_ACCUMULATING",
   "objective": "REPRODUCIBLE_POSITIVE_NET_EXPECTANCY",
   "fastResearch": {
     "verdict": "PAPER_CANDIDATE_FOUND",
-    "tested": 936,
+    "tested": 769,
     "paperCandidates": 5,
     "researchPoolSize": 120,
     "proofStatus": "HYPOTHESIS_ONLY"
   },
   "deepResearch": {
-    "verdict": "AUDIT_CANDIDATE_FOUND",
-    "promotableToAudit": 3,
-    "currentDeepRejectedFamily": null
+    "verdict": "NO_ADAPTIVE_EDGE_FOUND",
+    "promotableToAudit": 0,
+    "currentDeepRejectedFamily": "failed_breakout:ETHUSDT:30m:ALL"
   },
   "audit": {
     "verdict": "NO_NEW_AUDIT_CANDIDATES",
@@ -79,7 +79,14 @@
     "suppressedCount": 0,
     "suppressed": []
   },
-  "contradictions": [],
+  "contradictions": [
+    {
+      "type": "SHORT_WINDOW_VS_DEEP_RETEST",
+      "severity": "HIGH",
+      "action": "DO_NOT_PROMOTE_FROM_FAST_FACTORY",
+      "explanation": "Fast research found candidates while the deeper adaptive retest found no promotable edge. Treat fast candidates as hypotheses only."
+    }
+  ],
   "decision": "CONTINUE_DISCOVERY_AND_ACCUMULATE_FORWARD_EVIDENCE",
   "invariants": {
     "changesV9": false,
