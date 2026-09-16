@@ -83,7 +83,72 @@ async function sendLegacyRadarView(res) {
   }
 }
 
+const SOLANA_RADAR_STATE_KEY = 'solana_mev_venue_radar_v2';
+
+function normalizeLiveSolanaRadarState(state) {
+  const event = state?.event;
+  const mode = state?.mode;
+  if (!event || event.chain !== 'SOLANA' || !['SHADOW', 'PAPER'].includes(mode)
+    || state.executionAuthority !== false || state.liveLocked !== true
+    || event.executionAuthority !== false || event.liveLocked !== true) return null;
+
+  const observedAt = event.observedAt ?? event.timestamp ?? state.observedAt ?? null;
+  return {
+    ...state,
+    observedAt,
+    observation: {
+      chain: 'SOLANA',
+      mode,
+      executionAuthority: false,
+      liveLocked: true,
+      observedAt,
+      route: event.route ?? null,
+      inputUsdc: event.inputAmountUsd ?? null,
+      quoteLatencyMs: event.quoteLatencyMs ?? null,
+      slotDrift: event.slotDrift ?? null,
+      venues: { firstLeg: [event.buyDex].filter(Boolean), secondLeg: [event.sellDex].filter(Boolean) },
+      economics: {
+        quotedRoundTripEdgeBps: event.quotedEdgeBps ?? null,
+        netEdgeBps: event.netEdgeBps ?? null,
+        netPnlUsd: event.expectedNetPnlUsd ?? null,
+      },
+      captureEvidence: {
+        measured: event.measurementOnly === true,
+        capturedEdgeBps: event.capturedEdgeBps ?? null,
+        capturedNetPnlUsd: event.capturedNetPnlUsd ?? null,
+        captureRatio: event.captureRatio ?? null,
+      },
+      status: event.decision === 'SHADOW_QUALIFIED' ? 'QUALIFIED' : 'BLOCKED',
+    },
+  };
+}
+
+async function readLiveSolanaRadarState() {
+  const config = supabaseConfig();
+  if (!config) return null;
+  const query = `org_state?key=eq.${encodeURIComponent(SOLANA_RADAR_STATE_KEY)}&select=value,updated_at&limit=1`;
+  const response = await fetch(`${config.url}/rest/v1/${query}`, {
+    headers: { apikey: config.key, authorization: `Bearer ${config.key}`, accept: 'application/json' },
+    signal: AbortSignal.timeout(5_000),
+  });
+  if (!response.ok) throw new Error(`solana_state_${response.status}`);
+  const rows = await response.json();
+  const row = Array.isArray(rows) ? rows[0] : null;
+  if (!row?.value) return null;
+  try {
+    const parsed = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+    return normalizeLiveSolanaRadarState(parsed && typeof parsed === 'object'
+      ? { ...parsed, stateUpdatedAt: row.updated_at ?? null }
+      : null);
+  } catch {
+    return null;
+  }
+}
+
 async function readSolanaRadarSnapshot() {
+  const liveState = await readLiveSolanaRadarState().catch(() => null);
+  if (liveState) return liveState;
+
   const response = await fetch(SOLANA_RADAR_SNAPSHOT_URL, {
     headers: { accept: 'application/json' },
     signal: AbortSignal.timeout(5_000),
@@ -172,13 +237,20 @@ async function sendSolanaRadarView(res) {
       readSolanaRadarHistory().catch(() => []),
       readSolanaRadarEvents().catch(() => []),
     ]);
+    const liveEvent = snapshot?.event;
+    const events = [liveEvent, ...eventsResult]
+      .filter((event) => event?.chain === 'SOLANA' && event?.executionAuthority === false && event?.liveLocked === true)
+      .filter((event, index, rows) => rows.findIndex((candidate) => candidate?.id === event?.id) === index);
+    const history = snapshot?.observation
+      ? [{ recordedAt: snapshot.observation.observedAt, observation: snapshot.observation }, ...historyResult]
+      : historyResult;
     return sendJson(res, 200, {
       ok: true,
       status: snapshot?.observation?.status ?? snapshot?.status ?? 'OBSERVING',
       radar: snapshot,
-      history: historyResult,
-      events: eventsResult,
-      summary: summarizeSolanaHistory(historyResult),
+      history,
+      events,
+      summary: summarizeSolanaHistory(history),
       executionAuthority: false,
       liveLocked: true,
       mode: 'SHADOW',
