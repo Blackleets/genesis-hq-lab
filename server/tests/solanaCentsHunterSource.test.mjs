@@ -30,4 +30,5 @@ test('Cents Hunter rejects single-route coverage before evaluating an edge', asy
   assert.match(source, /sellVenueQuotes >= MIN_VENUE_QUOTES_PER_DIRECTION/);
   assert.match(source, /reason: "venue_coverage_insufficient"/);
   assert.match(source, /persistCoverageInsufficient/);
+  assert.match(source, /function isNoDirectRoute\(errors: string\[\]\)/);
 });
