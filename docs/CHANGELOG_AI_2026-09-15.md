@@ -19,3 +19,11 @@
 - Summary: Preserved the active cross-DEX radar in GitHub, expanded its paper notional grid, localized priority fees to selected-route writable accounts, added balance-free atomic plan evidence, and gated captured-cent Telegram alerts at +$0.01 after decay measurement.
 - Files touched: `supabase/functions/genesis-solana-mev-radar/index.ts`, `supabase/functions/genesis-solana-mev-radar/deno.json`, `server/tests/solanaCentsHunterSource.test.mjs`, `docs/CHANGELOG_AI_2026-09-15.md`
 - Verification: pending.
+
+
+## 2026-09-16 — Codex (Solana Cents Hunter live evidence bridge)
+
+- Branch: feat/solana-cents-hunter-live-evidence
+- Summary: Made the read-only radar prefer the current safety-validated Supabase observation over stale hosted snapshots, while retaining the hosted fallback.
+- Files touched: `api/genesis/context.js`, `server/tests/solanaRadarLiveStateSource.test.mjs`, `docs/CHANGELOG_AI_2026-09-15.md`.
+- Verification: pending GitHub Actions.
