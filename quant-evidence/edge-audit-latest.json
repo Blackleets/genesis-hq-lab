@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-16T05:17:46.745Z",
+  "completedAt": "2026-09-16T13:45:21.247Z",
   "methodology": {
     "oneShot": true,
     "holdoutStart": 0.8,
@@ -22,7 +22,7 @@
     "familyAuditBudget": true,
     "historyRebuild": true
   },
-  "sourceAdaptiveCompletedAt": "2026-09-16T05:17:41.105Z",
+  "sourceAdaptiveCompletedAt": "2026-09-16T13:45:18.004Z",
   "newAudits": 3,
   "passed": 0,
   "totalPassedRegistered": 10,
@@ -33,13 +33,14 @@
     "volatility_squeeze:SOLUSDT:4h:ASIA",
     "trend_pullback:SOLUSDT:1h:ASIA",
     "failed_breakout:BTCUSDT:1h:ASIA",
-    "trend_pullback:DOGEUSDT:1h:LONDON_NY"
+    "trend_pullback:DOGEUSDT:1h:LONDON_NY",
+    "trend_pullback:DOGEUSDT:1h:ALL"
   ],
   "verdict": "AUDIT_REJECTED",
   "results": [
     {
-      "id": "trend_pullback:DOGEUSDT:1h:LONDON_NY:p20:ta1.75:sa0.75:tb8",
-      "hypothesisKey": "trend_pullback:DOGEUSDT:1h:LONDON_NY",
+      "id": "trend_pullback:DOGEUSDT:1h:ALL:p20:ta1.75:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:DOGEUSDT:1h:ALL",
       "market": {
         "pair": "DOGEUSDT",
         "tf": "1h"
@@ -50,76 +51,76 @@
         "targetAtr": 1.75,
         "stopAtr": 0.75,
         "timeoutBars": 8,
-        "session": "LONDON_NY"
+        "session": "ALL"
       },
-      "parentVariant": "trend_pullback:DOGEUSDT:1h:LONDON_NY:p20:ta2:sa0.75:tb8",
-      "selectionScore": 36.09,
+      "parentVariant": "trend_pullback:DOGEUSDT:1h:ALL:p20:ta2:sa0.75:tb8",
+      "selectionScore": 36.32,
       "holdout": {
-        "trades": 14,
-        "expectancyBps": 14.47,
-        "profitFactor": 1.371,
-        "tStat": 0.509,
-        "maxDrawdownPct": 2.19
-      },
-      "status": "AUDIT_REJECTED",
-      "rejectReason": "LOW_HOLDOUT_TSTAT",
-      "auditedAt": "2026-09-16T05:17:46.735Z"
-    },
-    {
-      "id": "failed_breakout:BTCUSDT:1h:ASIA:p34:ta1.25:sa0.75:tb8",
-      "hypothesisKey": "failed_breakout:BTCUSDT:1h:ASIA",
-      "market": {
-        "pair": "BTCUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "failed_breakout",
-        "period": 34,
-        "targetAtr": 1.25,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "parentVariant": "failed_breakout:BTCUSDT:1h:ASIA:p34:ta1:sa0.75:tb8",
-      "selectionScore": 35.73,
-      "holdout": {
-        "trades": 12,
-        "expectancyBps": -17.89,
-        "profitFactor": 0.534,
-        "tStat": -0.991,
-        "maxDrawdownPct": 3.48
+        "trades": 71,
+        "expectancyBps": -23.51,
+        "profitFactor": 0.552,
+        "tStat": -2.157,
+        "maxDrawdownPct": 21.61
       },
       "status": "AUDIT_REJECTED",
       "rejectReason": "NEGATIVE_HOLDOUT_EXPECTANCY",
-      "auditedAt": "2026-09-16T05:17:46.741Z"
+      "auditedAt": "2026-09-16T13:45:21.240Z"
     },
     {
-      "id": "trend_pullback:DOGEUSDT:1h:LONDON_NY:p16:ta2:sa0.75:tb8",
-      "hypothesisKey": "trend_pullback:DOGEUSDT:1h:LONDON_NY",
+      "id": "trend_pullback:DOGEUSDT:1h:ALL:p20:ta2:sa0.75:tb6",
+      "hypothesisKey": "trend_pullback:DOGEUSDT:1h:ALL",
       "market": {
         "pair": "DOGEUSDT",
         "tf": "1h"
       },
       "spec": {
         "family": "trend_pullback",
-        "period": 16,
+        "period": 20,
         "targetAtr": 2,
         "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "LONDON_NY"
+        "timeoutBars": 6,
+        "session": "ALL"
       },
-      "parentVariant": "trend_pullback:DOGEUSDT:1h:LONDON_NY:p20:ta2:sa0.75:tb8",
-      "selectionScore": 35.16,
+      "parentVariant": "trend_pullback:DOGEUSDT:1h:ALL:p20:ta2:sa0.75:tb8",
+      "selectionScore": 35.14,
       "holdout": {
-        "trades": 14,
-        "expectancyBps": 9.32,
-        "profitFactor": 1.239,
-        "tStat": 0.355,
-        "maxDrawdownPct": 2.19
+        "trades": 71,
+        "expectancyBps": -18.49,
+        "profitFactor": 0.618,
+        "tStat": -1.693,
+        "maxDrawdownPct": 18.85
       },
       "status": "AUDIT_REJECTED",
-      "rejectReason": "LOW_HOLDOUT_TSTAT",
-      "auditedAt": "2026-09-16T05:17:46.745Z"
+      "rejectReason": "NEGATIVE_HOLDOUT_EXPECTANCY",
+      "auditedAt": "2026-09-16T13:45:21.245Z"
+    },
+    {
+      "id": "trend_pullback:DOGEUSDT:1h:ALL:p20:ta2.25:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:DOGEUSDT:1h:ALL",
+      "market": {
+        "pair": "DOGEUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 2.25,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "parentVariant": "trend_pullback:DOGEUSDT:1h:ALL:p20:ta2:sa0.75:tb8",
+      "selectionScore": 34.58,
+      "holdout": {
+        "trades": 71,
+        "expectancyBps": -29.65,
+        "profitFactor": 0.452,
+        "tStat": -2.783,
+        "maxDrawdownPct": 22.33
+      },
+      "status": "AUDIT_REJECTED",
+      "rejectReason": "NEGATIVE_HOLDOUT_EXPECTANCY",
+      "auditedAt": "2026-09-16T13:45:21.247Z"
     }
   ]
 }

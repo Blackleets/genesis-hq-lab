@@ -2584,7 +2584,67 @@
           "pass": true
         }
       }
+    },
+    "volatility_squeeze:AVAXUSDT:1h:NY": {
+      "status": "DEEP_REJECTED",
+      "firstSeen": "2026-09-16T13:45:18.050Z",
+      "lastSeen": "2026-09-16T13:45:18.050Z",
+      "parentVariant": "volatility_squeeze:AVAXUSDT:1h:NY:p20:ta2:sa0.75:tb8",
+      "barsPerMarket": 12000,
+      "reason": "DEEP_NEGATIVE_VALIDATION_EXPECTANCY",
+      "resetPolicy": "MATERIAL_REGIME_OR_CONTEXT_CHANGE",
+      "evidence": {
+        "train": {
+          "trades": 50,
+          "expectancyBps": 5.02,
+          "profitFactor": 1.093,
+          "tStat": 0.263,
+          "maxDrawdownPct": 8.33
+        },
+        "validation": {
+          "trades": 18,
+          "expectancyBps": -4.7,
+          "profitFactor": 0.899,
+          "tStat": -0.194,
+          "maxDrawdownPct": 4.8
+        },
+        "walkForward": {
+          "positiveFolds": 2,
+          "requiredPositiveFolds": 3,
+          "pass": false
+        }
+      }
+    },
+    "trend_pullback:LINKUSDT:1h:ASIA": {
+      "status": "DEEP_REJECTED",
+      "firstSeen": "2026-09-16T13:45:18.050Z",
+      "lastSeen": "2026-09-16T13:45:18.050Z",
+      "parentVariant": "trend_pullback:LINKUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8",
+      "barsPerMarket": 12000,
+      "reason": "DEEP_NEGATIVE_TRAIN_EXPECTANCY",
+      "resetPolicy": "MATERIAL_REGIME_OR_CONTEXT_CHANGE",
+      "evidence": {
+        "train": {
+          "trades": 62,
+          "expectancyBps": -0.7,
+          "profitFactor": 0.99,
+          "tStat": -0.036,
+          "maxDrawdownPct": 14.03
+        },
+        "validation": {
+          "trades": 18,
+          "expectancyBps": -1.51,
+          "profitFactor": 0.973,
+          "tStat": -0.048,
+          "maxDrawdownPct": 6.74
+        },
+        "walkForward": {
+          "positiveFolds": 1,
+          "requiredPositiveFolds": 3,
+          "pass": false
+        }
+      }
     }
   },
-  "updatedAt": "2026-09-16T05:17:41.163Z"
+  "updatedAt": "2026-09-16T13:45:18.050Z"
 }
