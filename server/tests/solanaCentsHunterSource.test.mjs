@@ -21,3 +21,13 @@ test('Cents Hunter is paper-only, route-local and requires a captured cent', asy
   assert.match(source, /liveLocked: true/);
   assert.doesNotMatch(source, /sendRawTransaction|sendTransaction|signTransaction/);
 });
+
+test('Cents Hunter rejects single-route coverage before evaluating an edge', async () => {
+  const source = await readFile(sourceUrl, 'utf8');
+  assert.match(source, /const TOP_BUYS = 2/);
+  assert.match(source, /const MIN_VENUE_QUOTES_PER_DIRECTION = 2/);
+  assert.match(source, /topBuys\.length < MIN_VENUE_QUOTES_PER_DIRECTION/);
+  assert.match(source, /sellVenueQuotes >= MIN_VENUE_QUOTES_PER_DIRECTION/);
+  assert.match(source, /reason: "venue_coverage_insufficient"/);
+  assert.match(source, /persistCoverageInsufficient/);
+});
