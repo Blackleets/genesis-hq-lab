@@ -8,9 +8,10 @@ import {
   buildLiquiditySleeve,
   solanaOperationCostBps,
   lpBreakEvenHoldDays,
+  measuredCostForwardEntry,
 } from '../../src/core/solanaLiquidityEconomics.mjs';
 
-const VERSION = 'solana_liquidity_lab_v4_correlated_pairs';
+const VERSION = 'solana_liquidity_lab_v5_measured_cost_forward_entry';
 const OUT = process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : 'quant-evidence/solana-liquidity-lab-latest.json';
 const HISTORY = process.argv.includes('--history') ? process.argv[process.argv.indexOf('--history') + 1] : 'quant-evidence/solana-liquidity-history.jsonl';
 const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
@@ -52,6 +53,8 @@ const LP_SOLANA_RPC_URL = process.env.GENESIS_SOLANA_RPC_URL || 'https://api.mai
 const LP_BASE_FEE_LAMPORTS = Math.max(0, Number(process.env.GENESIS_SOLANA_BASE_FEE_LAMPORTS || 5_000));
 const LP_COMPUTE_UNIT_LIMIT = Math.max(1, Number(process.env.GENESIS_SOLANA_LP_CU_LIMIT || 1_000_000));
 const LP_PRIORITY_FEE_PERCENTILE = Math.min(1, Math.max(0, Number(process.env.GENESIS_SOLANA_PRIORITY_FEE_PERCENTILE || 0.75)));
+const LP_FORWARD_ENTRY_NOTIONAL_USD = Math.max(10, Number(process.env.GENESIS_SOLANA_LP_FORWARD_ENTRY_NOTIONAL_USD || 500));
+const LP_MAX_FORWARD_BREAK_EVEN_DAYS = Math.max(0.01, Number(process.env.GENESIS_SOLANA_LP_MAX_FORWARD_BREAK_EVEN_DAYS || 1));
 
 function n(value) {
   const x = Number(value);
@@ -339,6 +342,43 @@ function buildOperationalCostEvidence({ baseFeeLamports, priorityEvidence, solUs
   };
 }
 
+function annotateMeasuredCostForwardEntries(candidates, operationalCostEvidence) {
+  const roundTrips = operationalCostEvidence?.scenarios?.openCloseRoundTrip;
+  if (!operationalCostEvidence?.available || !Array.isArray(roundTrips) || !roundTrips.length) {
+    return candidates.map((candidate) => ({
+      ...candidate,
+      forwardEntryPass: false,
+      forwardEntryReason: 'MEASURED_OPERATION_COST_UNAVAILABLE',
+      forwardEntryNotionalUsd: null,
+      measuredRoundTripCostBps: null,
+      measuredBreakEvenHoldDays: null,
+      measuredPreOperationalNetBpsPerDay: null,
+    }));
+  }
+
+  const cost = [...roundTrips].sort((a, b) =>
+    Math.abs(Number(a.notionalUsd) - LP_FORWARD_ENTRY_NOTIONAL_USD) -
+    Math.abs(Number(b.notionalUsd) - LP_FORWARD_ENTRY_NOTIONAL_USD)
+  )[0];
+
+  return candidates.map((candidate) => {
+    const gate = measuredCostForwardEntry({
+      candidate,
+      roundTripCostBps: cost?.bps,
+      maxBreakEvenHoldDays: LP_MAX_FORWARD_BREAK_EVEN_DAYS,
+    });
+    return {
+      ...candidate,
+      forwardEntryPass: gate.pass === true,
+      forwardEntryReason: gate.reason,
+      forwardEntryNotionalUsd: cost?.notionalUsd ?? null,
+      measuredRoundTripCostBps: gate.roundTripCostBps,
+      measuredBreakEvenHoldDays: gate.breakEvenHoldDays,
+      measuredPreOperationalNetBpsPerDay: gate.preOperationalNetBpsPerDay,
+    };
+  });
+}
+
 function buildCostCalibratedResearch(candidates, operationalCostEvidence) {
   const roundTrips = operationalCostEvidence?.scenarios?.openCloseRoundTrip;
   if (!operationalCostEvidence?.available || !Array.isArray(roundTrips)) return [];
@@ -405,7 +445,14 @@ function compactCandidate(c) {
     price: c.price ?? c.priceUsd,
     dailyFeeYieldBps: c.dailyFeeYieldBps,
     expectedNetStressBps: c.expectedNetStressBps,
-    screenPass: c.screenPass === true,
+    legacyScreenPass: c.screenPass === true,
+    screenPass: c.forwardEntryPass === true,
+    forwardEntryPass: c.forwardEntryPass === true,
+    forwardEntryReason: c.forwardEntryReason ?? null,
+    forwardEntryNotionalUsd: c.forwardEntryNotionalUsd ?? null,
+    measuredRoundTripCostBps: c.measuredRoundTripCostBps ?? null,
+    measuredBreakEvenHoldDays: c.measuredBreakEvenHoldDays ?? null,
+    measuredPreOperationalNetBpsPerDay: c.measuredPreOperationalNetBpsPerDay ?? null,
     officialSource: c.officialSource,
   };
 }
@@ -511,7 +558,13 @@ async function main() {
     solUsd: solReference?.price ?? solReference?.priceUsd ?? null,
   });
 
-  const costCalibratedResearch = buildCostCalibratedResearch(candidates, operationalCostEvidence);
+  const measuredCandidates = annotateMeasuredCostForwardEntries(candidates, operationalCostEvidence)
+    .sort((a, b) =>
+      Number(b.forwardEntryPass) - Number(a.forwardEntryPass) ||
+      (b.measuredPreOperationalNetBpsPerDay ?? -Infinity) - (a.measuredPreOperationalNetBpsPerDay ?? -Infinity) ||
+      (b.expectedNetStressBps ?? -Infinity) - (a.expectedNetStressBps ?? -Infinity)
+    );
+  const costCalibratedResearch = buildCostCalibratedResearch(measuredCandidates, operationalCostEvidence);
 
   const oldHistory = await readHistory();
   const history = [...oldHistory, {
@@ -519,7 +572,7 @@ async function main() {
     // Preserve deterioration after entry: store every structurally valid pool,
     // not only current winners. A forward window is opened only from a prior
     // screenPass=true observation and is still scored if the pool later fails.
-    candidates: candidates.filter(historyEligible).slice(0, 80).map(compactCandidate),
+    candidates: measuredCandidates.filter(historyEligible).slice(0, 80).map(compactCandidate),
   }].slice(-500);
 
   const windows = buildForwardWindows(history);
@@ -542,8 +595,9 @@ async function main() {
       ilReserveMultiplier: DEFAULT_LIQUIDITY_POLICY.ilReserveMultiplier,
       rangeHalfWidthPct: DEFAULT_LIQUIDITY_POLICY.rangeHalfWidthPct,
       rewardsIncluded: false,
-      operationalCostCalibration: 'measured global Solana priority fee + configured base fee; calibration only, does not weaken promotion gates',
-      forwardProxy: 'consecutive scheduled snapshots; entries require prior screen pass, exits are scored even after deterioration; no claimed live LP fills',
+      operationalCostCalibration: 'measured global Solana priority fee + configured base fee; measured cost may open forward-research observation but cannot by itself promote PAPER capital',
+      forwardEntryGate: { notionalUsd: LP_FORWARD_ENTRY_NOTIONAL_USD, maxBreakEvenHoldDays: LP_MAX_FORWARD_BREAK_EVEN_DAYS },
+      forwardProxy: 'consecutive scheduled snapshots; entries require measured-cost forward gate pass, exits are scored even after deterioration; no claimed live LP fills',
       promotion: 'PAPER sleeve only after sufficient positive forward proxy evidence; LIVE remains locked',
     },
     sourceHealth: {
@@ -556,10 +610,12 @@ async function main() {
     },
     operationalCostEvidence,
     costCalibratedResearch,
-    candidateCount: candidates.length,
-    screenPassCount: candidates.filter((x) => x.screenPass).length,
-    best: candidates.find((x) => x.screenPass) ?? candidates[0] ?? null,
-    topCandidates: candidates.slice(0, 12),
+    candidateCount: measuredCandidates.length,
+    screenPassCount: measuredCandidates.filter((x) => x.screenPass).length,
+    forwardEntryPassCount: measuredCandidates.filter((x) => x.forwardEntryPass).length,
+    best: measuredCandidates.find((x) => x.screenPass) ?? measuredCandidates[0] ?? null,
+    bestMeasuredCostCandidate: measuredCandidates.find((x) => x.forwardEntryPass) ?? null,
+    topCandidates: measuredCandidates.slice(0, 12),
     forwardWindowCount: windows.length,
     recentForwardWindows: windows.slice(-20),
     sleeve,
@@ -570,6 +626,8 @@ async function main() {
       signsTransactions: false,
       broadcastsTransactions: false,
       rewardsNotAssumed: true,
+      measuredCostForwardEntryCannotPromotePaperAlone: true,
+      paperPromotionStillRequiresForwardEvidence: true,
     },
   };
 
@@ -582,6 +640,7 @@ async function main() {
     version: VERSION,
     candidates: output.candidateCount,
     screenPass: output.screenPassCount,
+    forwardEntryPass: output.forwardEntryPassCount,
     forwardWindows: output.forwardWindowCount,
     top: output.best ? {
       venue: output.best.venue,
@@ -590,6 +649,13 @@ async function main() {
       fees24hUsd: output.best.fees24hUsd,
       dailyFeeYieldBps: output.best.dailyFeeYieldBps,
       expectedNetStressBps: output.best.expectedNetStressBps,
+    } : null,
+    bestMeasuredCostCandidate: output.bestMeasuredCostCandidate ? {
+      venue: output.bestMeasuredCostCandidate.venue,
+      pair: output.bestMeasuredCostCandidate.pair,
+      measuredPreOperationalNetBpsPerDay: output.bestMeasuredCostCandidate.measuredPreOperationalNetBpsPerDay,
+      measuredBreakEvenHoldDays: output.bestMeasuredCostCandidate.measuredBreakEvenHoldDays,
+      forwardEntryNotionalUsd: output.bestMeasuredCostCandidate.forwardEntryNotionalUsd,
     } : null,
     sleeve: {
       samples: sleeve.samples,

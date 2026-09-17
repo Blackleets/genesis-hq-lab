@@ -64,6 +64,54 @@ export function lpBreakEvenHoldDays({
   };
 }
 
+export function measuredCostForwardEntry({
+  candidate,
+  roundTripCostBps,
+  maxBreakEvenHoldDays = 1,
+} = {}) {
+  const checks = candidate?.checks ?? {};
+  const structurallyValid =
+    checks.officialSource === true &&
+    checks.tvl === true &&
+    checks.volume === true &&
+    checks.fees === true &&
+    checks.price === true &&
+    checks.volatilityEvidence === true;
+
+  const breakEven = lpBreakEvenHoldDays({
+    capturedFeeYieldBps: candidate?.capturedFeeYieldBps,
+    ilStressBps: candidate?.ilStressBps,
+    rebalanceReserveBps: candidate?.rebalanceReserveBps,
+    roundTripCostBps,
+  });
+
+  const breakEvenHoldDays = breakEven?.breakEvenHoldDays ?? null;
+  const preOperationalNetBpsPerDay = breakEven?.preOperationalNetBpsPerDay ?? null;
+  const pass =
+    structurallyValid &&
+    preOperationalNetBpsPerDay > 0 &&
+    breakEvenHoldDays != null &&
+    breakEvenHoldDays <= maxBreakEvenHoldDays;
+
+  return {
+    pass,
+    structurallyValid,
+    preOperationalNetBpsPerDay,
+    breakEvenHoldDays,
+    roundTripCostBps: num(roundTripCostBps),
+    maxBreakEvenHoldDays,
+    reason: !structurallyValid
+      ? 'STRUCTURAL_EVIDENCE_INCOMPLETE'
+      : !(preOperationalNetBpsPerDay > 0)
+        ? 'PRE_OPERATIONAL_EDGE_NON_POSITIVE'
+        : breakEvenHoldDays == null
+          ? 'BREAK_EVEN_UNAVAILABLE'
+          : breakEvenHoldDays > maxBreakEvenHoldDays
+            ? 'BREAK_EVEN_TOO_SLOW'
+            : 'MEASURED_COST_FORWARD_ENTRY_PASS',
+  };
+}
+
 export function impermanentLossBps(priceRatio) {
   const r = num(priceRatio);
   if (!(r > 0)) return null;

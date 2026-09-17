@@ -8,6 +8,7 @@ import {
   buildLiquiditySleeve,
   solanaOperationCostBps,
   lpBreakEvenHoldDays,
+  measuredCostForwardEntry,
 } from '../../src/core/solanaLiquidityEconomics.mjs';
 
 test('impermanent loss is zero when price does not move', () => {
@@ -155,4 +156,52 @@ test('LP break-even diagnostic refuses to invent a holding period when pre-op ed
   });
   assert.equal(result.breakEvenHoldDays, null);
   assert.ok(result.preOperationalNetBpsPerDay < 0);
+});
+
+
+test('measured-cost forward gate can admit research without bypassing paper promotion', () => {
+  const candidate = {
+    checks: {
+      officialSource: true, tvl: true, volume: true, fees: true, price: true, volatilityEvidence: true,
+    },
+    capturedFeeYieldBps: 1.0,
+    ilStressBps: 0.2,
+    rebalanceReserveBps: 0.1,
+    screenPass: false,
+  };
+  const gate = measuredCostForwardEntry({
+    candidate,
+    roundTripCostBps: 0.05,
+    maxBreakEvenHoldDays: 1,
+  });
+  assert.equal(gate.pass, true);
+  assert.ok(gate.preOperationalNetBpsPerDay > 0);
+  assert.ok(gate.breakEvenHoldDays < 1);
+  assert.equal(candidate.screenPass, false);
+});
+
+test('measured-cost forward gate rejects slow break-even and incomplete structural evidence', () => {
+  const base = {
+    checks: {
+      officialSource: true, tvl: true, volume: true, fees: true, price: true, volatilityEvidence: true,
+    },
+    capturedFeeYieldBps: 0.15,
+    ilStressBps: 0.05,
+    rebalanceReserveBps: 0,
+  };
+  const slow = measuredCostForwardEntry({
+    candidate: base,
+    roundTripCostBps: 0.2,
+    maxBreakEvenHoldDays: 1,
+  });
+  assert.equal(slow.pass, false);
+  assert.equal(slow.reason, 'BREAK_EVEN_TOO_SLOW');
+
+  const incomplete = measuredCostForwardEntry({
+    candidate: { ...base, checks: { ...base.checks, officialSource: false } },
+    roundTripCostBps: 0.01,
+    maxBreakEvenHoldDays: 1,
+  });
+  assert.equal(incomplete.pass, false);
+  assert.equal(incomplete.reason, 'STRUCTURAL_EVIDENCE_INCOMPLETE');
 });
