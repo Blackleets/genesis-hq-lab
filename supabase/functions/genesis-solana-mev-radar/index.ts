@@ -16,18 +16,22 @@ const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 const SOL_MINT = "So11111111111111111111111111111111111111112";
 const USDC_SCALE = 1_000_000;
 const LAMPORTS_PER_SOL = 1_000_000_000;
-const NOTIONAL_GRID = [10, 25, 50, 100, 250];
+const NOTIONAL_GRID = [10, 25, 50, 100, 250] as const;
 const TOKENS = [
   { symbol: "SOL", mint: SOL_MINT, dexes: ["HumidiFi", "Flux", "BisonFi", "Quantum", "Raydium CLMM", "Raydium CP"] },
   { symbol: "JUP", mint: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN", dexes: ["Raydium CLMM", "Raydium CP", "Orca V2", "Whirlpool", "Meteora DLMM", "HumidiFi"] },
   { symbol: "WIF", mint: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm", dexes: ["Raydium CLMM", "Raydium CP", "Orca V2", "Whirlpool", "Meteora DLMM", "HumidiFi"] },
   { symbol: "mSOL", mint: "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So", dexes: ["Sanctum Infinity", "Sanctum", "Whirlpool", "Orca V2", "Meteora DLMM", "Raydium CLMM"] },
   { symbol: "JitoSOL", mint: "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn", dexes: ["Sanctum Infinity", "Sanctum", "Whirlpool", "Orca V2", "Meteora DLMM", "Raydium CLMM"] },
+  { symbol: "RAY", mint: "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", dexes: ["Raydium CLMM", "Raydium CP", "Orca V2", "Whirlpool", "Meteora DLMM", "HumidiFi"] },
+  { symbol: "PYTH", mint: "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3", dexes: ["Raydium CLMM", "Raydium CP", "Orca V2", "Whirlpool", "Meteora DLMM", "HumidiFi"] },
+  { symbol: "POPCAT", mint: "7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr", dexes: ["Raydium CLMM", "Raydium CP", "Orca V2", "Whirlpool", "Meteora DLMM", "HumidiFi"] },
 ] as const;
 
-const TOP_BUYS = 1;
+const ENGINE_VERSION = "edge_discovery_paper_v2";
 const QUOTE_CONCURRENCY = 1;
 const DEXES_PER_RUN = 3;
+const DEX_ROTATION_MS = 120_000;
 const SLIPPAGE_BPS_PER_LEG = 10;
 const LATENCY_DEGRADATION_BPS = 5;
 const ADVERSE_SELECTION_BPS = 5;
@@ -49,11 +53,16 @@ type CostEvidence = { priority: PromiseSettledResult<PriorityFeeEvidence>; jito:
 type PairEconomics = {
   token: TokenSpec; buyDex: string; sellDex: string; startUsdc: number; endUsdc: number;
   quotedEdgeBps: number; quotedProfitUsd: number; netPnlUsd: number | null; netEdgeBps: number | null;
-  totalCostUsd: number | null; quoteLatencyMs: number; slot: number | null; slotDrift: number | null;
+  totalCostUsd: number | null; costBps: number | null; breakEvenGrossEdgeBps: number | null;
+  quoteLatencyMs: number; slot: number | null; slotDrift: number | null;
   blockers: string[]; costs: Record<string, number | null>; evidenceErrors: { priorityFee: string | null; jitoTip: string | null };
   priorityFeeEvidence: PriorityFeeEvidence | null; atomicPreflight: Record<string, unknown>;
 };
-type ProbeResult = { token: TokenSpec; candidates: PairEconomics[]; buyQuoteCount: number; errors: string[] };
+type ProbeResult = { token: TokenSpec; notionalUsd: number; activeDexes: string[]; candidates: PairEconomics[]; buyQuoteCount: number; pairAttempts: number; errors: string[] };
+type GridProbeResult = {
+  token: TokenSpec; activeDexes: string[]; candidates: PairEconomics[]; buyQuoteCount: number; pairAttempts: number; errors: string[];
+  sizingCurve: Array<{ notionalUsd: number; route: string | null; grossEdgeBps: number | null; netEdgeBps: number | null; netPnlUsd: number | null; totalCostUsd: number | null }>;
+};
 
 function json(status: number, body: unknown) { return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } }); }
 async function sha256Hex(value: string) { const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)); return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join(""); }
@@ -66,18 +75,14 @@ function bps(value: unknown) { const n = Number(value); return Number.isFinite(n
 function money(value: unknown) { const n = Number(value); return Number.isFinite(n) ? `${n >= 0 ? "+" : "-"}$${Math.abs(n).toFixed(4)}` : "—"; }
 function usd(value: unknown) { const n = Number(value); return Number.isFinite(n) ? `$${Math.abs(n).toFixed(4)}` : "—"; }
 function madridTime(value: unknown) { const date = new Date(String(value ?? "")); if (Number.isNaN(date.getTime())) return String(value ?? "—"); return new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(date) + " Madrid"; }
+function candidateScore(candidate: PairEconomics) { const pnl = Number(candidate.netPnlUsd); if (Number.isFinite(pnl)) return pnl; const edge = Number(candidate.netEdgeBps); if (Number.isFinite(edge)) return edge / 10_000; return Number(candidate.quotedProfitUsd) || -Infinity; }
 
 async function jupiterDexQuote(inputMint: string, outputMint: string, amountRaw: bigint, dex: string): Promise<QuoteLeg> {
   const params = new URLSearchParams({ inputMint, outputMint, amount: String(amountRaw), slippageBps: String(SLIPPAGE_BPS_PER_LEG), restrictIntermediateTokens: "true", onlyDirectRoutes: "true", dexes: dex, instructionVersion: "V2" });
   const started = Date.now();
   let quote: any;
-  try {
-    quote = await fetchJson(`${JUPITER_QUOTE_URL}?${params}`);
-  } catch (error) {
-    if (!String((error as any)?.message ?? error).startsWith("http_429")) throw error;
-    await sleep(750);
-    quote = await fetchJson(`${JUPITER_QUOTE_URL}?${params}`);
-  }
+  try { quote = await fetchJson(`${JUPITER_QUOTE_URL}?${params}`); }
+  catch (error) { if (!String((error as any)?.message ?? error).startsWith("http_429")) throw error; await sleep(750); quote = await fetchJson(`${JUPITER_QUOTE_URL}?${params}`); }
   if (!quote?.inAmount || !quote?.outAmount || !Array.isArray(quote?.routePlan)) throw new Error(`invalid_quote:${dex}`);
   return { dex, quote, latencyMs: Date.now() - started, receivedAtMs: Date.now() };
 }
@@ -96,49 +101,107 @@ async function evaluatePair(token: TokenSpec, buyDex: string, sellDex: string, n
   const amountRaw = BigInt(Math.round(notionalUsd * USDC_SCALE));
   const buy = prefetchedBuy ?? await jupiterDexQuote(USDC_MINT, token.mint, amountRaw, buyDex);
   const sell = await jupiterDexQuote(token.mint, USDC_MINT, BigInt(buy.quote.outAmount), sellDex);
-  const startUsdc = Number(buy.quote.inAmount) / USDC_SCALE; const endUsdc = Number(sell.quote.outAmount) / USDC_SCALE;
+  const startUsdc = Number(buy.quote.inAmount) / USDC_SCALE;
+  const endUsdc = Number(sell.quote.outAmount) / USDC_SCALE;
   if (![startUsdc, endUsdc].every(Number.isFinite) || startUsdc <= 0) throw new Error("invalid_cycle_amounts");
-  const quotedProfitUsd = endUsdc - startUsdc; const quotedEdgeBps = (quotedProfitUsd / startUsdc) * 10_000;
-  let priority = evidence.priority; let accounts: string[] = []; let atomicPlanValidated = false;
-  if (requireLocalizedEvidence) {
-    try { const [buyInstructions, sellInstructions] = await Promise.all([jupiterSwapInstructions(buy.quote), jupiterSwapInstructions(sell.quote)]); accounts = writableAccounts(buyInstructions, sellInstructions); if (!accounts.length) throw new Error("route_writable_accounts_missing"); priority = { status: "fulfilled", value: await priorityFeeEvidence(accounts) }; atomicPlanValidated = true; }
-    catch (reason) { priority = { status: "rejected", reason }; }
+  const quotedProfitUsd = endUsdc - startUsdc;
+  const quotedEdgeBps = (quotedProfitUsd / startUsdc) * 10_000;
+  const grossPositive = quotedProfitUsd > 0;
+  let priority = evidence.priority;
+  let accounts: string[] = [];
+  let atomicPlanValidated = false;
+  if (requireLocalizedEvidence && grossPositive) {
+    try {
+      const [buyInstructions, sellInstructions] = await Promise.all([jupiterSwapInstructions(buy.quote), jupiterSwapInstructions(sell.quote)]);
+      accounts = writableAccounts(buyInstructions, sellInstructions);
+      if (!accounts.length) throw new Error("route_writable_accounts_missing");
+      priority = { status: "fulfilled", value: await priorityFeeEvidence(accounts) };
+      atomicPlanValidated = true;
+    } catch (reason) { priority = { status: "rejected", reason }; }
   }
-  const slippageReserveUsd = startUsdc * ((SLIPPAGE_BPS_PER_LEG * 2) / 10_000); const latencyDegradationUsd = startUsdc * (LATENCY_DEGRADATION_BPS / 10_000); const adverseSelectionReserveUsd = startUsdc * (ADVERSE_SELECTION_BPS / 10_000);
-  const baseFeeUsd = usdFromLamports(BASE_FEE_LAMPORTS, evidence.solUsd); const priorityFeeUsd = usdFromLamports(priority.status === "fulfilled" ? priority.value.priorityFeeLamports : null, evidence.solUsd); const jitoTipUsd = usdFromLamports(evidence.jito.status === "fulfilled" ? evidence.jito.value : null, evidence.solUsd);
+  const slippageReserveUsd = startUsdc * ((SLIPPAGE_BPS_PER_LEG * 2) / 10_000);
+  const latencyDegradationUsd = startUsdc * (LATENCY_DEGRADATION_BPS / 10_000);
+  const adverseSelectionReserveUsd = startUsdc * (ADVERSE_SELECTION_BPS / 10_000);
+  const baseFeeUsd = usdFromLamports(BASE_FEE_LAMPORTS, evidence.solUsd);
+  const priorityFeeUsd = usdFromLamports(priority.status === "fulfilled" ? priority.value.priorityFeeLamports : null, evidence.solUsd);
+  const jitoTipUsd = usdFromLamports(evidence.jito.status === "fulfilled" ? evidence.jito.value : null, evidence.solUsd);
   const criticalCostsKnown = [baseFeeUsd, priorityFeeUsd, jitoTipUsd].every(Number.isFinite);
   const failureReserveUsd = criticalCostsKnown ? (Number(baseFeeUsd) + Number(priorityFeeUsd) + Number(jitoTipUsd)) * FAILURE_PROBABILITY_RESERVE : null;
   const modeledReserveUsd = slippageReserveUsd + latencyDegradationUsd + adverseSelectionReserveUsd;
   const hardNetworkUsd = Number.isFinite(baseFeeUsd) && Number.isFinite(priorityFeeUsd) ? Number(baseFeeUsd) + Number(priorityFeeUsd) : null;
   const totalCostUsd = criticalCostsKnown ? modeledReserveUsd + Number(baseFeeUsd) + Number(priorityFeeUsd) + Number(jitoTipUsd) + Number(failureReserveUsd) : null;
-  const netPnlUsd = totalCostUsd == null ? null : quotedProfitUsd - totalCostUsd; const netEdgeBps = netPnlUsd == null ? null : (netPnlUsd / startUsdc) * 10_000;
-  const firstSlot = Number(buy.quote.contextSlot); const secondSlot = Number(sell.quote.contextSlot); const slotDrift = Number.isFinite(firstSlot) && Number.isFinite(secondSlot) ? Math.abs(secondSlot - firstSlot) : null;
-  const blockers: string[] = []; if (requireLocalizedEvidence && !atomicPlanValidated) blockers.push("atomic_plan_missing"); if (!criticalCostsKnown) blockers.push("critical_cost_unknown"); if (slotDrift == null) blockers.push("context_slot_unknown"); else if (slotDrift > MAX_SLOT_DRIFT) blockers.push("slot_drift"); if (netPnlUsd == null || netPnlUsd <= 0) blockers.push("net_not_positive");
-  return { token, buyDex, sellDex, startUsdc, endUsdc, quotedEdgeBps, quotedProfitUsd, netPnlUsd, netEdgeBps, totalCostUsd, quoteLatencyMs: buy.latencyMs + sell.latencyMs, slot: Number.isFinite(secondSlot) ? secondSlot : null, slotDrift, blockers,
+  const costBps = totalCostUsd == null ? null : (totalCostUsd / startUsdc) * 10_000;
+  const netPnlUsd = totalCostUsd == null ? null : quotedProfitUsd - totalCostUsd;
+  const netEdgeBps = netPnlUsd == null ? null : (netPnlUsd / startUsdc) * 10_000;
+  const firstSlot = Number(buy.quote.contextSlot);
+  const secondSlot = Number(sell.quote.contextSlot);
+  const slotDrift = Number.isFinite(firstSlot) && Number.isFinite(secondSlot) ? Math.abs(secondSlot - firstSlot) : null;
+  const blockers: string[] = [];
+  if (!grossPositive) blockers.push("gross_not_positive");
+  if (requireLocalizedEvidence && grossPositive && !atomicPlanValidated) blockers.push("atomic_plan_missing");
+  if (!criticalCostsKnown) blockers.push("critical_cost_unknown");
+  if (slotDrift == null) blockers.push("context_slot_unknown"); else if (slotDrift > MAX_SLOT_DRIFT) blockers.push("slot_drift");
+  if (netPnlUsd == null || netPnlUsd <= 0) blockers.push("net_not_positive");
+  return {
+    token, buyDex, sellDex, startUsdc, endUsdc, quotedEdgeBps, quotedProfitUsd, netPnlUsd, netEdgeBps,
+    totalCostUsd, costBps, breakEvenGrossEdgeBps: costBps, quoteLatencyMs: buy.latencyMs + sell.latencyMs,
+    slot: Number.isFinite(secondSlot) ? secondSlot : null, slotDrift, blockers,
     costs: { totalUsd: totalCostUsd, conservativeTotalUsd: totalCostUsd, hardNetworkUsd, optionalJitoUsd: jitoTipUsd, modeledReserveUsd, baseFeeUsd, priorityFeeUsd, jitoTipUsd, slippageReserveUsd, latencyDegradationUsd, adverseSelectionReserveUsd, failureReserveUsd },
     evidenceErrors: { priorityFee: priority.status === "rejected" ? String((priority.reason as any)?.message ?? priority.reason) : null, jitoTip: evidence.jito.status === "rejected" ? String((evidence.jito.reason as any)?.message ?? evidence.jito.reason) : null },
     priorityFeeEvidence: priority.status === "fulfilled" ? priority.value : null,
-    atomicPreflight: { version: "cents-hunter-atomic-plan-v1", validated: atomicPlanValidated, instructionSets: atomicPlanValidated ? 2 : 0, writableAccountCount: accounts.length, balanceRequired: false, transactionSimulationAttempted: false, signs: false, broadcasts: false, executionAuthority: false, liveLocked: true } };
+    atomicPreflight: { version: "cents-hunter-atomic-plan-v2", validated: atomicPlanValidated, skippedBecauseGrossNonPositive: requireLocalizedEvidence && !grossPositive, instructionSets: atomicPlanValidated ? 2 : 0, writableAccountCount: accounts.length, balanceRequired: false, transactionSimulationAttempted: false, signs: false, broadcasts: false, executionAuthority: false, liveLocked: true },
+  };
 }
 
-async function probeToken(token: TokenSpec, notionalUsd: number, evidence: CostEvidence): Promise<ProbeResult> {
-  const amountRaw = BigInt(Math.round(notionalUsd * USDC_SCALE)); const errors: string[] = [];
-  const rotation = Math.floor(Date.now() / 120_000) % token.dexes.length;
-  const activeDexes = Array.from(
-    { length: Math.min(DEXES_PER_RUN, token.dexes.length) },
-    (_, index) => token.dexes[(rotation + index) % token.dexes.length],
-  );
-  const buyResults = await mapLimit(activeDexes, QUOTE_CONCURRENCY, (dex) => jupiterDexQuote(USDC_MINT, token.mint, amountRaw, dex)); const buyQuotes: QuoteLeg[] = [];
+function activeDexesFor(token: TokenSpec) {
+  const rotation = Math.floor(Date.now() / DEX_ROTATION_MS) % token.dexes.length;
+  return Array.from({ length: Math.min(DEXES_PER_RUN, token.dexes.length) }, (_, index) => token.dexes[(rotation + index) % token.dexes.length]);
+}
+
+async function probeToken(token: TokenSpec, notionalUsd: number, evidence: CostEvidence, activeDexes: readonly string[]): Promise<ProbeResult> {
+  const amountRaw = BigInt(Math.round(notionalUsd * USDC_SCALE));
+  const errors: string[] = [];
+  const buyResults = await mapLimit(activeDexes, QUOTE_CONCURRENCY, (dex) => jupiterDexQuote(USDC_MINT, token.mint, amountRaw, dex));
+  const buyQuotes: QuoteLeg[] = [];
   buyResults.forEach((result, i) => { if (result.status === "fulfilled") buyQuotes.push(result.value); else errors.push(`BUY ${activeDexes[i]}:${result.reason instanceof Error ? result.reason.message : String(result.reason)}`); });
-  const topBuys = buyQuotes.sort((a, b) => Number(b.quote.outAmount) - Number(a.quote.outAmount)).slice(0, TOP_BUYS); if (!topBuys.length) return { token, candidates: [], buyQuoteCount: 0, errors };
-  const tasks: { buy: QuoteLeg; sellDex: string }[] = []; for (const buy of topBuys) for (const sellDex of activeDexes) if (sellDex !== buy.dex) tasks.push({ buy, sellDex });
-  const pairResults = await mapLimit(tasks, QUOTE_CONCURRENCY, ({ buy, sellDex }) => evaluatePair(token, buy.dex, sellDex, notionalUsd, evidence, buy)); const candidates: PairEconomics[] = [];
+  if (!buyQuotes.length) return { token, notionalUsd, activeDexes: [...activeDexes], candidates: [], buyQuoteCount: 0, pairAttempts: 0, errors };
+  const tasks: { buy: QuoteLeg; sellDex: string }[] = [];
+  for (const buy of buyQuotes) for (const sellDex of activeDexes) if (sellDex !== buy.dex) tasks.push({ buy, sellDex });
+  const pairResults = await mapLimit(tasks, QUOTE_CONCURRENCY, ({ buy, sellDex }) => evaluatePair(token, buy.dex, sellDex, notionalUsd, evidence, buy));
+  const candidates: PairEconomics[] = [];
   pairResults.forEach((result, i) => { if (result.status === "fulfilled") candidates.push(result.value); else { const task = tasks[i]; errors.push(`${task.buy.dex}->${task.sellDex}:${result.reason instanceof Error ? result.reason.message : String(result.reason)}`); } });
-  candidates.sort((a, b) => Number(b.netEdgeBps ?? -Infinity) - Number(a.netEdgeBps ?? -Infinity)); return { token, candidates, buyQuoteCount: buyQuotes.length, errors };
+  candidates.sort((a, b) => candidateScore(b) - candidateScore(a));
+  return { token, notionalUsd, activeDexes: [...activeDexes], candidates, buyQuoteCount: buyQuotes.length, pairAttempts: tasks.length, errors };
+}
+
+async function probeTokenGrid(token: TokenSpec, evidence: CostEvidence): Promise<GridProbeResult> {
+  const activeDexes = activeDexesFor(token);
+  const candidates: PairEconomics[] = [];
+  const errors: string[] = [];
+  const sizingCurve: GridProbeResult["sizingCurve"] = [];
+  let buyQuoteCount = 0;
+  let pairAttempts = 0;
+  for (const notionalUsd of NOTIONAL_GRID) {
+    const probe = await probeToken(token, notionalUsd, evidence, activeDexes);
+    buyQuoteCount += probe.buyQuoteCount;
+    pairAttempts += probe.pairAttempts;
+    errors.push(...probe.errors.map((error) => `$${notionalUsd}:${error}`));
+    candidates.push(...probe.candidates);
+    const best = probe.candidates[0] ?? null;
+    sizingCurve.push({ notionalUsd, route: best ? `${best.buyDex} → ${best.sellDex}` : null, grossEdgeBps: best?.quotedEdgeBps ?? null, netEdgeBps: best?.netEdgeBps ?? null, netPnlUsd: best?.netPnlUsd ?? null, totalCostUsd: best?.totalCostUsd ?? null });
+  }
+  candidates.sort((a, b) => candidateScore(b) - candidateScore(a));
+  return { token, activeDexes, candidates, buyQuoteCount, pairAttempts, errors, sizingCurve };
 }
 
 async function telegramRequest(botToken: string, chatId: string, text: string) { const response = await fetch(`${TELEGRAM_API}/bot${botToken}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }), signal: AbortSignal.timeout(8_000) }); const body = await response.json().catch(() => null) as { ok?: boolean } | null; if (!response.ok || body?.ok !== true) throw new Error(`telegram_${response.status}`); }
-function formatRadar(event: any) { const positive = Number(event.netEdgeBps) > 0; const grossPositive = Number(event.quotedEdgeBps) > 0; return [positive ? "🧬🔥 GENESIS HQ · MEV CANDIDATE" : grossPositive ? "🧬🧪 GENESIS HQ · EDGE TO MEASURE" : "🧬 GENESIS HQ · MEV RADAR", "━━━━━━━━━━━━━━━━━━━━", `🪙 ACTIVO        ${event.asset}`, `🟢 BUY DEX       ${event.buyDex}`, `🟣 SELL DEX      ${event.sellDex}`, `💵 CAPITAL       $${Number(event.inputAmountUsd).toFixed(2)}`, "", `📈 SPREAD BRUTO  ${bps(event.quotedEdgeBps)}`, `💸 COSTES CONS.  ${usd(event.estimatedCosts?.totalUsd)}`, `${positive ? "🟢" : "🔴"} EDGE NETO     ${bps(event.netEdgeBps)}`, `💰 PNL NETO      ${money(event.expectedNetPnlUsd)}`, "", `🏦 DEX SCAN      ${event.radar?.dexesTested ?? "—"}`, `🧪 PARES         ${event.radar?.pairsEvaluated ?? "—"}`, `⚡ REQUOTE       ${event.quoteLatencyMs} ms`, `⏱️ SCAN TOTAL    ${event.radar?.scanElapsedMs ?? "—"} ms`, `🧱 SLOT DRIFT    ${event.slotDrift ?? "—"}`, "", positive ? "🧪 PAPER QUALIFIED · capture activado" : grossPositive ? "🔬 Spread bruto positivo · midiendo decay 250/500/1000 ms" : "🔭 Sin edge · sigue cazando", "👻 SHADOW · 🔒 LIVE LOCKED", "🚫 Sin firma · sin transacción · sin capital real", `🕒 ${madridTime(event.timestamp)}`].join("\n"); }
+function formatRadar(event: any) {
+  const qualified = event.type === "OPPORTUNITY_DETECTED";
+  const netPositive = Number(event.netEdgeBps) > 0;
+  const grossPositive = Number(event.quotedEdgeBps) > 0;
+  const statusLine = qualified ? "🧪 PAPER QUALIFIED · capture activado" : netPositive ? "🟢 Neto positivo · todavía bajo umbral de captura" : grossPositive ? "🔬 Spread bruto positivo · midiendo decay 250/500/1000 ms" : "🔭 Sin edge · sigue cazando";
+  return [qualified ? "🧬🔥 GENESIS HQ · MEV CANDIDATE" : grossPositive ? "🧬🧪 GENESIS HQ · EDGE TO MEASURE" : "🧬 GENESIS HQ · MEV RADAR", "━━━━━━━━━━━━━━━━━━━━", `🪙 ACTIVO        ${event.asset}`, `🟢 BUY DEX       ${event.buyDex}`, `🟣 SELL DEX      ${event.sellDex}`, `💵 CAPITAL       $${Number(event.inputAmountUsd).toFixed(2)}`, "", `📈 SPREAD BRUTO  ${bps(event.quotedEdgeBps)}`, `🎯 BREAK-EVEN    ${bps(event.breakEvenGrossEdgeBps)}`, `💸 COSTES CONS.  ${usd(event.estimatedCosts?.totalUsd)}`, `${netPositive ? "🟢" : "🔴"} EDGE NETO     ${bps(event.netEdgeBps)}`, `💰 PNL NETO      ${money(event.expectedNetPnlUsd)}`, "", `📐 TAMAÑOS       ${(event.radar?.notionalGrid ?? []).map((n: number) => `$${n}`).join(" · ") || "—"}`, `🏦 DEX SCAN      ${event.radar?.dexesTested ?? "—"}/${event.radar?.configuredDexes ?? "—"}`, `🔁 RUTAS         ${event.radar?.pairAttempts ?? "—"}`, `🌱 GROSS +       ${event.radar?.grossPositiveCount ?? "—"}`, `✅ NET +         ${event.radar?.netPositiveCount ?? "—"}`, `⚡ REQUOTE       ${event.quoteLatencyMs} ms`, `⏱️ SCAN TOTAL    ${event.radar?.scanElapsedMs ?? "—"} ms`, `🧱 SLOT DRIFT    ${event.slotDrift ?? "—"}`, "", statusLine, "👻 SHADOW · 🔒 LIVE LOCKED", "🚫 Sin firma · sin transacción · sin capital real", `🕒 ${madridTime(event.timestamp)}`].join("\n");
+}
 function formatMeasurement(event: any) { const samples = Array.isArray(event.decayCurve) ? event.decayCurve : []; return ["🔬🧬 GENESIS HQ · EDGE MEASUREMENT", "━━━━━━━━━━━━━━━━━━━━", `🪙 ${event.asset} · ${event.route}`, `💵 $${Number(event.inputAmountUsd).toFixed(2)}`, "", `🎯 FRESH GROSS   ${bps(event.initialGrossEdgeBps)}`, `🛡️ FRESH NET     ${bps(event.initialNetEdgeBps)}`, ...samples.map((s: any) => `⏱️ ${String(s.horizonMs).padStart(4, " ")} ms      gross ${bps(s.grossEdgeBps)} · net ${bps(s.netEdgeBps)} · drift ${s.slotDrift ?? "—"}`), "", `📉 GROSS DECAY   ${bps(event.grossDecayBps)}`, `💰 FINAL NET     ${money(event.capturedNetPnlUsd)}`, `🧠 ${event.survivedGrossPositive ? "SPREAD SOBREVIVE" : "SPREAD DECAÍDO"}`, "", "🔬 MEASUREMENT ONLY · 🧪 PAPER · 🔒 LIVE LOCKED", "🚫 Sin firma · sin transacción · sin capital real", `🕒 ${madridTime(event.timestamp)}`].join("\n"); }
 async function dispatchTelegram(db: Db, event: any, kind: "radar" | "measurement") { const { data: configs, error } = await db.rpc("genesis_telegram_configs_for_dispatch"); if (error) throw new Error("telegram_config_store_unavailable"); let sent = 0, skipped = 0, failed = 0; for (const row of configs ?? []) { const config = row?.config && typeof row.config === "object" ? row.config : {}; const notifications = row?.notifications && typeof row.notifications === "object" ? row.notifications : config.notifications ?? {}; const wants = kind === "measurement" ? event.centsCaptured === true && notifications.executions !== false : event.type === "OPPORTUNITY_DETECTED" ? notifications.opportunities !== false : notifications.debug === true; if (!wants) { skipped++; continue; } const botToken = typeof config.botToken === "string" ? config.botToken.trim() : ""; const chatId = config.chatId == null ? "" : String(config.chatId).trim(); if (!botToken || !chatId) { failed++; continue; } const eventId = String(event.eventId ?? event.id ?? "").trim(); if (!eventId) { skipped++; continue; } const { data: existing } = await db.from("genesis_telegram_deliveries").select("event_id").eq("owner_hash", row.owner_hash).eq("event_id", eventId).maybeSingle(); if (existing) { skipped++; continue; } try { await telegramRequest(botToken, chatId, kind === "measurement" ? formatMeasurement(event) : formatRadar(event)); const { error: insertError } = await db.from("genesis_telegram_deliveries").insert({ owner_hash: row.owner_hash, event_id: eventId }); if (insertError && insertError.code !== "23505") throw insertError; sent++; } catch { failed++; } } return { configs: (configs ?? []).length, sent, skipped, failed }; }
 
@@ -154,17 +217,76 @@ async function measureDecay(db: Db, event: any, token: TokenSpec, buyDex: string
   const measurement = { eventId: measurementId, id: measurementId, type: "MEV_EDGE_MEASUREMENT", timestamp: new Date().toISOString(), asset: event.asset, route: event.route, inputAmountUsd: event.inputAmountUsd, initialGrossEdgeBps: Number(event.quotedEdgeBps), initialNetEdgeBps: expectedNetEdge, decayCurve: valid, grossDecayBps: Number(event.quotedEdgeBps) - Number(final.grossEdgeBps), netDecayBps: expectedNetEdge - capturedNetEdge, quoteDecayBps: expectedNetEdge - capturedNetEdge, quoteDecayUsd: expectedNet - capturedNet, captureRatio: expectedNet > 0 ? capturedNet / expectedNet : null, capturedNetPnlUsd: capturedNet, capturedNetEdgeBps: capturedNetEdge, captureQuoteEndUsdc: Number(final.endUsdc), captureCostUsd: Number(final.totalCostUsd), captureSlot: final.slot ?? null, captureSlotDrift: final.slotDrift ?? null, survivedGrossPositive: Number(final.grossEdgeBps) > 0, centsCaptured: capturedNet >= MIN_CAPTURE_PNL_USD && capturedNetEdge > 0, minimumCapturePnlUsd: MIN_CAPTURE_PNL_USD, priorityFeeEvidence: last.priorityFeeEvidence, atomicPreflight: last.atomicPreflight, mode: "PAPER", executionAuthority: false, liveLocked: true, measurementOnly: true, noTransaction: true };
   await persistMeasurement(db, event, measurement); (measurement as any).telegram = await dispatchTelegram(db, measurement, "measurement"); return measurement;
 }
-function currentProbe() { const tick = Math.floor(Date.now() / 120_000); return { tokenIndex: tick % TOKENS.length, notionalUsd: NOTIONAL_GRID[Math.floor(tick / TOKENS.length) % NOTIONAL_GRID.length] }; }
+function currentProbe() { const tick = Math.floor(Date.now() / DEX_ROTATION_MS); return { tokenIndex: tick % TOKENS.length }; }
 
 async function runRadar() {
-  const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } }); const scanStartedMs = Date.now(); const { tokenIndex, notionalUsd } = currentProbe(); const evidence = await loadCostEvidence(db); const probeErrors: string[] = []; let probe: ProbeResult | null = null; let fallbackUsed = false;
-  for (let attempt = 0; attempt < 2; attempt++) { const token = TOKENS[(tokenIndex + attempt) % TOKENS.length]; const result = await probeToken(token, notionalUsd, evidence); probeErrors.push(...result.errors.map((e) => `${token.symbol}:${e}`)); if (result.candidates.length) { probe = result; fallbackUsed = attempt > 0; break; } }
-  if (!probe || !probe.candidates.length) throw new Error(`no_cross_dex_candidates:${probeErrors.slice(0, 6).join("|")}`);
-  const scannedBest = probe.candidates[0]; const token = probe.token; const freshEvidence = await loadCostEvidence(db); const fresh = await evaluatePair(token, scannedBest.buyDex, scannedBest.sellDex, notionalUsd, freshEvidence, undefined, true); const qualified = fresh.blockers.length === 0 && Number(fresh.netPnlUsd) >= MIN_CAPTURE_PNL_USD; const eventId = `mev-radar-v2-${crypto.randomUUID()}`;
-  const event = { eventId, id: eventId, timestamp: new Date().toISOString(), observedAt: new Date().toISOString(), type: qualified ? "OPPORTUNITY_DETECTED" : "REJECTED", chain: "SOLANA", mode: "SHADOW", executionAuthority: false, liveLocked: true, asset: token.symbol, assetMint: token.mint, buyDex: fresh.buyDex, sellDex: fresh.sellDex, route: `${token.symbol}: ${fresh.buyDex} → ${fresh.sellDex}`, venues: [fresh.buyDex, fresh.sellDex], tokens: ["USDC", token.symbol, "USDC"], inputAmountUsd: fresh.startUsdc, quotedOutputUsd: fresh.endUsdc, quotedEdgeBps: fresh.quotedEdgeBps, netEdgeBps: fresh.netEdgeBps, expectedNetPnlUsd: fresh.netPnlUsd, estimatedCosts: fresh.costs, priorityFeeEvidence: fresh.priorityFeeEvidence, atomicPreflight: fresh.atomicPreflight, minimumCapturePnlUsd: MIN_CAPTURE_PNL_USD, quoteLatencyMs: fresh.quoteLatencyMs, slot: fresh.slot, slotDrift: fresh.slotDrift, blockers: fresh.blockers, decision: qualified ? "SHADOW_QUALIFIED" : Number(fresh.quotedEdgeBps) > 0 ? "GROSS_POSITIVE_MEASURE" : "REJECTED", reason: qualified ? "positive_cross_dex_net_edge" : Number(fresh.quotedEdgeBps) > 0 ? "gross_positive_measurement_only" : fresh.blockers[0] ?? "rejected", radar: { engineVersion: "cents_hunter_paper_v1", dexesTested: token.dexes.length, buyQuotes: probe.buyQuoteCount, pairsEvaluated: probe.candidates.length, selectedNotionalUsd: notionalUsd, fallbackUsed, primaryAsset: TOKENS[tokenIndex].symbol, assetRotation: TOKENS.map((t) => t.symbol), notionalGrid: NOTIONAL_GRID, solUsd: freshEvidence.solUsd, solPriceSource: freshEvidence.solPriceSource, scanElapsedMs: Date.now() - scanStartedMs, requotedBeforeDecision: true, quoteConcurrency: QUOTE_CONCURRENCY, scannedBest: { route: `${scannedBest.buyDex} → ${scannedBest.sellDex}`, grossEdgeBps: scannedBest.quotedEdgeBps, netEdgeBps: scannedBest.netEdgeBps, slotDrift: scannedBest.slotDrift }, top3: probe.candidates.slice(0, 3).map((c) => ({ route: `${c.buyDex} → ${c.sellDex}`, grossEdgeBps: c.quotedEdgeBps, netEdgeBps: c.netEdgeBps, netPnlUsd: c.netPnlUsd })), quoteErrors: probeErrors.slice(0, 10) } };
-  await persistObservation(db, event); const telegram = await dispatchTelegram(db, event, "radar"); let measurement = null;
-  if (Number(fresh.quotedEdgeBps) > 0 && fresh.slotDrift != null) { try { measurement = await measureDecay(db, event, token, fresh.buyDex, fresh.sellDex, notionalUsd); } catch (error) { measurement = { ok: false, type: "MEV_EDGE_MEASUREMENT_FAILED", error: error instanceof Error ? error.message : String(error), measurementOnly: true, liveLocked: true }; } }
-  const result = { ok: true, source: "supabase_mev_radar_v2", engineVersion: "cents_hunter_paper_v1", mode: "SHADOW", executionAuthority: false, liveLocked: true, event, telegram, measurement, evidenceErrors: fresh.evidenceErrors }; await persistLatest(db, result); return result;
+  const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+  const scanStartedMs = Date.now();
+  const { tokenIndex } = currentProbe();
+  const evidence = await loadCostEvidence(db);
+  const probeErrors: string[] = [];
+  let probe: GridProbeResult | null = null;
+  let fallbackUsed = false;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const token = TOKENS[(tokenIndex + attempt) % TOKENS.length];
+    const result = await probeTokenGrid(token, evidence);
+    probeErrors.push(...result.errors.map((error) => `${token.symbol}:${error}`));
+    if (result.candidates.length) { probe = result; fallbackUsed = attempt > 0; break; }
+  }
+  if (!probe || !probe.candidates.length) throw new Error(`no_cross_dex_candidates:${probeErrors.slice(0, 10).join("|")}`);
+
+  const scannedBest = probe.candidates[0];
+  const token = probe.token;
+  const selectedNotionalUsd = scannedBest.startUsdc;
+  const freshEvidence = await loadCostEvidence(db);
+  const fresh = await evaluatePair(token, scannedBest.buyDex, scannedBest.sellDex, selectedNotionalUsd, freshEvidence, undefined, true);
+  const qualified = fresh.blockers.length === 0 && Number(fresh.netPnlUsd) >= MIN_CAPTURE_PNL_USD;
+  const grossPositiveCount = probe.candidates.filter((candidate) => Number(candidate.quotedEdgeBps) > 0).length;
+  const netPositiveCount = probe.candidates.filter((candidate) => Number(candidate.netPnlUsd) > 0).length;
+  const eventId = `mev-radar-v2-${crypto.randomUUID()}`;
+  const event = {
+    eventId, id: eventId, timestamp: new Date().toISOString(), observedAt: new Date().toISOString(), type: qualified ? "OPPORTUNITY_DETECTED" : "REJECTED",
+    chain: "SOLANA", mode: "SHADOW", executionAuthority: false, liveLocked: true, asset: token.symbol, assetMint: token.mint,
+    buyDex: fresh.buyDex, sellDex: fresh.sellDex, route: `${token.symbol}: ${fresh.buyDex} → ${fresh.sellDex}`, venues: [fresh.buyDex, fresh.sellDex], tokens: ["USDC", token.symbol, "USDC"],
+    inputAmountUsd: fresh.startUsdc, quotedOutputUsd: fresh.endUsdc, quotedEdgeBps: fresh.quotedEdgeBps, breakEvenGrossEdgeBps: fresh.breakEvenGrossEdgeBps,
+    netEdgeBps: fresh.netEdgeBps, expectedNetPnlUsd: fresh.netPnlUsd, estimatedCosts: fresh.costs, priorityFeeEvidence: fresh.priorityFeeEvidence, atomicPreflight: fresh.atomicPreflight,
+    minimumCapturePnlUsd: MIN_CAPTURE_PNL_USD, quoteLatencyMs: fresh.quoteLatencyMs, slot: fresh.slot, slotDrift: fresh.slotDrift, blockers: fresh.blockers,
+    decision: qualified ? "SHADOW_QUALIFIED" : Number(fresh.quotedEdgeBps) > 0 ? "GROSS_POSITIVE_MEASURE" : "REJECTED",
+    reason: qualified ? "positive_cross_dex_net_edge" : Number(fresh.quotedEdgeBps) > 0 ? "gross_positive_measurement_only" : fresh.blockers[0] ?? "rejected",
+    radar: {
+      engineVersion: ENGINE_VERSION, configuredDexes: token.dexes.length, dexesTested: probe.activeDexes.length, activeDexes: probe.activeDexes,
+      buyQuotes: probe.buyQuoteCount, pairAttempts: probe.pairAttempts, pairsEvaluated: probe.candidates.length, selectedNotionalUsd,
+      fallbackUsed, primaryAsset: TOKENS[tokenIndex].symbol, assetRotation: TOKENS.map((t) => t.symbol), notionalGrid: NOTIONAL_GRID,
+      sizingCurve: probe.sizingCurve, grossPositiveCount, netPositiveCount, solUsd: freshEvidence.solUsd, solPriceSource: freshEvidence.solPriceSource,
+      scanElapsedMs: Date.now() - scanStartedMs, requotedBeforeDecision: true, quoteConcurrency: QUOTE_CONCURRENCY,
+      earlyRejectGrossNonPositive: true,
+      scannedBest: { route: `${scannedBest.buyDex} → ${scannedBest.sellDex}`, notionalUsd: scannedBest.startUsdc, grossEdgeBps: scannedBest.quotedEdgeBps, breakEvenGrossEdgeBps: scannedBest.breakEvenGrossEdgeBps, netEdgeBps: scannedBest.netEdgeBps, netPnlUsd: scannedBest.netPnlUsd, slotDrift: scannedBest.slotDrift },
+      top5: probe.candidates.slice(0, 5).map((candidate) => ({ route: `${candidate.buyDex} → ${candidate.sellDex}`, notionalUsd: candidate.startUsdc, grossEdgeBps: candidate.quotedEdgeBps, breakEvenGrossEdgeBps: candidate.breakEvenGrossEdgeBps, netEdgeBps: candidate.netEdgeBps, netPnlUsd: candidate.netPnlUsd })),
+      quoteErrors: probeErrors.slice(0, 20),
+    },
+  };
+  await persistObservation(db, event);
+  const telegram = await dispatchTelegram(db, event, "radar");
+  let measurement = null;
+  if (Number(fresh.quotedEdgeBps) > 0 && fresh.slotDrift != null) {
+    try { measurement = await measureDecay(db, event, token, fresh.buyDex, fresh.sellDex, selectedNotionalUsd); }
+    catch (error) { measurement = { ok: false, type: "MEV_EDGE_MEASUREMENT_FAILED", error: error instanceof Error ? error.message : String(error), measurementOnly: true, liveLocked: true }; }
+  }
+  const result = { ok: true, source: "supabase_mev_radar_v2", engineVersion: ENGINE_VERSION, mode: "SHADOW", executionAuthority: false, liveLocked: true, event, telegram, measurement, evidenceErrors: fresh.evidenceErrors };
+  await persistLatest(db, result);
+  return result;
 }
 
-Deno.serve(async (req: Request) => { if (req.method === "OPTIONS") return json(200, { ok: true }); if (!["GET", "POST"].includes(req.method)) return json(405, { ok: false, error: "method_not_allowed" }); if (!SERVICE_KEY) return json(503, { ok: false, error: "service_key_unavailable" }); if (!await authorized(req)) return json(403, { ok: false, error: "runner_auth_invalid" }); try { return json(200, await runRadar()); } catch (error) { const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } }); const failure = { ok: false, source: "supabase_mev_radar_v2", engineVersion: "cents_hunter_paper_v1", mode: "SHADOW", executionAuthority: false, liveLocked: true, error: error instanceof Error ? error.message : String(error), observedAt: new Date().toISOString() }; await persistLatest(db, failure).catch(() => null); return json(500, failure); } });
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return json(200, { ok: true });
+  if (!["GET", "POST"].includes(req.method)) return json(405, { ok: false, error: "method_not_allowed" });
+  if (!SERVICE_KEY) return json(503, { ok: false, error: "service_key_unavailable" });
+  if (!await authorized(req)) return json(403, { ok: false, error: "runner_auth_invalid" });
+  try { return json(200, await runRadar()); }
+  catch (error) {
+    const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+    const failure = { ok: false, source: "supabase_mev_radar_v2", engineVersion: ENGINE_VERSION, mode: "SHADOW", executionAuthority: false, liveLocked: true, error: error instanceof Error ? error.message : String(error), observedAt: new Date().toISOString() };
+    await persistLatest(db, failure).catch(() => null);
+    return json(500, failure);
+  }
+});
