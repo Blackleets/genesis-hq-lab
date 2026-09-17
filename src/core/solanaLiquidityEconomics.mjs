@@ -42,6 +42,28 @@ export function solanaOperationCostBps({
   };
 }
 
+export function lpBreakEvenHoldDays({
+  capturedFeeYieldBps,
+  ilStressBps = 0,
+  rebalanceReserveBps = 0,
+  roundTripCostBps,
+} = {}) {
+  const fees = num(capturedFeeYieldBps);
+  const il = num(ilStressBps);
+  const rebalance = num(rebalanceReserveBps);
+  const roundTrip = num(roundTripCostBps);
+  if (fees == null || il == null || rebalance == null || roundTrip == null || roundTrip < 0) return null;
+  const preOperationalNetBpsPerDay = fees - il - rebalance;
+  if (!(preOperationalNetBpsPerDay > 0)) return {
+    preOperationalNetBpsPerDay,
+    breakEvenHoldDays: null,
+  };
+  return {
+    preOperationalNetBpsPerDay,
+    breakEvenHoldDays: roundTrip / preOperationalNetBpsPerDay,
+  };
+}
+
 export function impermanentLossBps(priceRatio) {
   const r = num(priceRatio);
   if (!(r > 0)) return null;
