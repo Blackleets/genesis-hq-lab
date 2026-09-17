@@ -1,6 +1,6 @@
 name: Supabase Deploy (edge functions)
 
-# Deploys genesis-runner, genesis-fallback, genesis-alerts via Management API
+# Deploys Genesis Edge Functions via Management API
 # (bypasses Supabase CLI token format validation for sbp_v0_ tokens).
 
 on:
@@ -91,6 +91,7 @@ jobs:
           deploy_fn genesis-fallback
           deploy_fn genesis-alerts
           deploy_fn genesis-solana-observer
+          deploy_fn genesis-solana-mev-radar
 
       - name: Aviso si falta el token
         if: env.SUPABASE_ACCESS_TOKEN == ''
