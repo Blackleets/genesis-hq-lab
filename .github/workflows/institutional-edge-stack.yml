@@ -7,12 +7,15 @@ on:
     paths:
       - 'src/core/institutionalEdgeAllocator.mjs'
       - 'src/core/institutionalSmartExecution.mjs'
+      - 'src/core/solanaLiquidityEconomics.mjs'
       - 'server/genesis/runMarketMakingLab.mjs'
       - 'server/genesis/runStatArbLab.mjs'
       - 'server/genesis/runFundingCarryLab.py'
+      - 'server/genesis/runSolanaLiquidityLab.mjs'
       - 'server/genesis/runInstitutionalEdgeStack.mjs'
       - 'server/tests/institutionalEdgeAllocator.test.mjs'
       - 'server/tests/institutionalSmartExecution.test.mjs'
+      - 'server/tests/solanaLiquidityEconomics.test.mjs'
       - '.github/workflows/institutional-edge-stack.yml'
   schedule:
     - cron: '17,47 * * * *'
@@ -29,28 +32,56 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+
+      - name: Restore Solana liquidity forward history
+        uses: actions/cache/restore@v4
+        with:
+          path: quant-evidence/solana-liquidity-history.jsonl
+          key: solana-liquidity-history-${{ github.run_id }}
+          restore-keys: |
+            solana-liquidity-history-
+
       - name: Safety, allocation and smart-execution tests
-        run: node --test server/tests/institutionalEdgeAllocator.test.mjs server/tests/institutionalSmartExecution.test.mjs
+        run: node --test server/tests/institutionalEdgeAllocator.test.mjs server/tests/institutionalSmartExecution.test.mjs server/tests/solanaLiquidityEconomics.test.mjs
+
       - name: Market Making Lab — real public top-of-book and passive-fill proxy
         run: node server/genesis/runMarketMakingLab.mjs
+
       - name: Statistical Arbitrage Lab — walk-forward OOS evidence
         run: node server/genesis/runStatArbLab.mjs
+
       - name: Funding Carry Lab — Binance Vision delta-neutral OOS
         run: python3 server/genesis/runFundingCarryLab.py
+
+      - name: Solana Liquidity Lab — official DEX fee/TVL + forward stress proxy
+        run: node server/genesis/runSolanaLiquidityLab.mjs --history quant-evidence/solana-liquidity-history.jsonl
+
       - name: Institutional Meta Allocator + Smart Execution — PAPER only
         run: node server/genesis/runInstitutionalEdgeStack.mjs
+
       - name: Verify fail-closed invariants
         run: |
           node - <<'NODE'
           const fs = require('fs');
           const s = JSON.parse(fs.readFileSync('quant-evidence/institutional-edge-stack-latest.json','utf8'));
           const e = s.executionBrain || {};
+          const liq = s.sleeves?.find((x) => x.sleeveKey === 'SOLANA_LIQUIDITY');
           if (s.liveLocked !== true || s.executionAuthority !== false || s.invariants?.paperOnly !== true || s.invariants?.signsTransactions !== false || s.invariants?.broadcastsTransactions !== false) process.exit(1);
           if (e.liveLocked !== true || e.executionAuthority !== false || e.signsTransactions !== false || e.broadcastsTransactions !== false) process.exit(1);
           if (!['MAKE','TAKE','WAIT'].includes(e.action)) process.exit(1);
           if (!Array.isArray(s.sleeves) || !s.sleeves.some((x) => x.sleeveKey === 'FUNDING_CARRY')) process.exit(1);
-          console.log(JSON.stringify({qualifiedSleeves:s.allocation?.qualifiedSleeves,cash:s.allocation?.cashReserve?.paperWeight,leader:s.nextResearchPriority,executionAction:e.action,executionExpectedNetBps:e.expectedNetBps,fundingCarry:s.sleeves.find((x)=>x.sleeveKey==='FUNDING_CARRY')}));
+          if (!liq || liq.liveEligible === true) process.exit(1);
+          console.log(JSON.stringify({
+            qualifiedSleeves:s.allocation?.qualifiedSleeves,
+            cash:s.allocation?.cashReserve?.paperWeight,
+            leader:s.nextResearchPriority,
+            executionAction:e.action,
+            executionExpectedNetBps:e.expectedNetBps,
+            fundingCarry:s.sleeves.find((x)=>x.sleeveKey==='FUNDING_CARRY'),
+            solanaLiquidity:liq,
+          }));
           NODE
+
       - uses: actions/upload-artifact@v4
         with:
           name: institutional-edge-stack-${{ github.run_id }}
@@ -60,4 +91,12 @@ jobs:
             quant-evidence/market-making-lab-latest.json
             quant-evidence/stat-arb-lab-latest.json
             quant-evidence/funding-carry-lab-latest.json
+            quant-evidence/solana-liquidity-lab-latest.json
+            quant-evidence/solana-liquidity-history.jsonl
             quant-evidence/institutional-edge-stack-latest.json
+
+      - name: Save Solana liquidity forward history
+        uses: actions/cache/save@v4
+        with:
+          path: quant-evidence/solana-liquidity-history.jsonl
+          key: solana-liquidity-history-${{ github.run_id }}
