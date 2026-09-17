@@ -269,7 +269,7 @@ export function buildLiquiditySleeve(windows = [], { officialObservationRatio = 
 
   return {
     sleeveKey: 'SOLANA_LIQUIDITY',
-    engineVersion: 'solana_liquidity_lab_v4_correlated_pairs',
+    engineVersion: 'solana_liquidity_lab_v5_measured_cost_forward_entry',
     samples: stats.samples,
     expectancyBps: stats.expectancyBps,
     profitFactor: stats.profitFactor,
