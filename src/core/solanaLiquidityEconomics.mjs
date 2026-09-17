@@ -33,7 +33,7 @@ export function scoreLiquiditySnapshot(input = {}, policy = {}) {
   const fees24hUsd = num(input.fees24hUsd);
   const volume24hUsd = num(input.volume24hUsd);
   const priceChange24hPct = num(input.priceChange24hPct);
-  const priceUsd = num(input.priceUsd);
+  const price = num(input.price ?? input.priceUsd);
   const officialSource = input.officialSource === true;
 
   const dailyFeeYieldBps = tvlUsd > 0 && fees24hUsd >= 0 ? fees24hUsd / tvlUsd * 10_000 : null;
@@ -60,7 +60,7 @@ export function scoreLiquiditySnapshot(input = {}, policy = {}) {
     tvl: tvlUsd != null && tvlUsd >= p.minTvlUsd,
     volume: volume24hUsd != null && volume24hUsd >= p.minVolume24hUsd,
     fees: fees24hUsd != null && fees24hUsd > 0,
-    price: priceUsd != null && priceUsd > 0,
+    price: price != null && price > 0,
     volatilityEvidence: priceChange24hPct != null,
     netStressPositive: expectedNetStressBps != null && expectedNetStressBps > 0,
   };
@@ -70,7 +70,8 @@ export function scoreLiquiditySnapshot(input = {}, policy = {}) {
     tvlUsd,
     fees24hUsd,
     volume24hUsd,
-    priceUsd,
+    price,
+    priceUsd: price,
     priceChange24hPct,
     dailyFeeYieldBps,
     capturedFeeYieldBps,
@@ -92,8 +93,8 @@ export function shouldScoreLiquidityForwardWindow(previous, current) {
 
 export function forwardLiquidityWindow(previous, current, elapsedHours, policy = {}) {
   const p = { ...DEFAULT_LIQUIDITY_POLICY, ...policy };
-  const prevPrice = num(previous?.priceUsd);
-  const currPrice = num(current?.priceUsd);
+  const prevPrice = num(previous?.price ?? previous?.priceUsd);
+  const currPrice = num(current?.price ?? current?.priceUsd);
   const dailyFeeYieldBps = num(previous?.dailyFeeYieldBps);
   const hours = num(elapsedHours);
   if (!(prevPrice > 0) || !(currPrice > 0) || !(hours > 0) || dailyFeeYieldBps == null) return null;
@@ -176,7 +177,7 @@ export function buildLiquiditySleeve(windows = [], { officialObservationRatio = 
 
   return {
     sleeveKey: 'SOLANA_LIQUIDITY',
-    engineVersion: 'solana_liquidity_lab_v3_no_survivorship',
+    engineVersion: 'solana_liquidity_lab_v4_correlated_pairs',
     samples: stats.samples,
     expectancyBps: stats.expectancyBps,
     profitFactor: stats.profitFactor,
