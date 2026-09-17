@@ -3,7 +3,7 @@ import { dirname } from 'node:path';
 import { allocatePaperCapital } from '../../src/core/institutionalEdgeAllocator.mjs';
 import { chooseExecutionMode } from '../../src/core/institutionalSmartExecution.mjs';
 
-const VERSION = 'institutional_edge_stack_v8_sizing_impact';
+const VERSION = 'institutional_edge_stack_v9_vol_regime_discovery';
 const MM_PATH = process.env.GENESIS_MM_EVIDENCE || 'quant-evidence/market-making-lab-latest.json';
 const STAT_PATH = process.env.GENESIS_STATARB_EVIDENCE || 'quant-evidence/stat-arb-lab-latest.json';
 const FUNDING_PATH = process.env.GENESIS_FUNDING_EVIDENCE || 'quant-evidence/funding-carry-lab-latest.json';
@@ -116,6 +116,7 @@ async function main() {
       summary: volatilityImpact.summary,
       overall: volatilityImpact.overall,
       profiles: volatilityImpact.profiles,
+      volatilityRegimeResearch: volatilityImpact.volatilityRegimeResearch ?? null,
       authority: { direction: false, execution: false, canCreateSignals: false, canIncreaseSize: false },
     } : null,
     volatilitySizing: volatility ? {
@@ -142,7 +143,7 @@ async function main() {
     executionAction: executionBrain.action,
     solanaLiquidity: sleeves.find((x) => x.sleeveKey === 'SOLANA_LIQUIDITY'),
     volatilitySizing: output.volatilitySizing ? { tested: output.volatilitySizing.tested, validated: output.volatilitySizing.validatedCount, throttled: output.volatilitySizing.throttledCount, storms: output.volatilitySizing.stormCount } : null,
-    volatilitySizingImpact: output.volatilitySizingImpact?.summary ?? null,
+    volatilitySizingImpact: output.volatilitySizingImpact ? { ...output.volatilitySizingImpact.summary, regimeCandidateCount: output.volatilitySizingImpact.volatilityRegimeResearch?.candidateCount ?? 0 } : null,
   }));
 }
 

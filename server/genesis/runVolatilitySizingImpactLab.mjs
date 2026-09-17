@@ -6,7 +6,7 @@ import { evaluateVolatilitySizing } from '../risk/volatilitySizingEngine.mjs';
 import { cryptoFuturesNetPnl, cryptoFuturesSlippagePct, estimateFundingFeeUsd, getCryptoFuturesFeePct } from '../trading/costs.mjs';
 import { evaluateSizingImpact, summarizeCounterfactual } from '../../src/core/volatilitySizingImpact.mjs';
 
-const VERSION='volatility_sizing_impact_lab_v1_same_trades';
+const VERSION='volatility_sizing_impact_lab_v2_regime_edge_segments';
 const OUT=process.argv.includes('--out')?process.argv[process.argv.indexOf('--out')+1]:'quant-evidence/volatility-sizing-impact-latest.json';
 const FEE=getCryptoFuturesFeePct();
 const FUNDING_RATE=Number(process.env.GENESIS_IMPACT_FUNDING_RATE||0.0001);
@@ -100,6 +100,44 @@ function simulateSeries(klines, cfg){
   return trades;
 }
 
+function segmentEvidence(trades, keyFn, {minTrain=20,minHoldout=10}={}){
+  const groups=new Map();
+  for(const t of trades){
+    const key=keyFn(t);
+    if(!key) continue;
+    const arr=groups.get(key)??[];
+    arr.push(t); groups.set(key,arr);
+  }
+  const out=[];
+  for(const [key,rows0] of groups){
+    const rows=rows0.slice().sort((a,b)=>a.openTime-b.openTime);
+    if(rows.length<minTrain+minHoldout) continue;
+    const split=Math.max(minTrain,Math.floor(rows.length*0.70));
+    const train=rows.slice(0,split), holdout=rows.slice(split);
+    if(holdout.length<minHoldout) continue;
+    const tr=summarizeCounterfactual(train);
+    const ho=summarizeCounterfactual(holdout);
+    const researchCandidate=
+      tr.trades>=minTrain && ho.trades>=minHoldout &&
+      (tr.expectancyBps??-Infinity)>0 && (ho.expectancyBps??-Infinity)>0 &&
+      (tr.profitFactor??0)>1.05 && (ho.profitFactor??0)>1.05;
+    out.push({
+      key,totalTrades:rows.length,train:tr,holdout:ho,
+      researchCandidate,
+      capitalEligible:false,
+      requiresIndependentForward:true,
+      multipleTestingAdjusted:false,
+      reason:researchCandidate
+        ? 'TRAIN_AND_HOLDOUT_POSITIVE_RESEARCH_CANDIDATE_REQUIRES_NEW_FORWARD_WINDOW'
+        : 'REGIME_SEGMENT_NOT_STABLE_POSITIVE',
+    });
+  }
+  return out.sort((a,b)=>
+    Number(b.researchCandidate)-Number(a.researchCandidate) ||
+    (b.holdout.expectancyBps??-Infinity)-(a.holdout.expectancyBps??-Infinity)
+  );
+}
+
 async function main(){
   const profileResults=[], allTrades=[], errors=[];
   for(const p of profiles){
@@ -121,6 +159,12 @@ async function main(){
   }
   allTrades.sort((a,b)=>a.openTime-b.openTime);
   const overall=evaluateSizingImpact(allTrades,{minHoldoutTrades:Math.max(30,MIN_HOLDOUT)});
+  const profileRegimeSegments=segmentEvidence(allTrades,t=>`${t.profile}|${t.regime}`,{minTrain:20,minHoldout:10});
+  const profilePairRegimeSegments=segmentEvidence(allTrades,t=>`${t.profile}|${t.pair}|${t.regime}`,{minTrain:15,minHoldout:8});
+  const regimeResearchCandidates=[
+    ...profileRegimeSegments.filter(x=>x.researchCandidate).map(x=>({...x,dimension:'PROFILE_REGIME'})),
+    ...profilePairRegimeSegments.filter(x=>x.researchCandidate).map(x=>({...x,dimension:'PROFILE_PAIR_REGIME'})),
+  ].sort((a,b)=>(b.holdout.expectancyBps??-Infinity)-(a.holdout.expectancyBps??-Infinity));
   const output={
     ok:true,version:VERSION,generatedAt:new Date().toISOString(),mode:'COUNTERFACTUAL_PAPER_RESEARCH',
     methodology:{
@@ -131,6 +175,15 @@ async function main(){
       liveAuthority:false,
     },
     profiles:profileResults,overall,
+    volatilityRegimeResearch:{
+      methodology:'Causal volatility regime known at entry; segment must be positive in chronological train and holdout. Discovery only: no multiple-testing correction and no capital eligibility until an independent future window confirms it.',
+      profileRegimeSegments:profileRegimeSegments.slice(0,30),
+      profilePairRegimeSegments:profilePairRegimeSegments.slice(0,40),
+      candidates:regimeResearchCandidates.slice(0,20),
+      candidateCount:regimeResearchCandidates.length,
+      capitalEligible:false,
+      requiresIndependentForward:true,
+    },
     summary:{
       profilesEdgePreserved:profileResults.filter(x=>x.impact.classification==='EDGE_PRESERVED').length,
       profilesRiskImprovementOnly:profileResults.filter(x=>x.impact.classification==='RISK_IMPROVEMENT_ONLY').length,
@@ -139,6 +192,7 @@ async function main(){
       totalTrades:allTrades.length,
       throttledTrades:allTrades.filter(t=>t.sizeMultiplier<0.999999).length,
       overallClassification:overall.classification,
+      volatilityRegimeCandidateCount:regimeResearchCandidates.length,
     },
     overallBaseline:summarizeCounterfactual(allTrades),
     overallSized:summarizeCounterfactual(allTrades,'sizedPnlUsd','sizedMarginUsd'),
@@ -146,6 +200,6 @@ async function main(){
     invariants:{paperOnly:true,liveEligible:false,executionAuthority:false,directionAuthority:false,canCreateSignals:false,canIncreaseSize:false},
   };
   await mkdir(dirname(OUT),{recursive:true}); await writeFile(OUT,JSON.stringify(output,null,2)+'\n');
-  console.log(JSON.stringify({version:VERSION,summary:output.summary,overall:output.overall,profiles:profileResults.map(x=>({profile:x.profile,trades:x.trades,avgMultiplier:x.avgMultiplier,throttled:x.throttledTrades,classification:x.impact.classification,eligible:x.impact.eligibleForPaperSizing,baseline:x.impact.baseline,sized:x.impact.sized,deltas:x.impact.deltas}))}));
+  console.log(JSON.stringify({version:VERSION,summary:output.summary,overall:output.overall,regimeCandidates:regimeResearchCandidates.slice(0,10).map(x=>({dimension:x.dimension,key:x.key,trainTrades:x.train.trades,trainExpectancyBps:x.train.expectancyBps,trainPF:x.train.profitFactor,holdoutTrades:x.holdout.trades,holdoutExpectancyBps:x.holdout.expectancyBps,holdoutPF:x.holdout.profitFactor,capitalEligible:false,requiresIndependentForward:true})),profiles:profileResults.map(x=>({profile:x.profile,trades:x.trades,avgMultiplier:x.avgMultiplier,throttled:x.throttledTrades,classification:x.impact.classification,eligible:x.impact.eligibleForPaperSizing,baseline:x.impact.baseline,sized:x.impact.sized,deltas:x.impact.deltas}))}));
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

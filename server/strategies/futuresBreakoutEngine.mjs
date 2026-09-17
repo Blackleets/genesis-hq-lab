@@ -81,7 +81,8 @@ function getFuturesBreakoutRuntimeConfig() {
     minExpectedNetUsd: envNumber('FUTURES_BREAKOUT_MIN_EXPECTED_NET_USD', 28, overrides),
     minRewardRisk: envNumber('FUTURES_BREAKOUT_MIN_REWARD_RISK', 2.0, overrides),
     fundingHoursCap: envInt('FUTURES_BREAKOUT_FUNDING_HOURS_CAP', 24, overrides),
-    volatilitySizingEnabled: envBool('FUTURES_VOL_SIZING_ENABLED', true, overrides),
+    // Shadow-only by default. Enable application only after profile-specific impact evidence preserves positive edge OOS.
+    volatilitySizingEnabled: envBool('FUTURES_VOL_SIZING_ENABLED', false, overrides),
     profiles: [
       {
         id: 'short_micro',
@@ -508,10 +509,12 @@ async function runProfile(profile, governorProfile, runtimeConfig) {
       ? Math.min(1, Math.max(0.25, volatilitySizing.positionSizeMultiplier ?? 1))
       : 1;
     const capitalUsed = Math.round((baseCapitalUsed * volatilityMultiplier) * 100) / 100;
+    const volatilityShadowMultiplier = Math.min(1, Math.max(0.25, volatilitySizing.positionSizeMultiplier ?? 1));
     evidence.push(
       `VOL_MODEL_${volatilitySizing.model}`,
       `VOL_REGIME_${String(volatilitySizing.regime).toUpperCase()}`,
-      `VOL_SIZE_${volatilityMultiplier.toFixed(3)}X`,
+      `VOL_SHADOW_SIZE_${volatilityShadowMultiplier.toFixed(3)}X`,
+      `VOL_APPLIED_SIZE_${volatilityMultiplier.toFixed(3)}X`,
     );
     const economics = estimateSetupEconomics({
       side: signal.side,
