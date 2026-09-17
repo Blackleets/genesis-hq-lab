@@ -84,6 +84,12 @@ export function scoreLiquiditySnapshot(input = {}, policy = {}) {
   };
 }
 
+export function shouldScoreLiquidityForwardWindow(previous, current) {
+  return previous?.screenPass === true &&
+    previous?.officialSource === true &&
+    current?.officialSource === true;
+}
+
 export function forwardLiquidityWindow(previous, current, elapsedHours, policy = {}) {
   const p = { ...DEFAULT_LIQUIDITY_POLICY, ...policy };
   const prevPrice = num(previous?.priceUsd);
@@ -170,7 +176,7 @@ export function buildLiquiditySleeve(windows = [], { officialObservationRatio = 
 
   return {
     sleeveKey: 'SOLANA_LIQUIDITY',
-    engineVersion: 'solana_liquidity_lab_v1_forward_fee_tvl_proxy',
+    engineVersion: 'solana_liquidity_lab_v3_no_survivorship',
     samples: stats.samples,
     expectancyBps: stats.expectancyBps,
     profitFactor: stats.profitFactor,
