@@ -6,6 +6,7 @@ import {
   forwardLiquidityWindow,
   shouldScoreLiquidityForwardWindow,
   buildLiquiditySleeve,
+  solanaOperationCostBps,
 } from '../../src/core/solanaLiquidityEconomics.mjs';
 
 test('impermanent loss is zero when price does not move', () => {
@@ -104,4 +105,24 @@ test('generic relative pair price supports correlated LP economics without prete
   assert.equal(scored.checks.price, true);
   assert.equal(scored.price, 1.18);
   assert.ok(scored.ilStressBps >= 0);
+});
+
+
+test('fixed Solana operation cost scales down in bps as LP notional grows', () => {
+  const small = solanaOperationCostBps({
+    baseFeeLamports: 5_000,
+    priorityFeeLamports: 5_000,
+    solUsd: 100,
+    txCount: 4,
+    notionalUsd: 100,
+  });
+  const large = solanaOperationCostBps({
+    baseFeeLamports: 5_000,
+    priorityFeeLamports: 5_000,
+    solUsd: 100,
+    txCount: 4,
+    notionalUsd: 1_000,
+  });
+  assert.ok(small.bps > large.bps);
+  assert.ok(Math.abs(small.totalUsd - large.totalUsd) < 1e-12);
 });
