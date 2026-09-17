@@ -7,6 +7,7 @@ import {
   shouldScoreLiquidityForwardWindow,
   buildLiquiditySleeve,
   solanaOperationCostBps,
+  lpBreakEvenHoldDays,
 } from '../../src/core/solanaLiquidityEconomics.mjs';
 
 test('impermanent loss is zero when price does not move', () => {
@@ -125,4 +126,33 @@ test('fixed Solana operation cost scales down in bps as LP notional grows', () =
   });
   assert.ok(small.bps > large.bps);
   assert.ok(Math.abs(small.totalUsd - large.totalUsd) < 1e-12);
+});
+
+
+test('LP network break-even hold shrinks as fixed round-trip cost falls', () => {
+  const expensive = lpBreakEvenHoldDays({
+    capturedFeeYieldBps: 0.5,
+    ilStressBps: 0.1,
+    rebalanceReserveBps: 0.05,
+    roundTripCostBps: 0.2,
+  });
+  const cheap = lpBreakEvenHoldDays({
+    capturedFeeYieldBps: 0.5,
+    ilStressBps: 0.1,
+    rebalanceReserveBps: 0.05,
+    roundTripCostBps: 0.02,
+  });
+  assert.ok(expensive.breakEvenHoldDays > cheap.breakEvenHoldDays);
+  assert.ok(cheap.preOperationalNetBpsPerDay > 0);
+});
+
+test('LP break-even diagnostic refuses to invent a holding period when pre-op edge is non-positive', () => {
+  const result = lpBreakEvenHoldDays({
+    capturedFeeYieldBps: 0.1,
+    ilStressBps: 0.2,
+    rebalanceReserveBps: 0,
+    roundTripCostBps: 0.02,
+  });
+  assert.equal(result.breakEvenHoldDays, null);
+  assert.ok(result.preOperationalNetBpsPerDay < 0);
 });
