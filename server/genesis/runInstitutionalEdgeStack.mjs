@@ -3,10 +3,11 @@ import { dirname } from 'node:path';
 import { allocatePaperCapital } from '../../src/core/institutionalEdgeAllocator.mjs';
 import { chooseExecutionMode } from '../../src/core/institutionalSmartExecution.mjs';
 
-const VERSION = 'institutional_edge_stack_v3_funding_carry';
+const VERSION = 'institutional_edge_stack_v4_solana_liquidity';
 const MM_PATH = process.env.GENESIS_MM_EVIDENCE || 'quant-evidence/market-making-lab-latest.json';
 const STAT_PATH = process.env.GENESIS_STATARB_EVIDENCE || 'quant-evidence/stat-arb-lab-latest.json';
 const FUNDING_PATH = process.env.GENESIS_FUNDING_EVIDENCE || 'quant-evidence/funding-carry-lab-latest.json';
+const LIQUIDITY_PATH = process.env.GENESIS_SOLANA_LIQUIDITY_EVIDENCE || 'quant-evidence/solana-liquidity-lab-latest.json';
 const EDGE_PATH = process.env.GENESIS_EDGE_FACTORY_EVIDENCE || 'quant-evidence/edge-factory-latest.json';
 const ARB_PATH = process.env.GENESIS_ARB_EVIDENCE || 'quant-evidence/solana-arbitrage-evidence-latest.json';
 const OUT = process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : 'quant-evidence/institutional-edge-stack-latest.json';
@@ -71,11 +72,19 @@ function buildExecutionBrain(mm, arb) {
 }
 
 async function main() {
-  const [mm, stat, funding, edge, arb] = await Promise.all([readJson(MM_PATH), readJson(STAT_PATH), readJson(FUNDING_PATH), readJson(EDGE_PATH), readJson(ARB_PATH)]);
+  const [mm, stat, funding, liquidity, edge, arb] = await Promise.all([
+    readJson(MM_PATH),
+    readJson(STAT_PATH),
+    readJson(FUNDING_PATH),
+    readJson(LIQUIDITY_PATH),
+    readJson(EDGE_PATH),
+    readJson(ARB_PATH),
+  ]);
   const sleeves = [
     mm?.sleeve ? { ...mm.sleeve, sleeveKey: 'MARKET_MAKING' } : { sleeveKey: 'MARKET_MAKING', samples: 0, evidenceQuality: 0, paperCapitalEligible: false },
     stat?.sleeve ? { ...stat.sleeve, sleeveKey: 'STAT_ARB' } : { sleeveKey: 'STAT_ARB', samples: 0, evidenceQuality: 0, paperCapitalEligible: false },
     funding?.sleeve ? { ...funding.sleeve, sleeveKey: 'FUNDING_CARRY' } : { sleeveKey: 'FUNDING_CARRY', samples: 0, evidenceQuality: 0, paperCapitalEligible: false },
+    liquidity?.sleeve ? { ...liquidity.sleeve, sleeveKey: 'SOLANA_LIQUIDITY' } : { sleeveKey: 'SOLANA_LIQUIDITY', samples: 0, evidenceQuality: 0, paperCapitalEligible: false },
     edgeFactorySleeve(edge),
     arbSleeve(arb),
   ];
@@ -85,7 +94,14 @@ async function main() {
     ok: true, version: VERSION, generatedAt: new Date().toISOString(), mode: 'PAPER_ONLY',
     executionAuthority: false, liveLocked: true, liveOrders: false,
     thesis: 'Independent institutional sleeves compete for paper capital; CASH and WAIT are valid winners when evidence is weak.',
-    evidence: { marketMaking: Boolean(mm), statArb: Boolean(stat), fundingCarry: Boolean(funding), systematicEdgeFactory: Boolean(edge), solanaArbitrage: Boolean(arb) },
+    evidence: {
+      marketMaking: Boolean(mm),
+      statArb: Boolean(stat),
+      fundingCarry: Boolean(funding),
+      solanaLiquidity: Boolean(liquidity),
+      systematicEdgeFactory: Boolean(edge),
+      solanaArbitrage: Boolean(arb),
+    },
     sleeves,
     allocation,
     executionBrain,
@@ -96,7 +112,14 @@ async function main() {
   };
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, `${JSON.stringify(output, null, 2)}\n`);
-  console.log(JSON.stringify({ version: VERSION, qualifiedSleeves: allocation.qualifiedSleeves, cashWeight: allocation.cashReserve.paperWeight, leader: output.nextResearchPriority, executionAction: executionBrain.action }));
+  console.log(JSON.stringify({
+    version: VERSION,
+    qualifiedSleeves: allocation.qualifiedSleeves,
+    cashWeight: allocation.cashReserve.paperWeight,
+    leader: output.nextResearchPriority,
+    executionAction: executionBrain.action,
+    solanaLiquidity: sleeves.find((x) => x.sleeveKey === 'SOLANA_LIQUIDITY'),
+  }));
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });
