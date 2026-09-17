@@ -1,8 +1,9 @@
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { allocatePaperCapital } from '../../src/core/institutionalEdgeAllocator.mjs';
+import { chooseExecutionMode } from '../../src/core/institutionalSmartExecution.mjs';
 
-const VERSION = 'institutional_edge_stack_v1';
+const VERSION = 'institutional_edge_stack_v2_smart_execution';
 const MM_PATH = process.env.GENESIS_MM_EVIDENCE || 'quant-evidence/market-making-lab-latest.json';
 const STAT_PATH = process.env.GENESIS_STATARB_EVIDENCE || 'quant-evidence/stat-arb-lab-latest.json';
 const EDGE_PATH = process.env.GENESIS_EDGE_FACTORY_EVIDENCE || 'quant-evidence/edge-factory-latest.json';
@@ -42,6 +43,38 @@ function arbSleeve(snapshot) {
   };
 }
 
+function buildExecutionBrain(mm, arb) {
+  const makerBest = mm?.best ?? null;
+  const makerMethod = mm?.methodology ?? {};
+  const arbBest = arb?.best ?? arb?.latest ?? arb?.event ?? null;
+  const arbMetrics = arb?.metrics ?? arb?.summary ?? {};
+
+  const maker = makerBest ? {
+    spreadCaptureBps: makerBest.averageSpreadBps,
+    fillProbability: makerBest.fillProbability,
+    // Full maker cycle pays both passive legs in the conservative comparison.
+    makerFeeBps: Number.isFinite(Number(makerMethod.makerFeeBpsPerSide)) ? 2 * Number(makerMethod.makerFeeBpsPerSide) : null,
+    adverseSelectionBps: makerBest.averageAdverseSelectionBps,
+    inventoryRiskBps: makerMethod.inventoryReserveBps,
+    evidenceQuality: makerBest.evidenceQuality,
+  } : {};
+
+  const takerAlphaBps = arbBest?.netEdgeBps ?? arbBest?.expectedNetEdgeBps ?? arbMetrics?.expectancyBps ?? null;
+  const takerCosts = arbBest?.estimatedCosts ?? arbBest?.costs ?? {};
+  const taker = {
+    // Use already-net observed alpha only when the arb evidence explicitly says it is net.
+    alphaBps: takerAlphaBps,
+    takerFeeBps: takerCosts?.takerFeeBps ?? null,
+    slippageBps: takerCosts?.slippageBps ?? takerCosts?.slippageReserveBps ?? null,
+    latencyBps: takerCosts?.latencyBps ?? takerCosts?.latencyDegradationBps ?? null,
+    adverseSelectionBps: takerCosts?.adverseSelectionBps ?? null,
+    evidenceQuality: arbMetrics?.evidenceQuality ?? arbBest?.evidenceQuality ?? null,
+  };
+
+  // Missing explicit cost evidence deliberately makes TAKE ineligible rather than double-counting or guessing.
+  return chooseExecutionMode({ maker, taker }, { minExpectedNetBps: 0 });
+}
+
 async function main() {
   const [mm, stat, edge, arb] = await Promise.all([readJson(MM_PATH), readJson(STAT_PATH), readJson(EDGE_PATH), readJson(ARB_PATH)]);
   const sleeves = [
@@ -51,13 +84,15 @@ async function main() {
     arbSleeve(arb),
   ];
   const allocation = allocatePaperCapital(sleeves, { totalPaperCapitalUsd: PAPER_CAPITAL });
+  const executionBrain = buildExecutionBrain(mm, arb);
   const output = {
     ok: true, version: VERSION, generatedAt: new Date().toISOString(), mode: 'PAPER_ONLY',
     executionAuthority: false, liveLocked: true, liveOrders: false,
-    thesis: 'Multiple independent edge sleeves compete for paper capital; cash is a valid winning allocation when evidence is weak.',
+    thesis: 'Multiple independent edge sleeves compete for paper capital; cash and WAIT are valid winning decisions when evidence is weak.',
     evidence: { marketMaking: Boolean(mm), statArb: Boolean(stat), systematicEdgeFactory: Boolean(edge), solanaArbitrage: Boolean(arb) },
     sleeves,
     allocation,
+    executionBrain,
     nextResearchPriority: allocation.qualifiedSleeves === 0
       ? 'NO_EDGE_PROVEN_KEEP_CASH_AND_GATHER_EVIDENCE'
       : allocation.allocations.filter((x) => x.qualified).sort((a, b) => b.robustScore - a.robustScore)[0]?.sleeveKey ?? 'UNKNOWN',
@@ -65,7 +100,7 @@ async function main() {
   };
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, `${JSON.stringify(output, null, 2)}\n`);
-  console.log(JSON.stringify({ version: VERSION, qualifiedSleeves: allocation.qualifiedSleeves, cashWeight: allocation.cashReserve.paperWeight, leader: output.nextResearchPriority }));
+  console.log(JSON.stringify({ version: VERSION, qualifiedSleeves: allocation.qualifiedSleeves, cashWeight: allocation.cashReserve.paperWeight, leader: output.nextResearchPriority, executionAction: executionBrain.action }));
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });
