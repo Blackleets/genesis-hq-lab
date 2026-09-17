@@ -1,6 +1,5 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { getSolanaArbitrageConfig, fetchPriorityFeeEvidence } from './solanaArbitrageObserver.mjs';
 import {
   DEFAULT_LIQUIDITY_POLICY,
   scoreLiquiditySnapshot,
@@ -48,10 +47,21 @@ const LP_OPERATION_SCENARIOS = Object.freeze({
   rebalance: 4,
   openCloseRoundTrip: 4,
 });
+const LP_SOLANA_RPC_URL = process.env.GENESIS_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
+const LP_BASE_FEE_LAMPORTS = Math.max(0, Number(process.env.GENESIS_SOLANA_BASE_FEE_LAMPORTS || 5_000));
+const LP_COMPUTE_UNIT_LIMIT = Math.max(1, Number(process.env.GENESIS_SOLANA_LP_CU_LIMIT || 1_000_000));
+const LP_PRIORITY_FEE_PERCENTILE = Math.min(1, Math.max(0, Number(process.env.GENESIS_SOLANA_PRIORITY_FEE_PERCENTILE || 0.75)));
 
 function n(value) {
   const x = Number(value);
   return Number.isFinite(x) ? x : null;
+}
+
+function quantile(values, p) {
+  const clean = values.map(Number).filter(Number.isFinite).sort((a, b) => a - b);
+  if (!clean.length) return null;
+  const index = Math.min(clean.length - 1, Math.max(0, Math.ceil(p * clean.length) - 1));
+  return clean[index];
 }
 
 function firstNumber(...values) {
@@ -69,6 +79,40 @@ async function fetchJson(url) {
   });
   if (!response.ok) throw new Error(`http_${response.status}:${url}`);
   return response.json();
+}
+
+async function fetchGlobalPriorityFeeEvidence() {
+  const response = await fetch(LP_SOLANA_RPC_URL, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'user-agent': 'GenesisHQ-SolanaLiquidityLab/1.0',
+    },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'getRecentPrioritizationFees',
+      params: [[]],
+    }),
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+  if (!response.ok) throw new Error(`priority_fee_http_${response.status}`);
+  const body = await response.json();
+  if (!Array.isArray(body?.result)) throw new Error('priority_fee_unavailable');
+  const microLamportsPerCu = quantile(
+    body.result.map((row) => row?.prioritizationFee),
+    LP_PRIORITY_FEE_PERCENTILE,
+  );
+  if (!Number.isFinite(microLamportsPerCu)) throw new Error('priority_fee_unavailable');
+  return {
+    source: 'solana_getRecentPrioritizationFees',
+    localized: false,
+    percentile: LP_PRIORITY_FEE_PERCENTILE,
+    microLamportsPerCu,
+    computeUnitLimit: LP_COMPUTE_UNIT_LIMIT,
+    priorityFeeLamports: Math.ceil(microLamportsPerCu * LP_COMPUTE_UNIT_LIMIT / 1_000_000),
+    rpcTier: 'FREE_ONLY',
+  };
 }
 
 async function dexScreenerPair(poolAddress) {
@@ -394,11 +438,10 @@ function buildForwardWindows(history) {
 
 async function main() {
   const observedAt = new Date().toISOString();
-  const solanaConfig = getSolanaArbitrageConfig();
   const [meteoraResult, raydiumResult, priorityFeeResult] = await Promise.allSettled([
     fetchMeteoraCandidates(),
     fetchRaydiumCandidates(),
-    fetchPriorityFeeEvidence({ config: solanaConfig }),
+    fetchGlobalPriorityFeeEvidence(),
   ]);
   const raw = [
     ...(meteoraResult.status === 'fulfilled' ? meteoraResult.value : []),
@@ -415,7 +458,7 @@ async function main() {
 
   const solReference = candidates.find((x) => x.venue === 'RAYDIUM_CLMM' && x.pair === 'SOL/USDC' && Number(x.price ?? x.priceUsd) > 0);
   const operationalCostEvidence = buildOperationalCostEvidence({
-    baseFeeLamports: solanaConfig.baseFeeLamports,
+    baseFeeLamports: LP_BASE_FEE_LAMPORTS,
     priorityEvidence: priorityFeeResult.status === 'fulfilled' ? priorityFeeResult.value : null,
     solUsd: solReference?.price ?? solReference?.priceUsd ?? null,
   });
