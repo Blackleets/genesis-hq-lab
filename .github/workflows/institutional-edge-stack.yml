@@ -14,12 +14,15 @@ on:
       - 'server/genesis/runFundingCarryLab.py'
       - 'server/genesis/runSolanaLiquidityLab.mjs'
       - 'server/genesis/runVolatilitySizingLab.mjs'
+      - 'server/genesis/runVolatilitySizingImpactLab.mjs'
+      - 'src/core/volatilitySizingImpact.mjs'
       - 'server/strategies/futuresBreakoutEngine.mjs'
       - 'server/genesis/runInstitutionalEdgeStack.mjs'
       - 'server/tests/institutionalEdgeAllocator.test.mjs'
       - 'server/tests/institutionalSmartExecution.test.mjs'
       - 'server/tests/solanaLiquidityEconomics.test.mjs'
       - 'server/tests/volatilitySizingEngine.test.mjs'
+      - 'server/tests/volatilitySizingImpact.test.mjs'
       - '.github/workflows/institutional-edge-stack.yml'
   schedule:
     - cron: '17,47 * * * *'
@@ -48,7 +51,7 @@ jobs:
             solana-liquidity-v4-history-
 
       - name: Safety, allocation and smart-execution tests
-        run: node --test server/tests/institutionalEdgeAllocator.test.mjs server/tests/institutionalSmartExecution.test.mjs server/tests/solanaLiquidityEconomics.test.mjs server/tests/volatilitySizingEngine.test.mjs
+        run: node --test server/tests/institutionalEdgeAllocator.test.mjs server/tests/institutionalSmartExecution.test.mjs server/tests/solanaLiquidityEconomics.test.mjs server/tests/volatilitySizingEngine.test.mjs server/tests/volatilitySizingImpact.test.mjs
 
       - name: Market Making Lab — real public top-of-book and passive-fill proxy
         run: node server/genesis/runMarketMakingLab.mjs
@@ -65,6 +68,9 @@ jobs:
       - name: Volatility Sizing Lab — model competition and PAPER risk throttle
         run: node server/genesis/runVolatilitySizingLab.mjs
 
+      - name: Volatility Sizing Impact — same trades, all-in counterfactual
+        run: node server/genesis/runVolatilitySizingImpactLab.mjs
+
       - name: Institutional Meta Allocator + Smart Execution — PAPER only
         run: node server/genesis/runInstitutionalEdgeStack.mjs
 
@@ -76,12 +82,14 @@ jobs:
           const e = s.executionBrain || {};
           const liq = s.sleeves?.find((x) => x.sleeveKey === 'SOLANA_LIQUIDITY');
           const vol = s.volatilitySizing;
+          const volImpact = s.volatilitySizingImpact;
           if (s.liveLocked !== true || s.executionAuthority !== false || s.invariants?.paperOnly !== true || s.invariants?.signsTransactions !== false || s.invariants?.broadcastsTransactions !== false) process.exit(1);
           if (e.liveLocked !== true || e.executionAuthority !== false || e.signsTransactions !== false || e.broadcastsTransactions !== false) process.exit(1);
           if (!['MAKE','TAKE','WAIT'].includes(e.action)) process.exit(1);
           if (!Array.isArray(s.sleeves) || !s.sleeves.some((x) => x.sleeveKey === 'FUNDING_CARRY')) process.exit(1);
           if (!liq || liq.liveEligible === true) process.exit(1);
           if (!vol || vol.authority?.direction !== false || vol.authority?.execution !== false || vol.authority?.canIncreaseSize !== false || vol.authority?.paperRiskThrottleOnly !== true) process.exit(1);
+          if (!volImpact || volImpact.authority?.direction !== false || volImpact.authority?.execution !== false || volImpact.authority?.canCreateSignals !== false || volImpact.authority?.canIncreaseSize !== false) process.exit(1);
           console.log(JSON.stringify({
             qualifiedSleeves:s.allocation?.qualifiedSleeves,
             cash:s.allocation?.cashReserve?.paperWeight,
@@ -91,6 +99,7 @@ jobs:
             fundingCarry:s.sleeves.find((x)=>x.sleeveKey==='FUNDING_CARRY'),
             solanaLiquidity:liq,
             volatilitySizing:{tested:vol.tested,validated:vol.validatedCount,throttled:vol.throttledCount,storms:vol.stormCount},
+            volatilitySizingImpact:volImpact.summary,
           }));
           NODE
 
@@ -106,6 +115,7 @@ jobs:
             quant-evidence/solana-liquidity-lab-latest.json
             quant-evidence/solana-liquidity-history.jsonl
             quant-evidence/volatility-sizing-lab-latest.json
+            quant-evidence/volatility-sizing-impact-latest.json
             quant-evidence/institutional-edge-stack-latest.json
 
       - name: Save Solana liquidity forward history
