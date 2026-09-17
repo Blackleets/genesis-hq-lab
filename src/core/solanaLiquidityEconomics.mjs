@@ -20,6 +20,28 @@ function num(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+export function solanaOperationCostBps({
+  baseFeeLamports,
+  priorityFeeLamports,
+  solUsd,
+  txCount = 1,
+  notionalUsd,
+} = {}) {
+  const base = num(baseFeeLamports);
+  const priority = num(priorityFeeLamports);
+  const sol = num(solUsd);
+  const txs = num(txCount);
+  const notional = num(notionalUsd);
+  if (base == null || priority == null || !(sol > 0) || !(txs > 0) || !(notional > 0)) return null;
+  const totalLamports = (Math.max(0, base) + Math.max(0, priority)) * txs;
+  const totalUsd = totalLamports / 1_000_000_000 * sol;
+  return {
+    totalLamports,
+    totalUsd,
+    bps: totalUsd / notional * 10_000,
+  };
+}
+
 export function impermanentLossBps(priceRatio) {
   const r = num(priceRatio);
   if (!(r > 0)) return null;
