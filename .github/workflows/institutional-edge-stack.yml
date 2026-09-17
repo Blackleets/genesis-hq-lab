@@ -9,6 +9,7 @@ on:
       - 'src/core/institutionalSmartExecution.mjs'
       - 'server/genesis/runMarketMakingLab.mjs'
       - 'server/genesis/runStatArbLab.mjs'
+      - 'server/genesis/runFundingCarryLab.mjs'
       - 'server/genesis/runInstitutionalEdgeStack.mjs'
       - 'server/tests/institutionalEdgeAllocator.test.mjs'
       - 'server/tests/institutionalSmartExecution.test.mjs'
@@ -34,6 +35,8 @@ jobs:
         run: node server/genesis/runMarketMakingLab.mjs
       - name: Statistical Arbitrage Lab — walk-forward OOS evidence
         run: node server/genesis/runStatArbLab.mjs
+      - name: Funding Carry Lab — delta-neutral funding plus basis OOS
+        run: node server/genesis/runFundingCarryLab.mjs
       - name: Institutional Meta Allocator + Smart Execution — PAPER only
         run: node server/genesis/runInstitutionalEdgeStack.mjs
       - name: Verify fail-closed invariants
@@ -45,7 +48,8 @@ jobs:
           if (s.liveLocked !== true || s.executionAuthority !== false || s.invariants?.paperOnly !== true || s.invariants?.signsTransactions !== false || s.invariants?.broadcastsTransactions !== false) process.exit(1);
           if (e.liveLocked !== true || e.executionAuthority !== false || e.signsTransactions !== false || e.broadcastsTransactions !== false) process.exit(1);
           if (!['MAKE','TAKE','WAIT'].includes(e.action)) process.exit(1);
-          console.log(JSON.stringify({qualifiedSleeves:s.allocation?.qualifiedSleeves,cash:s.allocation?.cashReserve?.paperWeight,leader:s.nextResearchPriority,executionAction:e.action,executionExpectedNetBps:e.expectedNetBps}));
+          if (!Array.isArray(s.sleeves) || !s.sleeves.some((x) => x.sleeveKey === 'FUNDING_CARRY')) process.exit(1);
+          console.log(JSON.stringify({qualifiedSleeves:s.allocation?.qualifiedSleeves,cash:s.allocation?.cashReserve?.paperWeight,leader:s.nextResearchPriority,executionAction:e.action,executionExpectedNetBps:e.expectedNetBps,fundingCarry:s.sleeves.find((x)=>x.sleeveKey==='FUNDING_CARRY')}));
           NODE
       - uses: actions/upload-artifact@v4
         with:
@@ -55,4 +59,5 @@ jobs:
           path: |
             quant-evidence/market-making-lab-latest.json
             quant-evidence/stat-arb-lab-latest.json
+            quant-evidence/funding-carry-lab-latest.json
             quant-evidence/institutional-edge-stack-latest.json
