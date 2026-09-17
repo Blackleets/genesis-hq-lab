@@ -86,3 +86,22 @@ test('forward evidence counts deterioration after an eligible entry and blocks c
   assert.ok(window);
   assert.ok(window.netBps < 0);
 });
+
+
+test('generic relative pair price supports correlated LP economics without pretending it is USD', () => {
+  const scored = scoreLiquiditySnapshot({
+    venue: 'RAYDIUM_CLMM',
+    poolAddress: 'correlated',
+    symbol: 'mSOL',
+    pair: 'mSOL/SOL',
+    tvlUsd: 2_000_000,
+    fees24hUsd: 1_200,
+    volume24hUsd: 1_500_000,
+    price: 1.18,
+    priceChange24hPct: 0.25,
+    officialSource: true,
+  });
+  assert.equal(scored.checks.price, true);
+  assert.equal(scored.price, 1.18);
+  assert.ok(scored.ilStressBps >= 0);
+});
