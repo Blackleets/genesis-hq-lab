@@ -10,6 +10,7 @@ const SUPERVISOR_MAX_CONSEC_LOSSES = parseInt(process.env.FUTURES_SUPERVISOR_MAX
 const SUPERVISOR_COOLDOWN_HOURS = parseInt(process.env.FUTURES_SUPERVISOR_COOLDOWN_HOURS ?? '6', 10);
 const PROMOTE_MIN_SAMPLES = parseInt(process.env.FUTURES_GOV_PROMOTE_MIN_SAMPLES ?? '8', 10);
 const ATTACK_MIN_SAMPLES = parseInt(process.env.FUTURES_GOV_ATTACK_MIN_SAMPLES ?? '12', 10);
+const RISK_ESCALATION_ENABLED = ['1','true','yes','on'].includes(String(process.env.FUTURES_GOV_RISK_ESCALATION_ENABLED ?? 'false').toLowerCase());
 
 const PROFILE_DEFS = [
   { id: 'short_micro', tradeType: 'crypto_futures_breakout_short_micro' },
@@ -143,7 +144,8 @@ function evaluateProfile(row) {
   }
 
   if (
-    trades >= ATTACK_MIN_SAMPLES
+    RISK_ESCALATION_ENABLED
+    && trades >= ATTACK_MIN_SAMPLES
     && totalPnl > 120
     && (winRate ?? 0) >= 0.58
     && avgPnl >= 12
@@ -158,7 +160,8 @@ function evaluateProfile(row) {
   }
 
   if (
-    trades >= PROMOTE_MIN_SAMPLES
+    RISK_ESCALATION_ENABLED
+    && trades >= PROMOTE_MIN_SAMPLES
     && totalPnl > 40
     && (winRate ?? 0) >= 0.5
     && avgPnl >= 5
@@ -245,6 +248,7 @@ export function getFuturesGovernorSnapshot() {
     windowDays: WINDOW_DAYS,
     degradeMinSamples: DEGRADE_MIN_SAMPLES,
     pauseMinSamples: PAUSE_MIN_SAMPLES,
+    riskEscalationEnabled: RISK_ESCALATION_ENABLED,
     supervisor: {
       maxDailyLoss: SUPERVISOR_MAX_DAILY_LOSS,
       maxConsecutiveLosses: SUPERVISOR_MAX_CONSEC_LOSSES,
