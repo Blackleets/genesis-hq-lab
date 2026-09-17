@@ -19,6 +19,7 @@ import { getCurrentPrice } from '../crypto/priceFeeder.mjs';
 import { openCryptoFuturesPosition, hasOpenPosition } from '../trading/paperExecutionEngine.mjs';
 import { evaluateTrade } from '../crypto/decisionCouncil.mjs';
 import { isGlobalSafeMode, getGlobalRiskDiagnostics } from '../risk/globalRiskEngine.mjs';
+import { evaluateVolatilitySizing } from '../risk/volatilitySizingEngine.mjs';
 import { isSafeMode } from '../memory/reconciliationEngine.mjs';
 import { logEvent, CATEGORY, SEVERITY } from '../observability/eventTimeline.mjs';
 import { getFuturesGovernorSnapshot, syncFuturesGovernorJournal } from '../crypto/futuresGovernor.mjs';
@@ -80,6 +81,7 @@ function getFuturesBreakoutRuntimeConfig() {
     minExpectedNetUsd: envNumber('FUTURES_BREAKOUT_MIN_EXPECTED_NET_USD', 28, overrides),
     minRewardRisk: envNumber('FUTURES_BREAKOUT_MIN_REWARD_RISK', 2.0, overrides),
     fundingHoursCap: envInt('FUTURES_BREAKOUT_FUNDING_HOURS_CAP', 24, overrides),
+    volatilitySizingEnabled: envBool('FUTURES_VOL_SIZING_ENABLED', true, overrides),
     profiles: [
       {
         id: 'short_micro',
@@ -261,6 +263,7 @@ export function futuresBreakoutEngineConfig() {
     timeoutHours: runtimeConfig.timeoutHours,
     maxMargin: runtimeConfig.maxMargin,
     leverage: runtimeConfig.leverage,
+    volatilitySizingEnabled: runtimeConfig.volatilitySizingEnabled,
     governor,
     runtimeOverrides: getActiveFuturesRuntimeOverrides(),
     profiles: runtimeConfig.profiles.map((profile) => ({
@@ -490,7 +493,26 @@ async function runProfile(profile, governorProfile, runtimeConfig) {
     const capitalMultiplier = governorProfile?.capitalMultiplier ?? 1;
     const leverageMultiplier = governorProfile?.leverageMultiplier ?? 1;
     const leverage = Math.max(1, Math.round((profile.leverage * leverageMultiplier) * 100) / 100);
-    const capitalUsed = Math.round(((profile.maxMargin ?? runtimeConfig.maxMargin) * capitalMultiplier) * 100) / 100;
+    const baseCapitalUsed = Math.round(((profile.maxMargin ?? runtimeConfig.maxMargin) * capitalMultiplier) * 100) / 100;
+    const volatilitySizing = evaluateVolatilitySizing(closes, {
+      periodsPerYear: profile.interval === '5m' ? 365 * 24 * 12
+        : profile.interval === '15m' ? 365 * 24 * 4
+          : profile.interval === '1h' ? 365 * 24
+            : profile.interval === '4h' ? 365 * 6
+              : 365,
+      minHistory: 220,
+      minHoldout: 60,
+      minMultiplier: 0.25,
+    });
+    const volatilityMultiplier = runtimeConfig.volatilitySizingEnabled
+      ? Math.min(1, Math.max(0.25, volatilitySizing.positionSizeMultiplier ?? 1))
+      : 1;
+    const capitalUsed = Math.round((baseCapitalUsed * volatilityMultiplier) * 100) / 100;
+    evidence.push(
+      `VOL_MODEL_${volatilitySizing.model}`,
+      `VOL_REGIME_${String(volatilitySizing.regime).toUpperCase()}`,
+      `VOL_SIZE_${volatilityMultiplier.toFixed(3)}X`,
+    );
     const economics = estimateSetupEconomics({
       side: signal.side,
       price,
@@ -527,6 +549,8 @@ async function runProfile(profile, governorProfile, runtimeConfig) {
         side: signal.side,
         price,
         economics,
+        volatilitySizing,
+        baseCapitalUsed,
       });
       continue;
     }
@@ -540,6 +564,8 @@ async function runProfile(profile, governorProfile, runtimeConfig) {
         side: signal.side,
         price,
         economics,
+        volatilitySizing,
+        baseCapitalUsed,
       });
       continue;
     }
@@ -603,8 +629,10 @@ async function runProfile(profile, governorProfile, runtimeConfig) {
         price,
         governorMode: governorProfile?.mode ?? 'active',
         economics,
+        volatilitySizing,
+        baseCapitalUsed,
       });
-      console.log(`[futuresBreakout] ${profile.id} ${signal.side} ${pair} @ $${price.toFixed(2)} | tf ${profile.interval} | lev ${leverage}x | cap $${capitalUsed.toFixed(2)} | TP ${(runtimeConfig.tpPct * 100).toFixed(0)}% / SL ${(runtimeConfig.slPct * 100).toFixed(0)}%`);
+      console.log(`[futuresBreakout] ${profile.id} ${signal.side} ${pair} @ ${price.toFixed(2)} | tf ${profile.interval} | lev ${leverage}x | cap ${capitalUsed.toFixed(2)} (base ${baseCapitalUsed.toFixed(2)}, vol ${volatilityMultiplier.toFixed(2)}x) | TP ${(runtimeConfig.tpPct * 100).toFixed(0)}% / SL ${(runtimeConfig.slPct * 100).toFixed(0)}%`);
     } else {
       result.skipped++;
       result.pairResults.push({

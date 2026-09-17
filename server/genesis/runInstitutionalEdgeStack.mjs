@@ -3,13 +3,14 @@ import { dirname } from 'node:path';
 import { allocatePaperCapital } from '../../src/core/institutionalEdgeAllocator.mjs';
 import { chooseExecutionMode } from '../../src/core/institutionalSmartExecution.mjs';
 
-const VERSION = 'institutional_edge_stack_v6_all_cost_forward';
+const VERSION = 'institutional_edge_stack_v7_volatility_sizing';
 const MM_PATH = process.env.GENESIS_MM_EVIDENCE || 'quant-evidence/market-making-lab-latest.json';
 const STAT_PATH = process.env.GENESIS_STATARB_EVIDENCE || 'quant-evidence/stat-arb-lab-latest.json';
 const FUNDING_PATH = process.env.GENESIS_FUNDING_EVIDENCE || 'quant-evidence/funding-carry-lab-latest.json';
 const LIQUIDITY_PATH = process.env.GENESIS_SOLANA_LIQUIDITY_EVIDENCE || 'quant-evidence/solana-liquidity-lab-latest.json';
 const EDGE_PATH = process.env.GENESIS_EDGE_FACTORY_EVIDENCE || 'quant-evidence/edge-factory-latest.json';
 const ARB_PATH = process.env.GENESIS_ARB_EVIDENCE || 'quant-evidence/solana-arbitrage-evidence-latest.json';
+const VOL_PATH = process.env.GENESIS_VOLATILITY_SIZING_EVIDENCE || 'quant-evidence/volatility-sizing-lab-latest.json';
 const OUT = process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : 'quant-evidence/institutional-edge-stack-latest.json';
 const PAPER_CAPITAL = Number(process.env.GENESIS_INSTITUTIONAL_PAPER_CAPITAL_USD || 10_000);
 
@@ -72,13 +73,14 @@ function buildExecutionBrain(mm, arb) {
 }
 
 async function main() {
-  const [mm, stat, funding, liquidity, edge, arb] = await Promise.all([
+  const [mm, stat, funding, liquidity, edge, arb, volatility] = await Promise.all([
     readJson(MM_PATH),
     readJson(STAT_PATH),
     readJson(FUNDING_PATH),
     readJson(LIQUIDITY_PATH),
     readJson(EDGE_PATH),
     readJson(ARB_PATH),
+    readJson(VOL_PATH),
   ]);
   const sleeves = [
     mm?.sleeve ? { ...mm.sleeve, sleeveKey: 'MARKET_MAKING' } : { sleeveKey: 'MARKET_MAKING', samples: 0, evidenceQuality: 0, paperCapitalEligible: false },
@@ -101,10 +103,20 @@ async function main() {
       solanaLiquidity: Boolean(liquidity),
       systematicEdgeFactory: Boolean(edge),
       solanaArbitrage: Boolean(arb),
+      volatilitySizing: Boolean(volatility),
     },
     sleeves,
     allocation,
     executionBrain,
+    volatilitySizing: volatility ? {
+      version: volatility.version,
+      tested: volatility.tested,
+      validatedCount: volatility.validatedCount,
+      throttledCount: volatility.throttledCount,
+      stormCount: volatility.stormCount,
+      top: Array.isArray(volatility.results) ? volatility.results.slice(0, 8) : [],
+      authority: { direction: false, execution: false, canIncreaseSize: false, paperRiskThrottleOnly: true },
+    } : null,
     nextResearchPriority: allocation.qualifiedSleeves === 0
       ? 'NO_EDGE_PROVEN_KEEP_CASH_AND_GATHER_EVIDENCE'
       : allocation.allocations.filter((x) => x.qualified).sort((a, b) => b.robustScore - a.robustScore)[0]?.sleeveKey ?? 'UNKNOWN',
@@ -119,6 +131,7 @@ async function main() {
     leader: output.nextResearchPriority,
     executionAction: executionBrain.action,
     solanaLiquidity: sleeves.find((x) => x.sleeveKey === 'SOLANA_LIQUIDITY'),
+    volatilitySizing: output.volatilitySizing ? { tested: output.volatilitySizing.tested, validated: output.volatilitySizing.validatedCount, throttled: output.volatilitySizing.throttledCount, storms: output.volatilitySizing.stormCount } : null,
   }));
 }
 
