@@ -1,0 +1,53 @@
+name: Genesis Institutional Edge Stack
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - 'src/core/institutionalEdgeAllocator.mjs'
+      - 'server/genesis/runMarketMakingLab.mjs'
+      - 'server/genesis/runStatArbLab.mjs'
+      - 'server/genesis/runInstitutionalEdgeStack.mjs'
+      - 'server/tests/institutionalEdgeAllocator.test.mjs'
+      - '.github/workflows/institutional-edge-stack.yml'
+  schedule:
+    - cron: '17,47 * * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Safety and allocation tests
+        run: node --test server/tests/institutionalEdgeAllocator.test.mjs
+      - name: Market Making Lab — real public top-of-book
+        run: node server/genesis/runMarketMakingLab.mjs
+      - name: Statistical Arbitrage Lab — holdout evidence
+        run: node server/genesis/runStatArbLab.mjs
+      - name: Institutional Meta Allocator — PAPER only
+        run: node server/genesis/runInstitutionalEdgeStack.mjs
+      - name: Verify fail-closed invariants
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const s = JSON.parse(fs.readFileSync('quant-evidence/institutional-edge-stack-latest.json','utf8'));
+          if (s.liveLocked !== true || s.executionAuthority !== false || s.invariants?.paperOnly !== true || s.invariants?.signsTransactions !== false || s.invariants?.broadcastsTransactions !== false) process.exit(1);
+          console.log(JSON.stringify({qualifiedSleeves:s.allocation?.qualifiedSleeves,cash:s.allocation?.cashReserve?.paperWeight,leader:s.nextResearchPriority}));
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: institutional-edge-stack-${{ github.run_id }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            quant-evidence/market-making-lab-latest.json
+            quant-evidence/stat-arb-lab-latest.json
+            quant-evidence/institutional-edge-stack-latest.json
