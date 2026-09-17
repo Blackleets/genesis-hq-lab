@@ -93,6 +93,63 @@ jobs:
           deploy_fn genesis-solana-observer
           deploy_fn genesis-solana-mev-radar
 
+      - name: Smoke-run MEV radar v2 and refresh live state
+        if: env.SUPABASE_ACCESS_TOKEN != '' && env.GENESIS_RUNNER_TOKEN != ''
+        run: |
+          URL="https://$PROJECT_REF.supabase.co/functions/v1/genesis-solana-mev-radar"
+          STATUS=000
+          for ATTEMPT in 1 2 3; do
+            echo "→ MEV radar v2 smoke attempt $ATTEMPT"
+            STATUS=$(curl -sS --max-time 150 -o /tmp/mev_radar.json -w "%{http_code}" \
+              -X POST "$URL" \
+              -H "x-genesis-runner-token: $GENESIS_RUNNER_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d '{}') || STATUS=000
+            if [ "$STATUS" = "200" ]; then
+              break
+            fi
+            echo "Radar returned HTTP $STATUS; retrying after 5s"
+            sleep 5
+          done
+
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::MEV radar v2 did not return HTTP 200 after 3 attempts"
+            python3 - <<'PY'
+          from pathlib import Path
+          p = Path('/tmp/mev_radar.json')
+          print(p.read_text()[:1000] if p.exists() else 'no response body')
+          PY
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          body = json.loads(Path('/tmp/mev_radar.json').read_text())
+          assert body.get('ok') is True, body
+          assert body.get('engineVersion') == 'edge_discovery_paper_v2', body.get('engineVersion')
+          assert body.get('mode') == 'SHADOW', body.get('mode')
+          assert body.get('executionAuthority') is False, body.get('executionAuthority')
+          assert body.get('liveLocked') is True, body.get('liveLocked')
+
+          event = body.get('event') or {}
+          radar = event.get('radar') or {}
+          assert radar.get('engineVersion') == 'edge_discovery_paper_v2', radar.get('engineVersion')
+          assert isinstance(radar.get('notionalGrid'), list) and radar.get('notionalGrid') == [10, 25, 50, 100, 250], radar.get('notionalGrid')
+
+          print('MEV_RADAR_V2_OK')
+          print('asset=', event.get('asset'))
+          print('route=', event.get('route'))
+          print('selectedNotionalUsd=', radar.get('selectedNotionalUsd'))
+          print('pairAttempts=', radar.get('pairAttempts'))
+          print('grossPositiveCount=', radar.get('grossPositiveCount'))
+          print('netPositiveCount=', radar.get('netPositiveCount'))
+          print('netEdgeBps=', event.get('netEdgeBps'))
+          print('expectedNetPnlUsd=', event.get('expectedNetPnlUsd'))
+          print('LIVE_LOCKED=', body.get('liveLocked'))
+          PY
+
       - name: Aviso si falta el token
         if: env.SUPABASE_ACCESS_TOKEN == ''
         run: |
