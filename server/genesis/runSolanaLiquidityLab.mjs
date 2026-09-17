@@ -4,10 +4,11 @@ import {
   DEFAULT_LIQUIDITY_POLICY,
   scoreLiquiditySnapshot,
   forwardLiquidityWindow,
+  shouldScoreLiquidityForwardWindow,
   buildLiquiditySleeve,
 } from '../../src/core/solanaLiquidityEconomics.mjs';
 
-const VERSION = 'solana_liquidity_lab_v2_official_pool_metrics';
+const VERSION = 'solana_liquidity_lab_v3_no_survivorship';
 const OUT = process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : 'quant-evidence/solana-liquidity-lab-latest.json';
 const HISTORY = process.argv.includes('--history') ? process.argv[process.argv.indexOf('--history') + 1] : 'quant-evidence/solana-liquidity-history.jsonl';
 const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
@@ -223,8 +224,19 @@ function compactCandidate(c) {
     priceUsd: c.priceUsd,
     dailyFeeYieldBps: c.dailyFeeYieldBps,
     expectedNetStressBps: c.expectedNetStressBps,
+    screenPass: c.screenPass === true,
     officialSource: c.officialSource,
   };
+}
+
+function historyEligible(c) {
+  const checks = c?.checks ?? {};
+  return checks.officialSource === true &&
+    checks.tvl === true &&
+    checks.volume === true &&
+    checks.fees === true &&
+    checks.price === true &&
+    checks.volatilityEvidence === true;
 }
 
 function choosePoolSleeve(windows) {
@@ -283,6 +295,7 @@ function buildForwardWindows(history) {
       const prev = rows[i - 1], curr = rows[i];
       const elapsedHours = (Date.parse(curr.observedAt) - Date.parse(prev.observedAt)) / 3_600_000;
       if (!(elapsedHours > 0) || elapsedHours > 3) continue;
+      if (!shouldScoreLiquidityForwardWindow(prev, curr)) continue;
       const window = forwardLiquidityWindow(prev, curr, elapsedHours);
       if (window) windows.push(window);
     }
@@ -312,7 +325,10 @@ async function main() {
   const oldHistory = await readHistory();
   const history = [...oldHistory, {
     generatedAt: observedAt,
-    candidates: candidates.filter((x) => x.screenPass).slice(0, 30).map(compactCandidate),
+    // Preserve deterioration after entry: store every structurally valid pool,
+    // not only current winners. A forward window is opened only from a prior
+    // screenPass=true observation and is still scored if the pool later fails.
+    candidates: candidates.filter(historyEligible).slice(0, 80).map(compactCandidate),
   }].slice(-500);
 
   const windows = buildForwardWindows(history);
@@ -334,7 +350,7 @@ async function main() {
       ilReserveMultiplier: DEFAULT_LIQUIDITY_POLICY.ilReserveMultiplier,
       rangeHalfWidthPct: DEFAULT_LIQUIDITY_POLICY.rangeHalfWidthPct,
       rewardsIncluded: false,
-      forwardProxy: 'consecutive scheduled snapshots; no claimed live LP fills',
+      forwardProxy: 'consecutive scheduled snapshots; entries require prior screen pass, exits are scored even after deterioration; no claimed live LP fills',
       promotion: 'PAPER sleeve only after sufficient positive forward proxy evidence; LIVE remains locked',
     },
     sourceHealth: {
