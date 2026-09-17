@@ -1,11 +1,13 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { getSolanaArbitrageConfig, fetchPriorityFeeEvidence } from './solanaArbitrageObserver.mjs';
 import {
   DEFAULT_LIQUIDITY_POLICY,
   scoreLiquiditySnapshot,
   forwardLiquidityWindow,
   shouldScoreLiquidityForwardWindow,
   buildLiquiditySleeve,
+  solanaOperationCostBps,
 } from '../../src/core/solanaLiquidityEconomics.mjs';
 
 const VERSION = 'solana_liquidity_lab_v4_correlated_pairs';
@@ -39,6 +41,13 @@ const RAYDIUM_PAIRS = [
   { symbol: 'USDT', pair: 'USDT/USDC', mint1: USDT, mint2: USDC, quoteIsUsd: true, pairClass: 'stable' },
 ];
 const FETCH_TIMEOUT_MS = 15_000;
+const LP_NOTIONAL_GRID = [100, 250, 500, 1_000, 2_500];
+const LP_OPERATION_SCENARIOS = Object.freeze({
+  open: 2,
+  close: 2,
+  rebalance: 4,
+  openCloseRoundTrip: 4,
+});
 
 function n(value) {
   const x = Number(value);
@@ -241,6 +250,50 @@ async function fetchRaydiumCandidates() {
   return results;
 }
 
+function buildOperationalCostEvidence({ baseFeeLamports, priorityEvidence, solUsd }) {
+  const priorityFeeLamports = Number(priorityEvidence?.priorityFeeLamports);
+  if (!Number.isFinite(priorityFeeLamports) || !(Number(solUsd) > 0)) {
+    return {
+      available: false,
+      reason: !Number.isFinite(priorityFeeLamports) ? 'priority_fee_unavailable' : 'sol_usd_unavailable',
+      baseFeeLamports,
+      priorityFeeLamports: Number.isFinite(priorityFeeLamports) ? priorityFeeLamports : null,
+      solUsd: Number.isFinite(Number(solUsd)) ? Number(solUsd) : null,
+      localized: priorityEvidence?.localized === true,
+      calibrationOnly: true,
+    };
+  }
+  const scenarios = {};
+  for (const [name, txCount] of Object.entries(LP_OPERATION_SCENARIOS)) {
+    scenarios[name] = LP_NOTIONAL_GRID.map((notionalUsd) => ({
+      notionalUsd,
+      txCount,
+      ...solanaOperationCostBps({
+        baseFeeLamports,
+        priorityFeeLamports,
+        solUsd,
+        txCount,
+        notionalUsd,
+      }),
+    }));
+  }
+  return {
+    available: true,
+    source: priorityEvidence?.source ?? 'solana_getRecentPrioritizationFees',
+    localized: priorityEvidence?.localized === true,
+    percentile: priorityEvidence?.percentile ?? null,
+    microLamportsPerCu: priorityEvidence?.microLamportsPerCu ?? null,
+    computeUnitLimit: priorityEvidence?.computeUnitLimit ?? null,
+    baseFeeLamports,
+    priorityFeeLamports,
+    solUsd,
+    notionalGridUsd: LP_NOTIONAL_GRID,
+    scenarios,
+    calibrationOnly: true,
+    changesPromotionGate: false,
+  };
+}
+
 async function readHistory() {
   try {
     const raw = await readFile(HISTORY, 'utf8');
@@ -341,9 +394,11 @@ function buildForwardWindows(history) {
 
 async function main() {
   const observedAt = new Date().toISOString();
-  const [meteoraResult, raydiumResult] = await Promise.allSettled([
+  const solanaConfig = getSolanaArbitrageConfig();
+  const [meteoraResult, raydiumResult, priorityFeeResult] = await Promise.allSettled([
     fetchMeteoraCandidates(),
     fetchRaydiumCandidates(),
+    fetchPriorityFeeEvidence({ config: solanaConfig }),
   ]);
   const raw = [
     ...(meteoraResult.status === 'fulfilled' ? meteoraResult.value : []),
@@ -357,6 +412,13 @@ async function main() {
       Number(b.screenPass) - Number(a.screenPass) ||
       (b.expectedNetStressBps ?? -Infinity) - (a.expectedNetStressBps ?? -Infinity)
     );
+
+  const solReference = candidates.find((x) => x.venue === 'RAYDIUM_CLMM' && x.pair === 'SOL/USDC' && Number(x.price ?? x.priceUsd) > 0);
+  const operationalCostEvidence = buildOperationalCostEvidence({
+    baseFeeLamports: solanaConfig.baseFeeLamports,
+    priorityEvidence: priorityFeeResult.status === 'fulfilled' ? priorityFeeResult.value : null,
+    solUsd: solReference?.price ?? solReference?.priceUsd ?? null,
+  });
 
   const oldHistory = await readHistory();
   const history = [...oldHistory, {
@@ -387,6 +449,7 @@ async function main() {
       ilReserveMultiplier: DEFAULT_LIQUIDITY_POLICY.ilReserveMultiplier,
       rangeHalfWidthPct: DEFAULT_LIQUIDITY_POLICY.rangeHalfWidthPct,
       rewardsIncluded: false,
+      operationalCostCalibration: 'measured global Solana priority fee + configured base fee; calibration only, does not weaken promotion gates',
       forwardProxy: 'consecutive scheduled snapshots; entries require prior screen pass, exits are scored even after deterioration; no claimed live LP fills',
       promotion: 'PAPER sleeve only after sufficient positive forward proxy evidence; LIVE remains locked',
     },
@@ -395,7 +458,10 @@ async function main() {
       raydium: raydiumResult.status === 'fulfilled',
       meteoraError: meteoraResult.status === 'rejected' ? String(meteoraResult.reason) : null,
       raydiumError: raydiumResult.status === 'rejected' ? String(raydiumResult.reason) : null,
+      priorityFee: priorityFeeResult.status === 'fulfilled',
+      priorityFeeError: priorityFeeResult.status === 'rejected' ? String(priorityFeeResult.reason) : null,
     },
+    operationalCostEvidence,
     candidateCount: candidates.length,
     screenPassCount: candidates.filter((x) => x.screenPass).length,
     best: candidates.find((x) => x.screenPass) ?? candidates[0] ?? null,
@@ -437,6 +503,7 @@ async function main() {
       eligible: sleeve.paperCapitalEligible,
     },
     sourceHealth: output.sourceHealth,
+    operationalCostEvidence: output.operationalCostEvidence,
   }));
 }
 
