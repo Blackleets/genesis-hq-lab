@@ -4,6 +4,7 @@ import {
   impermanentLossBps,
   scoreLiquiditySnapshot,
   forwardLiquidityWindow,
+  shouldScoreLiquidityForwardWindow,
   buildLiquiditySleeve,
 } from '../../src/core/solanaLiquidityEconomics.mjs';
 
@@ -59,4 +60,29 @@ test('paper eligibility needs a statistically adequate forward sample', () => {
   assert.equal(sleeve.samples, 60);
   assert.equal(sleeve.paperCapitalEligible, true);
   assert.equal(sleeve.liveEligible, false);
+});
+
+
+test('forward evidence counts deterioration after an eligible entry and blocks cherry-picked re-entry', () => {
+  const entered = {
+    screenPass: true,
+    officialSource: true,
+    priceUsd: 100,
+    dailyFeeYieldBps: 12,
+    observedAt: '2026-09-17T00:00:00Z',
+  };
+  const deteriorated = {
+    screenPass: false,
+    officialSource: true,
+    priceUsd: 92,
+    observedAt: '2026-09-17T01:00:00Z',
+  };
+  assert.equal(shouldScoreLiquidityForwardWindow(entered, deteriorated), true);
+
+  const wasNeverEligible = { ...entered, screenPass: false };
+  assert.equal(shouldScoreLiquidityForwardWindow(wasNeverEligible, deteriorated), false);
+
+  const window = forwardLiquidityWindow(entered, deteriorated, 1);
+  assert.ok(window);
+  assert.ok(window.netBps < 0);
 });
