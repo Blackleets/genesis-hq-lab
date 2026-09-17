@@ -7,6 +7,7 @@ import {
   shouldScoreLiquidityForwardWindow,
   buildLiquiditySleeve,
   solanaOperationCostBps,
+  lpBreakEvenHoldDays,
 } from '../../src/core/solanaLiquidityEconomics.mjs';
 
 const VERSION = 'solana_liquidity_lab_v4_correlated_pairs';
@@ -338,6 +339,53 @@ function buildOperationalCostEvidence({ baseFeeLamports, priorityEvidence, solUs
   };
 }
 
+function buildCostCalibratedResearch(candidates, operationalCostEvidence) {
+  const roundTrips = operationalCostEvidence?.scenarios?.openCloseRoundTrip;
+  if (!operationalCostEvidence?.available || !Array.isArray(roundTrips)) return [];
+  return candidates
+    .filter(historyEligible)
+    .map((candidate) => {
+      const breakEvenByNotional = roundTrips.map((cost) => {
+        const result = lpBreakEvenHoldDays({
+          capturedFeeYieldBps: candidate.capturedFeeYieldBps,
+          ilStressBps: candidate.ilStressBps,
+          rebalanceReserveBps: candidate.rebalanceReserveBps,
+          roundTripCostBps: cost.bps,
+        });
+        return {
+          notionalUsd: cost.notionalUsd,
+          roundTripCostBps: cost.bps,
+          preOperationalNetBpsPerDay: result?.preOperationalNetBpsPerDay ?? null,
+          breakEvenHoldDays: result?.breakEvenHoldDays ?? null,
+        };
+      });
+      return {
+        venue: candidate.venue,
+        poolAddress: candidate.poolAddress,
+        pair: candidate.pair,
+        pairClass: candidate.pairClass ?? null,
+        tvlUsd: candidate.tvlUsd,
+        volume24hUsd: candidate.volume24hUsd,
+        dailyFeeYieldBps: candidate.dailyFeeYieldBps,
+        capturedFeeYieldBps: candidate.capturedFeeYieldBps,
+        ilStressBps: candidate.ilStressBps,
+        rebalanceReserveBps: candidate.rebalanceReserveBps,
+        legacyOperationalReserveBps: candidate.operationalReserveBps,
+        legacyExpectedNetStressBps: candidate.expectedNetStressBps,
+        breakEvenByNotional,
+        calibrationOnly: true,
+        changesPromotionGate: false,
+      };
+    })
+    .filter((candidate) => candidate.breakEvenByNotional.some((x) => x.breakEvenHoldDays != null))
+    .sort((a, b) => {
+      const a500 = a.breakEvenByNotional.find((x) => x.notionalUsd === 500)?.breakEvenHoldDays ?? Infinity;
+      const b500 = b.breakEvenByNotional.find((x) => x.notionalUsd === 500)?.breakEvenHoldDays ?? Infinity;
+      return a500 - b500;
+    })
+    .slice(0, 20);
+}
+
 async function readHistory() {
   try {
     const raw = await readFile(HISTORY, 'utf8');
@@ -463,6 +511,8 @@ async function main() {
     solUsd: solReference?.price ?? solReference?.priceUsd ?? null,
   });
 
+  const costCalibratedResearch = buildCostCalibratedResearch(candidates, operationalCostEvidence);
+
   const oldHistory = await readHistory();
   const history = [...oldHistory, {
     generatedAt: observedAt,
@@ -505,6 +555,7 @@ async function main() {
       priorityFeeError: priorityFeeResult.status === 'rejected' ? String(priorityFeeResult.reason) : null,
     },
     operationalCostEvidence,
+    costCalibratedResearch,
     candidateCount: candidates.length,
     screenPassCount: candidates.filter((x) => x.screenPass).length,
     best: candidates.find((x) => x.screenPass) ?? candidates[0] ?? null,
@@ -547,6 +598,7 @@ async function main() {
     },
     sourceHealth: output.sourceHealth,
     operationalCostEvidence: output.operationalCostEvidence,
+    costCalibratedTop: output.costCalibratedResearch.slice(0, 5),
   }));
 }
 
