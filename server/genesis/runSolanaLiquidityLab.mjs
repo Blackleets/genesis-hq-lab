@@ -8,12 +8,16 @@ import {
   buildLiquiditySleeve,
 } from '../../src/core/solanaLiquidityEconomics.mjs';
 
-const VERSION = 'solana_liquidity_lab_v3_no_survivorship';
+const VERSION = 'solana_liquidity_lab_v4_correlated_pairs';
 const OUT = process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : 'quant-evidence/solana-liquidity-lab-latest.json';
 const HISTORY = process.argv.includes('--history') ? process.argv[process.argv.indexOf('--history') + 1] : 'quant-evidence/solana-liquidity-history.jsonl';
 const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const USDT = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
+const SOL = 'So11111111111111111111111111111111111111112';
+const MSOL = 'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So';
+const JITOSOL = 'J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn';
 const ASSETS = [
-  { symbol: 'SOL', mint: 'So11111111111111111111111111111111111111112' },
+  { symbol: 'SOL', mint: SOL },
   { symbol: 'JUP', mint: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN' },
   { symbol: 'WIF', mint: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm' },
   { symbol: 'RAY', mint: '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R' },
@@ -21,6 +25,19 @@ const ASSETS = [
   { symbol: 'POPCAT', mint: '7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr' },
 ];
 const BY_MINT = new Map(ASSETS.map((x) => [x.mint, x]));
+const RAYDIUM_PAIRS = [
+  ...ASSETS.map((asset) => ({
+    symbol: asset.symbol,
+    pair: `${asset.symbol}/USDC`,
+    mint1: asset.mint,
+    mint2: USDC,
+    quoteIsUsd: true,
+    pairClass: 'volatile_usd',
+  })),
+  { symbol: 'mSOL', pair: 'mSOL/SOL', mint1: MSOL, mint2: SOL, quoteIsUsd: false, pairClass: 'lst_correlated' },
+  { symbol: 'JitoSOL', pair: 'JitoSOL/SOL', mint1: JITOSOL, mint2: SOL, quoteIsUsd: false, pairClass: 'lst_correlated' },
+  { symbol: 'USDT', pair: 'USDT/USDC', mint1: USDT, mint2: USDC, quoteIsUsd: true, pairClass: 'stable' },
+];
 const FETCH_TIMEOUT_MS = 15_000;
 
 function n(value) {
@@ -130,7 +147,7 @@ async function fetchMeteoraCandidates() {
           fees24hUsd: firstNumber(pool.fees?.['24h']),
           volume24hUsd,
           dynamicFeePct: firstNumber(pool.dynamic_fee_pct),
-          priceUsd: firstNumber(token?.price, market?.priceUsd),
+          price: firstNumber(token?.price, market?.priceUsd),
           priceChange24hPct: firstNumber(market?.priceChange24hPct),
           officialSource: true,
           source: 'meteora_dlmm_datapi+dexscreener_volatility',
@@ -167,11 +184,11 @@ function raydiumDay(pool) {
 
 async function fetchRaydiumCandidates() {
   const results = [];
-  for (const asset of ASSETS) {
+  for (const spec of RAYDIUM_PAIRS) {
     try {
       const url = new URL('https://api-v3.raydium.io/pools/info/mint');
-      url.searchParams.set('mint1', asset.mint);
-      url.searchParams.set('mint2', USDC);
+      url.searchParams.set('mint1', spec.mint1);
+      url.searchParams.set('mint2', spec.mint2);
       url.searchParams.set('poolType', 'concentrated');
       url.searchParams.set('poolSortField', 'fee24h');
       url.searchParams.set('sortType', 'desc');
@@ -183,23 +200,42 @@ async function fetchRaydiumCandidates() {
         const poolAddress = String(pool.id ?? '');
         const market = poolAddress ? await dexScreenerPair(poolAddress) : null;
         const day = raydiumDay(pool);
+        const officialRelativePrice = firstNumber(pool.price);
+        const officialRelativeStress = firstNumber(day.priceStressPct);
+        const price = firstNumber(
+          officialRelativePrice,
+          spec.quoteIsUsd ? market?.priceUsd : null,
+        );
+        const priceChange24hPct = firstNumber(
+          officialRelativeStress,
+          spec.quoteIsUsd ? market?.priceChange24hPct : null,
+        );
+
         results.push({
           venue: 'RAYDIUM_CLMM',
           poolAddress,
-          symbol: asset.symbol,
-          pair: `${asset.symbol}/USDC`,
+          symbol: spec.symbol,
+          pair: spec.pair,
+          pairClass: spec.pairClass,
           tvlUsd: firstNumber(pool.tvl, market?.liquidityUsd),
           fees24hUsd: day.fee,
           volume24hUsd: firstNumber(day.volume, market?.volume24hUsd),
-          priceUsd: firstNumber(pool.price, market?.priceUsd),
-          priceChange24hPct: firstNumber(day.priceStressPct, market?.priceChange24hPct),
+          price,
+          priceChange24hPct,
           officialSource: true,
-          source: day.priceStressPct != null ? 'raydium_api_v3_official_24h_range' : 'raydium_api_v3+dexscreener_volatility',
-          sourceEvidence: { raydium: true, dexscreener: Boolean(market) },
+          source: officialRelativeStress != null
+            ? 'raydium_api_v3_official_relative_price_range'
+            : (spec.quoteIsUsd ? 'raydium_api_v3+dexscreener_volatility' : 'raydium_api_v3_relative_price_only'),
+          sourceEvidence: {
+            raydium: true,
+            dexscreener: Boolean(market),
+            officialRelativePrice: officialRelativePrice != null,
+            officialRelativeStress: officialRelativeStress != null,
+          },
         });
       }
     } catch {
-      // Per-asset failure must not kill the research run; source health is reported below.
+      // Per-pair failure must not kill the research run.
     }
   }
   return results;
@@ -221,7 +257,7 @@ function compactCandidate(c) {
     symbol: c.symbol,
     pair: c.pair,
     observedAt: c.observedAt,
-    priceUsd: c.priceUsd,
+    price: c.price ?? c.priceUsd,
     dailyFeeYieldBps: c.dailyFeeYieldBps,
     expectedNetStressBps: c.expectedNetStressBps,
     screenPass: c.screenPass === true,
@@ -345,6 +381,7 @@ async function main() {
     broadcastsTransactions: false,
     methodology: {
       officialPoolMetrics: ['Meteora DLMM', 'Raydium API v3'],
+      raydiumPairUniverse: RAYDIUM_PAIRS.map((x) => ({ pair: x.pair, pairClass: x.pairClass })),
       volatilityContext: 'Raydium official 24h priceMin/priceMax when available; DexScreener fallback; Meteora uses DexScreener volatility context',
       feeCaptureHaircut: DEFAULT_LIQUIDITY_POLICY.feeCaptureHaircut,
       ilReserveMultiplier: DEFAULT_LIQUIDITY_POLICY.ilReserveMultiplier,
