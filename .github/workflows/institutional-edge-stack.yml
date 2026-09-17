@@ -9,7 +9,7 @@ on:
       - 'src/core/institutionalSmartExecution.mjs'
       - 'server/genesis/runMarketMakingLab.mjs'
       - 'server/genesis/runStatArbLab.mjs'
-      - 'server/genesis/runFundingCarryLab.mjs'
+      - 'server/genesis/runFundingCarryLab.py'
       - 'server/genesis/runInstitutionalEdgeStack.mjs'
       - 'server/tests/institutionalEdgeAllocator.test.mjs'
       - 'server/tests/institutionalSmartExecution.test.mjs'
@@ -35,8 +35,8 @@ jobs:
         run: node server/genesis/runMarketMakingLab.mjs
       - name: Statistical Arbitrage Lab — walk-forward OOS evidence
         run: node server/genesis/runStatArbLab.mjs
-      - name: Funding Carry Lab — delta-neutral funding plus basis OOS
-        run: node server/genesis/runFundingCarryLab.mjs
+      - name: Funding Carry Lab — Binance Vision delta-neutral OOS
+        run: python3 server/genesis/runFundingCarryLab.py
       - name: Institutional Meta Allocator + Smart Execution — PAPER only
         run: node server/genesis/runInstitutionalEdgeStack.mjs
       - name: Verify fail-closed invariants
