@@ -3,9 +3,10 @@ import { dirname } from 'node:path';
 import { allocatePaperCapital } from '../../src/core/institutionalEdgeAllocator.mjs';
 import { chooseExecutionMode } from '../../src/core/institutionalSmartExecution.mjs';
 
-const VERSION = 'institutional_edge_stack_v2_smart_execution';
+const VERSION = 'institutional_edge_stack_v3_funding_carry';
 const MM_PATH = process.env.GENESIS_MM_EVIDENCE || 'quant-evidence/market-making-lab-latest.json';
 const STAT_PATH = process.env.GENESIS_STATARB_EVIDENCE || 'quant-evidence/stat-arb-lab-latest.json';
+const FUNDING_PATH = process.env.GENESIS_FUNDING_EVIDENCE || 'quant-evidence/funding-carry-lab-latest.json';
 const EDGE_PATH = process.env.GENESIS_EDGE_FACTORY_EVIDENCE || 'quant-evidence/edge-factory-latest.json';
 const ARB_PATH = process.env.GENESIS_ARB_EVIDENCE || 'quant-evidence/solana-arbitrage-evidence-latest.json';
 const OUT = process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : 'quant-evidence/institutional-edge-stack-latest.json';
@@ -48,21 +49,17 @@ function buildExecutionBrain(mm, arb) {
   const makerMethod = mm?.methodology ?? {};
   const arbBest = arb?.best ?? arb?.latest ?? arb?.event ?? null;
   const arbMetrics = arb?.metrics ?? arb?.summary ?? {};
-
   const maker = makerBest ? {
     spreadCaptureBps: makerBest.averageSpreadBps,
     fillProbability: makerBest.fillProbability,
-    // Full maker cycle pays both passive legs in the conservative comparison.
     makerFeeBps: Number.isFinite(Number(makerMethod.makerFeeBpsPerSide)) ? 2 * Number(makerMethod.makerFeeBpsPerSide) : null,
     adverseSelectionBps: makerBest.averageAdverseSelectionBps,
     inventoryRiskBps: makerMethod.inventoryReserveBps,
     evidenceQuality: makerBest.evidenceQuality,
   } : {};
-
   const takerAlphaBps = arbBest?.netEdgeBps ?? arbBest?.expectedNetEdgeBps ?? arbMetrics?.expectancyBps ?? null;
   const takerCosts = arbBest?.estimatedCosts ?? arbBest?.costs ?? {};
   const taker = {
-    // Use already-net observed alpha only when the arb evidence explicitly says it is net.
     alphaBps: takerAlphaBps,
     takerFeeBps: takerCosts?.takerFeeBps ?? null,
     slippageBps: takerCosts?.slippageBps ?? takerCosts?.slippageReserveBps ?? null,
@@ -70,16 +67,15 @@ function buildExecutionBrain(mm, arb) {
     adverseSelectionBps: takerCosts?.adverseSelectionBps ?? null,
     evidenceQuality: arbMetrics?.evidenceQuality ?? arbBest?.evidenceQuality ?? null,
   };
-
-  // Missing explicit cost evidence deliberately makes TAKE ineligible rather than double-counting or guessing.
   return chooseExecutionMode({ maker, taker }, { minExpectedNetBps: 0 });
 }
 
 async function main() {
-  const [mm, stat, edge, arb] = await Promise.all([readJson(MM_PATH), readJson(STAT_PATH), readJson(EDGE_PATH), readJson(ARB_PATH)]);
+  const [mm, stat, funding, edge, arb] = await Promise.all([readJson(MM_PATH), readJson(STAT_PATH), readJson(FUNDING_PATH), readJson(EDGE_PATH), readJson(ARB_PATH)]);
   const sleeves = [
     mm?.sleeve ? { ...mm.sleeve, sleeveKey: 'MARKET_MAKING' } : { sleeveKey: 'MARKET_MAKING', samples: 0, evidenceQuality: 0, paperCapitalEligible: false },
     stat?.sleeve ? { ...stat.sleeve, sleeveKey: 'STAT_ARB' } : { sleeveKey: 'STAT_ARB', samples: 0, evidenceQuality: 0, paperCapitalEligible: false },
+    funding?.sleeve ? { ...funding.sleeve, sleeveKey: 'FUNDING_CARRY' } : { sleeveKey: 'FUNDING_CARRY', samples: 0, evidenceQuality: 0, paperCapitalEligible: false },
     edgeFactorySleeve(edge),
     arbSleeve(arb),
   ];
@@ -88,8 +84,8 @@ async function main() {
   const output = {
     ok: true, version: VERSION, generatedAt: new Date().toISOString(), mode: 'PAPER_ONLY',
     executionAuthority: false, liveLocked: true, liveOrders: false,
-    thesis: 'Multiple independent edge sleeves compete for paper capital; cash and WAIT are valid winning decisions when evidence is weak.',
-    evidence: { marketMaking: Boolean(mm), statArb: Boolean(stat), systematicEdgeFactory: Boolean(edge), solanaArbitrage: Boolean(arb) },
+    thesis: 'Independent institutional sleeves compete for paper capital; CASH and WAIT are valid winners when evidence is weak.',
+    evidence: { marketMaking: Boolean(mm), statArb: Boolean(stat), fundingCarry: Boolean(funding), systematicEdgeFactory: Boolean(edge), solanaArbitrage: Boolean(arb) },
     sleeves,
     allocation,
     executionBrain,
