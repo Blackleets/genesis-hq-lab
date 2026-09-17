@@ -13,16 +13,18 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
-VERSION = "funding_carry_lab_v2_binance_vision_oos"
+VERSION = "funding_carry_lab_v3_cost_aware_oos"
 BASE = "https://data.binance.vision/data"
-SYMBOLS = [x.strip() for x in os.getenv("GENESIS_FUNDING_SYMBOLS", "BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,XRPUSDT").split(",") if x.strip()]
-MONTHS_BACK = max(4, min(12, int(os.getenv("GENESIS_FUNDING_MONTHS", "6"))))
+SYMBOLS = [x.strip() for x in os.getenv("GENESIS_FUNDING_SYMBOLS", "BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,XRPUSDT,DOGEUSDT,LINKUSDT").split(",") if x.strip()]
+MONTHS_BACK = max(4, min(12, int(os.getenv("GENESIS_FUNDING_MONTHS", "12"))))
 SIGNAL_LOOKBACK = max(2, int(os.getenv("GENESIS_FUNDING_SIGNAL_LOOKBACK", "3")))
 MIN_TRAILING_FUNDING_BPS = float(os.getenv("GENESIS_MIN_TRAILING_FUNDING_BPS", "0.25"))
-HORIZONS = [int(x) for x in os.getenv("GENESIS_FUNDING_HORIZONS", "3,6,12").split(",") if x.strip().isdigit() and int(x) > 0]
+HORIZONS = [int(x) for x in os.getenv("GENESIS_FUNDING_HORIZONS", "6,12,24").split(",") if x.strip().isdigit() and int(x) > 0]
 SPOT_TAKER_BPS_PER_SIDE = float(os.getenv("GENESIS_FUNDING_SPOT_TAKER_BPS", "10"))
 PERP_TAKER_BPS_PER_SIDE = float(os.getenv("GENESIS_FUNDING_PERP_TAKER_BPS", "5"))
 SLIPPAGE_RESERVE_BPS = float(os.getenv("GENESIS_FUNDING_SLIPPAGE_RESERVE_BPS", "4"))
+CARRY_SAFETY_BUFFER_BPS = float(os.getenv("GENESIS_FUNDING_SAFETY_BUFFER_BPS", "8"))
+MIN_ENTRY_BASIS_BPS = float(os.getenv("GENESIS_FUNDING_MIN_ENTRY_BASIS_BPS", "0"))
 ROUND_TRIP_COST_BPS = 2 * (SPOT_TAKER_BPS_PER_SIDE + PERP_TAKER_BPS_PER_SIDE) + SLIPPAGE_RESERVE_BPS
 OUT = Path(sys.argv[sys.argv.index("--out") + 1]) if "--out" in sys.argv else Path("quant-evidence/funding-carry-lab-latest.json")
 USER_AGENT = "GenesisHQ-Research/1.0 (+public-market-data)"
@@ -48,7 +50,7 @@ def stdev(values):
 
 def normalize_ts(value):
     x = int(float(value))
-    while x > 10**14:  # tolerate micro/nanosecond archive timestamps
+    while x > 10**14:
         x //= 1000
     return x
 
@@ -114,8 +116,7 @@ def parse_funding_rows(rows):
         idx_rate = next((i for i, x in enumerate(header) if x in {"fundingrate", "funding_rate", "last_funding_rate"}), None)
         if idx_time is None or idx_rate is None:
             return []
-        body = rows[1:]
-        for row in body:
+        for row in rows[1:]:
             if len(row) <= max(idx_time, idx_rate):
                 continue
             ts, rate = numeric(row[idx_time]), numeric(row[idx_rate])
@@ -123,9 +124,6 @@ def parse_funding_rows(rows):
                 continue
             out.append((normalize_ts(ts), float(rate)))
         return out
-
-    # Older archive variants are headerless. First field is timestamp; select the
-    # small-magnitude numeric field after it (interval hours is usually 8, symbol is text).
     for row in rows:
         if len(row) < 2:
             continue
@@ -134,9 +132,8 @@ def parse_funding_rows(rows):
             continue
         candidates = [numeric(x) for x in row[1:]]
         candidates = [x for x in candidates if x is not None and abs(x) < 0.1]
-        if not candidates:
-            continue
-        out.append((normalize_ts(ts), float(candidates[-1])))
+        if candidates:
+            out.append((normalize_ts(ts), float(candidates[-1])))
     return out
 
 
@@ -155,7 +152,7 @@ def fetch_symbol(symbol, months):
             tasks.append((kind, month, url))
     results = {"funding": [], "spot": [], "perp": []}
     errors = []
-    with ThreadPoolExecutor(max_workers=min(8, len(tasks))) as pool:
+    with ThreadPoolExecutor(max_workers=min(10, len(tasks))) as pool:
         futures = {pool.submit(download_csv_from_zip, url): (kind, month, url) for kind, month, url in tasks}
         for future in as_completed(futures):
             kind, month, url = futures[future]
@@ -208,25 +205,35 @@ def trade_stats(trades):
         peak = max(peak, curve)
         max_dd = max(max_dd, peak - curve)
     return {
-        "trades": len(pnl),
-        "samples": len(pnl),
-        "expectancyBps": roundn(ev),
+        "trades": len(pnl), "samples": len(pnl), "expectancyBps": roundn(ev),
         "profitFactor": roundn(gp / gl) if gl > 0 else (99 if gp > 0 else None),
         "tStat": roundn(ev / (sd / math.sqrt(len(pnl)))) if ev is not None and sd and sd > 0 else None,
         "winRate": roundn(len(wins) / len(pnl)) if pnl else None,
-        "maxDrawdownPct": roundn(max_dd / 100.0),
-        "totalNetBps": roundn(sum(pnl)),
+        "maxDrawdownPct": roundn(max_dd / 100.0), "totalNetBps": roundn(sum(pnl)),
     }
+
+
+def break_even_funding_per_event(horizon):
+    return max(MIN_TRAILING_FUNDING_BPS, (ROUND_TRIP_COST_BPS + CARRY_SAFETY_BUFFER_BPS) / max(1, horizon))
 
 
 def simulate(rows, horizon, start=0, end=None):
     end = len(rows) if end is None else min(end, len(rows))
     trades = []
+    required_funding_bps = break_even_funding_per_event(horizon)
     i = max(start + SIGNAL_LOOKBACK, SIGNAL_LOOKBACK)
     while i + horizon < end:
         signal = mean([row["rateBps"] for row in rows[i - SIGNAL_LOOKBACK:i]])
         current = rows[i]
-        if signal is None or signal <= MIN_TRAILING_FUNDING_BPS or current["rateBps"] <= 0:
+        entry_basis_bps = math.log(current["perp"] / current["spot"]) * 10000.0
+        projected_funding_bps = (signal or 0.0) * horizon
+        if (
+            signal is None
+            or signal < required_funding_bps
+            or current["rateBps"] <= 0
+            or entry_basis_bps < MIN_ENTRY_BASIS_BPS
+            or projected_funding_bps < ROUND_TRIP_COST_BPS + CARRY_SAFETY_BUFFER_BPS
+        ):
             i += 1
             continue
         exit_index = i + horizon
@@ -239,10 +246,11 @@ def simulate(rows, horizon, start=0, end=None):
         net_bps = gross_bps - ROUND_TRIP_COST_BPS
         trades.append({
             "entryTime": current["t"], "exitTime": exit_row["t"], "horizonFundingEvents": horizon,
-            "trailingFundingSignalBps": roundn(signal), "fundingReceivedBps": roundn(funding_bps),
-            "spotReturnBps": roundn(spot_return_bps), "shortPerpReturnBps": roundn(short_perp_return_bps),
-            "basisPnlBps": roundn(basis_pnl_bps), "grossBps": roundn(gross_bps),
-            "roundTripCostBps": roundn(ROUND_TRIP_COST_BPS), "netBps": roundn(net_bps),
+            "trailingFundingSignalBps": roundn(signal), "requiredFundingPerEventBps": roundn(required_funding_bps),
+            "projectedFundingBps": roundn(projected_funding_bps), "entryBasisBps": roundn(entry_basis_bps),
+            "fundingReceivedBps": roundn(funding_bps), "spotReturnBps": roundn(spot_return_bps),
+            "shortPerpReturnBps": roundn(short_perp_return_bps), "basisPnlBps": roundn(basis_pnl_bps),
+            "grossBps": roundn(gross_bps), "roundTripCostBps": roundn(ROUND_TRIP_COST_BPS), "netBps": roundn(net_bps),
         })
         i = exit_index + 1
     return trades
@@ -292,19 +300,12 @@ def evaluate_symbol(symbol, months):
     latest = rows[-1]
     recent_mean = mean([x["rateBps"] for x in rows[-SIGNAL_LOOKBACK:]])
     return {
-        "symbol": symbol,
-        "archiveMonths": months,
-        "alignedFundingEvents": len(rows),
-        "selectedHorizon": horizon,
-        "latestFundingBps": roundn(latest["rateBps"]),
-        "recentMeanFundingBps": roundn(recent_mean),
+        "symbol": symbol, "archiveMonths": months, "alignedFundingEvents": len(rows), "selectedHorizon": horizon,
+        "selectedBreakEvenFundingPerEventBps": roundn(break_even_funding_per_event(horizon)),
+        "latestFundingBps": roundn(latest["rateBps"]), "recentMeanFundingBps": roundn(recent_mean),
         "latestBasisBps": roundn(math.log(latest["perp"] / latest["spot"]) * 10000.0),
-        "train": train_stats,
-        "validation": validation,
-        "holdout": holdout,
-        "oosTrades": oos_trades,
-        "passedOos": passed,
-        "evidenceQuality": roundn(evidence_quality),
+        "train": train_stats, "validation": validation, "holdout": holdout, "oosTrades": oos_trades,
+        "passedOos": passed, "evidenceQuality": roundn(evidence_quality),
         "evidenceStatus": "DELTA_NEUTRAL_CARRY_OOS_PASS" if passed else "DELTA_NEUTRAL_CARRY_OOS_FAIL",
         "recentHoldoutTrades": holdout_trades[-5:],
     }, errors
@@ -324,56 +325,38 @@ def main():
     candidates.sort(key=lambda x: (bool(x.get("passedOos")), x.get("holdout", {}).get("expectancyBps") if x.get("holdout", {}).get("expectancyBps") is not None else -math.inf), reverse=True)
     best = candidates[0] if candidates else None
     output = {
-        "ok": True,
-        "version": VERSION,
-        "generatedAt": datetime.now(timezone.utc).isoformat(),
-        "mode": "RESEARCH_ONLY",
-        "paperOnly": True,
-        "executionAuthority": False,
-        "liveLocked": True,
-        "liveOrders": False,
+        "ok": True, "version": VERSION, "generatedAt": datetime.now(timezone.utc).isoformat(),
+        "mode": "RESEARCH_ONLY", "paperOnly": True, "executionAuthority": False, "liveLocked": True, "liveOrders": False,
         "methodology": {
             "source": "Official Binance Vision monthly archives: USD-M funding + spot 1h + perpetual 1h",
-            "archiveMonths": months,
-            "symbols": SYMBOLS,
-            "split": "60% train / 20% validation / 20% holdout",
-            "signal": f"prior {SIGNAL_LOOKBACK} funding events mean > {MIN_TRAILING_FUNDING_BPS} bps and current funding > 0",
-            "horizonsFundingEvents": HORIZONS,
+            "archiveMonths": months, "symbols": SYMBOLS, "split": "60% train / 20% validation / 20% holdout",
+            "signal": "cost-aware: trailing funding must project to cover full round-trip cost + safety buffer; positive funding and non-negative entry basis required",
+            "signalLookbackFundingEvents": SIGNAL_LOOKBACK, "horizonsFundingEvents": HORIZONS,
             "horizonSelection": "train only; frozen for validation and holdout",
             "trade": "long spot + short USD-M perpetual, equal-notional log-return approximation",
             "pnl": "spot return - perp return + funding received - explicit entry/exit fees and slippage reserve",
-            "spotTakerBpsPerSide": SPOT_TAKER_BPS_PER_SIDE,
-            "perpTakerBpsPerSide": PERP_TAKER_BPS_PER_SIDE,
-            "slippageReserveBps": SLIPPAGE_RESERVE_BPS,
-            "roundTripCostBps": ROUND_TRIP_COST_BPS,
+            "spotTakerBpsPerSide": SPOT_TAKER_BPS_PER_SIDE, "perpTakerBpsPerSide": PERP_TAKER_BPS_PER_SIDE,
+            "slippageReserveBps": SLIPPAGE_RESERVE_BPS, "roundTripCostBps": ROUND_TRIP_COST_BPS,
+            "carrySafetyBufferBps": CARRY_SAFETY_BUFFER_BPS, "minEntryBasisBps": MIN_ENTRY_BASIS_BPS,
+            "breakEvenFundingPerEventBpsByHorizon": {str(h): roundn(break_even_funding_per_event(h)) for h in HORIZONS},
             "negativeFundingPolicy": "FAIL_CLOSED: no short-spot/long-perp because borrow cost/availability is not modeled",
             "limitation": "Historical delta-neutral approximation; no margin/liquidation-path model or fee-tier discounts; no real positions are opened.",
         },
-        "testedSymbols": len(candidates),
-        "oosPassCount": sum(1 for x in candidates if x.get("passedOos")),
-        "candidates": candidates,
-        "best": best,
+        "testedSymbols": len(candidates), "oosPassCount": sum(1 for x in candidates if x.get("passedOos")),
+        "candidates": candidates, "best": best,
         "sleeve": {
-            "sleeveKey": "FUNDING_CARRY",
-            "engineVersion": VERSION,
-            "samples": best.get("oosTrades", 0),
-            "expectancyBps": best.get("holdout", {}).get("expectancyBps"),
-            "profitFactor": best.get("holdout", {}).get("profitFactor"),
-            "tStat": best.get("holdout", {}).get("tStat"),
-            "maxDrawdownPct": best.get("holdout", {}).get("maxDrawdownPct"),
-            "evidenceQuality": best.get("evidenceQuality", 0),
-            "paperCapitalEligible": bool(best.get("passedOos")),
+            "sleeveKey": "FUNDING_CARRY", "engineVersion": VERSION, "samples": best.get("oosTrades", 0),
+            "expectancyBps": best.get("holdout", {}).get("expectancyBps"), "profitFactor": best.get("holdout", {}).get("profitFactor"),
+            "tStat": best.get("holdout", {}).get("tStat"), "maxDrawdownPct": best.get("holdout", {}).get("maxDrawdownPct"),
+            "evidenceQuality": best.get("evidenceQuality", 0), "paperCapitalEligible": bool(best.get("passedOos")),
         } if best else None,
-        "errors": errors[:50],
-        "invariants": {"signsTransactions": False, "broadcastsTransactions": False, "unlocksLive": False},
+        "errors": errors[:50], "invariants": {"signsTransactions": False, "broadcastsTransactions": False, "unlocksLive": False},
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(output, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({
-        "version": VERSION,
-        "testedSymbols": output["testedSymbols"],
-        "oosPassCount": output["oosPassCount"],
-        "best": {"symbol": best["symbol"], "selectedHorizon": best.get("selectedHorizon"), "validation": best.get("validation"), "holdout": best.get("holdout"), "passedOos": best.get("passedOos")} if best else None,
+        "version": VERSION, "testedSymbols": output["testedSymbols"], "oosPassCount": output["oosPassCount"],
+        "best": {"symbol": best["symbol"], "selectedHorizon": best.get("selectedHorizon"), "breakEvenFundingPerEventBps": best.get("selectedBreakEvenFundingPerEventBps"), "validation": best.get("validation"), "holdout": best.get("holdout"), "passedOos": best.get("passedOos")} if best else None,
         "errors": len(output["errors"]),
     }))
 
