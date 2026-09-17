@@ -17,6 +17,8 @@ on:
       - 'server/genesis/runVolatilitySizingLab.mjs'
       - 'server/genesis/runVolatilitySizingImpactLab.mjs'
       - 'src/core/volatilitySizingImpact.mjs'
+      - 'src/core/volatilityNormalizedExit.mjs'
+      - 'server/genesis/runVolatilityNormalizedExitLab.mjs'
       - 'server/strategies/futuresBreakoutEngine.mjs'
       - 'server/genesis/runInstitutionalEdgeStack.mjs'
       - 'server/tests/institutionalEdgeAllocator.test.mjs'
@@ -24,7 +26,7 @@ on:
       - 'server/tests/solanaLiquidityEconomics.test.mjs'
       - 'server/tests/volatilitySizingEngine.test.mjs'
       - 'server/tests/futuresGovernorRiskEscalation.test.mjs'
-      - 'server/tests/volatilitySizingImpact.test.mjs server/tests/futuresGovernorRiskEscalation.test.mjs'
+      - 'server/tests/volatilitySizingImpact.test.mjs server/tests/volatilityNormalizedExit.test.mjs server/tests/futuresGovernorRiskEscalation.test.mjs'
       - '.github/workflows/institutional-edge-stack.yml'
   schedule:
     - cron: '17,47 * * * *'
@@ -73,6 +75,9 @@ jobs:
       - name: Volatility Sizing Impact — same trades, all-in counterfactual
         run: node server/genesis/runVolatilitySizingImpactLab.mjs
 
+      - name: Volatility-Normalized Exit Lab — OOS research only
+        run: node server/genesis/runVolatilityNormalizedExitLab.mjs
+
       - name: Institutional Meta Allocator + Smart Execution — PAPER only
         run: node server/genesis/runInstitutionalEdgeStack.mjs
 
@@ -118,6 +123,7 @@ jobs:
             quant-evidence/solana-liquidity-history.jsonl
             quant-evidence/volatility-sizing-lab-latest.json
             quant-evidence/volatility-sizing-impact-latest.json
+            quant-evidence/volatility-normalized-exit-lab-latest.json
             quant-evidence/institutional-edge-stack-latest.json
 
       - name: Save Solana liquidity forward history

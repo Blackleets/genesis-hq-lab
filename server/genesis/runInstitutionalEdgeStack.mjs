@@ -3,7 +3,7 @@ import { dirname } from 'node:path';
 import { allocatePaperCapital } from '../../src/core/institutionalEdgeAllocator.mjs';
 import { chooseExecutionMode } from '../../src/core/institutionalSmartExecution.mjs';
 
-const VERSION = 'institutional_edge_stack_v9_vol_regime_discovery';
+const VERSION = 'institutional_edge_stack_v10_vol_normalized_exit_research';
 const MM_PATH = process.env.GENESIS_MM_EVIDENCE || 'quant-evidence/market-making-lab-latest.json';
 const STAT_PATH = process.env.GENESIS_STATARB_EVIDENCE || 'quant-evidence/stat-arb-lab-latest.json';
 const FUNDING_PATH = process.env.GENESIS_FUNDING_EVIDENCE || 'quant-evidence/funding-carry-lab-latest.json';
@@ -12,6 +12,7 @@ const EDGE_PATH = process.env.GENESIS_EDGE_FACTORY_EVIDENCE || 'quant-evidence/e
 const ARB_PATH = process.env.GENESIS_ARB_EVIDENCE || 'quant-evidence/solana-arbitrage-evidence-latest.json';
 const VOL_PATH = process.env.GENESIS_VOLATILITY_SIZING_EVIDENCE || 'quant-evidence/volatility-sizing-lab-latest.json';
 const VOL_IMPACT_PATH = process.env.GENESIS_VOLATILITY_SIZING_IMPACT_EVIDENCE || 'quant-evidence/volatility-sizing-impact-latest.json';
+const VOL_EXIT_PATH = process.env.GENESIS_VOLATILITY_EXIT_EVIDENCE || 'quant-evidence/volatility-normalized-exit-lab-latest.json';
 const OUT = process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : 'quant-evidence/institutional-edge-stack-latest.json';
 const PAPER_CAPITAL = Number(process.env.GENESIS_INSTITUTIONAL_PAPER_CAPITAL_USD || 10_000);
 
@@ -74,7 +75,7 @@ function buildExecutionBrain(mm, arb) {
 }
 
 async function main() {
-  const [mm, stat, funding, liquidity, edge, arb, volatility, volatilityImpact] = await Promise.all([
+  const [mm, stat, funding, liquidity, edge, arb, volatility, volatilityImpact, volatilityExit] = await Promise.all([
     readJson(MM_PATH),
     readJson(STAT_PATH),
     readJson(FUNDING_PATH),
@@ -83,6 +84,7 @@ async function main() {
     readJson(ARB_PATH),
     readJson(VOL_PATH),
     readJson(VOL_IMPACT_PATH),
+    readJson(VOL_EXIT_PATH),
   ]);
   const sleeves = [
     mm?.sleeve ? { ...mm.sleeve, sleeveKey: 'MARKET_MAKING' } : { sleeveKey: 'MARKET_MAKING', samples: 0, evidenceQuality: 0, paperCapitalEligible: false },
@@ -107,10 +109,12 @@ async function main() {
       solanaArbitrage: Boolean(arb),
       volatilitySizing: Boolean(volatility),
       volatilitySizingImpact: Boolean(volatilityImpact),
+      volatilityNormalizedExit: Boolean(volatilityExit),
     },
     sleeves,
     allocation,
     executionBrain,
+    volatilityNormalizedExit: volatilityExit ? { version: volatilityExit.version, candidateCount: volatilityExit.candidateCount, candidates: volatilityExit.candidates, capitalEligible: false, liveEligible: false } : null,
     volatilitySizingImpact: volatilityImpact ? {
       version: volatilityImpact.version,
       summary: volatilityImpact.summary,
@@ -144,6 +148,7 @@ async function main() {
     solanaLiquidity: sleeves.find((x) => x.sleeveKey === 'SOLANA_LIQUIDITY'),
     volatilitySizing: output.volatilitySizing ? { tested: output.volatilitySizing.tested, validated: output.volatilitySizing.validatedCount, throttled: output.volatilitySizing.throttledCount, storms: output.volatilitySizing.stormCount } : null,
     volatilitySizingImpact: output.volatilitySizingImpact ? { ...output.volatilitySizingImpact.summary, regimeCandidateCount: output.volatilitySizingImpact.volatilityRegimeResearch?.candidateCount ?? 0 } : null,
+    volatilityNormalizedExit: output.volatilityNormalizedExit ? { candidateCount: output.volatilityNormalizedExit.candidateCount } : null,
   }));
 }
 
