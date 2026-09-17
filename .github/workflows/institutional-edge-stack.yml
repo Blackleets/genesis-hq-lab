@@ -37,9 +37,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: quant-evidence/solana-liquidity-history.jsonl
-          key: solana-liquidity-v3-history-${{ github.run_id }}
+          key: solana-liquidity-v4-history-${{ github.run_id }}
           restore-keys: |
-            solana-liquidity-v3-history-
+            solana-liquidity-v4-history-
 
       - name: Safety, allocation and smart-execution tests
         run: node --test server/tests/institutionalEdgeAllocator.test.mjs server/tests/institutionalSmartExecution.test.mjs server/tests/solanaLiquidityEconomics.test.mjs
@@ -99,4 +99,4 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: quant-evidence/solana-liquidity-history.jsonl
-          key: solana-liquidity-v3-history-${{ github.run_id }}
+          key: solana-liquidity-v4-history-${{ github.run_id }}
