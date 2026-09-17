@@ -205,3 +205,25 @@ test('measured-cost forward gate rejects slow break-even and incomplete structur
   assert.equal(incomplete.pass, false);
   assert.equal(incomplete.reason, 'STRUCTURAL_EVIDENCE_INCOMPLETE');
 });
+
+
+test('forward LP window charges the measured open-close network round trip', () => {
+  const basePrev = {
+    venue: 'TEST', poolAddress: 'pool', symbol: 'SOL',
+    observedAt: '2026-09-17T00:00:00Z',
+    priceUsd: 100, dailyFeeYieldBps: 10, officialSource: true,
+  };
+  const curr = {
+    venue: 'TEST', poolAddress: 'pool', symbol: 'SOL',
+    observedAt: '2026-09-17T01:00:00Z',
+    priceUsd: 100, officialSource: true,
+  };
+  const withoutNetwork = forwardLiquidityWindow(basePrev, curr, 1);
+  const withNetwork = forwardLiquidityWindow(
+    { ...basePrev, measuredRoundTripCostBps: 0.05 },
+    curr,
+    1,
+  );
+  assert.equal(withNetwork.networkRoundTripBps, 0.05);
+  assert.ok(Math.abs((withoutNetwork.netBps - withNetwork.netBps) - 0.05) < 1e-12);
+});

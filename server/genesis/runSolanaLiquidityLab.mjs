@@ -11,7 +11,7 @@ import {
   measuredCostForwardEntry,
 } from '../../src/core/solanaLiquidityEconomics.mjs';
 
-const VERSION = 'solana_liquidity_lab_v5_measured_cost_forward_entry';
+const VERSION = 'solana_liquidity_lab_v6_all_cost_forward';
 const OUT = process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : 'quant-evidence/solana-liquidity-lab-latest.json';
 const HISTORY = process.argv.includes('--history') ? process.argv[process.argv.indexOf('--history') + 1] : 'quant-evidence/solana-liquidity-history.jsonl';
 const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
@@ -597,7 +597,7 @@ async function main() {
       rewardsIncluded: false,
       operationalCostCalibration: 'measured global Solana priority fee + configured base fee; measured cost may open forward-research observation but cannot by itself promote PAPER capital',
       forwardEntryGate: { notionalUsd: LP_FORWARD_ENTRY_NOTIONAL_USD, maxBreakEvenHoldDays: LP_MAX_FORWARD_BREAK_EVEN_DAYS },
-      forwardProxy: 'consecutive scheduled snapshots; entries require measured-cost forward gate pass, exits are scored even after deterioration; no claimed live LP fills',
+      forwardProxy: 'consecutive scheduled snapshots; entries require measured-cost forward gate pass; every hypothetical entry/exit window pays the measured round-trip network cost; exits are scored even after deterioration; no claimed live LP fills',
       promotion: 'PAPER sleeve only after sufficient positive forward proxy evidence; LIVE remains locked',
     },
     sourceHealth: {

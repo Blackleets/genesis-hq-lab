@@ -198,7 +198,8 @@ export function forwardLiquidityWindow(previous, current, elapsedHours, policy =
   const outOfRange = Math.abs(priceMovePct) > p.rangeHalfWidthPct;
   const rebalanceBps = outOfRange ? p.rebalanceCostBps : 0;
   const operationalBps = p.operationalReserveBps * Math.min(hours, 24) / 24;
-  const netBps = feeAccrualBps - ilBps - rebalanceBps - operationalBps;
+  const networkRoundTripBps = Math.max(0, num(previous?.measuredRoundTripCostBps) ?? 0);
+  const netBps = feeAccrualBps - ilBps - rebalanceBps - operationalBps - networkRoundTripBps;
 
   return {
     venue: previous.venue,
@@ -211,6 +212,7 @@ export function forwardLiquidityWindow(previous, current, elapsedHours, policy =
     ilBps,
     rebalanceBps,
     operationalBps,
+    networkRoundTripBps,
     priceMovePct,
     outOfRange,
     netBps,
@@ -269,7 +271,7 @@ export function buildLiquiditySleeve(windows = [], { officialObservationRatio = 
 
   return {
     sleeveKey: 'SOLANA_LIQUIDITY',
-    engineVersion: 'solana_liquidity_lab_v5_measured_cost_forward_entry',
+    engineVersion: 'solana_liquidity_lab_v6_all_cost_forward',
     samples: stats.samples,
     expectancyBps: stats.expectancyBps,
     profitFactor: stats.profitFactor,
