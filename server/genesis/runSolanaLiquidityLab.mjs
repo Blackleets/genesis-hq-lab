@@ -7,7 +7,7 @@ import {
   buildLiquiditySleeve,
 } from '../../src/core/solanaLiquidityEconomics.mjs';
 
-const VERSION = 'solana_liquidity_lab_v1_forward_fee_tvl_proxy';
+const VERSION = 'solana_liquidity_lab_v2_official_pool_metrics';
 const OUT = process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : 'quant-evidence/solana-liquidity-lab-latest.json';
 const HISTORY = process.argv.includes('--history') ? process.argv[process.argv.indexOf('--history') + 1] : 'quant-evidence/solana-liquidity-history.jsonl';
 const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
@@ -62,58 +62,84 @@ async function dexScreenerPair(poolAddress) {
 }
 
 async function fetchMeteoraCandidates() {
-  const base = new URL('https://dlmm.datapi.meteora.ag/pools/groups');
-  base.searchParams.set('page', '1');
-  base.searchParams.set('page_size', '100');
-  base.searchParams.set('sort_by', 'volume_24h:desc');
-  base.searchParams.set('filter_by', 'is_blacklisted=false');
-  const groups = await fetchJson(base.toString());
-  const selected = (Array.isArray(groups?.data) ? groups.data : [])
-    .filter((g) => {
-      const x = String(g?.token_x ?? '');
-      const y = String(g?.token_y ?? '');
-      return (x === USDC && BY_MINT.has(y)) || (y === USDC && BY_MINT.has(x));
-    })
-    .slice(0, 12);
-
   const all = [];
-  for (const group of selected) {
-    const lexical = String(group.lexical_order_mints ?? '');
-    if (!lexical) continue;
-    const url = new URL(`https://dlmm.datapi.meteora.ag/pools/groups/${encodeURIComponent(lexical)}`);
-    url.searchParams.set('page', '1');
-    url.searchParams.set('page_size', '20');
-    url.searchParams.set('sort_by', 'fee_24h:desc');
-    url.searchParams.set('filter_by', 'is_blacklisted=false && tvl>50000 && volume_24h>50000');
-    const detail = await fetchJson(url.toString());
-    for (const pool of Array.isArray(detail?.data) ? detail.data : []) {
-      const xMint = String(pool?.token_x?.address ?? group.token_x ?? '');
-      const yMint = String(pool?.token_y?.address ?? group.token_y ?? '');
-      const assetMint = xMint === USDC ? yMint : (yMint === USDC ? xMint : null);
-      const asset = assetMint ? BY_MINT.get(assetMint) : null;
-      if (!asset) continue;
-      const poolAddress = String(pool.address ?? '');
-      const market = poolAddress ? await dexScreenerPair(poolAddress) : null;
-      const token = xMint === assetMint ? pool.token_x : pool.token_y;
-      all.push({
-        venue: 'METEORA_DLMM',
-        poolAddress,
-        symbol: asset.symbol,
-        pair: `${asset.symbol}/USDC`,
-        tvlUsd: firstNumber(pool.tvl, market?.liquidityUsd),
-        fees24hUsd: firstNumber(pool.fees?.['24h']),
-        volume24hUsd: firstNumber(pool.volume?.['24h'], market?.volume24hUsd),
-        dynamicFeePct: firstNumber(pool.dynamic_fee_pct),
-        priceUsd: firstNumber(token?.price, market?.priceUsd),
-        priceChange24hPct: firstNumber(market?.priceChange24hPct),
-        officialSource: true,
-        source: 'meteora_dlmm_datapi+dexscreener_volatility',
-        sourceEvidence: {
-          meteora: true,
-          dexscreener: Boolean(market),
-          group: lexical,
-        },
-      });
+  for (const asset of ASSETS) {
+    const base = new URL('https://dlmm.datapi.meteora.ag/pools/groups');
+    base.searchParams.set('page', '1');
+    base.searchParams.set('page_size', '20');
+    base.searchParams.set('query', asset.symbol);
+    base.searchParams.set('sort_by', 'volume_24h:desc');
+
+    let groups;
+    try {
+      groups = await fetchJson(base.toString());
+    } catch {
+      continue;
+    }
+
+    const selected = (Array.isArray(groups?.data) ? groups.data : [])
+      .filter((g) => {
+        const x = String(g?.token_x ?? '');
+        const y = String(g?.token_y ?? '');
+        const name = String(g?.group_name ?? '').toUpperCase();
+        const exact = (x === USDC && y === asset.mint) || (y === USDC && x === asset.mint);
+        const labelled = name.includes(asset.symbol) && name.includes('USDC');
+        return exact || labelled;
+      })
+      .slice(0, 4);
+
+    for (const group of selected) {
+      const lexical = String(group.lexical_order_mints ?? '');
+      if (!lexical) continue;
+      const url = new URL(`https://dlmm.datapi.meteora.ag/pools/groups/${encodeURIComponent(lexical)}`);
+      url.searchParams.set('page', '1');
+      url.searchParams.set('page_size', '20');
+      url.searchParams.set('sort_by', 'fee_24h:desc');
+
+      let detail;
+      try {
+        detail = await fetchJson(url.toString());
+      } catch {
+        continue;
+      }
+
+      for (const pool of Array.isArray(detail?.data) ? detail.data : []) {
+        if (pool?.is_blacklisted === true) continue;
+        const xMint = String(pool?.token_x?.address ?? group.token_x ?? '');
+        const yMint = String(pool?.token_y?.address ?? group.token_y ?? '');
+        const xSym = String(pool?.token_x?.symbol ?? '').toUpperCase();
+        const ySym = String(pool?.token_y?.symbol ?? '').toUpperCase();
+        const exactPair = (xMint === USDC && yMint === asset.mint) || (yMint === USDC && xMint === asset.mint);
+        const symbolPair = [xSym, ySym].includes('USDC') && [xSym, ySym].includes(asset.symbol);
+        if (!exactPair && !symbolPair) continue;
+
+        const poolAddress = String(pool.address ?? '');
+        const market = poolAddress ? await dexScreenerPair(poolAddress) : null;
+        const token = xSym === asset.symbol ? pool.token_x : (ySym === asset.symbol ? pool.token_y : null);
+        const tvlUsd = firstNumber(pool.tvl, market?.liquidityUsd);
+        const volume24hUsd = firstNumber(pool.volume?.['24h'], market?.volume24hUsd);
+        if (!(tvlUsd > 0) || !(volume24hUsd >= 0)) continue;
+
+        all.push({
+          venue: 'METEORA_DLMM',
+          poolAddress,
+          symbol: asset.symbol,
+          pair: `${asset.symbol}/USDC`,
+          tvlUsd,
+          fees24hUsd: firstNumber(pool.fees?.['24h']),
+          volume24hUsd,
+          dynamicFeePct: firstNumber(pool.dynamic_fee_pct),
+          priceUsd: firstNumber(token?.price, market?.priceUsd),
+          priceChange24hPct: firstNumber(market?.priceChange24hPct),
+          officialSource: true,
+          source: 'meteora_dlmm_datapi+dexscreener_volatility',
+          sourceEvidence: {
+            meteora: true,
+            dexscreener: Boolean(market),
+            group: lexical,
+          },
+        });
+      }
     }
   }
   return all;
@@ -121,9 +147,20 @@ async function fetchMeteoraCandidates() {
 
 function raydiumDay(pool) {
   const d = pool?.day ?? {};
+  const price = firstNumber(pool?.price);
+  const priceMin = firstNumber(d.priceMin);
+  const priceMax = firstNumber(d.priceMax);
+  let priceStressPct = null;
+  if (price > 0 && priceMin > 0 && priceMax > 0) {
+    priceStressPct = Math.max(
+      Math.abs(priceMin / price - 1),
+      Math.abs(priceMax / price - 1),
+    ) * 100;
+  }
   return {
-    fee: firstNumber(d.fee, d.fees, d.feeVolume, d.feeAmount, d.feeUsd),
+    fee: firstNumber(d.volumeFee, d.fee, d.fees, d.feeVolume, d.feeAmount, d.feeUsd),
     volume: firstNumber(d.volume, d.volumeUsd, d.volumeQuote),
+    priceStressPct,
   };
 }
 
@@ -153,10 +190,10 @@ async function fetchRaydiumCandidates() {
           tvlUsd: firstNumber(pool.tvl, market?.liquidityUsd),
           fees24hUsd: day.fee,
           volume24hUsd: firstNumber(day.volume, market?.volume24hUsd),
-          priceUsd: firstNumber(market?.priceUsd),
-          priceChange24hPct: firstNumber(market?.priceChange24hPct),
+          priceUsd: firstNumber(pool.price, market?.priceUsd),
+          priceChange24hPct: firstNumber(day.priceStressPct, market?.priceChange24hPct),
           officialSource: true,
-          source: 'raydium_api_v3+dexscreener_volatility',
+          source: day.priceStressPct != null ? 'raydium_api_v3_official_24h_range' : 'raydium_api_v3+dexscreener_volatility',
           sourceEvidence: { raydium: true, dexscreener: Boolean(market) },
         });
       }
@@ -188,6 +225,46 @@ function compactCandidate(c) {
     expectedNetStressBps: c.expectedNetStressBps,
     officialSource: c.officialSource,
   };
+}
+
+function choosePoolSleeve(windows) {
+  const byPool = new Map();
+  for (const window of windows) {
+    const key = `${window.venue}:${window.poolAddress}`;
+    if (!byPool.has(key)) byPool.set(key, []);
+    byPool.get(key).push(window);
+  }
+
+  const ranked = [];
+  for (const rows of byPool.values()) {
+    const officialRatio = rows.length ? rows.filter((x) => x.officialSource === true).length / rows.length : 0;
+    const sleeve = buildLiquiditySleeve(rows, { officialObservationRatio: officialRatio });
+    ranked.push({
+      ...sleeve,
+      venue: rows[0]?.venue ?? null,
+      poolAddress: rows[0]?.poolAddress ?? null,
+      symbol: rows[0]?.symbol ?? null,
+      score: sleeve.expectancyBps == null ? -Infinity : sleeve.expectancyBps * Math.sqrt(Math.max(1, sleeve.samples)),
+    });
+  }
+
+  ranked.sort((a, b) =>
+    Number(b.paperCapitalEligible) - Number(a.paperCapitalEligible) ||
+    b.score - a.score
+  );
+
+  if (!ranked.length) {
+    return {
+      ...buildLiquiditySleeve([], { officialObservationRatio: 0 }),
+      candidatePools: 0,
+      venue: null,
+      poolAddress: null,
+      symbol: null,
+    };
+  }
+  const best = ranked[0];
+  const { score, ...clean } = best;
+  return { ...clean, candidatePools: ranked.length };
 }
 
 function buildForwardWindows(history) {
@@ -227,20 +304,19 @@ async function main() {
   const candidates = raw
     .map((x) => scoreLiquiditySnapshot({ ...x, observedAt }))
     .filter((x) => x.tvlUsd != null && x.volume24hUsd != null)
-    .sort((a, b) => (b.expectedNetStressBps ?? -Infinity) - (a.expectedNetStressBps ?? -Infinity));
+    .sort((a, b) =>
+      Number(b.screenPass) - Number(a.screenPass) ||
+      (b.expectedNetStressBps ?? -Infinity) - (a.expectedNetStressBps ?? -Infinity)
+    );
 
   const oldHistory = await readHistory();
   const history = [...oldHistory, {
     generatedAt: observedAt,
-    candidates: candidates.slice(0, 30).map(compactCandidate),
+    candidates: candidates.filter((x) => x.screenPass).slice(0, 30).map(compactCandidate),
   }].slice(-500);
 
   const windows = buildForwardWindows(history);
-  const officialObservations = history.flatMap((x) => x.candidates ?? []);
-  const officialObservationRatio = officialObservations.length
-    ? officialObservations.filter((x) => x.officialSource === true).length / officialObservations.length
-    : 0;
-  const sleeve = buildLiquiditySleeve(windows, { officialObservationRatio });
+  const sleeve = choosePoolSleeve(windows);
 
   const output = {
     ok: true,
@@ -253,7 +329,7 @@ async function main() {
     broadcastsTransactions: false,
     methodology: {
       officialPoolMetrics: ['Meteora DLMM', 'Raydium API v3'],
-      volatilityContext: 'DexScreener 24h pool price change when available',
+      volatilityContext: 'Raydium official 24h priceMin/priceMax when available; DexScreener fallback; Meteora uses DexScreener volatility context',
       feeCaptureHaircut: DEFAULT_LIQUIDITY_POLICY.feeCaptureHaircut,
       ilReserveMultiplier: DEFAULT_LIQUIDITY_POLICY.ilReserveMultiplier,
       rangeHalfWidthPct: DEFAULT_LIQUIDITY_POLICY.rangeHalfWidthPct,
@@ -269,7 +345,7 @@ async function main() {
     },
     candidateCount: candidates.length,
     screenPassCount: candidates.filter((x) => x.screenPass).length,
-    best: candidates[0] ?? null,
+    best: candidates.find((x) => x.screenPass) ?? candidates[0] ?? null,
     topCandidates: candidates.slice(0, 12),
     forwardWindowCount: windows.length,
     recentForwardWindows: windows.slice(-20),
