@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-17T05:25:43.558Z",
+  "completedAt": "2026-09-17T13:48:02.505Z",
   "methodology": {
     "selectionUsesHoldout": false,
     "selectionInputs": [
@@ -22,7 +22,7 @@
     "barsPerMarket": 12000
   },
   "queueMode": "HIGH_PRIORITY",
-  "sourceQueueCompletedAt": "2026-09-17T05:25:33.567Z",
+  "sourceQueueCompletedAt": "2026-09-17T13:47:57.686Z",
   "tested": 15,
   "controls": 3,
   "promotableToAudit": 2,
@@ -189,38 +189,38 @@
       }
     },
     {
-      "id": "trend_pullback:BTCUSDT:1h:ASIA:p20:ta2:sa0.75:tb8:control",
+      "id": "failed_breakout:AVAXUSDT:30m:LONDON_NY:p20:ta1:sa0.75:tb8:control",
       "role": "CONTROL",
-      "hypothesisKey": "trend_pullback:BTCUSDT:1h:ASIA",
-      "parentVariant": "trend_pullback:BTCUSDT:1h:ASIA:p20:ta2:sa0.75:tb8",
+      "hypothesisKey": "failed_breakout:AVAXUSDT:30m:LONDON_NY",
+      "parentVariant": "failed_breakout:AVAXUSDT:30m:LONDON_NY:p20:ta1:sa0.75:tb8",
       "priority": "P1",
       "market": {
-        "pair": "BTCUSDT",
-        "tf": "1h"
+        "pair": "AVAXUSDT",
+        "tf": "30m"
       },
       "spec": {
-        "family": "trend_pullback",
+        "family": "failed_breakout",
         "period": 20,
-        "targetAtr": 2,
+        "targetAtr": 1,
         "stopAtr": 0.75,
         "timeoutBars": 8,
-        "session": "ASIA"
+        "session": "LONDON_NY"
       },
       "researchStatus": "REJECT",
-      "selectionScore": 25.22,
+      "selectionScore": 21.27,
       "train": {
-        "trades": 54,
-        "expectancyBps": 2.71,
-        "profitFactor": 1.074,
-        "tStat": 0.217,
-        "maxDrawdownPct": 5.66
+        "trades": 15,
+        "expectancyBps": 6.71,
+        "profitFactor": 1.195,
+        "tStat": 0.319,
+        "maxDrawdownPct": 1.85
       },
       "validation": {
-        "trades": 24,
-        "expectancyBps": 12.95,
-        "profitFactor": 1.371,
-        "tStat": 0.65,
-        "maxDrawdownPct": 3.68
+        "trades": 8,
+        "expectancyBps": 8.02,
+        "profitFactor": 1.259,
+        "tStat": 0.293,
+        "maxDrawdownPct": 1.87
       },
       "walkForward": {
         "positiveFolds": 2,
@@ -511,6 +511,46 @@
       }
     },
     {
+      "id": "failed_breakout:AVAXUSDT:30m:LONDON_NY:p20:ta1.25:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "failed_breakout:AVAXUSDT:30m:LONDON_NY",
+      "parentVariant": "failed_breakout:AVAXUSDT:30m:LONDON_NY:p20:ta1:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "AVAXUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 20,
+        "targetAtr": 1.25,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 35.06,
+      "train": {
+        "trades": 15,
+        "expectancyBps": 8.12,
+        "profitFactor": 1.209,
+        "tStat": 0.337,
+        "maxDrawdownPct": 2.51
+      },
+      "validation": {
+        "trades": 8,
+        "expectancyBps": 19.25,
+        "profitFactor": 1.622,
+        "tStat": 0.623,
+        "maxDrawdownPct": 1.87
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
       "id": "volatility_squeeze:BNBUSDT:1h:ASIA:p20:ta1.75:sa0.75:tb8",
       "role": "MUTATION",
       "hypothesisKey": "volatility_squeeze:BNBUSDT:1h:ASIA",
@@ -631,118 +671,78 @@
       }
     },
     {
-      "id": "trend_pullback:BTCUSDT:1h:ASIA:p20:ta2:sa0.75:tb8:control",
+      "id": "volatility_squeeze:BNBUSDT:1h:ASIA:p20:ta1.25:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "volatility_squeeze:BNBUSDT:1h:ASIA",
+      "parentVariant": "volatility_squeeze:BNBUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "volatility_squeeze",
+        "period": 20,
+        "targetAtr": 1.25,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 21.51,
+      "train": {
+        "trades": 65,
+        "expectancyBps": -5.18,
+        "profitFactor": 0.842,
+        "tStat": -0.606,
+        "maxDrawdownPct": 5.29
+      },
+      "validation": {
+        "trades": 23,
+        "expectancyBps": 11.31,
+        "profitFactor": 1.579,
+        "tStat": 0.954,
+        "maxDrawdownPct": 1.91
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:AVAXUSDT:30m:LONDON_NY:p20:ta1:sa0.75:tb8:control",
       "role": "CONTROL",
-      "hypothesisKey": "trend_pullback:BTCUSDT:1h:ASIA",
-      "parentVariant": "trend_pullback:BTCUSDT:1h:ASIA:p20:ta2:sa0.75:tb8",
+      "hypothesisKey": "failed_breakout:AVAXUSDT:30m:LONDON_NY",
+      "parentVariant": "failed_breakout:AVAXUSDT:30m:LONDON_NY:p20:ta1:sa0.75:tb8",
       "priority": "P1",
       "market": {
-        "pair": "BTCUSDT",
-        "tf": "1h"
+        "pair": "AVAXUSDT",
+        "tf": "30m"
       },
       "spec": {
-        "family": "trend_pullback",
+        "family": "failed_breakout",
         "period": 20,
-        "targetAtr": 2,
+        "targetAtr": 1,
         "stopAtr": 0.75,
         "timeoutBars": 8,
-        "session": "ASIA"
+        "session": "LONDON_NY"
       },
       "researchStatus": "REJECT",
-      "selectionScore": 25.22,
+      "selectionScore": 21.27,
       "train": {
-        "trades": 54,
-        "expectancyBps": 2.71,
-        "profitFactor": 1.074,
-        "tStat": 0.217,
-        "maxDrawdownPct": 5.66
+        "trades": 15,
+        "expectancyBps": 6.71,
+        "profitFactor": 1.195,
+        "tStat": 0.319,
+        "maxDrawdownPct": 1.85
       },
       "validation": {
-        "trades": 24,
-        "expectancyBps": 12.95,
-        "profitFactor": 1.371,
-        "tStat": 0.65,
-        "maxDrawdownPct": 3.68
-      },
-      "walkForward": {
-        "positiveFolds": 2,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
-      "id": "trend_pullback:BTCUSDT:1h:ASIA:p16:ta2:sa0.75:tb8",
-      "role": "MUTATION",
-      "hypothesisKey": "trend_pullback:BTCUSDT:1h:ASIA",
-      "parentVariant": "trend_pullback:BTCUSDT:1h:ASIA:p20:ta2:sa0.75:tb8",
-      "priority": "P1",
-      "market": {
-        "pair": "BTCUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "trend_pullback",
-        "period": 16,
-        "targetAtr": 2,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "researchStatus": "REJECT",
-      "selectionScore": 25.22,
-      "train": {
-        "trades": 54,
-        "expectancyBps": 2.71,
-        "profitFactor": 1.074,
-        "tStat": 0.217,
-        "maxDrawdownPct": 5.66
-      },
-      "validation": {
-        "trades": 24,
-        "expectancyBps": 12.95,
-        "profitFactor": 1.371,
-        "tStat": 0.65,
-        "maxDrawdownPct": 3.68
-      },
-      "walkForward": {
-        "positiveFolds": 2,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
-      "id": "trend_pullback:BTCUSDT:1h:ASIA:p20:ta2:sa0.75:tb6",
-      "role": "MUTATION",
-      "hypothesisKey": "trend_pullback:BTCUSDT:1h:ASIA",
-      "parentVariant": "trend_pullback:BTCUSDT:1h:ASIA:p20:ta2:sa0.75:tb8",
-      "priority": "P1",
-      "market": {
-        "pair": "BTCUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "trend_pullback",
-        "period": 20,
-        "targetAtr": 2,
-        "stopAtr": 0.75,
-        "timeoutBars": 6,
-        "session": "ASIA"
-      },
-      "researchStatus": "REJECT",
-      "selectionScore": 22.71,
-      "train": {
-        "trades": 54,
-        "expectancyBps": -2.19,
-        "profitFactor": 0.938,
-        "tStat": -0.193,
-        "maxDrawdownPct": 6.78
-      },
-      "validation": {
-        "trades": 24,
-        "expectancyBps": 11.89,
-        "profitFactor": 1.336,
-        "tStat": 0.597,
-        "maxDrawdownPct": 3.68
+        "trades": 8,
+        "expectancyBps": 8.02,
+        "profitFactor": 1.259,
+        "tStat": 0.293,
+        "maxDrawdownPct": 1.87
       },
       "walkForward": {
         "positiveFolds": 2,
