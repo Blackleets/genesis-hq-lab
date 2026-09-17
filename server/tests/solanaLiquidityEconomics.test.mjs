@@ -9,6 +9,8 @@ import {
   solanaOperationCostBps,
   lpBreakEvenHoldDays,
   measuredCostForwardEntry,
+  buildLiquidityHorizonWindows,
+  liquidityHorizonResearch,
 } from '../../src/core/solanaLiquidityEconomics.mjs';
 
 test('impermanent loss is zero when price does not move', () => {
@@ -226,4 +228,36 @@ test('forward LP window charges the measured open-close network round trip', () 
   );
   assert.equal(withNetwork.networkRoundTripBps, 0.05);
   assert.ok(Math.abs((withoutNetwork.netBps - withNetwork.netBps) - 0.05) < 1e-12);
+});
+
+
+test('holding-horizon windows are non-overlapping and charge round-trip once per position', () => {
+  const snapshots = [];
+  for (let i = 0; i < 7; i++) {
+    snapshots.push({
+      candidates: [{
+        venue: 'TEST', poolAddress: 'pool', pair: 'SOL/USDC', symbol: 'SOL',
+        observedAt: new Date(Date.UTC(2026,0,1,i,0,0)).toISOString(),
+        price: 100 + i * 0.1, dailyFeeYieldBps: 12,
+        measuredRoundTripCostBps: 0.04,
+        screenPass: true, officialSource: true,
+      }],
+    });
+  }
+  const windows = buildLiquidityHorizonWindows(snapshots, { horizonsHours: [2], toleranceFraction: 0.1, minToleranceHours: 0.1 });
+  assert.equal(windows.length, 3);
+  assert.ok(windows.every((x) => x.horizonHours === 2 && x.nonOverlapping === true));
+  assert.ok(windows.every((x) => x.networkRoundTripBps === 0.04));
+});
+
+test('holding-horizon research never grants capital directly', () => {
+  const rows = Array.from({length: 10}, (_, i) => ({
+    venue: 'TEST', poolAddress: 'pool', pair: 'SOL/USDC', symbol: 'SOL',
+    horizonHours: 2, netBps: 0.2 + i * 0.01, officialSource: true,
+  }));
+  const r = liquidityHorizonResearch(rows, { minSamples: 8, minProfitFactor: 1.1, minTStat: 0 });
+  assert.equal(r.candidateCount, 1);
+  assert.equal(r.capitalEligible, false);
+  assert.equal(r.candidates[0].capitalEligible, false);
+  assert.equal(r.candidates[0].requiresIndependentForward, true);
 });

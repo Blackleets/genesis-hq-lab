@@ -9,9 +9,11 @@ import {
   solanaOperationCostBps,
   lpBreakEvenHoldDays,
   measuredCostForwardEntry,
+  buildLiquidityHorizonWindows,
+  liquidityHorizonResearch,
 } from '../../src/core/solanaLiquidityEconomics.mjs';
 
-const VERSION = 'solana_liquidity_lab_v6_all_cost_forward';
+const VERSION = 'solana_liquidity_lab_v7_holding_horizon_research';
 const OUT = process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : 'quant-evidence/solana-liquidity-lab-latest.json';
 const HISTORY = process.argv.includes('--history') ? process.argv[process.argv.indexOf('--history') + 1] : 'quant-evidence/solana-liquidity-history.jsonl';
 const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
@@ -577,6 +579,12 @@ async function main() {
 
   const windows = buildForwardWindows(history);
   const sleeve = choosePoolSleeve(windows);
+  const horizonWindows = buildLiquidityHorizonWindows(history, { horizonsHours: [1, 2, 4, 8, 24] });
+  const holdingHorizonResearch = liquidityHorizonResearch(horizonWindows, {
+    minSamples: 8,
+    minProfitFactor: 1.1,
+    minTStat: 0.5,
+  });
 
   const output = {
     ok: true,
@@ -599,6 +607,7 @@ async function main() {
       forwardEntryGate: { notionalUsd: LP_FORWARD_ENTRY_NOTIONAL_USD, maxBreakEvenHoldDays: LP_MAX_FORWARD_BREAK_EVEN_DAYS },
       forwardProxy: 'consecutive scheduled snapshots; entries require measured-cost forward gate pass; every hypothetical entry/exit window pays the measured round-trip network cost; exits are scored even after deterioration; no claimed live LP fills',
       promotion: 'PAPER sleeve only after sufficient positive forward proxy evidence; LIVE remains locked',
+      holdingHorizonResearch: 'non-overlapping 1h/2h/4h/8h/24h windows; discovery only and never changes the promotion sleeve without independent forward confirmation',
     },
     sourceHealth: {
       meteora: meteoraResult.status === 'fulfilled',
@@ -618,6 +627,14 @@ async function main() {
     topCandidates: measuredCandidates.slice(0, 12),
     forwardWindowCount: windows.length,
     recentForwardWindows: windows.slice(-20),
+    holdingHorizonResearch: {
+      windowCount: horizonWindows.length,
+      candidateCount: holdingHorizonResearch.candidateCount,
+      candidates: holdingHorizonResearch.candidates.slice(0, 20),
+      rows: holdingHorizonResearch.rows.slice(0, 60),
+      capitalEligible: false,
+      requiresIndependentForward: true,
+    },
     sleeve,
     invariants: {
       paperOnly: true,
@@ -665,6 +682,7 @@ async function main() {
     sourceHealth: output.sourceHealth,
     operationalCostEvidence: output.operationalCostEvidence,
     costCalibratedTop: output.costCalibratedResearch.slice(0, 5),
+    holdingHorizons: output.holdingHorizonResearch,
   }));
 }
 

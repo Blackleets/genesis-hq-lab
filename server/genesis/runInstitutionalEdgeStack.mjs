@@ -3,7 +3,7 @@ import { dirname } from 'node:path';
 import { allocatePaperCapital } from '../../src/core/institutionalEdgeAllocator.mjs';
 import { chooseExecutionMode } from '../../src/core/institutionalSmartExecution.mjs';
 
-const VERSION = 'institutional_edge_stack_v10_vol_normalized_exit_research';
+const VERSION = 'institutional_edge_stack_v11_lp_holding_horizon_research';
 const MM_PATH = process.env.GENESIS_MM_EVIDENCE || 'quant-evidence/market-making-lab-latest.json';
 const STAT_PATH = process.env.GENESIS_STATARB_EVIDENCE || 'quant-evidence/stat-arb-lab-latest.json';
 const FUNDING_PATH = process.env.GENESIS_FUNDING_EVIDENCE || 'quant-evidence/funding-carry-lab-latest.json';
@@ -115,6 +115,7 @@ async function main() {
     allocation,
     executionBrain,
     volatilityNormalizedExit: volatilityExit ? { version: volatilityExit.version, candidateCount: volatilityExit.candidateCount, candidates: volatilityExit.candidates, capitalEligible: false, liveEligible: false } : null,
+    solanaLiquidityHoldingHorizons: liquidity?.holdingHorizonResearch ?? null,
     volatilitySizingImpact: volatilityImpact ? {
       version: volatilityImpact.version,
       summary: volatilityImpact.summary,
@@ -149,6 +150,7 @@ async function main() {
     volatilitySizing: output.volatilitySizing ? { tested: output.volatilitySizing.tested, validated: output.volatilitySizing.validatedCount, throttled: output.volatilitySizing.throttledCount, storms: output.volatilitySizing.stormCount } : null,
     volatilitySizingImpact: output.volatilitySizingImpact ? { ...output.volatilitySizingImpact.summary, regimeCandidateCount: output.volatilitySizingImpact.volatilityRegimeResearch?.candidateCount ?? 0 } : null,
     volatilityNormalizedExit: output.volatilityNormalizedExit ? { candidateCount: output.volatilityNormalizedExit.candidateCount } : null,
+    solanaLiquidityHoldingHorizons: output.solanaLiquidityHoldingHorizons ? { windowCount: output.solanaLiquidityHoldingHorizons.windowCount, candidateCount: output.solanaLiquidityHoldingHorizons.candidateCount, candidates: output.solanaLiquidityHoldingHorizons.candidates?.slice?.(0,5) ?? [] } : null,
   }));
 }
 

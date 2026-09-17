@@ -205,6 +205,7 @@ export function forwardLiquidityWindow(previous, current, elapsedHours, policy =
     venue: previous.venue,
     poolAddress: previous.poolAddress,
     symbol: previous.symbol,
+    pair: previous.pair ?? null,
     startAt: previous.observedAt,
     endAt: current.observedAt,
     elapsedHours: hours,
@@ -217,6 +218,124 @@ export function forwardLiquidityWindow(previous, current, elapsedHours, policy =
     outOfRange,
     netBps,
     officialSource: previous.officialSource === true && current.officialSource === true,
+  };
+}
+
+export function buildLiquidityHorizonWindows(history = [], options = {}) {
+  const horizons = Array.isArray(options.horizonsHours) && options.horizonsHours.length
+    ? options.horizonsHours.map(Number).filter((x) => x > 0)
+    : [1, 2, 4, 8, 24];
+  const toleranceFraction = Math.max(0.05, Number(options.toleranceFraction ?? 0.25));
+  const minToleranceHours = Math.max(0.05, Number(options.minToleranceHours ?? 0.35));
+
+  const byPool = new Map();
+  for (const snapshot of history ?? []) {
+    for (const candidate of snapshot?.candidates ?? []) {
+      const key = `${candidate.venue}:${candidate.poolAddress}`;
+      if (!byPool.has(key)) byPool.set(key, []);
+      byPool.get(key).push(candidate);
+    }
+  }
+
+  const windows = [];
+  for (const rows of byPool.values()) {
+    rows.sort((a, b) => Date.parse(a.observedAt) - Date.parse(b.observedAt));
+    for (const horizonHours of horizons) {
+      let lastEndMs = -Infinity;
+      const tol = Math.max(minToleranceHours, horizonHours * toleranceFraction);
+      const lo = Math.max(0.05, horizonHours - tol);
+      const hi = horizonHours + tol;
+
+      for (let i = 0; i < rows.length - 1; i++) {
+        const start = rows[i];
+        const startMs = Date.parse(start?.observedAt);
+        if (!Number.isFinite(startMs) || startMs < lastEndMs) continue;
+        if (start?.screenPass !== true || start?.officialSource !== true) continue;
+
+        let best = null;
+        let bestDistance = Infinity;
+        for (let j = i + 1; j < rows.length; j++) {
+          const end = rows[j];
+          const endMs = Date.parse(end?.observedAt);
+          if (!Number.isFinite(endMs)) continue;
+          const elapsedHours = (endMs - startMs) / 3_600_000;
+          if (elapsedHours < lo) continue;
+          if (elapsedHours > hi) break;
+          if (end?.officialSource !== true) continue;
+          const d = Math.abs(elapsedHours - horizonHours);
+          if (d < bestDistance) {
+            best = end;
+            bestDistance = d;
+          }
+        }
+        if (!best || !shouldScoreLiquidityForwardWindow(start, best)) continue;
+        const elapsedHours = (Date.parse(best.observedAt) - startMs) / 3_600_000;
+        const window = forwardLiquidityWindow(start, best, elapsedHours);
+        if (!window) continue;
+        windows.push({
+          ...window,
+          horizonHours,
+          horizonErrorHours: elapsedHours - horizonHours,
+          nonOverlapping: true,
+        });
+        lastEndMs = Date.parse(best.observedAt);
+      }
+    }
+  }
+  return windows;
+}
+
+export function liquidityHorizonResearch(windows = [], options = {}) {
+  const minSamples = Math.max(2, Number(options.minSamples ?? 8));
+  const minProfitFactor = Math.max(1, Number(options.minProfitFactor ?? 1.1));
+  const minTStat = Number(options.minTStat ?? 0.5);
+  const groups = new Map();
+
+  for (const window of windows ?? []) {
+    const h = Number(window?.horizonHours);
+    if (!(h > 0)) continue;
+    const key = `${h}|${window.venue}|${window.poolAddress}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(window);
+  }
+
+  const rows = [];
+  for (const group of groups.values()) {
+    const stats = liquidityForwardStats(group);
+    const first = group[0] ?? {};
+    const researchCandidate =
+      stats.samples >= minSamples &&
+      stats.expectancyBps > 0 &&
+      (stats.profitFactor ?? 0) >= minProfitFactor &&
+      (stats.tStat ?? -Infinity) >= minTStat;
+    rows.push({
+      horizonHours: first.horizonHours,
+      venue: first.venue,
+      poolAddress: first.poolAddress,
+      pair: first.pair ?? null,
+      symbol: first.symbol ?? null,
+      ...stats,
+      researchCandidate,
+      capitalEligible: false,
+      requiresIndependentForward: true,
+      overlappingWindows: false,
+      reason: researchCandidate
+        ? 'HORIZON_RESEARCH_CANDIDATE_REQUIRES_INDEPENDENT_FORWARD_CONFIRMATION'
+        : 'HORIZON_EVIDENCE_GATE_NOT_MET',
+    });
+  }
+  rows.sort((a, b) =>
+    Number(b.researchCandidate) - Number(a.researchCandidate) ||
+    a.horizonHours - b.horizonHours ||
+    (b.expectancyBps ?? -Infinity) - (a.expectancyBps ?? -Infinity)
+  );
+  const candidates = rows.filter((x) => x.researchCandidate);
+  return {
+    rows,
+    candidates,
+    candidateCount: candidates.length,
+    capitalEligible: false,
+    requiresIndependentForward: true,
   };
 }
 
@@ -271,7 +390,7 @@ export function buildLiquiditySleeve(windows = [], { officialObservationRatio = 
 
   return {
     sleeveKey: 'SOLANA_LIQUIDITY',
-    engineVersion: 'solana_liquidity_lab_v6_all_cost_forward',
+    engineVersion: 'solana_liquidity_lab_v7_holding_horizon_research',
     samples: stats.samples,
     expectancyBps: stats.expectancyBps,
     profitFactor: stats.profitFactor,
