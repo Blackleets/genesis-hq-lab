@@ -16,7 +16,7 @@ const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
 export function micropriceFromTop({ bid, ask, bidQty, askQty } = {}) {
   const b = finite(bid), a = finite(ask), bq = finite(bidQty), aq = finite(askQty);
-  if (!(b > 0 && a > b && bq >= 0 && aq >= 0) || bq + aq <= 0) return null;
+  if (!(b > 0 && a > b && bq !== null && aq !== null && bq >= 0 && aq >= 0) || bq + aq <= 0) return null;
   // More bid size shifts fair value toward the ask; more ask size shifts it toward the bid.
   return (a * bq + b * aq) / (bq + aq);
 }
@@ -54,7 +54,7 @@ export function passiveQuoteWindow({
   const mid = finite(current?.mid), bid = finite(current?.bid), ask = finite(current?.ask);
   const bidQty = finite(current?.bidQty), askQty = finite(current?.askQty);
   const nextMid = finite(next?.mid);
-  if (!(mid > 0 && bid > 0 && ask > bid && bidQty >= 0 && askQty >= 0 && nextMid > 0)) throw new Error('invalid_quote_window');
+  if (!(mid > 0 && bid > 0 && ask > bid && bidQty !== null && askQty !== null && bidQty >= 0 && askQty >= 0 && nextMid > 0)) throw new Error('invalid_quote_window');
 
   const quoteQty = Math.max(0, Number(quoteNotionalUsd) / mid);
   const activationTimeMs = Number(current.capturedAtMs) + Math.max(0, Number(orderLatencyMs) || 0);
