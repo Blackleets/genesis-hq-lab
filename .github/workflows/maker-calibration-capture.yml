@@ -1,0 +1,130 @@
+name: maker-calibration-capture
+
+on:
+  schedule:
+    - cron: "4,14,24,34,44,54 * * * *"
+  workflow_dispatch:
+  pull_request:
+    branches: [feat/genesis-life-os]
+    paths:
+      - 'server/genesis/okxFixedWindowTaker.mjs'
+      - 'server/genesis/makerFillCalibration.mjs'
+      - 'server/genesis/makerQueueDepletionCapture.mjs'
+      - 'server/research/runMakerFillCalibration.mjs'
+      - 'server/tests/okxFixedWindowTaker.test.mjs'
+      - 'server/tests/makerFillCalibration.test.mjs'
+      - 'server/tests/makerQueueDepletionCapture.test.mjs'
+      - 'server/tests/runMakerFillCalibration.test.mjs'
+      - 'docs/MAKER_FILL_CALIBRATION.md'
+      - '.github/workflows/maker-calibration-capture.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: maker-calibration-capture
+  cancel-in-progress: true
+
+jobs:
+  verify-and-capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: code
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: verify maker calibration invariants
+        run: |
+          node --test \
+            server/tests/okxFixedWindowTaker.test.mjs \
+            server/tests/makerFillCalibration.test.mjs \
+            server/tests/makerQueueDepletionCapture.test.mjs \
+            server/tests/runMakerFillCalibration.test.mjs
+
+      - name: tape
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          ref: capture-tape
+          path: tape
+
+      - name: prepare durable maker tape
+        if: github.event_name != 'pull_request'
+        run: |
+          mkdir -p tape/paper-tape tape/quant-evidence
+          touch tape/paper-tape/maker-queue-depletion.jsonl
+
+      - name: capture causal maker queue-depletion bursts
+        if: github.event_name != 'pull_request'
+        run: |
+          node server/genesis/makerQueueDepletionCapture.mjs \
+            --inst BTC-USDT-SWAP \
+            --samples 3 \
+            --horizons 1000,3000,10000 \
+            --order-size-units 1 \
+            --out tape/paper-tape/maker-queue-depletion-latest.json \
+            --jsonl tape/paper-tape/maker-queue-depletion.jsonl
+
+      - name: calibrate fill cohorts from durable observations
+        if: github.event_name != 'pull_request'
+        run: |
+          node server/research/runMakerFillCalibration.mjs \
+            tape/paper-tape/maker-queue-depletion.jsonl \
+            --out tape/quant-evidence/maker-fill-calibration-latest.json
+
+      - name: assert RESEARCH_ONLY boundary
+        if: github.event_name != 'pull_request'
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const capture = JSON.parse(fs.readFileSync('tape/paper-tape/maker-queue-depletion-latest.json', 'utf8'));
+          const report = JSON.parse(fs.readFileSync('tape/quant-evidence/maker-fill-calibration-latest.json', 'utf8'));
+          if (capture.mode !== 'RESEARCH_ONLY' || capture.executionAuthority !== false || capture.liveLocked !== true) {
+            throw new Error('maker capture boundary violated');
+          }
+          if (report.mode !== 'RESEARCH_ONLY' || report.executionAuthority !== false || report.liveLocked !== true) {
+            throw new Error('maker calibration boundary violated');
+          }
+          if (report.boundaries?.notForLiveScoring !== true) throw new Error('live scoring boundary missing');
+          const allowed = new Set([1000, 3000, 10000]);
+          for (const row of capture.observations || []) {
+            if (!allowed.has(row.targetHorizonMs)) throw new Error('unexpected horizon');
+            if (row.boundaries?.executionAuthority !== false || row.boundaries?.signsTransactions !== false || row.boundaries?.broadcastsTransactions !== false) {
+              throw new Error('observation execution boundary violated');
+            }
+            if (row.provenance?.priceTouchAloneCountsAsFill !== false) throw new Error('touch-fill shortcut detected');
+          }
+          console.log(JSON.stringify({
+            observations: capture.observationCount,
+            failures: capture.failureCount,
+            validForCalibration: report.validObservationCount,
+            calibratedCohorts: report.calibratedCohortCount,
+          }));
+          NODE
+
+      - name: publish durable maker calibration evidence
+        if: github.event_name != 'pull_request'
+        working-directory: tape
+        run: |
+          git config user.name "genesis-capture"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f \
+            paper-tape/maker-queue-depletion-latest.json \
+            paper-tape/maker-queue-depletion.jsonl \
+            quant-evidence/maker-fill-calibration-latest.json
+          if git diff --staged --quiet; then
+            echo "no maker calibration change"
+            exit 0
+          fi
+          git commit -m "maker calibration capture $(date -u +%Y-%m-%dT%H:%MZ)"
+          for attempt in 1 2 3; do
+            git pull --rebase origin capture-tape
+            if git push origin HEAD:capture-tape; then exit 0; fi
+            echo "capture-tape advanced; retry ${attempt}/3"
+            sleep $((attempt * 2))
+          done
+          exit 1
