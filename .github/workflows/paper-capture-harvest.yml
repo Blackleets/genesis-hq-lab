@@ -110,20 +110,30 @@ jobs:
         if: github.event_name != 'push'
         run: node server/genesis/researchStateCapture.mjs BTCUSDT --out tape/paper-tape/research-state-latest.json --jsonl tape/paper-tape/research-state.jsonl
       - name: capture synchronized positioning dynamics
+        id: positioning
         if: github.event_name != 'push'
-        run: node server/genesis/positioningDynamicsCapture.mjs --symbol BTCUSDT --out tape/paper-tape/positioning-dynamics-latest.json --jsonl tape/paper-tape/positioning-dynamics.jsonl
+        shell: bash
+        run: |
+          node server/genesis/positioningDynamicsCapture.mjs \
+            --symbol BTCUSDT \
+            --out tape/paper-tape/positioning-dynamics-latest.json \
+            --jsonl tape/paper-tape/positioning-dynamics.jsonl \
+            --status-out tape/paper-tape/positioning-capture-status-latest.json \
+            --allow-transient-gap
+          available=$(node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('tape/paper-tape/positioning-capture-status-latest.json','utf8'));process.stdout.write(String(x.available===true))")
+          echo "available=$available" >> "$GITHUB_OUTPUT"
       - name: audit effective independent positioning evidence
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' && steps.positioning.outputs.available == 'true'
         run: node server/research/positioningDataQualityAudit.mjs --input tape/paper-tape/positioning-dynamics.jsonl --out tape/paper-tape/positioning-data-quality-latest.json
       - name: run fail-closed positioning edge factory
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' && steps.positioning.outputs.available == 'true'
         run: |
           node server/research/runPositioningEdgeFactory.mjs \
             --input tape/paper-tape/positioning-dynamics.jsonl \
             --quality tape/paper-tape/positioning-data-quality-latest.json \
             --out tape/quant-evidence/positioning-edge-factory-latest.json
       - name: assert positioning RESEARCH_ONLY boundary
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' && steps.positioning.outputs.available == 'true'
         shell: bash
         run: |
           node - <<'NODE'
@@ -157,7 +167,7 @@ jobs:
           git config user.name "genesis-capture"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mkdir -p paper-tape quant-evidence
-          git add -f paper-tape/capture-latest.json paper-tape/capture.jsonl paper-tape/hz1-latest.json paper-tape/hz1.jsonl paper-tape/funding-latest.json paper-tape/research-state-latest.json paper-tape/research-state.jsonl paper-tape/provider-probe-latest.json paper-tape/rpi-orderbook-latest.json paper-tape/rpi-orderbook.jsonl paper-tape/rpi-depth-imbalance-study-latest.json paper-tape/microstructure-study-latest.json paper-tape/microstructure-study-v2-protocol.json paper-tape/microstructure-independence-audit-latest.json paper-tape/positioning-dynamics-latest.json paper-tape/positioning-dynamics.jsonl paper-tape/positioning-data-quality-latest.json quant-evidence/positioning-edge-factory-latest.json
+          git add -f paper-tape/capture-latest.json paper-tape/capture.jsonl paper-tape/hz1-latest.json paper-tape/hz1.jsonl paper-tape/funding-latest.json paper-tape/research-state-latest.json paper-tape/research-state.jsonl paper-tape/provider-probe-latest.json paper-tape/rpi-orderbook-latest.json paper-tape/rpi-orderbook.jsonl paper-tape/rpi-depth-imbalance-study-latest.json paper-tape/microstructure-study-latest.json paper-tape/microstructure-study-v2-protocol.json paper-tape/microstructure-independence-audit-latest.json paper-tape/positioning-capture-status-latest.json paper-tape/positioning-dynamics-latest.json paper-tape/positioning-dynamics.jsonl paper-tape/positioning-data-quality-latest.json quant-evidence/positioning-edge-factory-latest.json
           if git diff --staged --quiet; then
             echo "no change"
             exit 0
