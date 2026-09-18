@@ -8,6 +8,7 @@ on:
       - 'src/core/institutionalEdgeAllocator.mjs'
       - 'src/core/institutionalSmartExecution.mjs'
       - 'src/core/solanaLiquidityEconomics.mjs'
+      - 'src/core/passiveQueueExecution.mjs'
       - 'server/risk/volatilitySizingEngine.mjs'
       - 'server/crypto/futuresGovernor.mjs'
       - 'server/genesis/runMarketMakingLab.mjs'
@@ -26,7 +27,9 @@ on:
       - 'server/tests/solanaLiquidityEconomics.test.mjs'
       - 'server/tests/volatilitySizingEngine.test.mjs'
       - 'server/tests/futuresGovernorRiskEscalation.test.mjs'
-      - 'server/tests/volatilitySizingImpact.test.mjs server/tests/volatilityNormalizedExit.test.mjs server/tests/futuresGovernorRiskEscalation.test.mjs'
+      - 'server/tests/volatilitySizingImpact.test.mjs'
+      - 'server/tests/volatilityNormalizedExit.test.mjs'
+      - 'server/tests/passiveQueueExecution.test.mjs'
       - '.github/workflows/institutional-edge-stack.yml'
   schedule:
     - cron: '17,47 * * * *'
@@ -55,9 +58,9 @@ jobs:
             solana-liquidity-v4-history-
 
       - name: Safety, allocation and smart-execution tests
-        run: node --test server/tests/institutionalEdgeAllocator.test.mjs server/tests/institutionalSmartExecution.test.mjs server/tests/solanaLiquidityEconomics.test.mjs server/tests/volatilitySizingEngine.test.mjs server/tests/volatilitySizingImpact.test.mjs
+        run: node --test server/tests/institutionalEdgeAllocator.test.mjs server/tests/institutionalSmartExecution.test.mjs server/tests/solanaLiquidityEconomics.test.mjs server/tests/volatilitySizingEngine.test.mjs server/tests/volatilitySizingImpact.test.mjs server/tests/volatilityNormalizedExit.test.mjs server/tests/futuresGovernorRiskEscalation.test.mjs server/tests/passiveQueueExecution.test.mjs
 
-      - name: Market Making Lab — real public top-of-book and passive-fill proxy
+      - name: Market Making Lab — queue-aware passive execution + microprice evidence
         run: node server/genesis/runMarketMakingLab.mjs
 
       - name: Statistical Arbitrage Lab — walk-forward OOS evidence
