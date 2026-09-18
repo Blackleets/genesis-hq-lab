@@ -1,0 +1,42 @@
+name: Bug report
+description: Report a reproducible bug, regression or incorrect research/economic behavior.
+title: "[bug] "
+labels: []
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: Provide the smallest reproducible sequence, command or test.
+    validations:
+      required: true
+  - type: dropdown
+    id: safety
+    attributes:
+      label: Does this affect an economic or safety gate?
+      options:
+        - "No"
+        - "Yes — candidate gating / costs / fills"
+        - "Yes — paper/shadow/live boundary"
+        - "Unsure"
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Logs, redacted outputs, failing tests or relevant file paths. Never paste secrets.
+  - type: checkboxes
+    id: secret
+    attributes:
+      label: Secret check
+      options:
+        - label: I removed API keys, tokens, private keys, seed phrases and other secrets.
+          required: true
