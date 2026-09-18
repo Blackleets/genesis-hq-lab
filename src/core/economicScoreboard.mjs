@@ -11,7 +11,11 @@ export const ECONOMIC_GATES = Object.freeze({
   maxCompanyPnlWindowDays: 31,
 });
 
-const finite = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
+const finite = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+};
 
 function normalizeMetrics(metrics = {}) {
   return {

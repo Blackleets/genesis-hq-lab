@@ -97,3 +97,49 @@ test('weak forward economics stay NO_EDGE_PROVEN even with enough trades', () =>
   assert.equal(scoreboard.edgeVerdict, 'NO_EDGE_PROVEN');
   assert.equal(scoreboard.selfFundingVerdict, 'EDGE_REQUIRED');
 });
+
+
+test('explicit null economics remain unknown instead of coercing to zero', () => {
+  const scoreboard = buildEconomicScoreboard({
+    forward: safeForward([passingFamily()]),
+    monthlyOperatingCostUsd: 50,
+    reconciledCompanyPnlUsd: null,
+    reconciledCompanyPnlWindowDays: null,
+  });
+  assert.equal(scoreboard.economics.reconciledCompanyPnlUsd, null);
+  assert.equal(scoreboard.economics.reconciledCompanyPnlWindowDays, null);
+  assert.equal(scoreboard.economics.companyPnlReady, false);
+  assert.equal(scoreboard.selfFundingVerdict, 'PNL_RECONCILIATION_REQUIRED');
+});
+
+test('unknown drawdown cannot pass the forward drawdown gate', () => {
+  const evaluation = evaluateForwardChampion({
+    trades: 30,
+    expectancyBps: 3,
+    profitFactor: 1.4,
+    tStat: 1.5,
+    maxDrawdownPct: null,
+  });
+  assert.equal(evaluation.metrics.maxDrawdownPct, null);
+  assert.equal(evaluation.checks.drawdown, false);
+  assert.equal(evaluation.proven, false);
+});
+
+test('empty-string metrics cannot manufacture zero-valued evidence', () => {
+  const evaluation = evaluateForwardChampion({
+    trades: '',
+    expectancyBps: '',
+    profitFactor: '',
+    tStat: '',
+    maxDrawdownPct: '',
+  });
+  assert.deepEqual(evaluation.metrics, {
+    trades: null,
+    expectancyBps: null,
+    profitFactor: null,
+    tStat: null,
+    maxDrawdownPct: null,
+  });
+  assert.equal(evaluation.passed, 0);
+  assert.equal(evaluation.proven, false);
+});
