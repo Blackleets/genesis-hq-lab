@@ -1,6 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildPositioningObservation, deriveCrossCapturePositioningFeatures } from '../genesis/positioningDynamicsCapture.mjs';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {
+  buildPositioningObservation,
+  classifyPositioningCaptureError,
+  deriveCrossCapturePositioningFeatures,
+  writePositioningCaptureStatus,
+} from '../genesis/positioningDynamicsCapture.mjs';
 
 const capturedAtMs = Date.parse('2026-09-09T16:30:00.000Z');
 
@@ -201,4 +209,33 @@ test('fails closed when a required derivatives source is absent', () => {
     () => buildPositioningObservation(c, closedKline(), { capturedAtMs }),
     /OI, taker and funding observations are required/,
   );
+});
+
+
+test('classifies only insufficient fixed-window coverage as a transient data gap', () => {
+  const transient = classifyPositioningCaptureError(
+    new Error('Fixed-window taker flow unavailable: INSUFFICIENT_WINDOW_COVERAGE'),
+  );
+  assert.equal(transient.transientDataGap, true);
+  assert.equal(transient.reason, 'INSUFFICIENT_WINDOW_COVERAGE');
+
+  const unexpected = classifyPositioningCaptureError(new Error('HTTP 500'));
+  assert.equal(unexpected.transientDataGap, false);
+  assert.equal(unexpected.reason, 'UNEXPECTED_CAPTURE_FAILURE');
+});
+
+test('writes explicit RESEARCH_ONLY positioning capture availability status', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'positioning-status-'));
+  const file = path.join(root, 'status.json');
+  writePositioningCaptureStatus(file, {
+    available: false,
+    reason: 'INSUFFICIENT_WINDOW_COVERAGE',
+    transientDataGap: true,
+  });
+  const payload = JSON.parse(fs.readFileSync(file, 'utf8'));
+  assert.equal(payload.mode, 'RESEARCH_ONLY');
+  assert.equal(payload.available, false);
+  assert.equal(payload.reason, 'INSUFFICIENT_WINDOW_COVERAGE');
+  assert.equal(payload.transientDataGap, true);
+  assert.ok(Number.isFinite(Date.parse(payload.capturedAt)));
 });
