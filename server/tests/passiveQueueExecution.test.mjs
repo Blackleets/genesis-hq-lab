@@ -160,3 +160,9 @@ test('missing top-of-book queue depth fails closed instead of assuming zero queu
     queueAheadMultiplier: 1,
   }), /invalid_quote_window/);
 });
+
+
+test('microprice rejects missing size instead of coercing null to zero', () => {
+  assert.equal(micropriceFromTop({ bid: 99, ask: 101, bidQty: null, askQty: 1 }), null);
+  assert.equal(micropriceFromTop({ bid: 99, ask: 101, bidQty: 1, askQty: null }), null);
+});
