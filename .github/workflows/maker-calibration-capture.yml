@@ -101,6 +101,10 @@ jobs:
           const allowed = new Set([1000, 3000, 10000]);
           for (const row of capture.observations || []) {
             if (!allowed.has(row.targetHorizonMs)) throw new Error('unexpected horizon');
+            if (row.version !== 'maker_queue_depletion_tape_v2_exact_flow_horizon') throw new Error('legacy maker observation emitted');
+            if (row.flowHorizonMs !== row.targetHorizonMs) throw new Error('flow horizon drift detected');
+            if (!(row.markoutHorizonDriftRatio >= 0) || row.markoutHorizonDriftRatio > 0.25) throw new Error('markout horizon drift too large');
+            if (row.flowEvidence?.requestedEndTime !== row.entrySourceTime + row.targetHorizonMs) throw new Error('flow window exceeded target horizon');
             if (row.boundaries?.executionAuthority !== false || row.boundaries?.signsTransactions !== false || row.boundaries?.broadcastsTransactions !== false) {
               throw new Error('observation execution boundary violated');
             }

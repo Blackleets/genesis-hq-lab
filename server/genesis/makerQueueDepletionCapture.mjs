@@ -7,9 +7,10 @@ import path from 'node:path';
 import { getOkxRpiOrderBookContext } from './okxRpiOrderBook.mjs';
 import { fetchTakerInterval } from './okxFixedWindowTaker.mjs';
 
-export const MAKER_QUEUE_TAPE_VERSION = 'maker_queue_depletion_tape_v1';
+export const MAKER_QUEUE_TAPE_VERSION = 'maker_queue_depletion_tape_v2_exact_flow_horizon';
 export const MAKER_QUEUE_TAPE_MODE = 'RESEARCH_ONLY';
 export const DEFAULT_MAKER_HORIZONS_MS = Object.freeze([1_000, 3_000, 10_000]);
+export const MAX_MARKOUT_HORIZON_DRIFT_RATIO = 0.25;
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -56,13 +57,22 @@ export function buildMakerFillObservation({
   const aggressiveFlowTowardQuoteUnits = normalizedSide === 'BUY'
     ? nonNegative(takerInterval?.sellContracts)
     : nonNegative(takerInterval?.buyContracts);
+  const exactFlowEndTime = entryTime !== null && horizon !== null ? entryTime + horizon : null;
+  const actualHorizonMs = entryTime !== null && futureTime !== null ? futureTime - entryTime : null;
+  const markoutHorizonDriftRatio =
+    horizon !== null && horizon > 0 && actualHorizonMs !== null
+      ? Math.abs(actualHorizonMs - horizon) / horizon
+      : null;
 
   const inputsKnown =
     horizon !== null && horizon > 0 &&
     orderSize !== null && orderSize > 0 &&
     entryTime !== null &&
     futureTime !== null &&
-    futureTime > entryTime &&
+    exactFlowEndTime !== null &&
+    futureTime >= exactFlowEndTime &&
+    markoutHorizonDriftRatio !== null &&
+    markoutHorizonDriftRatio <= MAX_MARKOUT_HORIZON_DRIFT_RATIO &&
     entryMid !== null && entryMid > 0 &&
     futureMid !== null && futureMid > 0 &&
     spreadBps !== null && spreadBps > 0 &&
@@ -72,7 +82,7 @@ export function buildMakerFillObservation({
     aggressiveFlowTowardQuoteUnits !== null &&
     takerInterval?.available === true &&
     Number(takerInterval?.requestedStartTime) === entryTime &&
-    Number(takerInterval?.requestedEndTime) === futureTime;
+    Number(takerInterval?.requestedEndTime) === exactFlowEndTime;
 
   if (!inputsKnown) return null;
 
@@ -101,7 +111,9 @@ export function buildMakerFillObservation({
     instId,
     side: normalizedSide,
     targetHorizonMs: horizon,
-    actualHorizonMs: futureTime - entryTime,
+    flowHorizonMs: horizon,
+    actualHorizonMs,
+    markoutHorizonDriftRatio,
     observedAt: new Date(futureTime).toISOString(),
     capturedAt,
     entrySourceTime: entryTime,
@@ -137,6 +149,8 @@ export function buildMakerFillObservation({
       queuePolicy: 'ZERO_CANCELLATION_CREDIT_FIFO_LOWER_BOUND',
       fillRule: 'AGGRESSIVE_FLOW_MINUS_QUEUE_AHEAD_CLAMPED_TO_ORDER_SIZE',
       priceTouchAloneCountsAsFill: false,
+      exactFlowHorizon: true,
+      maxMarkoutHorizonDriftRatio: MAX_MARKOUT_HORIZON_DRIFT_RATIO,
     },
     boundaries: {
       executionAuthority: false,
@@ -172,9 +186,10 @@ export async function captureMakerQueueBurst({
 
     try {
       const futureBook = await bookFetcher(instId, { depth });
+      const exactFlowEndTime = Number(entryBook.time) + targetHorizonMs;
       const flow = await flowFetcher(instId, {
         startTimeMs: entryBook.time,
-        endTimeMs: futureBook.time,
+        endTimeMs: exactFlowEndTime,
       });
       for (const side of ['BUY', 'SELL']) {
         const observation = buildMakerFillObservation({

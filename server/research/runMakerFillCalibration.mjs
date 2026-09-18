@@ -26,7 +26,7 @@ export function runMakerFillCalibration(input, out) {
     generatedAt: new Date().toISOString(),
     source: {
       input,
-      observationContract: 'maker_queue_depletion_tape_v1',
+      observationContract: 'maker_queue_depletion_tape_v2_exact_flow_horizon',
     },
     boundaries: {
       executionAuthority: false,

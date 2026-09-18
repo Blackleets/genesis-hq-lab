@@ -3,13 +3,15 @@
 // fill probabilities and fill-conditioned adverse-selection distributions.
 // No model guesses, no order placement, no live authority.
 
-export const MAKER_FILL_CALIBRATION_VERSION = 'maker_fill_calibration_v2_horizon_aware';
+export const MAKER_FILL_CALIBRATION_VERSION = 'maker_fill_calibration_v3_exact_flow_horizon';
+export const REQUIRED_MAKER_OBSERVATION_VERSION = 'maker_queue_depletion_tape_v2_exact_flow_horizon';
 export const MAKER_FILL_CALIBRATION_MODE = 'RESEARCH_ONLY';
 
 export const DEFAULT_FILL_CALIBRATION_POLICY = Object.freeze({
   minSamplesPerCohort: 100,
   wilsonZ: 1.96,
   allowedHorizonsMs: Object.freeze([1_000, 3_000, 10_000]),
+  maxMarkoutHorizonDriftRatio: 0.25,
   queueCoverageBuckets: Object.freeze([
     { id: 'lt_0_5', min: 0, max: 0.5 },
     { id: '0_5_to_1', min: 0.5, max: 1 },
@@ -73,6 +75,8 @@ export function wilsonLowerBound(successes, trials, z = 1.96) {
 }
 
 export function normalizeFillObservation(raw = {}, policy = DEFAULT_FILL_CALIBRATION_POLICY) {
+  const durableSchema = finite(raw.schemaVersion);
+  if (durableSchema !== null && raw.version !== REQUIRED_MAKER_OBSERVATION_VERSION) return null;
   const side = normalizeSide(raw.side);
   const targetHorizonMs = nonNegative(raw.targetHorizonMs);
   const queueCoverage = nonNegative(raw.queueCoverage);
@@ -81,6 +85,15 @@ export function normalizeFillObservation(raw = {}, policy = DEFAULT_FILL_CALIBRA
   const adverseSelectionBps = nonNegative(raw.adverseSelectionBps);
   const spreadCaptureBps = nonNegative(raw.spreadCaptureBps);
   const observedAtMs = Date.parse(raw.observedAt ?? raw.capturedAt ?? '');
+  const flowHorizonMs = nonNegative(raw.flowHorizonMs);
+  const markoutHorizonDriftRatio = nonNegative(raw.markoutHorizonDriftRatio);
+  const durableTimingValid =
+    durableSchema === null ||
+    (
+      flowHorizonMs === targetHorizonMs &&
+      markoutHorizonDriftRatio !== null &&
+      markoutHorizonDriftRatio <= policy.maxMarkoutHorizonDriftRatio
+    );
   const horizonAllowed =
     targetHorizonMs !== null &&
     targetHorizonMs > 0 &&
@@ -88,6 +101,7 @@ export function normalizeFillObservation(raw = {}, policy = DEFAULT_FILL_CALIBRA
   const valid =
     side !== null &&
     horizonAllowed &&
+    durableTimingValid &&
     queueCoverage !== null &&
     spreadBps !== null &&
     fillRatio !== null &&
@@ -102,6 +116,8 @@ export function normalizeFillObservation(raw = {}, policy = DEFAULT_FILL_CALIBRA
   return {
     side,
     targetHorizonMs,
+    flowHorizonMs: flowHorizonMs ?? targetHorizonMs,
+    markoutHorizonDriftRatio,
     queueCoverage,
     spreadBps,
     fillRatio,
@@ -180,6 +196,8 @@ export function calibrateMakerFillProbability(observations = [], policyOverrides
       minSamplesPerCohort: policy.minSamplesPerCohort,
       wilsonZ: policy.wilsonZ,
       allowedHorizonsMs: policy.allowedHorizonsMs,
+      maxMarkoutHorizonDriftRatio: policy.maxMarkoutHorizonDriftRatio,
+      requiredObservationVersion: REQUIRED_MAKER_OBSERVATION_VERSION,
     },
     rawObservationCount: observations.length,
     validObservationCount: normalized.length,
@@ -187,9 +205,10 @@ export function calibrateMakerFillProbability(observations = [], policyOverrides
     cohorts: results,
     calibratedCohortCount: results.filter(row => row.status === 'CALIBRATED').length,
     notes: [
-      'Fill probability is conditioned on horizon, side, queue-coverage bucket and spread bucket.',
+      'Fill probability is conditioned on exact flow horizon, side, queue-coverage bucket and spread bucket.',
       'The usable probability is the Wilson lower confidence bound, not the optimistic sample mean.',
       'Adverse selection is measured only on filled observations and reported as p50/p75/p90.',
+      'Durable maker_queue_depletion_tape_v1 rows are retained historically but rejected from v3 calibration because their flow window could extend beyond the target horizon.',
       'Cohorts below the minimum sample size fail closed as INSUFFICIENT_DATA.',
       'This research module has no execution authority.',
     ],
