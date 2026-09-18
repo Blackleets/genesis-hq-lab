@@ -1,105 +1,287 @@
-# Genesis HQ Lab
+# Genesis HQ
 
-**Un desk de investigación cuantitativa autónomo que corre en tu navegador** —
-con agentes que aprenden del mercado real, un laboratorio multi-estrategia con
-validación de nivel institucional, wallet connect de solo lectura verificable,
-y un modelo de negocio completamente a la vista.
+<p align="center">
+  <img src="./docs/assets/genesis-banner.svg" alt="Genesis HQ — Evidence-First Autonomous Quant Lab" width="100%" />
+</p>
 
-> 🌐 Producción: [genesis-hq-lab.vercel.app](https://genesis-hq-lab.vercel.app)
-> · Regla del proyecto: `live_mode = false` — todo es paper trading hasta que
-> los gates den GO y un humano decida.
+<p align="center">
+  <strong>An evidence-first autonomous quantitative research lab.</strong><br/>
+  Genesis searches for trading edge, tries to falsify it, measures it after costs, and keeps real execution locked until evidence survives.
+</p>
+
+<p align="center">
+  <a href="https://genesis-hq-lab.vercel.app">Live HQ</a> ·
+  <a href="./docs/ARCHITECTURE_PUBLIC.md">Architecture</a> ·
+  <a href="./docs/RESEARCH_PRINCIPLES.md">Research principles</a> ·
+  <a href="./docs/ROADMAP_PUBLIC.md">Roadmap</a> ·
+  <a href="./CONTRIBUTING.md">Contribute</a>
+</p>
+
+> **Current safety state:** `LIVE_LOCKED` / paper-shadow research only.  
+> Genesis does **not** claim a proven profitable live edge today.
 
 ---
 
-## Por qué es distinto
+## Why Genesis exists
 
-| Capacidad | Qué la hace rara |
-|-----------|------------------|
-| 🏭 **Laboratorio multi-estrategia** | 3 familias anti-correlacionadas (breakout Donchian, reversión z-score, momentum MA-cross) — ~360 configs barridas por fuerza bruta contra 1000 velas reales de Binance, en el navegador, sin servidor |
-| 🛡️ **Validación honesta por construcción** | Costos en cada fill (0.10% round-trip), selección in-sample / veredicto out-of-sample, guard anti-sesgo de selección (t-stat ≥ 2), consistencia temporal (ambas mitades OOS positivas), Monte Carlo bootstrap (peor caso p5) |
-| 🧭 **Detector de régimen en vivo** | Efficiency Ratio de Kaufman + volatilidad relativa clasifican el mercado de HOY y nombran qué familia favorece |
-| 🏆 **Campeón forward** | La config adoptada se mide SOLO con velas nacidas después de su adopción — el número que ningún backtest puede falsificar |
-| 🎯 **GO/NO-GO ganado, no regalado** | 6 gates cuantitativos deben pasar sobre datos reales para declarar "listo para capital real"; activarlo sigue siendo decisión humana manual |
-| 🤖 **Agentes que viven** | Los agentes de trading cargan win rate, PnL y trades medidos, y comentan en la oficina pixel-art cuando el veredicto o la config cambian |
-| 💼 **Wallet estilo exchange, solo lectura** | Phantom/Solflare + EVM (MetaMask): balance total USD y todos los tokens con precio — la app **jamás** construye, firma o envía transacciones |
-| 🔒 **Seguridad auditable** | Contrato de capacidades a la vista (PUEDE/NO PUEDE) + registro local de cada interacción con la wallet, exportable como JSON, nunca subido |
-| 💰 **Comisión transparente** | 10% de desempeño solo sobre ganancia neta positiva, tasa y tesorería visibles en código y UI (`src/services/feePolicy.ts`); en paper solo se devenga como display |
-| 🌐 **Aprendizaje colectivo opt-in** | Cada trader que acepta comparte métricas de estrategia anónimas (nunca su wallet); todos ven el panorama de la red |
+Most trading repositories optimize for activity:
 
-## Arquitectura
+`signal -> order -> backtest chart`
 
+Genesis optimizes for **evidence**:
+
+```text
+real market data
+      ↓
+edge hypothesis
+      ↓
+research / replay / shadow
+      ↓
+costs + slippage + fill realism
+      ↓
+walk-forward / OOS / holdout
+      ↓
+economic truth gates
+      ↓
+PAPER / SHADOW
+      ↓
+LIVE_LOCKED
 ```
-Navegador (Vercel · React 19 + Vite + TS + Tailwind)
-├─ Motor quant local (src/services/localLearningEngine.ts)
-│    datos reales Binance → 3 familias → sweep OOS → scorecard → agentes
-├─ Wallet multi-cadena solo lectura (solanaWallet.ts · walletOnchain.ts)
-├─ Modelo de negocio (feePolicy.ts) + auditoría (walletAudit.ts)
-└─ Pool comunitario opt-in (communityLearning.ts → /api/community)
 
-Serverless (Vercel /api) — lecturas Supabase + pool comunitario
-Backend 24/7 (Railway/Render · server/) — runner (5 min ticks), optimizador
-  walk-forward, lecciones con Claude, scorecard hosted   [claves: DEPLOY.md]
-Edge functions (Supabase) — genesis-runner · genesis-fallback · genesis-alerts
+The goal is not to make a bot look busy. The goal is to determine whether an edge is real enough to deserve capital.
+
+## What Genesis contains today
+
+| Research lane | What it studies | Execution state |
+|---|---|---|
+| **Futures research** | systematic trend, breakout, mean-reversion, regime and forward-paper studies | Paper only |
+| **DEX / MEV arbitrage** | same-block route economics, liquidity, simulation, inclusion and failure costs | Shadow only |
+| **Maker microstructure** | queue-aware fills, microprice, depth imbalance, adverse selection and inventory risk | Research only |
+| **Cross-market research** | lead/lag, positioning, funding, taker flow and derivatives context | Research only |
+| **Validation layer** | OOS, walk-forward, holdouts, protocol locks, kill criteria and economic accounting | Enforced before promotion |
+| **Agent layer** | automated research, diagnostics, reporting and orchestration | No autonomous real-capital authority |
+
+Genesis deliberately allows a strategy to fail. A clean rejection is a useful research result.
+
+## A different definition of "working"
+
+A candidate is not considered good because it:
+
+- has a high backtest return;
+- generated many trades;
+- found a large gross spread;
+- touched a hypothetical maker order;
+- produced an impressive chart.
+
+It becomes interesting only when it survives **net economics** and **forward evidence**.
+
+Examples of things Genesis explicitly models or gates:
+
+- trading fees and route costs;
+- slippage reserves;
+- failed-attempt cost;
+- quote freshness;
+- liquidity confidence;
+- queue coverage;
+- empirical fill probability;
+- adverse selection;
+- inventory risk;
+- drawdown;
+- walk-forward / out-of-sample behavior;
+- holdout discipline.
+
+## Architecture
+
+```text
+                           GENESIS HQ
+                              │
+                    ┌─────────┴─────────┐
+                    │                   │
+              Research Surface     Backend / Agents
+                    │                   │
+        ┌───────────┼───────────┐       │
+        │           │           │       │
+     Futures    Arbitrage    Microstructure
+        │           │           │
+        └───────────┴─────┬─────┘
+                          │
+                 ECONOMIC TRUTH LAYER
+                          │
+       costs · fills · slippage · risk · evidence
+                          │
+              walk-forward · OOS · holdout
+                          │
+                  PAPER / SHADOW ONLY
+                          │
+                     LIVE_LOCKED
 ```
+
+For the deeper module map, data boundaries and extension points, see
+[docs/ARCHITECTURE_PUBLIC.md](./docs/ARCHITECTURE_PUBLIC.md).
+
+## Recent microstructure work
+
+Genesis includes a conservative maker-research lane that avoids one of the most common paper-trading errors: assuming that **price touch = fill**.
+
+`maker_microstructure_shadow_v1` requires measured queue coverage and empirical calibration before it can emit a shadow candidate. The OKX RPI research path captures:
+
+- best bid / ask and best-level queue size;
+- microprice and microprice skew;
+- depth at 10 / 25 / 50 bps;
+- depth imbalance;
+- order-count imbalance;
+- synchronized aggressive taker flow.
+
+Unknown fill probability, adverse selection, stale evidence or impossible spread capture fails closed to `NO_GO`.
 
 ## Quick start
 
+### Requirements
+
+- Node.js 20+
+- npm
+- Git
+
+### Run the local HQ
+
 ```bash
+git clone https://github.com/Blackleets/genesis-hq-lab.git
+cd genesis-hq-lab
 npm install
-npm run start     # server + agente + optimizador + web
-npm run dev       # solo frontend (el motor local funciona igual sin backend)
-npm run test      # suite completa del server
-npm run build && npm run lint
+cp .env.example .env
+npm run start:ui
 ```
 
-Activación completa de producción (backend 24/7, Telegram, pool comunitario):
-ver **[DEPLOY.md](./DEPLOY.md)** — son 3 claves a pegar.
+Open the Vite URL shown in the terminal.
 
-## Los 6 gates para capital real
+Windows PowerShell:
 
-1. Muestra ≥ 50 trades · 2. Win rate ≥ 45% · 3. Profit factor ≥ 1.30 ·
-4. Expectativa > 0.05%/trade · 5. Significancia t-stat ≥ 2.0 · 6. Drawdown ≤ 25%
+```powershell
+Copy-Item .env.example .env
+npm run start:ui
+```
 
-Todos netos de costos, sobre datos reales out-of-sample. Mientras alguno falle:
-**NO-GO**, y el sistema lo dice a la cara.
+No private key is required for the read-only / paper research surface.
 
-## Seguridad — verifica, no confíes
+### Run the full paper stack
 
-- La wallet conectada es **solo lectura**: la app pide la dirección pública y
-  nada más. Sin firmas, sin approvals, sin acceso a llaves. Verifícalo en
-  `src/services/solanaWallet.ts` — no existe código de firma en el repo.
-- Registro de auditoría local y exportable en Wallet → Seguridad auditable.
-- La comisión jamás se cobra desde la wallet del usuario: se liquidará en el
-  settlement del backend cuando exista ejecución real; hoy solo se muestra.
+```bash
+npm run start
+```
 
-## Estructura del proyecto
+### Verify the codebase
+
+```bash
+npm run test
+npm run typecheck
+npm run build
+```
+
+Focused MEV / arbitrage checks:
+
+```bash
+npm run mev:shadow:test
+```
+
+## Safety contract
+
+Genesis is intentionally difficult to promote to real money.
+
+- `live_mode = false` is the default project contract.
+- Current MEV and maker-microstructure lanes have no signing authority.
+- Do not commit API keys, private keys, seed phrases or `.env`.
+- Public wallet addresses may be used for read-only observation only where explicitly documented.
+- Missing evidence must degrade to `NO_GO`, not a guessed value.
+- A UI must never present fabricated market or trading data as live.
+
+Read [AGENTS.md](./AGENTS.md) before making changes.
+
+## Contributing
+
+Contributors are welcome in areas where evidence quality improves without weakening the safety boundary.
+
+Good contribution categories:
+
+- new read-only market-data adapters;
+- new research hypotheses with predeclared evaluation rules;
+- realistic transaction-cost or fill models;
+- replay and data-quality tooling;
+- statistical validation;
+- observability;
+- tests for fail-closed behavior;
+- documentation and reproducibility.
+
+Start with [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+A useful contribution should answer at least one of these questions:
+
+1. **What market behavior are we measuring?**
+2. **What evidence would falsify the hypothesis?**
+3. **What costs or execution assumptions could erase the edge?**
+4. **How will this be tested forward, OOS or on a sealed holdout?**
+
+## Project map
 
 ```text
 genesis-hq-lab/
-├── AGENTS.md              # Reglas para cualquier IA trabajando aquí — LECTURA OBLIGATORIA
-├── DEPLOY.md              # Pasos de activación de producción
-├── LICENSE                # BUSL-1.1
-├── docs/                  # VISION, DESIGN_DIRECTION, SAFE_WORKFLOW, CHANGELOG_AI
-├── src/                   # React app (motor quant en src/services/)
-├── server/                # Backend Node: runner, optimizador, lecciones
-├── api/                   # Funciones serverless de Vercel
-├── supabase/              # Edge functions + migraciones
-└── public/                # Sprites y assets estáticos
+├── AGENTS.md                  # mandatory AI / contributor safety rules
+├── src/                       # React/Vite HQ and local research surfaces
+├── server/
+│   ├── genesis/               # quant, MEV, microstructure and evidence engines
+│   ├── crypto/                # crypto/futures research and paper systems
+│   ├── research/              # research studies and locked protocols
+│   └── tests/                 # regression and economic-safety tests
+├── supabase/                  # persistence / scheduled infrastructure
+├── .github/workflows/         # research capture, validation and deployment CI
+├── docs/
+│   ├── ARCHITECTURE_PUBLIC.md
+│   ├── RESEARCH_PRINCIPLES.md
+│   ├── ROADMAP_PUBLIC.md
+│   ├── VISION.md
+│   └── DESIGN_DIRECTION.md
+└── LICENSE
 ```
 
-## Reglas (versión corta)
+## Research philosophy
 
-1. Nunca trabajar directo sobre la rama por defecto — branch primero.
-2. Nunca inventar datos y presentarlos como reales.
-3. `live_mode = false` siempre; capital real solo tras GO + decisión humana.
-4. Leer `docs/VISION.md` y `docs/DESIGN_DIRECTION.md` antes de tocar UI.
-5. Registrar cada tarea en `docs/CHANGELOG_AI.md`.
+**Evidence > activity.**
 
-Reglas completas: `AGENTS.md`.
+Genesis should be allowed to say:
 
-## Licencia
+- `INSUFFICIENT_DATA`
+- `NO_GO`
+- `REJECTED`
+- `EDGE_NOT_PROVEN`
 
-**Business Source License 1.1** (ver [LICENSE](./LICENSE)): uso personal,
-educativo y de investigación libre — incluido tu deployment privado. Uso
-comercial (cobrar por él u operarlo para terceros) requiere licencia del
-autor. El 2030-07-02 pasa automáticamente a MIT.
+Those are not failures of the platform. They are how the platform avoids lying to itself.
+
+The project becomes economically interesting only when an edge remains positive after realistic costs, survives forward evidence, and remains stable enough to justify further validation.
+
+## Public roadmap
+
+The near-term focus is deliberately narrow:
+
+1. improve reproducible evidence capture;
+2. calibrate maker fill probability and adverse selection from observed data;
+3. strengthen cross-venue arbitrage economics;
+4. publish machine-readable economic scoreboards;
+5. make research modules easier for external contributors to extend;
+6. keep real-capital execution locked until promotion criteria are satisfied.
+
+See [docs/ROADMAP_PUBLIC.md](./docs/ROADMAP_PUBLIC.md).
+
+## Production
+
+Public HQ: https://genesis-hq-lab.vercel.app
+
+Deployment and optional backend configuration are documented in [DEPLOY.md](./DEPLOY.md).
+
+## License
+
+Genesis HQ is currently **source-available under Business Source License 1.1**, with the additional-use grant and Change Date defined in [LICENSE](./LICENSE).
+
+It is not being described as OSI open source before the Change Date. Personal, educational, research and other non-commercial use is covered by the current grant; commercial use is governed by the license terms.
+
+---
+
+<p align="center"><strong>Build less theater. Measure more truth.</strong></p>
