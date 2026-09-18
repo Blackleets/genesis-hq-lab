@@ -151,6 +151,7 @@ export function buildMakerFillObservation({
       priceTouchAloneCountsAsFill: false,
       exactFlowHorizon: true,
       maxMarkoutHorizonDriftRatio: MAX_MARKOUT_HORIZON_DRIFT_RATIO,
+      captureScheduler: 'BOOKS_FIRST_DEFERRED_FLOW_V1',
     },
     boundaries: {
       executionAuthority: false,
@@ -161,6 +162,46 @@ export function buildMakerFillObservation({
   };
 }
 
+export function makerObservationFailureReason({
+  side,
+  targetHorizonMs,
+  orderSizeUnits,
+  entryBook,
+  futureBook,
+  takerInterval,
+} = {}) {
+  const normalizedSide = String(side ?? '').toUpperCase();
+  if (normalizedSide !== 'BUY' && normalizedSide !== 'SELL') return 'INVALID_SIDE';
+
+  const horizon = nonNegative(targetHorizonMs);
+  const orderSize = nonNegative(orderSizeUnits);
+  const entryTime = finite(entryBook?.time);
+  const futureTime = finite(futureBook?.time);
+  const entryMid = finite(entryBook?.rpiMidPrice);
+  const futureMid = finite(futureBook?.rpiMidPrice);
+  const spreadBps = nonNegative(entryBook?.rpiSpreadBps);
+  const bid = finite(entryBook?.rpiBestBid);
+  const ask = finite(entryBook?.rpiBestAsk);
+  const queueAheadUnits = normalizedSide === 'BUY'
+    ? nonNegative(entryBook?.rpiBestBidQty)
+    : nonNegative(entryBook?.rpiBestAskQty);
+  const aggressiveFlowTowardQuoteUnits = normalizedSide === 'BUY'
+    ? nonNegative(takerInterval?.sellContracts)
+    : nonNegative(takerInterval?.buyContracts);
+
+  if (!(horizon > 0) || !(orderSize > 0) || entryTime === null || futureTime === null) return 'INVALID_CORE_EVIDENCE';
+  const exactFlowEndTime = entryTime + horizon;
+  if (futureTime < exactFlowEndTime) return 'MARKOUT_BEFORE_TARGET';
+  const driftRatio = Math.abs((futureTime - entryTime) - horizon) / horizon;
+  if (!(driftRatio <= MAX_MARKOUT_HORIZON_DRIFT_RATIO)) return 'MARKOUT_HORIZON_DRIFT';
+  if (!(entryMid > 0) || !(futureMid > 0) || !(spreadBps > 0) || !(bid > 0) || !(ask > bid)) return 'INVALID_BOOK_EVIDENCE';
+  if (queueAheadUnits === null || aggressiveFlowTowardQuoteUnits === null) return 'MISSING_SIDE_EVIDENCE';
+  if (takerInterval?.available !== true) return `FLOW_${String(takerInterval?.reason ?? 'UNAVAILABLE')}`;
+  if (Number(takerInterval?.requestedStartTime) !== entryTime) return 'FLOW_START_MISMATCH';
+  if (Number(takerInterval?.requestedEndTime) !== exactFlowEndTime) return 'FLOW_END_MISMATCH';
+  return null;
+}
+
 export async function captureMakerQueueBurst({
   instId = 'BTC-USDT-SWAP',
   orderSizeUnits = 1,
@@ -169,6 +210,9 @@ export async function captureMakerQueueBurst({
   bookFetcher = getOkxRpiOrderBookContext,
   flowFetcher = fetchTakerInterval,
   sleepImpl = sleep,
+  nowImpl = Date.now,
+  bookPollDelayMs = 100,
+  maxBookPolls = 6,
 } = {}) {
   const orderedHorizons = [...new Set(horizonsMs.map(Number))]
     .filter(value => Number.isFinite(value) && value > 0)
@@ -176,40 +220,96 @@ export async function captureMakerQueueBurst({
   if (!orderedHorizons.length) throw new Error('no_valid_maker_horizons');
 
   const entryBook = await bookFetcher(instId, { depth });
+  const entryTime = finite(entryBook?.time);
+  if (entryTime === null) throw new Error('entry_book_missing_source_time');
+  const entryWallClockMs = nowImpl();
+
   const observations = [];
   const failures = [];
-  let elapsedTarget = 0;
+  const futureBooks = [];
 
+  // Hot path: capture future books near their predeclared deadlines first.
+  // Historical trade pagination is deliberately deferred until every book snapshot
+  // has been captured so one slow flow query cannot push later horizons off target.
   for (const targetHorizonMs of orderedHorizons) {
-    await sleepImpl(Math.max(0, targetHorizonMs - elapsedTarget));
-    elapsedTarget = targetHorizonMs;
+    const localDeadline = entryWallClockMs + targetHorizonMs;
+    const waitMs = Math.max(0, localDeadline - nowImpl());
+    if (waitMs > 0) await sleepImpl(waitMs);
 
+    const targetSourceTime = entryTime + targetHorizonMs;
+    let futureBook = null;
+    let failureReason = 'MARKOUT_BEFORE_TARGET';
+
+    for (let attempt = 0; attempt < maxBookPolls; attempt += 1) {
+      const candidate = await bookFetcher(instId, { depth });
+      const candidateTime = finite(candidate?.time);
+      if (candidateTime !== null && candidateTime >= targetSourceTime) {
+        const driftRatio = Math.abs((candidateTime - entryTime) - targetHorizonMs) / targetHorizonMs;
+        if (driftRatio <= MAX_MARKOUT_HORIZON_DRIFT_RATIO) {
+          futureBook = candidate;
+          failureReason = null;
+        } else {
+          failureReason = 'MARKOUT_HORIZON_DRIFT';
+        }
+        break;
+      }
+      if (attempt < maxBookPolls - 1) await sleepImpl(bookPollDelayMs);
+    }
+
+    if (!futureBook) {
+      for (const side of ['BUY', 'SELL']) failures.push({
+        targetHorizonMs,
+        side,
+        reason: failureReason,
+      });
+      continue;
+    }
+
+    futureBooks.push({ targetHorizonMs, futureBook });
+  }
+
+  // Validation/enrichment path: only after markout books are safely captured.
+  for (const { targetHorizonMs, futureBook } of futureBooks) {
+    const exactFlowEndTime = entryTime + targetHorizonMs;
+    let flow;
     try {
-      const futureBook = await bookFetcher(instId, { depth });
-      const exactFlowEndTime = Number(entryBook.time) + targetHorizonMs;
-      const flow = await flowFetcher(instId, {
-        startTimeMs: entryBook.time,
+      flow = await flowFetcher(instId, {
+        startTimeMs: entryTime,
         endTimeMs: exactFlowEndTime,
       });
-      for (const side of ['BUY', 'SELL']) {
-        const observation = buildMakerFillObservation({
-          instId,
-          side,
-          targetHorizonMs,
-          orderSizeUnits,
-          entryBook,
-          futureBook,
-          takerInterval: flow,
-        });
-        if (observation) observations.push(observation);
-        else failures.push({ targetHorizonMs, side, reason: flow?.reason ?? 'INVALID_EVIDENCE' });
-      }
     } catch (error) {
       failures.push({
         targetHorizonMs,
         side: 'BOTH',
-        reason: String(error?.message || error),
+        reason: `FLOW_FETCH_ERROR:${String(error?.message || error)}`,
       });
+      continue;
+    }
+
+    for (const side of ['BUY', 'SELL']) {
+      const reason = makerObservationFailureReason({
+        side,
+        targetHorizonMs,
+        orderSizeUnits,
+        entryBook,
+        futureBook,
+        takerInterval: flow,
+      });
+      if (reason) {
+        failures.push({ targetHorizonMs, side, reason });
+        continue;
+      }
+      const observation = buildMakerFillObservation({
+        instId,
+        side,
+        targetHorizonMs,
+        orderSizeUnits,
+        entryBook,
+        futureBook,
+        takerInterval: flow,
+      });
+      if (observation) observations.push(observation);
+      else failures.push({ targetHorizonMs, side, reason: 'UNEXPECTED_BUILD_REJECTION' });
     }
   }
 
