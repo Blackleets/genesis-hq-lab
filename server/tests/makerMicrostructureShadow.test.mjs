@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   MAKER_EXECUTION_AUTHORITY,
+  buildMakerShadowInputFromEvidence,
   estimateQueueCoverage,
+  evaluateMakerEvidence,
   evaluateMakerShadowCandidate,
 } from '../genesis/makerMicrostructureShadow.mjs';
 
@@ -82,4 +84,82 @@ test('empirical capture cannot exceed the spread actually observed', () => {
   }));
   assert.equal(r.verdict, 'NO_GO');
   assert.ok(r.blockers.includes('captureWithinObservedSpread'));
+});
+
+
+test('real book + fixed-window taker evidence maps queue pressure by maker side', () => {
+  const capturedAt = '2026-09-18T13:00:01.000Z';
+  const book = {
+    instId: 'BTC-USDT-SWAP',
+    time: Date.parse('2026-09-18T13:00:00.500Z'),
+    rpiBestBidQty: 50,
+    rpiBestAskQty: 40,
+    rpiSpreadBps: 4,
+  };
+  const taker = {
+    time: Date.parse('2026-09-18T13:00:00.800Z'),
+    buyContracts: 100,
+    sellContracts: 200,
+  };
+  const calibration = {
+    empiricalSpreadCaptureBps: 3,
+    makerFeeBps: 0,
+    adverseSelectionBps: 0.5,
+    inventoryRiskBps: 0.25,
+    quoteAttemptCostUsd: 0,
+    failedAttemptCostUsd: 0,
+    empiricalFillProbability: 0.35,
+  };
+
+  const buyInput = buildMakerShadowInputFromEvidence({
+    side: 'BUY',
+    orderSizeUnits: 100,
+    notionalUsd: 100,
+    book,
+    taker,
+    calibration,
+    capturedAt,
+  });
+  assert.equal(buyInput.queueAheadUnits, 50);
+  assert.equal(buyInput.aggressiveFlowTowardQuoteUnits, 200);
+  assert.equal(buyInput.sourceAgeMs, 500);
+
+  const buy = evaluateMakerEvidence({
+    side: 'BUY',
+    orderSizeUnits: 100,
+    notionalUsd: 100,
+    book,
+    taker,
+    calibration,
+    capturedAt,
+  });
+  assert.equal(buy.queueCoverageBasis, 'contract_units');
+  assert.equal(buy.verdict, 'SHADOW_CANDIDATE');
+
+  const sell = evaluateMakerEvidence({
+    side: 'SELL',
+    orderSizeUnits: 100,
+    notionalUsd: 100,
+    book,
+    taker,
+    calibration,
+    capturedAt,
+  });
+  assert.equal(sell.queueAheadUnits, 40);
+  assert.equal(sell.aggressiveFlowTowardQuoteUnits, 100);
+  assert.equal(sell.verdict, 'NO_GO');
+  assert.ok(sell.blockers.includes('queueCoverage'));
+});
+
+test('future or missing source timestamps fail closed in evidence adapter', () => {
+  const input = buildMakerShadowInputFromEvidence({
+    side: 'BUY',
+    orderSizeUnits: 1,
+    notionalUsd: 100,
+    capturedAt: '2026-09-18T13:00:00.000Z',
+    book: { time: Date.parse('2026-09-18T13:00:01.000Z'), rpiBestBidQty: 1, rpiSpreadBps: 2 },
+    taker: { time: Date.parse('2026-09-18T12:59:59.000Z'), sellContracts: 10 },
+  });
+  assert.equal(input.sourceAgeMs, null);
+  assert.equal(evaluateMakerShadowCandidate(input).verdict, 'NO_GO');
 });
