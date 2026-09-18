@@ -13,8 +13,10 @@ Read these files:
 3. `docs/ARCHITECTURE_PUBLIC.md`
 4. `docs/EVIDENCE_SCHEMA.md`
 5. `docs/REPRODUCIBILITY.md`
-6. `docs/VISION.md`
-7. `docs/DESIGN_DIRECTION.md` before any UI change
+6. `docs/NEW_RESEARCH_MODULE.md`
+7. `docs/NEW_DATA_ADAPTER.md`
+8. `docs/VISION.md`
+9. `docs/DESIGN_DIRECTION.md` before any UI change
 
 The repository's safety rules are binding.
 
