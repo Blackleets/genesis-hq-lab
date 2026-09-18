@@ -99,6 +99,10 @@ jobs:
           }
           if (report.boundaries?.notForLiveScoring !== true) throw new Error('live scoring boundary missing');
           const allowed = new Set([1000, 3000, 10000]);
+          for (const timing of capture.captureTimings || []) {
+            if (timing?.deadlinePolicy !== 'SOURCE_TIMESTAMP_ALIGNED_V1') throw new Error('source-aligned deadline policy missing');
+            if (!(Number(timing?.entrySourceAgeMs) >= 0)) throw new Error('entry source age missing');
+          }
           for (const row of capture.observations || []) {
             if (!allowed.has(row.targetHorizonMs)) throw new Error('unexpected horizon');
             if (row.version !== 'maker_queue_depletion_tape_v2_exact_flow_horizon') throw new Error('legacy maker observation emitted');
@@ -109,7 +113,7 @@ jobs:
               throw new Error('observation execution boundary violated');
             }
             if (row.provenance?.priceTouchAloneCountsAsFill !== false) throw new Error('touch-fill shortcut detected');
-            if (row.provenance?.captureScheduler !== 'BOOKS_FIRST_DEFERRED_FLOW_V1') throw new Error('maker burst scheduler provenance missing');
+            if (row.provenance?.captureScheduler !== 'BOOKS_FIRST_SOURCE_ALIGNED_DEFERRED_FLOW_V2') throw new Error('maker burst scheduler provenance missing');
           }
           console.log(JSON.stringify({
             observations: capture.observationCount,
