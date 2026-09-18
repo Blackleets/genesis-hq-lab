@@ -1,13 +1,15 @@
 // RESEARCH_ONLY empirical maker fill calibration.
 // Converts durable queue-depletion observations into conservative cohort-level
-// fill probabilities. No model guesses, no order placement, no live authority.
+// fill probabilities and fill-conditioned adverse-selection distributions.
+// No model guesses, no order placement, no live authority.
 
-export const MAKER_FILL_CALIBRATION_VERSION = 'maker_fill_calibration_v1';
+export const MAKER_FILL_CALIBRATION_VERSION = 'maker_fill_calibration_v2_horizon_aware';
 export const MAKER_FILL_CALIBRATION_MODE = 'RESEARCH_ONLY';
 
 export const DEFAULT_FILL_CALIBRATION_POLICY = Object.freeze({
-  minSamplesPerCohort: 30,
+  minSamplesPerCohort: 100,
   wilsonZ: 1.96,
+  allowedHorizonsMs: Object.freeze([1_000, 3_000, 10_000]),
   queueCoverageBuckets: Object.freeze([
     { id: 'lt_0_5', min: 0, max: 0.5 },
     { id: '0_5_to_1', min: 0.5, max: 1 },
@@ -47,6 +49,17 @@ function bucketFor(value, buckets) {
   return buckets.find(bucket => value >= bucket.min && value < bucket.max)?.id ?? null;
 }
 
+function quantile(values, q) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const index = (sorted.length - 1) * q;
+  const lo = Math.floor(index);
+  const hi = Math.ceil(index);
+  if (lo === hi) return sorted[lo];
+  const weight = index - lo;
+  return sorted[lo] * (1 - weight) + sorted[hi] * weight;
+}
+
 export function wilsonLowerBound(successes, trials, z = 1.96) {
   if (!Number.isInteger(successes) || !Number.isInteger(trials) || trials <= 0 || successes < 0 || successes > trials) {
     return null;
@@ -61,15 +74,23 @@ export function wilsonLowerBound(successes, trials, z = 1.96) {
 
 export function normalizeFillObservation(raw = {}, policy = DEFAULT_FILL_CALIBRATION_POLICY) {
   const side = normalizeSide(raw.side);
+  const targetHorizonMs = nonNegative(raw.targetHorizonMs);
   const queueCoverage = nonNegative(raw.queueCoverage);
   const spreadBps = nonNegative(raw.spreadBps);
-  const filled = probability(raw.fillRatio);
+  const fillRatio = probability(raw.fillRatio);
+  const adverseSelectionBps = nonNegative(raw.adverseSelectionBps);
+  const spreadCaptureBps = nonNegative(raw.spreadCaptureBps);
   const observedAtMs = Date.parse(raw.observedAt ?? raw.capturedAt ?? '');
+  const horizonAllowed =
+    targetHorizonMs !== null &&
+    targetHorizonMs > 0 &&
+    policy.allowedHorizonsMs.includes(targetHorizonMs);
   const valid =
     side !== null &&
+    horizonAllowed &&
     queueCoverage !== null &&
     spreadBps !== null &&
-    filled !== null &&
+    fillRatio !== null &&
     Number.isFinite(observedAtMs);
 
   if (!valid) return null;
@@ -80,10 +101,13 @@ export function normalizeFillObservation(raw = {}, policy = DEFAULT_FILL_CALIBRA
 
   return {
     side,
+    targetHorizonMs,
     queueCoverage,
     spreadBps,
-    fillRatio: filled,
-    filled: filled > 0,
+    fillRatio,
+    filled: fillRatio > 0,
+    adverseSelectionBps,
+    spreadCaptureBps,
     observedAt: new Date(observedAtMs).toISOString(),
     queueBucket,
     spreadBucket,
@@ -98,13 +122,14 @@ export function calibrateMakerFillProbability(observations = [], policyOverrides
 
   const cohorts = new Map();
   for (const row of normalized) {
-    const key = [row.side, row.queueBucket, row.spreadBucket].join('|');
+    const key = [row.targetHorizonMs, row.side, row.queueBucket, row.spreadBucket].join('|');
     if (!cohorts.has(key)) cohorts.set(key, []);
     cohorts.get(key).push(row);
   }
 
   const results = [...cohorts.entries()].map(([key, rows]) => {
-    const [side, queueBucket, spreadBucket] = key.split('|');
+    const [targetHorizonMsRaw, side, queueBucket, spreadBucket] = key.split('|');
+    const targetHorizonMs = Number(targetHorizonMsRaw);
     const sampleSize = rows.length;
     const fills = rows.filter(row => row.filled).length;
     const empiricalFillProbability = sampleSize > 0 ? fills / sampleSize : null;
@@ -112,9 +137,16 @@ export function calibrateMakerFillProbability(observations = [], policyOverrides
       ? rows.reduce((sum, row) => sum + row.fillRatio, 0) / sampleSize
       : null;
     const conservativeFillProbability = wilsonLowerBound(fills, sampleSize, policy.wilsonZ);
+    const adverseRows = rows
+      .filter(row => row.filled && row.adverseSelectionBps !== null)
+      .map(row => row.adverseSelectionBps);
+    const spreadCaptureRows = rows
+      .filter(row => row.filled && row.spreadCaptureBps !== null)
+      .map(row => row.spreadCaptureBps);
     const sufficient = sampleSize >= policy.minSamplesPerCohort;
 
     return {
+      targetHorizonMs,
       side,
       queueBucket,
       spreadBucket,
@@ -123,10 +155,18 @@ export function calibrateMakerFillProbability(observations = [], policyOverrides
       empiricalFillProbability,
       meanFillRatio,
       conservativeFillProbability,
+      adverseSelectionSamples: adverseRows.length,
+      adverseSelectionP50Bps: quantile(adverseRows, 0.50),
+      adverseSelectionP75Bps: quantile(adverseRows, 0.75),
+      adverseSelectionP90Bps: quantile(adverseRows, 0.90),
+      meanSpreadCaptureBps: spreadCaptureRows.length
+        ? spreadCaptureRows.reduce((sum, value) => sum + value, 0) / spreadCaptureRows.length
+        : null,
       status: sufficient ? 'CALIBRATED' : 'INSUFFICIENT_DATA',
       usableFillProbability: sufficient ? conservativeFillProbability : null,
     };
   }).sort((a, b) =>
+    a.targetHorizonMs - b.targetHorizonMs ||
     a.side.localeCompare(b.side) ||
     a.queueBucket.localeCompare(b.queueBucket) ||
     a.spreadBucket.localeCompare(b.spreadBucket));
@@ -134,9 +174,12 @@ export function calibrateMakerFillProbability(observations = [], policyOverrides
   return {
     mode: MAKER_FILL_CALIBRATION_MODE,
     version: MAKER_FILL_CALIBRATION_VERSION,
+    executionAuthority: false,
+    liveLocked: true,
     policy: {
       minSamplesPerCohort: policy.minSamplesPerCohort,
       wilsonZ: policy.wilsonZ,
+      allowedHorizonsMs: policy.allowedHorizonsMs,
     },
     rawObservationCount: observations.length,
     validObservationCount: normalized.length,
@@ -144,18 +187,25 @@ export function calibrateMakerFillProbability(observations = [], policyOverrides
     cohorts: results,
     calibratedCohortCount: results.filter(row => row.status === 'CALIBRATED').length,
     notes: [
-      'Fill probability is conditioned on observed side, queue-coverage bucket and spread bucket.',
+      'Fill probability is conditioned on horizon, side, queue-coverage bucket and spread bucket.',
       'The usable probability is the Wilson lower confidence bound, not the optimistic sample mean.',
+      'Adverse selection is measured only on filled observations and reported as p50/p75/p90.',
       'Cohorts below the minimum sample size fail closed as INSUFFICIENT_DATA.',
       'This research module has no execution authority.',
     ],
   };
 }
 
-export function lookupConservativeFillProbability(report, { side, queueCoverage, spreadBps } = {}) {
+export function lookupConservativeFillProbability(report, {
+  side,
+  targetHorizonMs,
+  queueCoverage,
+  spreadBps,
+} = {}) {
   if (!report || report.version !== MAKER_FILL_CALIBRATION_VERSION) return null;
   const normalized = normalizeFillObservation({
     side,
+    targetHorizonMs,
     queueCoverage,
     spreadBps,
     fillRatio: 0,
@@ -163,6 +213,7 @@ export function lookupConservativeFillProbability(report, { side, queueCoverage,
   });
   if (!normalized) return null;
   const cohort = report.cohorts?.find(row =>
+    row.targetHorizonMs === normalized.targetHorizonMs &&
     row.side === normalized.side &&
     row.queueBucket === normalized.queueBucket &&
     row.spreadBucket === normalized.spreadBucket);
