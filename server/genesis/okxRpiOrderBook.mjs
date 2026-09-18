@@ -64,7 +64,7 @@ export function deriveRpiOrderBookFeatures(snapshot = {}) {
   const topBidQty = bids[0]?.totalQty ?? null;
   const topAskQty = asks[0]?.totalQty ?? null;
   const topQty = topBidQty !== null && topAskQty !== null ? topBidQty + topAskQty : null;
-  const microprice = topQty > 0
+  const microprice = mid !== null && topQty > 0
     ? ((bestAsk * topBidQty) + (bestBid * topAskQty)) / topQty
     : null;
   const micropriceSkewBps = microprice !== null && mid > 0
