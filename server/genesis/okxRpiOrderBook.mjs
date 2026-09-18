@@ -86,6 +86,8 @@ export function deriveRpiOrderBookFeatures(snapshot = {}) {
     rpiBookLevelCount: Math.min(bids.length, asks.length),
     rpiBestBid: bestBid,
     rpiBestAsk: bestAsk,
+    rpiBestBidQty: topBidQty,
+    rpiBestAskQty: topAskQty,
     rpiMidPrice: mid,
     rpiBidDepth: bidDepth,
     rpiAskDepth: askDepth,
