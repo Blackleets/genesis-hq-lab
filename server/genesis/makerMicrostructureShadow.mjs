@@ -109,6 +109,10 @@ export function evaluateMakerShadowCandidate(input = {}, gates = {}) {
     inputsKnown: allInputsKnown,
     fresh: sourceAgeMs !== null && sourceAgeMs <= policy.maxSourceAgeMs,
     spreadObserved: observedSpreadBps !== null && observedSpreadBps > 0,
+    captureWithinObservedSpread:
+      observedSpreadBps !== null &&
+      empiricalSpreadCaptureBps !== null &&
+      empiricalSpreadCaptureBps <= observedSpreadBps,
     queueCoverage:
       queueCoverage !== null && queueCoverage >= policy.minQueueCoverage,
     fillProbability:
