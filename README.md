@@ -10,10 +10,17 @@
 </p>
 
 <p align="center">
+  <img alt="Founder control checks" src="https://github.com/Blackleets/genesis-hq-lab/actions/workflows/founder-control-checks.yml/badge.svg?branch=feat%2Fgenesis-life-os" />
+  <img alt="Edge discovery invariants" src="https://github.com/Blackleets/genesis-hq-lab/actions/workflows/edge-discovery-invariants.yml/badge.svg?branch=feat%2Fgenesis-life-os" />
+  <img alt="Profit ratchet observability" src="https://github.com/Blackleets/genesis-hq-lab/actions/workflows/profit-ratchet-observability.yml/badge.svg?branch=feat%2Fgenesis-life-os" />
+</p>
+
+<p align="center">
   <a href="https://genesis-hq-lab.vercel.app">Live HQ</a> ·
   <a href="./docs/ARCHITECTURE_PUBLIC.md">Architecture</a> ·
   <a href="./docs/RESEARCH_PRINCIPLES.md">Research principles</a> ·
   <a href="./docs/ROADMAP_PUBLIC.md">Roadmap</a> ·
+  <a href="./docs/REPRODUCIBILITY.md">Reproducibility</a> ·
   <a href="./CONTRIBUTING.md">Contribute</a>
 </p>
 
@@ -211,7 +218,7 @@ Good contribution categories:
 - tests for fail-closed behavior;
 - documentation and reproducibility.
 
-Start with [CONTRIBUTING.md](./CONTRIBUTING.md).
+Start with [CONTRIBUTING.md](./CONTRIBUTING.md). For evidence conventions and replay discipline, see [docs/EVIDENCE_SCHEMA.md](./docs/EVIDENCE_SCHEMA.md) and [docs/REPRODUCIBILITY.md](./docs/REPRODUCIBILITY.md).
 
 A useful contribution should answer at least one of these questions:
 
@@ -235,6 +242,8 @@ genesis-hq-lab/
 ├── .github/workflows/         # research capture, validation and deployment CI
 ├── docs/
 │   ├── ARCHITECTURE_PUBLIC.md
+│   ├── EVIDENCE_SCHEMA.md
+│   ├── REPRODUCIBILITY.md
 │   ├── RESEARCH_PRINCIPLES.md
 │   ├── ROADMAP_PUBLIC.md
 │   ├── VISION.md
