@@ -98,6 +98,15 @@ jobs:
             throw new Error('maker calibration boundary violated');
           }
           if (report.boundaries?.notForLiveScoring !== true) throw new Error('live scoring boundary missing');
+          if (report.version !== 'maker_fill_calibration_v4_sequential_validation') throw new Error('maker sequential validation protocol missing');
+          if (report.policy?.calibrationSamplesPerCohort !== 100 || report.policy?.validationSamplesPerCohort !== 50 || report.policy?.holdoutSamplesPerCohort !== 50) {
+            throw new Error('maker sequential split changed');
+          }
+          if (!/^[a-f0-9]{64}$/.test(String(report.protocolSha256 || ''))) throw new Error('maker protocol hash missing');
+          for (const cohort of report.cohorts || []) {
+            if (cohort.validation?.complete !== true && cohort.usableFillProbability !== null) throw new Error('unvalidated fill probability exposed');
+            if (cohort.holdout?.metrics !== null) throw new Error('routine report leaked holdout metrics');
+          }
           const allowed = new Set([1000, 3000, 10000]);
           for (const timing of capture.captureTimings || []) {
             if (timing?.deadlinePolicy !== 'SOURCE_TIMESTAMP_ALIGNED_V1') throw new Error('source-aligned deadline policy missing');
