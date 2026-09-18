@@ -1,0 +1,32 @@
+name: Economic integrity unit checks
+
+on:
+  pull_request:
+    branches: [feat/genesis-life-os]
+    paths:
+      - 'src/core/passiveQueueExecution.mjs'
+      - 'server/genesis/runMarketMakingLab.mjs'
+      - 'server/genesis/runFundingCarryLab.mjs'
+      - 'server/tests/passiveQueueExecution.test.mjs'
+      - 'server/tests/runFundingCarryLabJsCausality.test.mjs'
+      - 'server/tests/test_funding_carry_causality.py'
+      - '.github/workflows/economic-integrity-unit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Maker fill and adverse-selection invariants
+        run: node --test server/tests/passiveQueueExecution.test.mjs
+      - name: Funding carry causal alignment — JS
+        run: node --test server/tests/runFundingCarryLabJsCausality.test.mjs
+      - name: Funding carry causal alignment — Python canonical lab
+        run: python3 -m unittest server/tests/test_funding_carry_causality.py

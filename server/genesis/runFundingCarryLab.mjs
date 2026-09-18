@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
-const VERSION = 'funding_carry_lab_v1_delta_neutral_oos';
+const VERSION = 'funding_carry_lab_v2_causal_spot_close_oos';
 const FUTURES_BASE = process.env.BINANCE_FUTURES_BASE || 'https://fapi.binance.com';
 const SPOT_BASE = process.env.BINANCE_SPOT_BASE || 'https://data-api.binance.vision/api/v3';
 const SYMBOLS = (process.env.GENESIS_FUNDING_SYMBOLS || 'BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,XRPUSDT,DOGEUSDT,LINKUSDT').split(',').map((x) => x.trim()).filter(Boolean);
@@ -46,6 +46,16 @@ async function fundingHistory(symbol) {
     .sort((a, b) => a.t - b.t);
 }
 
+export function spotRowsFromKlines(rows = []) {
+  return rows.map((row) => {
+    const openTime = Number(row?.[0]);
+    const close = Number(row?.[4]);
+    const closeTime = Number(row?.[6]);
+    if (!Number.isFinite(openTime) || !Number.isFinite(closeTime) || closeTime <= openTime || !(close > 0)) return null;
+    return { t: closeTime, close, openTime };
+  }).filter(Boolean).sort((a, b) => a.t - b.t);
+}
+
 async function spotHistory(symbol) {
   const all = [];
   let endTime = Date.now();
@@ -62,10 +72,10 @@ async function spotHistory(symbol) {
   const unique = [...new Map(all.map((row) => [Number(row[0]), row])).values()]
     .sort((a, b) => Number(a[0]) - Number(b[0]))
     .slice(-SPOT_BAR_LIMIT);
-  return unique.map((row) => ({ t: Number(row[0]), close: Number(row[4]) })).filter((row) => row.close > 0);
+  return spotRowsFromKlines(unique);
 }
 
-function nearestSpot(spots, t) {
+export function nearestSpot(spots, t) {
   if (!spots.length) return null;
   let lo = 0, hi = spots.length - 1, best = null;
   while (lo <= hi) {
@@ -76,7 +86,7 @@ function nearestSpot(spots, t) {
   return best.close;
 }
 
-function align(funding, spots) {
+export function align(funding, spots) {
   return funding.map((row) => ({ ...row, spot: nearestSpot(spots, row.t) })).filter((row) => row.spot > 0);
 }
 
@@ -209,6 +219,8 @@ async function main() {
     liveOrders: false,
     methodology: {
       source: 'Binance public USD-M funding history + public spot 1h klines',
+      causalPriceAlignment: 'Spot close is timestamped by Binance kline closeTime (column 6) and is eligible only when closeTime <= fundingTime.',
+      priorEvidenceCompatibility: 'funding_carry_lab_v1_delta_neutral_oos used spot close values timestamped at kline open and must be treated as causally invalid.',
       symbols: SYMBOLS,
       fundingHistoryLimit: FUNDING_LIMIT,
       split: '60% train / 20% validation / 20% holdout',
@@ -247,4 +259,6 @@ async function main() {
   console.log(JSON.stringify({ version: VERSION, testedSymbols: output.testedSymbols, oosPassCount: output.oosPassCount, best: best ? { symbol: best.symbol, selectedHorizon: best.selectedHorizon, validation: best.validation, holdout: best.holdout, passedOos: best.passedOos } : null, errors: output.errors.length }));
 }
 
-main().catch((error) => { console.error(error); process.exitCode = 1; });
+if (process.argv[1]?.endsWith('runFundingCarryLab.mjs')) {
+  main().catch((error) => { console.error(error); process.exitCode = 1; });
+}

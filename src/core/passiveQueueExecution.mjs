@@ -7,12 +7,16 @@
 //
 // IMPORTANT: this is a RESEARCH/PAPER execution model, not a live venue emulator.
 
-const finite = (x) => Number.isFinite(Number(x)) ? Number(x) : null;
+const finite = (x) => {
+  if (x === null || x === undefined || x === '') return null;
+  const n = Number(x);
+  return Number.isFinite(n) ? n : null;
+};
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
 export function micropriceFromTop({ bid, ask, bidQty, askQty } = {}) {
   const b = finite(bid), a = finite(ask), bq = finite(bidQty), aq = finite(askQty);
-  if (!(b > 0 && a > b && bq >= 0 && aq >= 0) || bq + aq <= 0) return null;
+  if (!(b > 0 && a > b && bq !== null && aq !== null && bq >= 0 && aq >= 0) || bq + aq <= 0) return null;
   // More bid size shifts fair value toward the ask; more ask size shifts it toward the bid.
   return (a * bq + b * aq) / (bq + aq);
 }
@@ -48,8 +52,9 @@ export function passiveQuoteWindow({
   orderLatencyMs = 0,
 } = {}) {
   const mid = finite(current?.mid), bid = finite(current?.bid), ask = finite(current?.ask);
+  const bidQty = finite(current?.bidQty), askQty = finite(current?.askQty);
   const nextMid = finite(next?.mid);
-  if (!(mid > 0 && bid > 0 && ask > bid && nextMid > 0)) throw new Error('invalid_quote_window');
+  if (!(mid > 0 && bid > 0 && ask > bid && bidQty !== null && askQty !== null && bidQty >= 0 && askQty >= 0 && nextMid > 0)) throw new Error('invalid_quote_window');
 
   const quoteQty = Math.max(0, Number(quoteNotionalUsd) / mid);
   const activationTimeMs = Number(current.capturedAtMs) + Math.max(0, Number(orderLatencyMs) || 0);
@@ -64,8 +69,9 @@ export function passiveQuoteWindow({
     if (trade.buyerIsMaker === false && px >= ask) buyFlowAtAsk += qty;
   }
 
-  const bidQueueAheadQty = Math.max(0, Number(current.bidQty || 0) * Math.max(0, Number(queueAheadMultiplier) || 0));
-  const askQueueAheadQty = Math.max(0, Number(current.askQty || 0) * Math.max(0, Number(queueAheadMultiplier) || 0));
+  const queueMultiplier = Math.max(0, Number(queueAheadMultiplier) || 0);
+  const bidQueueAheadQty = bidQty * queueMultiplier;
+  const askQueueAheadQty = askQty * queueMultiplier;
   const bidFill = riskAdversePartialFill({ queueAheadQty: bidQueueAheadQty, quoteQty, aggressorQty: sellFlowAtBid });
   const askFill = riskAdversePartialFill({ queueAheadQty: askQueueAheadQty, quoteQty, aggressorQty: buyFlowAtAsk });
 
@@ -89,7 +95,16 @@ export function passiveQuoteWindow({
   const microprice = micropriceFromTop(current);
   const micropriceEdgeBps = microprice == null ? null : ((microprice - mid) / mid) * 10_000;
   const nextMidMoveBps = ((nextMid - mid) / mid) * 10_000;
-  const adverseSelectionBps = Math.abs(nextMidMoveBps);
+
+  // Fill-conditioned harmful markout, not absolute market movement.
+  // A bid fill is adverse only when the next mid is below our bid.
+  // An ask fill is adverse only when the next mid is above our ask.
+  // No fill => zero realized adverse-selection cost for this quote window.
+  const bidAdverseSelectionBps = Math.max(0, ((bid - nextMid) / mid) * 10_000);
+  const askAdverseSelectionBps = Math.max(0, ((nextMid - ask) / mid) * 10_000);
+  const adverseSelectionBps =
+    bidRatio * bidAdverseSelectionBps +
+    askRatio * askAdverseSelectionBps;
 
   let outcome = 'NO_FILL';
   if (bidRatio > 0 || askRatio > 0) {
@@ -120,6 +135,8 @@ export function passiveQuoteWindow({
     inventoryPenaltyBps,
     netCaptureBps,
     adverseSelectionBps,
+    bidAdverseSelectionBps,
+    askAdverseSelectionBps,
     microprice,
     micropriceEdgeBps,
     nextMidMoveBps,
