@@ -27,6 +27,8 @@ export async function captureRpiOrderBook({ instId = 'BTC-USDT-SWAP', depth = 20
       rpiBookLevelCount: context.rpiBookLevelCount,
       rpiBestBid: context.rpiBestBid,
       rpiBestAsk: context.rpiBestAsk,
+      rpiBestBidQty: context.rpiBestBidQty,
+      rpiBestAskQty: context.rpiBestAskQty,
       rpiMidPrice: context.rpiMidPrice,
       rpiBidDepth: context.rpiBidDepth,
       rpiAskDepth: context.rpiAskDepth,
