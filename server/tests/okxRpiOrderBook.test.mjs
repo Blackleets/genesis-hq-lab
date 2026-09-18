@@ -10,6 +10,8 @@ test('deriveRpiOrderBookFeatures computes depth imbalance without direction inve
   assert.equal(result.rpiBookLevelCount, 2);
   assert.equal(result.rpiBestBid, 100);
   assert.equal(result.rpiBestAsk, 101);
+  assert.equal(result.rpiBestBidQty, 6);
+  assert.equal(result.rpiBestAskQty, 3);
   assert.equal(result.rpiMidPrice, 100.5);
   assert.equal(result.rpiBidDepth, 10);
   assert.equal(result.rpiAskDepth, 5);
