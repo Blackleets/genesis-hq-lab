@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { aggregateFixedWindowTaker, fetchFixedWindowTaker } from '../genesis/okxFixedWindowTaker.mjs';
+import { aggregateFixedWindowTaker, aggregateTakerInterval, fetchFixedWindowTaker, fetchTakerInterval } from '../genesis/okxFixedWindowTaker.mjs';
 
 function trade(ts, side, sz, tradeId, px = 80_000) {
   return { ts: String(ts), side, sz: String(sz), tradeId: String(tradeId), px: String(px) };
@@ -105,4 +105,77 @@ test('retries transient OKX rate-limit responses without weakening coverage', as
   assert.equal(out.available, true);
   assert.equal(out.coverageGateRatio, 0.9);
   assert.equal(out.transientRetryPolicy.maxAttempts, 3);
+});
+
+
+test('exact interval aggregation excludes pre-entry and post-horizon flow', () => {
+  const start = 1_800_000_000_000;
+  const end = start + 10_000;
+  const out = aggregateTakerInterval([
+    trade(start - 1, 'sell', 50, 1),
+    trade(start, 'sell', 2, 2),
+    trade(start + 5_000, 'buy', 3, 3),
+    trade(end, 'sell', 4, 4),
+    trade(end + 1, 'buy', 50, 5),
+    trade(start + 5_000, 'buy', 3, 3),
+  ], { startTimeMs: start, endTimeMs: end });
+
+  assert.equal(out.available, true);
+  assert.equal(out.tradeCount, 3);
+  assert.equal(out.buyContracts, 3);
+  assert.equal(out.sellContracts, 6);
+  assert.equal(out.requestedStartTime, start);
+  assert.equal(out.requestedEndTime, end);
+  assert.equal(out.source, 'okx_public_history_trades_interval');
+});
+
+test('exact interval fails closed when pagination never reaches the entry timestamp', () => {
+  const start = 1_800_000_000_000;
+  const end = start + 10_000;
+  const out = aggregateTakerInterval([
+    trade(start + 2_000, 'sell', 2, 1),
+    trade(end, 'buy', 3, 2),
+  ], { startTimeMs: start, endTimeMs: end });
+  assert.equal(out.available, false);
+  assert.equal(out.reason, 'INSUFFICIENT_START_COVERAGE');
+});
+
+test('exact interval can represent proven zero flow after covering the start boundary', () => {
+  const start = 1_800_000_000_000;
+  const end = start + 10_000;
+  const out = aggregateTakerInterval([
+    trade(start - 1, 'sell', 1, 1),
+    trade(end + 1, 'buy', 1, 2),
+  ], { startTimeMs: start, endTimeMs: end });
+  assert.equal(out.available, true);
+  assert.equal(out.tradeCount, 0);
+  assert.equal(out.buyContracts, 0);
+  assert.equal(out.sellContracts, 0);
+});
+
+test('fetchTakerInterval paginates backward to the exact entry boundary', async () => {
+  const start = 1_800_000_000_000;
+  const end = start + 10_000;
+  const calls = [];
+  const responses = [
+    [trade(start + 5_000, 'buy', 1, 10), trade(end + 5_000, 'sell', 1, 11)],
+    [trade(start - 1_000, 'sell', 1, 8), trade(start + 1_000, 'sell', 2, 9)],
+  ];
+  const fetchImpl = async url => {
+    calls.push(String(url));
+    const data = responses.shift() ?? [];
+    return { ok: true, status: 200, json: async () => ({ code: '0', data }) };
+  };
+  const out = await fetchTakerInterval('BTC-USDT-SWAP', {
+    startTimeMs: start,
+    endTimeMs: end,
+    maxPages: 5,
+    fetchImpl,
+  });
+  assert.equal(out.available, true);
+  assert.equal(out.pagesFetched, 2);
+  assert.equal(out.buyContracts, 1);
+  assert.equal(out.sellContracts, 2);
+  assert.equal(out.tradeCount, 2);
+  assert.match(calls[1], /history-trades/);
 });
