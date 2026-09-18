@@ -61,3 +61,41 @@ test('invalid or crossed book never fabricates a mid price', () => {
   assert.equal(result.rpiMidPrice, null);
   assert.equal(result.rpiSpreadBps, null);
 });
+
+
+test('RPI book derives microprice and 10/25 bps depth-band imbalance', () => {
+  const features = deriveRpiOrderBookFeatures({
+    bids: [
+      ['100.0', '10', '8', '2'],
+      ['99.9', '5', '4', '1'],
+    ],
+    asks: [
+      ['100.2', '5', '4', '3'],
+      ['100.3', '5', '4', '2'],
+    ],
+  });
+
+  assert.ok(features.rpiMicroprice > features.rpiMidPrice);
+  assert.ok(features.rpiMicropriceSkewBps > 0);
+  assert.equal(features.rpiBidDepth10Bps, 10);
+  assert.equal(features.rpiAskDepth10Bps, 5);
+  assert.ok(Math.abs(features.rpiDepthImbalance10Bps - (1 / 3)) < 1e-12);
+  assert.equal(features.rpiBidDepth25Bps, 15);
+  assert.equal(features.rpiAskDepth25Bps, 10);
+  assert.ok(Math.abs(features.rpiDepthImbalance25Bps - 0.2) < 1e-12);
+  assert.equal(features.rpiBidOrderCount, 3);
+  assert.equal(features.rpiAskOrderCount, 5);
+  assert.equal(features.rpiOrderCountImbalance, -0.25);
+});
+
+test('one-sided book does not fabricate microprice or depth-band metrics', () => {
+  const features = deriveRpiOrderBookFeatures({
+    bids: [['100.0', '10', '8', '2']],
+    asks: [],
+  });
+  assert.equal(features.rpiMidPrice, null);
+  assert.equal(features.rpiMicroprice, null);
+  assert.equal(features.rpiMicropriceSkewBps, null);
+  assert.equal(features.rpiBidDepth10Bps, null);
+  assert.equal(features.rpiDepthImbalance10Bps, null);
+});
