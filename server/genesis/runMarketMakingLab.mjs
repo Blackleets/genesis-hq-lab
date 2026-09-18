@@ -2,7 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { passiveQuoteWindow, pearson } from '../../src/core/passiveQueueExecution.mjs';
 
-const VERSION = 'market_making_lab_v3_queue_latency_microprice';
+const VERSION = 'market_making_lab_v4_fill_conditioned_adverse_markout';
 const BASE = process.env.BINANCE_BASE || 'https://data-api.binance.vision/api/v3';
 const SYMBOLS = (process.env.GENESIS_MM_SYMBOLS || 'SOLUSDT,BTCUSDT,ETHUSDT').split(',').map((x) => x.trim()).filter(Boolean);
 const SAMPLE_ROUNDS = Math.max(8, Number(process.env.GENESIS_MM_SAMPLE_ROUNDS || 24));
@@ -94,6 +94,8 @@ function passiveFillProxy(current, next, trades) {
     feeBps: round(q.feeBps, 4),
     inventoryPenaltyBps: round(q.inventoryPenaltyBps, 4),
     adverseSelectionBps: round(q.adverseSelectionBps, 4),
+    bidAdverseSelectionBps: round(q.bidAdverseSelectionBps, 4),
+    askAdverseSelectionBps: round(q.askAdverseSelectionBps, 4),
     microprice: round(q.microprice, 8),
     micropriceEdgeBps: round(q.micropriceEdgeBps, 6),
     nextMidMoveBps: round(q.nextMidMoveBps, 6),
@@ -180,7 +182,7 @@ async function main() {
       evidenceQuality: round(evidenceQuality, 4),
       evidenceStatus: sufficientExecutionEvidence ? 'QUEUE_AWARE_RISK_ADVERSE_PROXY_AVAILABLE' : 'QUEUE_AWARE_PROXY_INSUFFICIENT',
       eligibleForPaperAllocation: sufficientExecutionEvidence,
-      recentIntervals: evaluated.slice(-5).map((x) => ({ timestamp: x.timestamp, outcome: x.outcome, spreadBps: x.spreadBps, tradeCount: x.tradeCount, activeTradeCount: x.activeTradeCount, bidFillRatio: x.bidFillRatio, askFillRatio: x.askFillRatio, orderLatencyMs: x.orderLatencyMs, micropriceEdgeBps: x.micropriceEdgeBps, nextMidMoveBps: x.nextMidMoveBps, netCaptureBps: x.netCaptureBps })),
+      recentIntervals: evaluated.slice(-5).map((x) => ({ timestamp: x.timestamp, outcome: x.outcome, spreadBps: x.spreadBps, tradeCount: x.tradeCount, activeTradeCount: x.activeTradeCount, bidFillRatio: x.bidFillRatio, askFillRatio: x.askFillRatio, orderLatencyMs: x.orderLatencyMs, micropriceEdgeBps: x.micropriceEdgeBps, nextMidMoveBps: x.nextMidMoveBps, adverseSelectionBps: x.adverseSelectionBps, netCaptureBps: x.netCaptureBps })),
     });
   }
   candidates.sort((a, b) => (b.expectancyBps ?? -Infinity) - (a.expectancyBps ?? -Infinity));
@@ -196,6 +198,8 @@ async function main() {
       partialFills: 'fills are fractional after queue-ahead is consumed; economics scale by actual estimated fill ratio rather than assuming all-or-nothing fills',
       latencyModel: ORDER_LATENCY_OVERRIDE_MS == null ? 'half observed public REST snapshot RTT used as an order-latency proxy' : `fixed override ${ORDER_LATENCY_OVERRIDE_MS} ms`,
       micropriceAlpha: 'top-of-book microprice is evaluated only as predictive evidence against the next observed mid; it does not create orders',
+      adverseSelection: 'fill-conditioned harmful markout only: bid fills pay downside below bid, ask fills pay upside above ask, weighted by fill ratio; no fill = zero realized adverse-selection cost',
+      priorEvidenceCompatibility: 'market_making_lab_v1-v3 adverseSelectionBps used unsigned absolute next-mid movement and must not be interpreted as fill-conditioned toxicity cost',
       oneSidedMarking: 'One-sided residual inventory is marked to the next observed mid and pays maker fee plus inventory reserve.',
       inspiration: 'queue-position methodology adapted from nkaz001/hftbacktest (MIT) and Erik Rigtorp queue estimation; Genesis implementation is independent',
       limitation: 'Public REST snapshots are not event-level L2/L3. Queue position and latency remain proxies; no live fill is claimed.',
