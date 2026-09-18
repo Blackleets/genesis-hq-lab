@@ -132,6 +132,77 @@ export function aggregateFixedWindowTaker(rows = [], {
   };
 }
 
+
+export function aggregateTakerInterval(rows = [], {
+  startTimeMs,
+  endTimeMs,
+} = {}) {
+  const start = Number(startTimeMs);
+  const end = Number(endTimeMs);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
+    return { available: false, reason: 'INVALID_INTERVAL' };
+  }
+
+  const deduped = new Map();
+  for (const raw of rows) {
+    const row = normalizeTrade(raw);
+    if (!row) continue;
+    const key = row.tradeId || `${row.time}:${row.side}:${row.price}:${row.size}`;
+    if (!deduped.has(key)) deduped.set(key, row);
+  }
+  const trades = [...deduped.values()].sort((a, b) => a.time - b.time);
+  if (!trades.length) return { available: false, reason: 'NO_VALID_TRADES' };
+
+  const earliestFetchedTime = trades[0].time;
+  const latestFetchedTime = trades.at(-1).time;
+  if (earliestFetchedTime > start) {
+    return {
+      available: false,
+      reason: 'INSUFFICIENT_START_COVERAGE',
+      requestedStartTime: start,
+      requestedEndTime: end,
+      earliestFetchedTime,
+      latestFetchedTime,
+    };
+  }
+
+  const inInterval = trades.filter(row => row.time >= start && row.time <= end);
+  let buyContracts = 0;
+  let sellContracts = 0;
+  let buyNotional = 0;
+  let sellNotional = 0;
+  for (const row of inInterval) {
+    const notional = row.size * row.price;
+    if (row.side === 'buy') {
+      buyContracts += row.size;
+      buyNotional += notional;
+    } else {
+      sellContracts += row.size;
+      sellNotional += notional;
+    }
+  }
+  const totalContracts = buyContracts + sellContracts;
+  const totalNotional = buyNotional + sellNotional;
+
+  return {
+    available: true,
+    requestedStartTime: start,
+    requestedEndTime: end,
+    intervalMs: end - start,
+    earliestFetchedTime,
+    latestFetchedTime,
+    tradeCount: inInterval.length,
+    buyContracts,
+    sellContracts,
+    buyFraction: totalContracts > 0 ? buyContracts / totalContracts : null,
+    buySellRatio: sellContracts > 0 ? buyContracts / sellContracts : null,
+    buyNotional,
+    sellNotional,
+    notionalBuyFraction: totalNotional > 0 ? buyNotional / totalNotional : null,
+    source: 'okx_public_history_trades_interval',
+  };
+}
+
 export async function fetchFixedWindowTaker(instId = 'BTC-USDT-SWAP', {
   windowMs = 60_000,
   minimumCoverageRatio = 0.9,
@@ -179,6 +250,64 @@ export async function fetchFixedWindowTaker(instId = 'BTC-USDT-SWAP', {
     endpointHistory: '/api/v5/market/history-trades',
     paginationType: 'timestamp',
     coverageGateRatio: minimumCoverageRatio,
+    transientRetryPolicy: {
+      maxAttempts: MAX_TRANSIENT_ATTEMPTS,
+      statuses: [429, '5xx'],
+      okxCodes: ['50011'],
+      backoffMs: [250, 500],
+    },
+    researchUse: 'OBSERVATIONAL_ONLY_NOT_FOR_RANKING',
+  };
+}
+
+
+export async function fetchTakerInterval(instId = 'BTC-USDT-SWAP', {
+  startTimeMs,
+  endTimeMs,
+  maxPages = 20,
+  fetchImpl = fetch,
+} = {}) {
+  const start = Number(startTimeMs);
+  const end = Number(endTimeMs);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
+    return { available: false, reason: 'INVALID_INTERVAL' };
+  }
+
+  const all = [];
+  const latest = await okx(`/api/v5/market/trades?instId=${encodeURIComponent(instId)}&limit=500`, fetchImpl);
+  all.push(...latest);
+  const normalizedLatest = latest.map(normalizeTrade).filter(Boolean).sort((a, b) => a.time - b.time);
+  if (!normalizedLatest.length) return { available: false, reason: 'NO_VALID_TRADES' };
+
+  let oldestTime = normalizedLatest[0].time;
+  let pages = 1;
+  const pageBudget = runtimePageBudget(maxPages);
+  const pageDelayMs = runtimePageDelayMs();
+
+  while (oldestTime > start && pages < pageBudget) {
+    if (pageDelayMs > 0) await sleep(pageDelayMs);
+    const page = await okx(`/api/v5/market/history-trades?instId=${encodeURIComponent(instId)}&type=2&after=${oldestTime}&limit=100`, fetchImpl);
+    if (!page.length) break;
+    all.push(...page);
+    const normalized = page.map(normalizeTrade).filter(Boolean).sort((a, b) => a.time - b.time);
+    if (!normalized.length) break;
+    const nextOldest = normalized[0].time;
+    if (nextOldest >= oldestTime) break;
+    oldestTime = nextOldest;
+    pages += 1;
+  }
+
+  const out = aggregateTakerInterval(all, { startTimeMs: start, endTimeMs: end });
+  return {
+    ...out,
+    pagesFetched: pages,
+    requestedMaxPages: maxPages,
+    maxPages: pageBudget,
+    pageDelayMs,
+    recentLimit: 500,
+    endpointLatest: '/api/v5/market/trades',
+    endpointHistory: '/api/v5/market/history-trades',
+    paginationType: 'timestamp',
     transientRetryPolicy: {
       maxAttempts: MAX_TRANSIENT_ATTEMPTS,
       statuses: [429, '5xx'],
