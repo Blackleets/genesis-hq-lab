@@ -1,4 +1,4 @@
-# Maker Fill Calibration v3
+# Maker Fill Calibration v4
 
 Status: **RESEARCH_ONLY**  
 Execution authority: **none**
@@ -41,7 +41,7 @@ Genesis gives **zero credit to cancellations**. Price touch alone is never count
 
 ## Horizons
 
-Calibration v3 keeps these cohorts separate:
+Calibration v4 keeps these cohorts separate:
 
 - 1,000 ms
 - 3,000 ms
@@ -62,17 +62,34 @@ Observations are segmented by:
 - queue-coverage bucket;
 - observed spread bucket.
 
-The default minimum is **100 valid observations per cohort**.
+The sequential protocol is locked **before** enough observations exist:
 
-The sample fill rate is diagnostic. The value eligible for downstream research is the **95% Wilson lower confidence bound**.
+```text
+first 100  → CALIBRATION
+next 50    → VALIDATION
+next 50    → SEALED HOLDOUT
+```
 
-Until a cohort reaches its minimum:
+The first 100 observations may expose calibration/training diagnostics, but they **do not** produce a usable fill probability.
 
-`INSUFFICIENT_DATA`
+While the next 50 validation observations are accumulating, their metrics remain sealed. Only when all 50 exist are validation metrics revealed. At that point the research-only usable fill probability is:
 
-and:
+```text
+min(
+  Wilson 95% lower bound on calibration,
+  Wilson 95% lower bound on validation
+)
+```
+
+The next 50 observations are the holdout. Routine reports expose only the holdout count and readiness status; they never expose holdout outcomes or metrics. A separate explicit one-time audit is required to unseal it.
+
+Observations after the first 200 in a cohort cannot change the locked calibration/validation/holdout allocation.
+
+Until validation is complete:
 
 `usableFillProbability = null`
+
+and the cohort is not eligible even for downstream SHADOW calibration.
 
 ## Adverse selection
 
@@ -92,7 +109,7 @@ max(0, future mid - quote price)
 
 normalized to bps against entry mid.
 
-Reports expose p50 / p75 / p90 adverse-selection bps for filled observations.
+Calibration reports expose p50 / p75 / p90 adverse-selection bps for filled observations in the calibration segment and, once complete, the validation segment. Holdout adverse-selection metrics remain sealed in routine reports.
 
 ## Durable evidence
 
@@ -119,3 +136,5 @@ Historical `maker_queue_depletion_tape_v1` rows remain preserved in the tape but
 - insufficient/malformed evidence fails closed.
 
 The report is explicitly `notForLiveScoring: true` while evidence is being accumulated and reviewed.
+
+The report also includes a SHA-256 hash of the effective sequential protocol so any future change to sample splits, buckets, Wilson confidence level or timing gate produces a different research protocol identity.

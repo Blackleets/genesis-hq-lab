@@ -14,7 +14,8 @@ This roadmap is about **research quality and contributor leverage**, not a promi
 - [x] Queue-aware maker shadow evaluator
 - [x] RPI microprice and depth-band features
 - [x] Causal maker queue-depletion capture tape (+1s / +3s / +10s)
-- [ ] Empirical maker fill-probability calibration (accumulating ≥100 observations per cohort)
+- [ ] Empirical maker fill-probability calibration (100 calibration + 50 validation per cohort)
+- [x] Sequential maker protocol locked with 50-observation sealed holdout
 - [ ] Empirical adverse-selection calibration by regime
 - [ ] Unified machine-readable economic scoreboard across research lanes
 - [ ] Data-quality report for every promoted study
