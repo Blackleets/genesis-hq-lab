@@ -11,8 +11,10 @@ Read these files:
 1. `AGENTS.md`
 2. `docs/RESEARCH_PRINCIPLES.md`
 3. `docs/ARCHITECTURE_PUBLIC.md`
-4. `docs/VISION.md`
-5. `docs/DESIGN_DIRECTION.md` before any UI change
+4. `docs/EVIDENCE_SCHEMA.md`
+5. `docs/REPRODUCIBILITY.md`
+6. `docs/VISION.md`
+7. `docs/DESIGN_DIRECTION.md` before any UI change
 
 The repository's safety rules are binding.
 
