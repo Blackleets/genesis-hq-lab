@@ -73,3 +73,13 @@ test('stale book is rejected even when economic inputs are positive', () => {
   assert.equal(r.verdict, 'NO_GO');
   assert.ok(r.blockers.includes('fresh'));
 });
+
+
+test('empirical capture cannot exceed the spread actually observed', () => {
+  const r = evaluateMakerShadowCandidate(base({
+    observedSpreadBps: 2,
+    empiricalSpreadCaptureBps: 3,
+  }));
+  assert.equal(r.verdict, 'NO_GO');
+  assert.ok(r.blockers.includes('captureWithinObservedSpread'));
+});
