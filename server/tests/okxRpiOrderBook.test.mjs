@@ -60,6 +60,7 @@ test('invalid or crossed book never fabricates a mid price', () => {
   });
   assert.equal(result.rpiMidPrice, null);
   assert.equal(result.rpiSpreadBps, null);
+  assert.equal(result.rpiMicroprice, null);
 });
 
 
