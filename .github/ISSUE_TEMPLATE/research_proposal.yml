@@ -1,0 +1,43 @@
+name: Research proposal
+description: Propose a new evidence-first research hypothesis or market-data study.
+title: "[research] "
+labels: []
+body:
+  - type: textarea
+    id: hypothesis
+    attributes:
+      label: Hypothesis
+      description: State a falsifiable market hypothesis.
+      placeholder: "Example: Under condition X, feature Y predicts Z over horizon H net of costs."
+    validations:
+      required: true
+  - type: textarea
+    id: data
+    attributes:
+      label: Data and provenance
+      description: Which public/read-only data sources are required, and how will timestamps/freshness be verified?
+    validations:
+      required: true
+  - type: textarea
+    id: economics
+    attributes:
+      label: Economic model
+      description: List fees, slippage, fill assumptions, failure costs, adverse selection or other costs.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation plan
+      description: Define sample size, forward horizon, OOS/walk-forward plan, rejection criteria and holdout policy.
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Safety boundary
+      options:
+        - label: This proposal does not require enabling real-money execution.
+          required: true
+        - label: Missing evidence will fail closed rather than be treated as zero cost.
+          required: true
