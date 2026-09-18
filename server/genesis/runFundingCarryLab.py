@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
-VERSION = "funding_carry_lab_v3_cost_aware_oos"
+VERSION = "funding_carry_lab_v4_causal_cost_aware_oos"
 BASE = "https://data.binance.vision/data"
 SYMBOLS = [x.strip() for x in os.getenv("GENESIS_FUNDING_SYMBOLS", "BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,XRPUSDT,DOGEUSDT,LINKUSDT").split(",") if x.strip()]
 MONTHS_BACK = max(4, min(12, int(os.getenv("GENESIS_FUNDING_MONTHS", "12"))))
@@ -93,15 +93,26 @@ def numeric(value):
 
 
 def parse_kline_rows(rows):
+    """Return (information_available_at_ms, close).
+
+    Binance kline column 0 is OPEN time. The close in column 4 is not known at
+    that instant; it becomes usable only at column 6 (close time). Using open
+    time here leaks up to one hour of future price information into funding
+    decisions. Rows without an explicit valid close timestamp fail closed.
+    """
     out = []
     for row in rows:
-        if len(row) < 5:
+        if len(row) < 7:
             continue
-        ts = numeric(row[0])
+        open_ts = numeric(row[0])
         close = numeric(row[4])
-        if ts is None or close is None or close <= 0:
+        close_ts = numeric(row[6])
+        if open_ts is None or close_ts is None or close is None or close <= 0:
             continue
-        out.append((normalize_ts(ts), float(close)))
+        open_ts, close_ts = normalize_ts(open_ts), normalize_ts(close_ts)
+        if close_ts <= open_ts:
+            continue
+        out.append((close_ts, float(close)))
     return out
 
 
@@ -168,6 +179,7 @@ def fetch_symbol(symbol, months):
 
 
 def latest_price_at(series, timestamp):
+    """Latest close whose information-availability timestamp is <= decision time."""
     lo, hi = 0, len(series) - 1
     best = None
     while lo <= hi:
@@ -330,6 +342,7 @@ def main():
         "methodology": {
             "source": "Official Binance Vision monthly archives: USD-M funding + spot 1h + perpetual 1h",
             "archiveMonths": months, "symbols": SYMBOLS, "split": "60% train / 20% validation / 20% holdout",
+            "causalPriceAlignment": "Kline close is timestamped at Binance close-time (column 6), never open-time; only prices already observable at each funding decision are eligible.",
             "signal": "cost-aware: trailing funding must project to cover full round-trip cost + safety buffer; positive funding and non-negative entry basis required",
             "signalLookbackFundingEvents": SIGNAL_LOOKBACK, "horizonsFundingEvents": HORIZONS,
             "horizonSelection": "train only; frozen for validation and holdout",
