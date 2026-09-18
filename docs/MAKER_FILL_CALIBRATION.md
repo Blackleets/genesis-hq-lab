@@ -1,4 +1,4 @@
-# Maker Fill Calibration v2
+# Maker Fill Calibration v3
 
 Status: **RESEARCH_ONLY**  
 Execution authority: **none**
@@ -16,7 +16,9 @@ hypothetical BUY + SELL quotes
    ↓
 exact post-entry aggressive trade interval
    ↓
-future RPI book at +1s / +3s / +10s
+aggressive flow cut exactly at t0 + 1s / 3s / 10s
+   ↓
+future RPI book markout (≤25% timing drift)
    ↓
 queue-depletion fill label
    ↓
@@ -39,13 +41,13 @@ Genesis gives **zero credit to cancellations**. Price touch alone is never count
 
 ## Horizons
 
-Calibration v2 keeps these cohorts separate:
+Calibration v3 keeps these cohorts separate:
 
 - 1,000 ms
 - 3,000 ms
 - 10,000 ms
 
-A 10-second fill rate can never silently become a 1-second fill rate.
+A 10-second fill rate can never silently become a 1-second fill rate. The aggressive-flow interval ends at the exact target timestamp even if the future order-book snapshot arrives slightly later. Markout snapshots beyond 25% timing drift are rejected.
 
 ## Cohorts
 
@@ -98,7 +100,9 @@ The calibration report is produced by:
 
 `server/research/runMakerFillCalibration.mjs`
 
-Each durable observation records exact entry/future source timestamps, interval trade-flow provenance, queue size, order size, flow toward the quote, fill ratio and safety boundaries.
+Each durable observation records exact entry/future source timestamps, exact target flow horizon, markout timing drift, interval trade-flow provenance, queue size, order size, flow toward the quote, fill ratio and safety boundaries.
+
+Historical `maker_queue_depletion_tape_v1` rows remain preserved in the tape but are rejected from v3 calibration because v1 could count aggressive flow beyond the nominal target horizon.
 
 ## Safety
 
