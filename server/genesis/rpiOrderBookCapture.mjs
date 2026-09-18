@@ -15,7 +15,7 @@ export async function captureRpiOrderBook({ instId = 'BTC-USDT-SWAP', depth = 20
   const context = await getOkxRpiOrderBookContext(instId, { depth });
   const capturedAt = new Date().toISOString();
   const payload = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     mode: 'RESEARCH_ONLY',
     provider: 'okx',
     source: context.source,
@@ -33,6 +33,20 @@ export async function captureRpiOrderBook({ instId = 'BTC-USDT-SWAP', depth = 20
       rpiDepthImbalance: context.rpiDepthImbalance,
       rpiDepthShare: context.rpiDepthShare,
       rpiSpreadBps: context.rpiSpreadBps,
+      rpiMicroprice: context.rpiMicroprice,
+      rpiMicropriceSkewBps: context.rpiMicropriceSkewBps,
+      rpiBidDepth10Bps: context.rpiBidDepth10Bps,
+      rpiAskDepth10Bps: context.rpiAskDepth10Bps,
+      rpiDepthImbalance10Bps: context.rpiDepthImbalance10Bps,
+      rpiBidDepth25Bps: context.rpiBidDepth25Bps,
+      rpiAskDepth25Bps: context.rpiAskDepth25Bps,
+      rpiDepthImbalance25Bps: context.rpiDepthImbalance25Bps,
+      rpiBidDepth50Bps: context.rpiBidDepth50Bps,
+      rpiAskDepth50Bps: context.rpiAskDepth50Bps,
+      rpiDepthImbalance50Bps: context.rpiDepthImbalance50Bps,
+      rpiBidOrderCount: context.rpiBidOrderCount,
+      rpiAskOrderCount: context.rpiAskOrderCount,
+      rpiOrderCountImbalance: context.rpiOrderCountImbalance,
     },
     researchUse: 'OBSERVATIONAL_ONLY_NOT_IN_H1',
   };
