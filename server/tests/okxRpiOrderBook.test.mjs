@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { deriveRpiOrderBookFeatures, getOkxRpiOrderBookContext } from '../genesis/okxRpiOrderBook.mjs';
 
 test('deriveRpiOrderBookFeatures computes depth imbalance without direction inversion', () => {
@@ -112,4 +114,25 @@ test('missing numeric fields are rejected instead of coerced to zero', () => {
   assert.equal(features.rpiBestBid, null);
   assert.equal(features.rpiMidPrice, null);
   assert.equal(features.rpiMicroprice, null);
+});
+
+
+test('synthetic RPI replay fixture exercises balanced and imbalanced depth deterministically', () => {
+  const fixturePath = fileURLToPath(new URL('./fixtures/rpi-orderbook-mini-replay.jsonl', import.meta.url));
+  const rows = fs.readFileSync(fixturePath, 'utf8')
+    .trim()
+    .split(/\r?\n/)
+    .map((line) => JSON.parse(line));
+
+  assert.equal(rows.length, 6);
+  assert.ok(rows.every((row) => row.fixtureOnly === true));
+
+  const byId = new Map(rows.map((row) => [row.fixtureId, deriveRpiOrderBookFeatures(row)]));
+
+  assert.ok(Math.abs(byId.get('balanced').rpiDepthImbalance) < 1e-12);
+  assert.ok(byId.get('bid-heavy').rpiDepthImbalance > 0);
+  assert.ok(byId.get('ask-heavy').rpiDepthImbalance < 0);
+  assert.ok(byId.get('microprice-up').rpiMicropriceSkewBps > 0);
+  assert.ok(byId.get('wide-depth-bid').rpiBidDepth50Bps > byId.get('wide-depth-bid').rpiAskDepth50Bps);
+  assert.ok(byId.get('wide-depth-ask').rpiAskDepth50Bps > byId.get('wide-depth-ask').rpiBidDepth50Bps);
 });
