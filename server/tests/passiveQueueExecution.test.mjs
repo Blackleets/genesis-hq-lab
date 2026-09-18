@@ -57,3 +57,87 @@ test('one-sided partial fill is scaled instead of pretending a full fill', () =>
   assert.equal(x.askFillRatio, 0);
   assert.equal(x.outcome, 'PARTIAL_ONE_SIDE');
 });
+
+
+test('no fill has zero realized adverse selection even when mid moves sharply', () => {
+  const current = { capturedAtMs: 1000, bid: 99.95, ask: 100.05, mid: 100, bidQty: 10, askQty: 10 };
+  const next = { mid: 99.5 };
+  const x = passiveQuoteWindow({
+    current, next, trades: [], quoteNotionalUsd: 100,
+    queueAheadMultiplier: 1, makerFeeBpsPerSide: 0, inventoryReserveBps: 0,
+  });
+  assert.equal(x.outcome, 'NO_FILL');
+  assert.equal(x.adverseSelectionBps, 0);
+  assert.ok(x.nextMidMoveBps < 0);
+});
+
+test('bid fill adverse selection is harmful-only and fill weighted', () => {
+  const current = { capturedAtMs: 1000, bid: 99.95, ask: 100.05, mid: 100, bidQty: 1, askQty: 100 };
+  const adverse = passiveQuoteWindow({
+    current,
+    next: { mid: 99.90 },
+    trades: [{ time: 1010, price: 99.95, qty: 1.5, buyerIsMaker: true }],
+    quoteNotionalUsd: 100,
+    queueAheadMultiplier: 1,
+  });
+  assert.equal(adverse.bidFillRatio, 0.5);
+  assert.equal(adverse.askFillRatio, 0);
+  assert.ok(Math.abs(adverse.bidAdverseSelectionBps - 5) < 1e-9);
+  assert.ok(Math.abs(adverse.adverseSelectionBps - 2.5) < 1e-9);
+
+  const favorable = passiveQuoteWindow({
+    current,
+    next: { mid: 100.10 },
+    trades: [{ time: 1010, price: 99.95, qty: 2, buyerIsMaker: true }],
+    quoteNotionalUsd: 100,
+    queueAheadMultiplier: 1,
+  });
+  assert.equal(favorable.bidFillRatio, 1);
+  assert.equal(favorable.bidAdverseSelectionBps, 0);
+  assert.equal(favorable.adverseSelectionBps, 0);
+});
+
+test('ask fill adverse selection is harmful-only and fill weighted', () => {
+  const current = { capturedAtMs: 1000, bid: 99.95, ask: 100.05, mid: 100, bidQty: 100, askQty: 1 };
+  const adverse = passiveQuoteWindow({
+    current,
+    next: { mid: 100.10 },
+    trades: [{ time: 1010, price: 100.05, qty: 1.5, buyerIsMaker: false }],
+    quoteNotionalUsd: 100,
+    queueAheadMultiplier: 1,
+  });
+  assert.equal(adverse.askFillRatio, 0.5);
+  assert.equal(adverse.bidFillRatio, 0);
+  assert.ok(Math.abs(adverse.askAdverseSelectionBps - 5) < 1e-9);
+  assert.ok(Math.abs(adverse.adverseSelectionBps - 2.5) < 1e-9);
+
+  const favorable = passiveQuoteWindow({
+    current,
+    next: { mid: 99.90 },
+    trades: [{ time: 1010, price: 100.05, qty: 2, buyerIsMaker: false }],
+    quoteNotionalUsd: 100,
+    queueAheadMultiplier: 1,
+  });
+  assert.equal(favorable.askFillRatio, 1);
+  assert.equal(favorable.askAdverseSelectionBps, 0);
+  assert.equal(favorable.adverseSelectionBps, 0);
+});
+
+test('two-sided fills only charge the side with harmful markout and preserve signed mid move', () => {
+  const current = { capturedAtMs: 1000, bid: 99.95, ask: 100.05, mid: 100, bidQty: 1, askQty: 1 };
+  const next = { mid: 100.10 };
+  const trades = [
+    { time: 1010, price: 99.95, qty: 2, buyerIsMaker: true },
+    { time: 1011, price: 100.05, qty: 2, buyerIsMaker: false },
+  ];
+  const x = passiveQuoteWindow({
+    current, next, trades, quoteNotionalUsd: 100,
+    queueAheadMultiplier: 1,
+  });
+  assert.equal(x.bidFillRatio, 1);
+  assert.equal(x.askFillRatio, 1);
+  assert.equal(x.bidAdverseSelectionBps, 0);
+  assert.ok(Math.abs(x.askAdverseSelectionBps - 5) < 1e-9);
+  assert.ok(Math.abs(x.adverseSelectionBps - 5) < 1e-9);
+  assert.ok(Math.abs(x.nextMidMoveBps - 10) < 1e-9);
+});
