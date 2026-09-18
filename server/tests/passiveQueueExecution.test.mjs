@@ -141,3 +141,22 @@ test('two-sided fills only charge the side with harmful markout and preserve sig
   assert.ok(Math.abs(x.adverseSelectionBps - 5) < 1e-9);
   assert.ok(Math.abs(x.nextMidMoveBps - 10) < 1e-9);
 });
+
+
+test('missing top-of-book queue depth fails closed instead of assuming zero queue', () => {
+  assert.throws(() => passiveQuoteWindow({
+    current: { capturedAtMs: 1000, bid: 99.95, ask: 100.05, mid: 100, askQty: 1 },
+    next: { mid: 100 },
+    trades: [],
+    quoteNotionalUsd: 100,
+    queueAheadMultiplier: 1,
+  }), /invalid_quote_window/);
+
+  assert.throws(() => passiveQuoteWindow({
+    current: { capturedAtMs: 1000, bid: 99.95, ask: 100.05, mid: 100, bidQty: 1 },
+    next: { mid: 100 },
+    trades: [],
+    quoteNotionalUsd: 100,
+    queueAheadMultiplier: 1,
+  }), /invalid_quote_window/);
+});
