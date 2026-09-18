@@ -30,6 +30,7 @@ on:
       - 'server/tests/volatilitySizingImpact.test.mjs'
       - 'server/tests/volatilityNormalizedExit.test.mjs'
       - 'server/tests/passiveQueueExecution.test.mjs'
+      - 'server/tests/test_funding_carry_causality.py'
       - '.github/workflows/institutional-edge-stack.yml'
   schedule:
     - cron: '17,47 * * * *'
@@ -59,6 +60,9 @@ jobs:
 
       - name: Safety, allocation and smart-execution tests
         run: node --test server/tests/institutionalEdgeAllocator.test.mjs server/tests/institutionalSmartExecution.test.mjs server/tests/solanaLiquidityEconomics.test.mjs server/tests/volatilitySizingEngine.test.mjs server/tests/volatilitySizingImpact.test.mjs server/tests/volatilityNormalizedExit.test.mjs server/tests/futuresGovernorRiskEscalation.test.mjs server/tests/passiveQueueExecution.test.mjs
+
+      - name: Funding carry causality tests
+        run: python3 -m unittest server/tests/test_funding_carry_causality.py
 
       - name: Market Making Lab — queue-aware passive execution + microprice evidence
         run: node server/genesis/runMarketMakingLab.mjs
