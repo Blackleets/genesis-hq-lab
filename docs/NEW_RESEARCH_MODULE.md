@@ -2,6 +2,8 @@
 
 This is the smallest recommended path for adding a new Genesis research hypothesis.
 
+A working copyable implementation lives at `server/research/templates/researchStudyTemplate.mjs`, with invariants in `server/tests/researchStudyTemplate.test.mjs`.
+
 The goal is to make research modules easy to add **without** making execution authority easy to add.
 
 ## 1. State the hypothesis
