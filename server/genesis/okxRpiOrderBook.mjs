@@ -17,6 +17,7 @@ async function getJson(path, fetchImpl = fetch) {
 }
 
 function finite(value) {
+  if (value === null || value === undefined || value === '') return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
@@ -28,6 +29,21 @@ function parseSide(rows = []) {
     nonRpiQty: finite(row?.[2]),
     orderCount: finite(row?.[3]),
   })).filter(row => row.price !== null && row.totalQty !== null && row.totalQty >= 0);
+}
+
+function normalizedImbalance(bidValue, askValue) {
+  const total = bidValue + askValue;
+  return total > 0 ? (bidValue - askValue) / total : null;
+}
+
+function depthWithinBps(rows, mid, side, bps) {
+  if (!(mid > 0)) return null;
+  const band = bps / 10_000;
+  return rows
+    .filter(row => side === 'bid'
+      ? row.price >= mid * (1 - band)
+      : row.price <= mid * (1 + band))
+    .reduce((sum, row) => sum + row.totalQty, 0);
 }
 
 export function deriveRpiOrderBookFeatures(snapshot = {}) {
@@ -43,18 +59,61 @@ export function deriveRpiOrderBookFeatures(snapshot = {}) {
   const bestAsk = asks[0]?.price ?? null;
   const mid = bestBid !== null && bestAsk !== null && bestAsk >= bestBid ? (bestBid + bestAsk) / 2 : null;
   const spreadBps = mid && mid > 0 ? ((bestAsk - bestBid) / mid) * 10000 : null;
-  const imbalance = totalDepth > 0 ? (bidDepth - askDepth) / totalDepth : null;
+  const imbalance = normalizedImbalance(bidDepth, askDepth);
   const rpiDepthShare = totalDepth > 0 ? Math.max(0, totalDepth - nonRpiDepth) / totalDepth : null;
+
+  const topBidQty = bids[0]?.totalQty ?? null;
+  const topAskQty = asks[0]?.totalQty ?? null;
+  const topQty = topBidQty !== null && topAskQty !== null ? topBidQty + topAskQty : null;
+  const microprice = mid !== null && topQty > 0
+    ? ((bestAsk * topBidQty) + (bestBid * topAskQty)) / topQty
+    : null;
+  const micropriceSkewBps = microprice !== null && mid > 0
+    ? ((microprice - mid) / mid) * 10_000
+    : null;
+
+  const bidDepth10 = depthWithinBps(bids, mid, 'bid', 10);
+  const askDepth10 = depthWithinBps(asks, mid, 'ask', 10);
+  const bidDepth25 = depthWithinBps(bids, mid, 'bid', 25);
+  const askDepth25 = depthWithinBps(asks, mid, 'ask', 25);
+  const bidDepth50 = depthWithinBps(bids, mid, 'bid', 50);
+  const askDepth50 = depthWithinBps(asks, mid, 'ask', 50);
+
+  const bidOrderCount = bids.reduce((sum, row) => sum + Math.max(0, row.orderCount ?? 0), 0);
+  const askOrderCount = asks.reduce((sum, row) => sum + Math.max(0, row.orderCount ?? 0), 0);
+
   return {
     rpiBookLevelCount: Math.min(bids.length, asks.length),
     rpiBestBid: bestBid,
     rpiBestAsk: bestAsk,
+    rpiBestBidQty: topBidQty,
+    rpiBestAskQty: topAskQty,
     rpiMidPrice: mid,
     rpiBidDepth: bidDepth,
     rpiAskDepth: askDepth,
     rpiDepthImbalance: imbalance,
     rpiDepthShare,
     rpiSpreadBps: spreadBps,
+    rpiMicroprice: microprice,
+    rpiMicropriceSkewBps: micropriceSkewBps,
+    rpiBidDepth10Bps: bidDepth10,
+    rpiAskDepth10Bps: askDepth10,
+    rpiDepthImbalance10Bps: bidDepth10 !== null && askDepth10 !== null
+      ? normalizedImbalance(bidDepth10, askDepth10)
+      : null,
+    rpiBidDepth25Bps: bidDepth25,
+    rpiAskDepth25Bps: askDepth25,
+    rpiDepthImbalance25Bps: bidDepth25 !== null && askDepth25 !== null
+      ? normalizedImbalance(bidDepth25, askDepth25)
+      : null,
+    rpiBidDepth50Bps: bidDepth50,
+    rpiAskDepth50Bps: askDepth50,
+    rpiDepthImbalance50Bps: bidDepth50 !== null && askDepth50 !== null
+      ? normalizedImbalance(bidDepth50, askDepth50)
+      : null,
+    rpiBidOrderCount: bidOrderCount,
+    rpiAskOrderCount: askOrderCount,
+    rpiOrderCountImbalance: normalizedImbalance(bidOrderCount, askOrderCount),
   };
 }
 
