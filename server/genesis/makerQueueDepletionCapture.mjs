@@ -151,7 +151,7 @@ export function buildMakerFillObservation({
       priceTouchAloneCountsAsFill: false,
       exactFlowHorizon: true,
       maxMarkoutHorizonDriftRatio: MAX_MARKOUT_HORIZON_DRIFT_RATIO,
-      captureScheduler: 'BOOKS_FIRST_DEFERRED_FLOW_V1',
+      captureScheduler: 'BOOKS_FIRST_SOURCE_ALIGNED_DEFERRED_FLOW_V2',
     },
     boundaries: {
       executionAuthority: false,
@@ -364,10 +364,12 @@ if (process.argv[1]?.endsWith('makerQueueDepletionCapture.mjs')) {
 
   const all = [];
   const failures = [];
+  const captureTimings = [];
   for (let i = 0; i < samples; i += 1) {
     const burst = await captureMakerQueueBurst({ instId, orderSizeUnits, horizonsMs });
     all.push(...burst.observations);
     failures.push(...burst.failures);
+    captureTimings.push(burst.captureTiming);
     if (i < samples - 1 && sampleGapMs > 0) await sleep(sampleGapMs);
   }
 
@@ -382,6 +384,7 @@ if (process.argv[1]?.endsWith('makerQueueDepletionCapture.mjs')) {
     samples,
     horizonsMs,
     orderSizeUnits,
+    captureTimings,
     observationCount: all.length,
     failureCount: failures.length,
     observations: all,
