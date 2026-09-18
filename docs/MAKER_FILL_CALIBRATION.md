@@ -49,6 +49,8 @@ Calibration v3 keeps these cohorts separate:
 
 A 10-second fill rate can never silently become a 1-second fill rate. The aggressive-flow interval ends at the exact target timestamp even if the future order-book snapshot arrives slightly later. Markout snapshots beyond 25% timing drift are rejected.
 
+The burst uses a **books-first scheduler**: it captures every future RPI snapshot before doing slower historical-trade pagination. This prevents the +1s flow query from delaying the +3s or +10s book snapshot.
+
 ## Cohorts
 
 Observations are segmented by:
