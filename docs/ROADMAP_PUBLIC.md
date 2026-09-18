@@ -20,12 +20,13 @@ This roadmap is about **research quality and contributor leverage**, not a promi
 
 ### P1 — Contributor-ready research SDK
 
-- [ ] Stable evidence schema documentation
+- [x] Stable evidence schema documentation
 - [ ] Minimal interface for new read-only market adapters
 - [ ] Minimal interface for a new research hypothesis
 - [ ] Example replay dataset small enough for CI
 - [ ] Research-module template with protocol lock + tests
 - [ ] Contributor documentation for adding a venue without adding execution authority
+- [x] Public reproducibility guide
 
 ### P2 — Better cross-venue economics
 
