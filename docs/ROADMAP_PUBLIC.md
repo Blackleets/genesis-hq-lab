@@ -23,7 +23,7 @@ This roadmap is about **research quality and contributor leverage**, not a promi
 - [x] Stable evidence schema documentation
 - [x] Minimal interface for new read-only market adapters
 - [x] Minimal interface for a new research hypothesis
-- [ ] Example replay dataset small enough for CI
+- [x] Example replay dataset small enough for CI
 - [x] Research-module template with versioned protocol hash + tests
 - [x] Contributor documentation for adding a venue without adding execution authority
 - [x] Public reproducibility guide
