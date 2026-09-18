@@ -13,6 +13,7 @@
   <img alt="Founder control checks" src="https://github.com/Blackleets/genesis-hq-lab/actions/workflows/founder-control-checks.yml/badge.svg?branch=feat%2Fgenesis-life-os" />
   <img alt="Edge discovery invariants" src="https://github.com/Blackleets/genesis-hq-lab/actions/workflows/edge-discovery-invariants.yml/badge.svg?branch=feat%2Fgenesis-life-os" />
   <img alt="Profit ratchet observability" src="https://github.com/Blackleets/genesis-hq-lab/actions/workflows/profit-ratchet-observability.yml/badge.svg?branch=feat%2Fgenesis-life-os" />
+  <img alt="Institutional edge stack" src="https://github.com/Blackleets/genesis-hq-lab/actions/workflows/institutional-edge-stack.yml/badge.svg?branch=feat%2Fgenesis-life-os" />
 </p>
 
 <p align="center">
@@ -21,6 +22,7 @@
   <a href="./docs/RESEARCH_PRINCIPLES.md">Research principles</a> ·
   <a href="./docs/ROADMAP_PUBLIC.md">Roadmap</a> ·
   <a href="./docs/REPRODUCIBILITY.md">Reproducibility</a> ·
+  <a href="https://github.com/Blackleets/genesis-hq-lab/actions/workflows/institutional-edge-stack.yml">Latest research run</a> ·
   <a href="./CONTRIBUTING.md">Contribute</a>
 </p>
 
@@ -278,6 +280,23 @@ The near-term focus is deliberately narrow:
 6. keep real-capital execution locked until promotion criteria are satisfied.
 
 See [docs/ROADMAP_PUBLIC.md](./docs/ROADMAP_PUBLIC.md).
+
+## Live research evidence
+
+The scheduled **Genesis Institutional Edge Stack** publishes a human-readable GitHub Actions summary plus downloadable machine-readable artifacts on each completed research run.
+
+The summary exposes:
+
+- qualified research sleeves and paper cash reserve;
+- smart-execution decision (`WAIT`, `MAKE` or `TAKE`);
+- maker-market-making expectancy and fill evidence;
+- statistical-arbitrage OOS status;
+- funding-carry OOS status;
+- Solana-liquidity research eligibility.
+
+[Open the latest Institutional Edge Stack runs](https://github.com/Blackleets/genesis-hq-lab/actions/workflows/institutional-edge-stack.yml).
+
+These are research/paper measurements. They are **not live PnL** and are not presented as proof of profitability.
 
 ## Production
 

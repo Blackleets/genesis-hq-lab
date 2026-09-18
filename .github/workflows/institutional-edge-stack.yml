@@ -33,6 +33,8 @@ on:
       - 'server/tests/passiveQueueExecution.test.mjs'
       - 'server/tests/test_funding_carry_causality.py'
       - 'server/tests/runFundingCarryLabJsCausality.test.mjs'
+      - 'scripts/publicResearchRunSummary.mjs'
+      - 'server/tests/publicResearchRunSummary.test.mjs'
       - '.github/workflows/institutional-edge-stack.yml'
   schedule:
     - cron: '17,47 * * * *'
@@ -61,7 +63,7 @@ jobs:
             solana-liquidity-v4-history-
 
       - name: Safety, allocation and smart-execution tests
-        run: node --test server/tests/institutionalEdgeAllocator.test.mjs server/tests/institutionalSmartExecution.test.mjs server/tests/solanaLiquidityEconomics.test.mjs server/tests/volatilitySizingEngine.test.mjs server/tests/volatilitySizingImpact.test.mjs server/tests/volatilityNormalizedExit.test.mjs server/tests/futuresGovernorRiskEscalation.test.mjs server/tests/passiveQueueExecution.test.mjs
+        run: node --test server/tests/institutionalEdgeAllocator.test.mjs server/tests/institutionalSmartExecution.test.mjs server/tests/solanaLiquidityEconomics.test.mjs server/tests/volatilitySizingEngine.test.mjs server/tests/volatilitySizingImpact.test.mjs server/tests/volatilityNormalizedExit.test.mjs server/tests/futuresGovernorRiskEscalation.test.mjs server/tests/passiveQueueExecution.test.mjs server/tests/publicResearchRunSummary.test.mjs
 
       - name: Funding carry causality tests
         run: |
@@ -120,6 +122,9 @@ jobs:
             volatilitySizingImpact:volImpact.summary,
           }));
           NODE
+
+      - name: Publish public research summary
+        run: node scripts/publicResearchRunSummary.mjs
 
       - uses: actions/upload-artifact@v4
         with:
