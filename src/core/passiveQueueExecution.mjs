@@ -52,8 +52,9 @@ export function passiveQuoteWindow({
   orderLatencyMs = 0,
 } = {}) {
   const mid = finite(current?.mid), bid = finite(current?.bid), ask = finite(current?.ask);
+  const bidQty = finite(current?.bidQty), askQty = finite(current?.askQty);
   const nextMid = finite(next?.mid);
-  if (!(mid > 0 && bid > 0 && ask > bid && nextMid > 0)) throw new Error('invalid_quote_window');
+  if (!(mid > 0 && bid > 0 && ask > bid && bidQty >= 0 && askQty >= 0 && nextMid > 0)) throw new Error('invalid_quote_window');
 
   const quoteQty = Math.max(0, Number(quoteNotionalUsd) / mid);
   const activationTimeMs = Number(current.capturedAtMs) + Math.max(0, Number(orderLatencyMs) || 0);
@@ -68,8 +69,9 @@ export function passiveQuoteWindow({
     if (trade.buyerIsMaker === false && px >= ask) buyFlowAtAsk += qty;
   }
 
-  const bidQueueAheadQty = Math.max(0, Number(current.bidQty || 0) * Math.max(0, Number(queueAheadMultiplier) || 0));
-  const askQueueAheadQty = Math.max(0, Number(current.askQty || 0) * Math.max(0, Number(queueAheadMultiplier) || 0));
+  const queueMultiplier = Math.max(0, Number(queueAheadMultiplier) || 0);
+  const bidQueueAheadQty = bidQty * queueMultiplier;
+  const askQueueAheadQty = askQty * queueMultiplier;
   const bidFill = riskAdversePartialFill({ queueAheadQty: bidQueueAheadQty, quoteQty, aggressorQty: sellFlowAtBid });
   const askFill = riskAdversePartialFill({ queueAheadQty: askQueueAheadQty, quoteQty, aggressorQty: buyFlowAtAsk });
 
