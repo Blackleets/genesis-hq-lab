@@ -163,3 +163,58 @@ test('future or missing source timestamps fail closed in evidence adapter', () =
   assert.equal(input.sourceAgeMs, null);
   assert.equal(evaluateMakerShadowCandidate(input).verdict, 'NO_GO');
 });
+
+
+test('empty-string numeric evidence fails closed instead of coercing to zero', () => {
+  const r = evaluateMakerShadowCandidate(base({ adverseSelectionBps: '' }));
+  assert.equal(r.verdict, 'NO_GO');
+  assert.ok(r.blockers.includes('inputsKnown'));
+  assert.equal(r.adverseSelectionBps, null);
+});
+
+test('non-numeric and non-finite evidence fail closed', () => {
+  for (const value of ['not-a-number', Number.NaN, Number.POSITIVE_INFINITY]) {
+    const r = evaluateMakerShadowCandidate(base({ inventoryRiskBps: value }));
+    assert.equal(r.verdict, 'NO_GO');
+    assert.ok(r.blockers.includes('inputsKnown'));
+    assert.equal(r.inventoryRiskBps, null);
+  }
+});
+
+test('negative queue evidence cannot satisfy queue coverage', () => {
+  const coverage = estimateQueueCoverage({
+    queueAheadUsd: -1,
+    orderSizeUsd: 100,
+    aggressiveFlowTowardQuoteUsd: 1_000,
+  });
+  assert.equal(coverage, null);
+
+  const r = evaluateMakerShadowCandidate(base({ queueAheadUsd: -1 }));
+  assert.equal(r.verdict, 'NO_GO');
+  assert.ok(r.blockers.includes('inputsKnown'));
+  assert.ok(r.blockers.includes('queueCoverage'));
+});
+
+test('fill probability outside [0, 1] fails closed', () => {
+  for (const value of [-0.01, 1.01]) {
+    const r = evaluateMakerShadowCandidate(base({ empiricalFillProbability: value }));
+    assert.equal(r.verdict, 'NO_GO');
+    assert.ok(r.blockers.includes('inputsKnown'));
+    assert.ok(r.blockers.includes('fillProbability'));
+    assert.equal(r.empiricalFillProbability, null);
+  }
+});
+
+test('missing side cannot become a candidate', () => {
+  const r = evaluateMakerShadowCandidate(base({ side: null }));
+  assert.equal(r.verdict, 'NO_GO');
+  assert.ok(r.blockers.includes('inputsKnown'));
+  assert.equal(r.side, null);
+});
+
+test('zero notional is invalid economic evidence', () => {
+  const r = evaluateMakerShadowCandidate(base({ notionalUsd: 0 }));
+  assert.equal(r.verdict, 'NO_GO');
+  assert.ok(r.blockers.includes('inputsKnown'));
+  assert.equal(r.expectedNetPnlUsd, null);
+});
