@@ -160,3 +160,38 @@ test('normalizer rejects NaN primitives explicitly', () => {
     observedAt: '2026-09-18T12:00:00Z',
   }), null);
 });
+
+
+test('durable v1 observations are rejected from exact-horizon v3 calibration', () => {
+  const legacy = {
+    ...rows(1)[0],
+    schemaVersion: 1,
+    version: 'maker_queue_depletion_tape_v1',
+    flowHorizonMs: 10_000,
+    markoutHorizonDriftRatio: 0.1,
+  };
+  const current = {
+    ...rows(1)[0],
+    schemaVersion: 1,
+    version: 'maker_queue_depletion_tape_v2_exact_flow_horizon',
+    flowHorizonMs: 10_000,
+    markoutHorizonDriftRatio: 0.1,
+  };
+  const report = calibrateMakerFillProbability([legacy, current]);
+  assert.equal(report.rawObservationCount, 2);
+  assert.equal(report.validObservationCount, 1);
+  assert.equal(report.rejectedObservationCount, 1);
+});
+
+test('durable timing mismatch or excessive markout drift fails closed', () => {
+  const base = {
+    ...rows(1)[0],
+    schemaVersion: 1,
+    version: 'maker_queue_depletion_tape_v2_exact_flow_horizon',
+    flowHorizonMs: 10_000,
+    markoutHorizonDriftRatio: 0.1,
+  };
+  assert.equal(normalizeFillObservation({ ...base, flowHorizonMs: 11_000 }), null);
+  assert.equal(normalizeFillObservation({ ...base, markoutHorizonDriftRatio: 0.251 }), null);
+  assert.notEqual(normalizeFillObservation(base), null);
+});
