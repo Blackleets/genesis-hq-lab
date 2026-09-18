@@ -58,6 +58,8 @@ if (process.argv[1]?.endsWith('runMakerFillCalibration.mjs')) {
       rawObservationCount: report.rawObservationCount,
       validObservationCount: report.validObservationCount,
       calibratedCohortCount: report.calibratedCohortCount,
+      validatedCohortCount: report.validatedCohortCount,
+      holdoutReadyCohortCount: report.holdoutReadyCohortCount,
     }));
   }
 }
