@@ -147,7 +147,7 @@ Unknown fill probability, adverse selection, stale evidence or impossible spread
 
 ### Requirements
 
-- Node.js 20+
+- Node.js 20.19+ or 22.12+ (Node 24 is the recommended contributor runtime)
 - npm
 - Git
 
