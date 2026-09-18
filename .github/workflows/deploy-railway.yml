@@ -4,10 +4,11 @@ name: Deploy to Railway
 # to feat/genesis-life-os — the same branch the Vercel frontend tracks, so
 # frontend and backend stay in sync.
 #
-# REQUIRED: add a GitHub Actions secret named RAILWAY_TOKEN
+# OPTIONAL: add a GitHub Actions secret named RAILWAY_TOKEN to enable deployment.
 #   GitHub → Settings → Secrets and variables → Actions → New repository secret
 #   Value: a Railway *project* token (Railway dashboard → project → Settings →
-#   Tokens). Without it this job fails fast with a clear message.
+#   Tokens). Without it the workflow reports an explicit SKIP rather than a
+#   false code failure.
 
 on:
   push:
@@ -32,13 +33,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Fail clearly if RAILWAY_TOKEN is missing
+      - name: Report deployment disabled when RAILWAY_TOKEN is missing
         if: env.RAILWAY_TOKEN == ''
         run: |
-          echo "::error::RAILWAY_TOKEN secret is not set — the backend cannot deploy."
-          echo "Add it: GitHub → Settings → Secrets and variables → Actions →"
+          echo "::warning::Railway deployment skipped: RAILWAY_TOKEN is not configured."
+          echo "This is an infrastructure configuration state, not a code failure."
+          echo "To enable deploys: GitHub → Settings → Secrets and variables → Actions →"
           echo "New repository secret → Name: RAILWAY_TOKEN, Value: <Railway project token>"
-          exit 1
+          {
+            echo "### Railway deployment"
+            echo ""
+            echo "⏭️ **Skipped** — `RAILWAY_TOKEN` is not configured."
+            echo ""
+            echo "Code checks may still be healthy; no deployment was attempted."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Install Railway CLI
         if: env.RAILWAY_TOKEN != ''
@@ -47,3 +55,12 @@ jobs:
       - name: Deploy to Railway
         if: env.RAILWAY_TOKEN != ''
         run: railway up --detach
+
+      - name: Summarize successful deployment request
+        if: env.RAILWAY_TOKEN != ''
+        run: |
+          {
+            echo "### Railway deployment"
+            echo ""
+            echo "✅ Railway CLI accepted the deployment request."
+          } >> "$GITHUB_STEP_SUMMARY"
