@@ -114,44 +114,14 @@ jobs:
         if: github.event_name != 'push'
         shell: bash
         run: |
-          set +e
-          output=$(node server/genesis/positioningDynamicsCapture.mjs \
+          node server/genesis/positioningDynamicsCapture.mjs \
             --symbol BTCUSDT \
             --out tape/paper-tape/positioning-dynamics-latest.json \
-            --jsonl tape/paper-tape/positioning-dynamics.jsonl 2>&1)
-          status=$?
-          set -e
-          printf '%s\n' "$output"
-          if [ "$status" -eq 0 ]; then
-            echo "available=true" >> "$GITHUB_OUTPUT"
-            node - <<'NODE'
-          const fs = require('fs');
-          fs.writeFileSync('tape/paper-tape/positioning-capture-status-latest.json', JSON.stringify({
-            mode: 'RESEARCH_ONLY',
-            available: true,
-            reason: null,
-            capturedAt: new Date().toISOString(),
-          }, null, 2) + '\n');
-          NODE
-            exit 0
-          fi
-          if printf '%s' "$output" | grep -q 'Fixed-window taker flow unavailable: INSUFFICIENT_WINDOW_COVERAGE'; then
-            echo "available=false" >> "$GITHUB_OUTPUT"
-            POSITIONING_REASON='INSUFFICIENT_WINDOW_COVERAGE' node - <<'NODE'
-          const fs = require('fs');
-          fs.writeFileSync('tape/paper-tape/positioning-capture-status-latest.json', JSON.stringify({
-            mode: 'RESEARCH_ONLY',
-            available: false,
-            reason: process.env.POSITIONING_REASON,
-            capturedAt: new Date().toISOString(),
-            transientDataGap: true,
-          }, null, 2) + '\n');
-          NODE
-            echo "Positioning capture unavailable this run; preserving fail-closed status without aborting independent research."
-            exit 0
-          fi
-          echo "Unexpected positioning capture failure"
-          exit "$status"
+            --jsonl tape/paper-tape/positioning-dynamics.jsonl \
+            --status-out tape/paper-tape/positioning-capture-status-latest.json \
+            --allow-transient-gap
+          available=$(node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('tape/paper-tape/positioning-capture-status-latest.json','utf8'));process.stdout.write(String(x.available===true))")
+          echo "available=$available" >> "$GITHUB_OUTPUT"
       - name: audit effective independent positioning evidence
         if: github.event_name != 'push' && steps.positioning.outputs.available == 'true'
         run: node server/research/positioningDataQualityAudit.mjs --input tape/paper-tape/positioning-dynamics.jsonl --out tape/paper-tape/positioning-data-quality-latest.json
