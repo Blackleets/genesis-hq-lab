@@ -217,6 +217,38 @@ export function buildPositioningObservation(context, closedKline, {
   };
 }
 
+export function classifyPositioningCaptureError(error) {
+  const message = String(error?.message ?? error ?? '');
+  if (message === 'Fixed-window taker flow unavailable: INSUFFICIENT_WINDOW_COVERAGE') {
+    return {
+      transientDataGap: true,
+      reason: 'INSUFFICIENT_WINDOW_COVERAGE',
+      message,
+    };
+  }
+  return {
+    transientDataGap: false,
+    reason: 'UNEXPECTED_CAPTURE_FAILURE',
+    message,
+  };
+}
+
+export function writePositioningCaptureStatus(statusOut, {
+  available,
+  reason = null,
+  transientDataGap = false,
+} = {}) {
+  if (!statusOut) return;
+  fs.mkdirSync(path.dirname(statusOut), { recursive: true });
+  fs.writeFileSync(statusOut, `${JSON.stringify({
+    mode: 'RESEARCH_ONLY',
+    available: available === true,
+    reason,
+    transientDataGap: transientDataGap === true,
+    capturedAt: new Date().toISOString(),
+  }, null, 2)}\n`);
+}
+
 function readLastJsonlObservation(jsonl) {
   if (!jsonl) return null;
   try {
@@ -283,10 +315,23 @@ export async function capturePositioning({ symbol = 'BTCUSDT', out, jsonl } = {}
 if (process.argv[1]?.endsWith('positioningDynamicsCapture.mjs')) {
   const args = process.argv.slice(2);
   const valueAfter = flag => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : undefined; };
+  const statusOut = valueAfter('--status-out');
+  const allowTransientGap = args.includes('--allow-transient-gap');
   capturePositioning({
     symbol: valueAfter('--symbol') || 'BTCUSDT',
     out: valueAfter('--out'),
     jsonl: valueAfter('--jsonl'),
-  }).then(x => console.log(JSON.stringify(x, null, 2)))
-    .catch(err => { console.error('ERROR:', err.message); process.exitCode = 1; });
+  }).then(x => {
+    writePositioningCaptureStatus(statusOut, { available: true });
+    console.log(JSON.stringify(x, null, 2));
+  }).catch(err => {
+    const classification = classifyPositioningCaptureError(err);
+    writePositioningCaptureStatus(statusOut, {
+      available: false,
+      reason: classification.reason,
+      transientDataGap: classification.transientDataGap,
+    });
+    console.error('ERROR:', classification.message);
+    if (!(allowTransientGap && classification.transientDataGap)) process.exitCode = 1;
+  });
 }
