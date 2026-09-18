@@ -4,6 +4,14 @@ on:
   schedule:
     - cron: "4,14,24,34,44,54 * * * *"
   workflow_dispatch:
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - 'server/genesis/okxFixedWindowTaker.mjs'
+      - 'server/genesis/makerFillCalibration.mjs'
+      - 'server/genesis/makerQueueDepletionCapture.mjs'
+      - 'server/research/runMakerFillCalibration.mjs'
+      - '.github/workflows/maker-calibration-capture.yml'
   pull_request:
     branches: [feat/genesis-life-os]
     paths:
