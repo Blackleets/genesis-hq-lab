@@ -139,7 +139,7 @@ test('burst captures 1s 3s 10s horizons with injected causal evidence', async ()
   let bookIndex = 0;
   const sleeps = [];
   const requestedIntervals = [];
-  let now = 0;
+  let now = start + 200;
   const bookFetcher = async () => books[bookIndex++];
   const flowFetcher = async (_inst, { startTimeMs, endTimeMs }) => {
     requestedIntervals.push([startTimeMs, endTimeMs]);
@@ -158,7 +158,7 @@ test('burst captures 1s 3s 10s horizons with injected causal evidence', async ()
     nowImpl,
   });
 
-  assert.deepEqual(sleeps, [1_000, 2_000, 7_000]);
+  assert.deepEqual(sleeps, [800, 2_000, 7_000]);
   assert.deepEqual(requestedIntervals, [
     [start, start + 1_000],
     [start, start + 3_000],
@@ -186,7 +186,7 @@ test('burst captures all markout books before any historical flow enrichment', a
     book(start + 10_500),
   ];
   let bookIndex = 0;
-  let now = 0;
+  let now = start + 200;
   const events = [];
   const bookFetcher = async () => {
     events.push('book');
@@ -217,7 +217,7 @@ test('burst polls a pre-target book until the first causal markout arrives', asy
     book(start + 1_100),
   ];
   let bookIndex = 0;
-  let now = 0;
+  let now = start + 200;
   const sleeps = [];
   const burst = await captureMakerQueueBurst({
     horizonsMs: [1_000],
@@ -230,7 +230,7 @@ test('burst polls a pre-target book until the first causal markout arrives', asy
   });
   assert.equal(burst.failureCount, 0);
   assert.equal(burst.observationCount, 2);
-  assert.deepEqual(sleeps, [1_000, 100]);
+  assert.deepEqual(sleeps, [800, 100]);
   assert.equal(burst.observations[0].actualHorizonMs, 1_100);
 });
 
@@ -253,4 +253,30 @@ test('failure reasons distinguish timing drift from flow mismatches', () => {
     futureBook: book(start + 1_100),
     takerInterval: flow(start, start + 1_100),
   }), 'FLOW_END_MISMATCH');
+});
+
+
+test('source-time deadline compensates entry snapshot age without weakening causality', async () => {
+  const start = 1_800_000_000_000;
+  const books = [
+    book(start),
+    book(start + 1_100),
+  ];
+  let bookIndex = 0;
+  let now = start + 400; // entry snapshot is already 400ms old on receipt
+  const sleeps = [];
+  const burst = await captureMakerQueueBurst({
+    horizonsMs: [1_000],
+    bookFetcher: async () => books[bookIndex++],
+    flowFetcher: async (_inst, { startTimeMs, endTimeMs }) => flow(startTimeMs, endTimeMs),
+    sleepImpl: async ms => { sleeps.push(ms); now += ms; },
+    nowImpl: () => now,
+  });
+
+  assert.deepEqual(sleeps, [600]);
+  assert.equal(burst.failureCount, 0);
+  assert.equal(burst.observationCount, 2);
+  assert.equal(burst.captureTiming.entrySourceAgeMs, 400);
+  assert.equal(burst.captureTiming.deadlinePolicy, 'SOURCE_TIMESTAMP_ALIGNED_V1');
+  assert.ok(burst.observations.every(row => row.futureSourceTime >= row.entrySourceTime + row.targetHorizonMs));
 });
