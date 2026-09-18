@@ -7,7 +7,11 @@
 //
 // IMPORTANT: this is a RESEARCH/PAPER execution model, not a live venue emulator.
 
-const finite = (x) => Number.isFinite(Number(x)) ? Number(x) : null;
+const finite = (x) => {
+  if (x === null || x === undefined || x === '') return null;
+  const n = Number(x);
+  return Number.isFinite(n) ? n : null;
+};
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
 export function micropriceFromTop({ bid, ask, bidQty, askQty } = {}) {
@@ -89,7 +93,16 @@ export function passiveQuoteWindow({
   const microprice = micropriceFromTop(current);
   const micropriceEdgeBps = microprice == null ? null : ((microprice - mid) / mid) * 10_000;
   const nextMidMoveBps = ((nextMid - mid) / mid) * 10_000;
-  const adverseSelectionBps = Math.abs(nextMidMoveBps);
+
+  // Fill-conditioned harmful markout, not absolute market movement.
+  // A bid fill is adverse only when the next mid is below our bid.
+  // An ask fill is adverse only when the next mid is above our ask.
+  // No fill => zero realized adverse-selection cost for this quote window.
+  const bidAdverseSelectionBps = Math.max(0, ((bid - nextMid) / mid) * 10_000);
+  const askAdverseSelectionBps = Math.max(0, ((nextMid - ask) / mid) * 10_000);
+  const adverseSelectionBps =
+    bidRatio * bidAdverseSelectionBps +
+    askRatio * askAdverseSelectionBps;
 
   let outcome = 'NO_FILL';
   if (bidRatio > 0 || askRatio > 0) {
@@ -120,6 +133,8 @@ export function passiveQuoteWindow({
     inventoryPenaltyBps,
     netCaptureBps,
     adverseSelectionBps,
+    bidAdverseSelectionBps,
+    askAdverseSelectionBps,
     microprice,
     micropriceEdgeBps,
     nextMidMoveBps,
