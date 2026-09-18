@@ -110,20 +110,60 @@ jobs:
         if: github.event_name != 'push'
         run: node server/genesis/researchStateCapture.mjs BTCUSDT --out tape/paper-tape/research-state-latest.json --jsonl tape/paper-tape/research-state.jsonl
       - name: capture synchronized positioning dynamics
+        id: positioning
         if: github.event_name != 'push'
-        run: node server/genesis/positioningDynamicsCapture.mjs --symbol BTCUSDT --out tape/paper-tape/positioning-dynamics-latest.json --jsonl tape/paper-tape/positioning-dynamics.jsonl
+        shell: bash
+        run: |
+          set +e
+          output=$(node server/genesis/positioningDynamicsCapture.mjs \
+            --symbol BTCUSDT \
+            --out tape/paper-tape/positioning-dynamics-latest.json \
+            --jsonl tape/paper-tape/positioning-dynamics.jsonl 2>&1)
+          status=$?
+          set -e
+          printf '%s\n' "$output"
+          if [ "$status" -eq 0 ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            node - <<'NODE'
+          const fs = require('fs');
+          fs.writeFileSync('tape/paper-tape/positioning-capture-status-latest.json', JSON.stringify({
+            mode: 'RESEARCH_ONLY',
+            available: true,
+            reason: null,
+            capturedAt: new Date().toISOString(),
+          }, null, 2) + '\n');
+          NODE
+            exit 0
+          fi
+          if printf '%s' "$output" | grep -q 'Fixed-window taker flow unavailable: INSUFFICIENT_WINDOW_COVERAGE'; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            POSITIONING_REASON='INSUFFICIENT_WINDOW_COVERAGE' node - <<'NODE'
+          const fs = require('fs');
+          fs.writeFileSync('tape/paper-tape/positioning-capture-status-latest.json', JSON.stringify({
+            mode: 'RESEARCH_ONLY',
+            available: false,
+            reason: process.env.POSITIONING_REASON,
+            capturedAt: new Date().toISOString(),
+            transientDataGap: true,
+          }, null, 2) + '\n');
+          NODE
+            echo "Positioning capture unavailable this run; preserving fail-closed status without aborting independent research."
+            exit 0
+          fi
+          echo "Unexpected positioning capture failure"
+          exit "$status"
       - name: audit effective independent positioning evidence
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' && steps.positioning.outputs.available == 'true'
         run: node server/research/positioningDataQualityAudit.mjs --input tape/paper-tape/positioning-dynamics.jsonl --out tape/paper-tape/positioning-data-quality-latest.json
       - name: run fail-closed positioning edge factory
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' && steps.positioning.outputs.available == 'true'
         run: |
           node server/research/runPositioningEdgeFactory.mjs \
             --input tape/paper-tape/positioning-dynamics.jsonl \
             --quality tape/paper-tape/positioning-data-quality-latest.json \
             --out tape/quant-evidence/positioning-edge-factory-latest.json
       - name: assert positioning RESEARCH_ONLY boundary
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' && steps.positioning.outputs.available == 'true'
         shell: bash
         run: |
           node - <<'NODE'
@@ -157,7 +197,7 @@ jobs:
           git config user.name "genesis-capture"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mkdir -p paper-tape quant-evidence
-          git add -f paper-tape/capture-latest.json paper-tape/capture.jsonl paper-tape/hz1-latest.json paper-tape/hz1.jsonl paper-tape/funding-latest.json paper-tape/research-state-latest.json paper-tape/research-state.jsonl paper-tape/provider-probe-latest.json paper-tape/rpi-orderbook-latest.json paper-tape/rpi-orderbook.jsonl paper-tape/rpi-depth-imbalance-study-latest.json paper-tape/microstructure-study-latest.json paper-tape/microstructure-study-v2-protocol.json paper-tape/microstructure-independence-audit-latest.json paper-tape/positioning-dynamics-latest.json paper-tape/positioning-dynamics.jsonl paper-tape/positioning-data-quality-latest.json quant-evidence/positioning-edge-factory-latest.json
+          git add -f paper-tape/capture-latest.json paper-tape/capture.jsonl paper-tape/hz1-latest.json paper-tape/hz1.jsonl paper-tape/funding-latest.json paper-tape/research-state-latest.json paper-tape/research-state.jsonl paper-tape/provider-probe-latest.json paper-tape/rpi-orderbook-latest.json paper-tape/rpi-orderbook.jsonl paper-tape/rpi-depth-imbalance-study-latest.json paper-tape/microstructure-study-latest.json paper-tape/microstructure-study-v2-protocol.json paper-tape/microstructure-independence-audit-latest.json paper-tape/positioning-capture-status-latest.json paper-tape/positioning-dynamics-latest.json paper-tape/positioning-dynamics.jsonl paper-tape/positioning-data-quality-latest.json quant-evidence/positioning-edge-factory-latest.json
           if git diff --staged --quiet; then
             echo "no change"
             exit 0
