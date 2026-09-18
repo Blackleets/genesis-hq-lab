@@ -101,6 +101,10 @@ Make an existing study easier to replay from durable evidence.
 
 Add regression tests where unknown or contradictory evidence must produce `NO_GO`.
 
+### 6. Start from the research template
+
+For a new hypothesis, copy `templates/research-module/` and keep its versioning, cost, causal-outcome and no-execution invariants.
+
 ## Adding a research hypothesis
 
 A new strategy or signal should start as research, not execution.

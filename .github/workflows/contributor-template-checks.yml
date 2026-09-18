@@ -1,0 +1,30 @@
+name: Contributor template checks
+
+on:
+  pull_request:
+    branches: [feat/genesis-life-os]
+    paths:
+      - 'templates/research-module/**'
+      - 'docs/NEW_RESEARCH_MODULE.md'
+      - '.github/workflows/contributor-template-checks.yml'
+  push:
+    branches: [feat/genesis-life-os]
+    paths:
+      - 'templates/research-module/**'
+      - 'docs/NEW_RESEARCH_MODULE.md'
+      - '.github/workflows/contributor-template-checks.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  template:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Research module template invariants
+        run: node --test templates/research-module/study.test.mjs
