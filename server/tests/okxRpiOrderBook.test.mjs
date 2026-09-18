@@ -100,3 +100,14 @@ test('one-sided book does not fabricate microprice or depth-band metrics', () =>
   assert.equal(features.rpiBidDepth10Bps, null);
   assert.equal(features.rpiDepthImbalance10Bps, null);
 });
+
+
+test('missing numeric fields are rejected instead of coerced to zero', () => {
+  const features = deriveRpiOrderBookFeatures({
+    bids: [[null, '5', '5', '1']],
+    asks: [['101', '5', '5', '1']],
+  });
+  assert.equal(features.rpiBestBid, null);
+  assert.equal(features.rpiMidPrice, null);
+  assert.equal(features.rpiMicroprice, null);
+});
