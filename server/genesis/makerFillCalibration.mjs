@@ -292,6 +292,12 @@ export function calibrateMakerFillProbability(observations = [], policyOverrides
     a.queueBucket.localeCompare(b.queueBucket) ||
     a.spreadBucket.localeCompare(b.spreadBucket));
 
+  const jsonStableBuckets = buckets => buckets.map(bucket => ({
+    id: bucket.id,
+    min: bucket.min,
+    max: Number.isFinite(bucket.max) ? bucket.max : null,
+  }));
+
   const policyForReport = {
     protocolVersion: policy.protocolVersion,
     calibrationSamplesPerCohort: calibrationN,
@@ -300,8 +306,8 @@ export function calibrateMakerFillProbability(observations = [], policyOverrides
     wilsonZ: policy.wilsonZ,
     allowedHorizonsMs: policy.allowedHorizonsMs,
     maxMarkoutHorizonDriftRatio: policy.maxMarkoutHorizonDriftRatio,
-    queueCoverageBuckets: policy.queueCoverageBuckets,
-    spreadBucketsBps: policy.spreadBucketsBps,
+    queueCoverageBuckets: jsonStableBuckets(policy.queueCoverageBuckets),
+    spreadBucketsBps: jsonStableBuckets(policy.spreadBucketsBps),
     holdoutPolicy: policy.holdoutPolicy,
     requiredObservationVersion: REQUIRED_MAKER_OBSERVATION_VERSION,
   };
