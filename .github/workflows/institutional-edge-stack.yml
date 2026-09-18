@@ -14,6 +14,7 @@ on:
       - 'server/genesis/runMarketMakingLab.mjs'
       - 'server/genesis/runStatArbLab.mjs'
       - 'server/genesis/runFundingCarryLab.py'
+      - 'server/genesis/runFundingCarryLab.mjs'
       - 'server/genesis/runSolanaLiquidityLab.mjs'
       - 'server/genesis/runVolatilitySizingLab.mjs'
       - 'server/genesis/runVolatilitySizingImpactLab.mjs'
@@ -31,6 +32,7 @@ on:
       - 'server/tests/volatilityNormalizedExit.test.mjs'
       - 'server/tests/passiveQueueExecution.test.mjs'
       - 'server/tests/test_funding_carry_causality.py'
+      - 'server/tests/runFundingCarryLabJsCausality.test.mjs'
       - '.github/workflows/institutional-edge-stack.yml'
   schedule:
     - cron: '17,47 * * * *'
@@ -62,7 +64,9 @@ jobs:
         run: node --test server/tests/institutionalEdgeAllocator.test.mjs server/tests/institutionalSmartExecution.test.mjs server/tests/solanaLiquidityEconomics.test.mjs server/tests/volatilitySizingEngine.test.mjs server/tests/volatilitySizingImpact.test.mjs server/tests/volatilityNormalizedExit.test.mjs server/tests/futuresGovernorRiskEscalation.test.mjs server/tests/passiveQueueExecution.test.mjs
 
       - name: Funding carry causality tests
-        run: python3 -m unittest server/tests/test_funding_carry_causality.py
+        run: |
+          python3 -m unittest server/tests/test_funding_carry_causality.py
+          node --test server/tests/runFundingCarryLabJsCausality.test.mjs
 
       - name: Market Making Lab — queue-aware passive execution + microprice evidence
         run: node server/genesis/runMarketMakingLab.mjs
