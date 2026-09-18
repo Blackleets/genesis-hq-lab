@@ -1,50 +1,113 @@
-# Maker Fill Calibration v1
+# Maker Fill Calibration v2
 
 Status: **RESEARCH_ONLY**  
 Execution authority: **none**
 
 ## Purpose
 
-`maker_fill_calibration_v1` estimates conservative maker fill probability from observed queue-depletion outcomes instead of assuming that a touched quote filled.
+Genesis calibrates maker fills from durable queue-depletion observations instead of assuming that a touched quote filled.
+
+The pipeline is:
+
+```text
+RPI book at t0
+   ↓
+hypothetical BUY + SELL quotes
+   ↓
+exact post-entry aggressive trade interval
+   ↓
+future RPI book at +1s / +3s / +10s
+   ↓
+queue-depletion fill label
+   ↓
+fill-conditioned adverse markout
+   ↓
+horizon + side + queue + spread cohorts
+```
+
+## Queue rule
+
+For a hypothetical maker order:
+
+```text
+fillable = max(0, aggressive flow toward our quote - queue ahead)
+filled units = min(order size, fillable)
+fill ratio = filled units / order size
+```
+
+Genesis gives **zero credit to cancellations**. Price touch alone is never counted as a fill.
+
+## Horizons
+
+Calibration v2 keeps these cohorts separate:
+
+- 1,000 ms
+- 3,000 ms
+- 10,000 ms
+
+A 10-second fill rate can never silently become a 1-second fill rate.
 
 ## Cohorts
 
-Observations are separated by:
+Observations are segmented by:
 
+- target horizon;
 - maker side: BUY / SELL;
 - queue-coverage bucket;
 - observed spread bucket.
 
-A cohort needs at least **30 valid observations** by default.
+The default minimum is **100 valid observations per cohort**.
 
-The sample fill rate is reported for diagnostics, but the value exposed for downstream research is the **95% Wilson lower confidence bound**. This deliberately discounts small or uncertain samples.
+The sample fill rate is diagnostic. The value eligible for downstream research is the **95% Wilson lower confidence bound**.
 
-If the cohort is too small, the output is:
+Until a cohort reaches its minimum:
 
 `INSUFFICIENT_DATA`
 
-and `usableFillProbability = null`.
+and:
 
-## Observation contract
+`usableFillProbability = null`
 
-Each row requires:
+## Adverse selection
 
-```json
-{
-  "side": "BUY",
-  "queueCoverage": 1.4,
-  "spreadBps": 3.2,
-  "fillRatio": 0.5,
-  "observedAt": "2026-09-18T12:00:00.000Z"
-}
+Adverse selection is measured only after a queue-depletion fill.
+
+For BUY:
+
+```text
+max(0, quote price - future mid)
 ```
 
-`fillRatio` must be in [0, 1]. A partial fill counts as a fill event while its execution fraction is retained separately in `meanFillRatio`.
+For SELL:
 
-Malformed evidence is rejected, not coerced to zero.
+```text
+max(0, future mid - quote price)
+```
 
-## Important limitation
+normalized to bps against entry mid.
 
-This module does **not** infer whether an order would have filled from market touch alone. The input observations must already come from a defensible queue-depletion / replay methodology.
+Reports expose p50 / p75 / p90 adverse-selection bps for filled observations.
 
-This module does not place, sign, amend or cancel orders and must not be used to weaken `LIVE_LOCKED`.
+## Durable evidence
+
+The capture tape is produced by:
+
+`server/genesis/makerQueueDepletionCapture.mjs`
+
+The calibration report is produced by:
+
+`server/research/runMakerFillCalibration.mjs`
+
+Each durable observation records exact entry/future source timestamps, interval trade-flow provenance, queue size, order size, flow toward the quote, fill ratio and safety boundaries.
+
+## Safety
+
+- no private keys;
+- no signing;
+- no order placement;
+- no order cancellation;
+- no execution authority;
+- no LIVE promotion;
+- insufficient/malformed evidence fails closed.
+
+The report is explicitly `notForLiveScoring: true` while evidence is being accumulated and reviewed.
