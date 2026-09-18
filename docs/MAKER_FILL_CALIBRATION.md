@@ -51,6 +51,8 @@ A 10-second fill rate can never silently become a 1-second fill rate. The aggres
 
 The burst uses a **books-first scheduler**: it captures every future RPI snapshot before doing slower historical-trade pagination. This prevents the +1s flow query from delaying the +3s or +10s book snapshot.
 
+Deadlines are aligned to the **exchange/source timestamp**, not to the later HTTP-response time. If the entry book is already 300ms old when Genesis receives it, the +1s capture begins roughly 700ms later and then polls until the source timestamp is at or beyond exactly t0+1s. The same 25% markout-drift gate remains enforced.
+
 ## Cohorts
 
 Observations are segmented by:
