@@ -222,7 +222,8 @@ export async function captureMakerQueueBurst({
   const entryBook = await bookFetcher(instId, { depth });
   const entryTime = finite(entryBook?.time);
   if (entryTime === null) throw new Error('entry_book_missing_source_time');
-  const entryWallClockMs = nowImpl();
+  const entryObservedAtLocalMs = nowImpl();
+  const entrySourceAgeMs = Math.max(0, entryObservedAtLocalMs - entryTime);
 
   const observations = [];
   const failures = [];
@@ -232,11 +233,14 @@ export async function captureMakerQueueBurst({
   // Historical trade pagination is deliberately deferred until every book snapshot
   // has been captured so one slow flow query cannot push later horizons off target.
   for (const targetHorizonMs of orderedHorizons) {
-    const localDeadline = entryWallClockMs + targetHorizonMs;
-    const waitMs = Math.max(0, localDeadline - nowImpl());
-    if (waitMs > 0) await sleepImpl(waitMs);
-
     const targetSourceTime = entryTime + targetHorizonMs;
+    // Align the local wait to the exchange/source timestamp rather than waiting a
+    // full horizon after the HTTP response arrives. The source snapshot can already
+    // be hundreds of milliseconds old when received; ignoring that age biases the
+    // short-horizon markout late. Causality remains enforced by polling until the
+    // returned book source timestamp is >= targetSourceTime.
+    const waitMs = Math.max(0, targetSourceTime - nowImpl());
+    if (waitMs > 0) await sleepImpl(waitMs);
     let futureBook = null;
     let failureReason = 'MARKOUT_BEFORE_TARGET';
 
@@ -321,6 +325,12 @@ export async function captureMakerQueueBurst({
     instId,
     orderSizeUnits,
     horizonsMs: orderedHorizons,
+    captureTiming: {
+      entrySourceTime: entryTime,
+      entryObservedAtLocalMs,
+      entrySourceAgeMs,
+      deadlinePolicy: 'SOURCE_TIMESTAMP_ALIGNED_V1',
+    },
     observationCount: observations.length,
     failureCount: failures.length,
     observations,
