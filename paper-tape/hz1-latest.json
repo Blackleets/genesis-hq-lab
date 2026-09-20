@@ -1,54 +1,60 @@
 {
-  "ts": "2026-09-19T23:39:50.797Z",
+  "ts": "2026-09-20T01:43:53.040Z",
   "liveOff": true,
   "paper": true,
   "go": false,
   "hz": 1,
   "tickers": 467,
-  "preQuote": 5,
+  "preQuote": 8,
   "full": 4,
   "quoted": 0,
   "quotedNames": [],
   "filled": 0,
   "paperPnl": 0,
   "reasons": {
-    "TAPE_PENDING": 4
+    "TAPE_PENDING": 3,
+    "WOULD_CROSS": 1
   },
-  "ms": 997,
+  "ms": 1036,
   "scored": [
     {
-      "symbol": "AZTEC-USDT-SWAP",
-      "preH": 0.09836065573824904,
-      "spread": 11.709601873537855,
+      "symbol": "SUSHI-USDT-SWAP",
+      "preH": 0.19916016796594427,
+      "spread": 11.997600479902697,
+      "quote": false,
+      "reason": "TAPE_PENDING"
+    },
+    {
+      "symbol": "ATH-USDT-SWAP",
+      "preH": -0.009880296408939504,
+      "spread": 11.400342010260173,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
       "symbol": "FET-USDT-SWAP",
-      "preH": -0.03624009060011257,
-      "spread": 11.325028312571108,
+      "preH": -0.022727272727158798,
+      "spread": 11.36363636363669,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
       "symbol": "PIPPIN-USDT-SWAP",
-      "preH": -0.13686534216351376,
-      "spread": 11.037527593818533,
+      "preH": -0.13259668508235878,
+      "spread": 11.049723756907547,
       "quote": false,
-      "reason": "TAPE_PENDING"
-    },
-    {
-      "symbol": "CELO-USDT-SWAP",
-      "preH": -0.19606564503847457,
-      "spread": 10.868383871318645,
-      "quote": false,
-      "reason": "TAPE_PENDING"
+      "reason": "WOULD_CROSS",
+      "harvestBps": null,
+      "vpin": 0.8616,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "WOULD_CROSS"
     }
   ],
   "intersection": {
-    "liquid": 221,
-    "hGe": 5,
-    "band": 121,
+    "liquid": 218,
+    "hGe": 8,
+    "band": 130,
     "both": 0
   },
   "formula": "H=spread*0.35-4bps; width is a toxicity prior. Kalman+VPIN+GLFT. not a GO."
