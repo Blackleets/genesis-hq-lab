@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-20T05:26:20.704Z",
+  "completedAt": "2026-09-20T13:14:40.410Z",
   "methodology": {
     "selectionUsesHoldout": false,
     "selectionInputs": [
@@ -22,9 +22,9 @@
     "barsPerMarket": 12000
   },
   "queueMode": "HIGH_PRIORITY",
-  "sourceQueueCompletedAt": "2026-09-20T05:26:14.623Z",
-  "tested": 10,
-  "controls": 2,
+  "sourceQueueCompletedAt": "2026-09-20T13:14:32.049Z",
+  "tested": 15,
+  "controls": 3,
   "promotableToAudit": 1,
   "verdict": "AUDIT_CANDIDATE_FOUND",
   "bestMutation": {
@@ -186,6 +186,46 @@
         "positiveFolds": 3,
         "requiredPositiveFolds": 3,
         "pass": true
+      }
+    },
+    {
+      "id": "trend_pullback:LINKUSDT:30m:ASIA:p20:ta2:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "trend_pullback:LINKUSDT:30m:ASIA",
+      "parentVariant": "trend_pullback:LINKUSDT:30m:ASIA:p20:ta2:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "LINKUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -2.75,
+      "train": {
+        "trades": 56,
+        "expectancyBps": -4.62,
+        "profitFactor": 0.883,
+        "tStat": -0.379,
+        "maxDrawdownPct": 9.78
+      },
+      "validation": {
+        "trades": 21,
+        "expectancyBps": -11.99,
+        "profitFactor": 0.64,
+        "tStat": -0.912,
+        "maxDrawdownPct": 4.02
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
       }
     }
   ],
@@ -604,6 +644,86 @@
         "profitFactor": 0.887,
         "tStat": -0.17,
         "maxDrawdownPct": 3.35
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "trend_pullback:LINKUSDT:30m:ASIA:p20:ta1.75:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "trend_pullback:LINKUSDT:30m:ASIA",
+      "parentVariant": "trend_pullback:LINKUSDT:30m:ASIA:p20:ta2:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "LINKUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 1.75,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 0.2,
+      "train": {
+        "trades": 57,
+        "expectancyBps": -4.06,
+        "profitFactor": 0.895,
+        "tStat": -0.354,
+        "maxDrawdownPct": 9.43
+      },
+      "validation": {
+        "trades": 21,
+        "expectancyBps": -6.88,
+        "profitFactor": 0.791,
+        "tStat": -0.506,
+        "maxDrawdownPct": 4.21
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "trend_pullback:LINKUSDT:30m:ASIA:p20:ta2.25:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "trend_pullback:LINKUSDT:30m:ASIA",
+      "parentVariant": "trend_pullback:LINKUSDT:30m:ASIA:p20:ta2:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "LINKUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 2.25,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -0.55,
+      "train": {
+        "trades": 56,
+        "expectancyBps": -1.37,
+        "profitFactor": 0.965,
+        "tStat": -0.104,
+        "maxDrawdownPct": 9.25
+      },
+      "validation": {
+        "trades": 21,
+        "expectancyBps": -9.47,
+        "profitFactor": 0.716,
+        "tStat": -0.667,
+        "maxDrawdownPct": 3.86
       },
       "walkForward": {
         "positiveFolds": 1,
