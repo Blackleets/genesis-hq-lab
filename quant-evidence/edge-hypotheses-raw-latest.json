@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-20T13:14:31.998Z",
+  "completedAt": "2026-09-20T19:04:25.309Z",
   "methodology": {
     "selectionUsesHoldout": false,
     "balancedNeighborhood": true,
@@ -20,8 +20,8 @@
   },
   "sourceVerdict": "PAPER_CANDIDATE_FOUND",
   "sourcePoolSize": 120,
-  "eligibleHypotheses": 16,
-  "queueSize": 48,
+  "eligibleHypotheses": 15,
+  "queueSize": 42,
   "deepOverrides": [
     {
       "hypothesisKey": "opening_range_breakout:BTCUSDT:1h:LONDON",
@@ -3354,6 +3354,40 @@
           }
         }
       }
+    },
+    {
+      "hypothesisKey": "trend_pullback:LINKUSDT:30m:ASIA",
+      "action": "SUPPRESS_DEEP_REJECTED",
+      "ledger": {
+        "status": "DEEP_REJECTED",
+        "firstSeen": "2026-09-20T13:14:40.470Z",
+        "lastSeen": "2026-09-20T13:14:40.470Z",
+        "parentVariant": "trend_pullback:LINKUSDT:30m:ASIA:p20:ta2:sa0.75:tb8",
+        "barsPerMarket": 12000,
+        "reason": "DEEP_NEGATIVE_TRAIN_EXPECTANCY",
+        "resetPolicy": "MATERIAL_REGIME_OR_CONTEXT_CHANGE",
+        "evidence": {
+          "train": {
+            "trades": 56,
+            "expectancyBps": -4.62,
+            "profitFactor": 0.883,
+            "tStat": -0.379,
+            "maxDrawdownPct": 9.78
+          },
+          "validation": {
+            "trades": 21,
+            "expectancyBps": -11.99,
+            "profitFactor": 0.64,
+            "tStat": -0.912,
+            "maxDrawdownPct": 4.02
+          },
+          "walkForward": {
+            "positiveFolds": 1,
+            "requiredPositiveFolds": 3,
+            "pass": false
+          }
+        }
+      }
     }
   ],
   "forwardSuppressed": [
@@ -4762,14 +4796,14 @@
       }
     },
     {
-      "id": "trend_pullback:LINKUSDT:30m:ASIA:p20:ta2:sa0.75:tb8:control",
+      "id": "trend_pullback:ADAUSDT:4h:LONDON_NY:p20:ta2:sa0.75:tb8:control",
       "role": "CONTROL",
-      "priority": "P1",
-      "parentVariant": "trend_pullback:LINKUSDT:30m:ASIA:p20:ta2:sa0.75:tb8",
-      "hypothesisKey": "trend_pullback:LINKUSDT:30m:ASIA",
+      "priority": "P2",
+      "parentVariant": "trend_pullback:ADAUSDT:4h:LONDON_NY:p20:ta2:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:ADAUSDT:4h:LONDON_NY",
       "market": {
-        "pair": "LINKUSDT",
-        "tf": "30m"
+        "pair": "ADAUSDT",
+        "tf": "4h"
       },
       "spec": {
         "family": "trend_pullback",
@@ -4777,54 +4811,56 @@
         "targetAtr": 2,
         "stopAtr": 0.75,
         "timeoutBars": 8,
-        "session": "ASIA"
+        "session": "LONDON_NY"
       },
       "rationale": "Control replay of the best parent for this independent hypothesis. It prevents data drift from being mistaken for parameter improvement.",
       "sentinelCritique": [
+        "TRAIN_SAMPLE_THIN",
+        "VALIDATION_SAMPLE_THIN",
+        "HOLDOUT_SAMPLE_THIN",
         "LOW_HOLDOUT_TSTAT",
         "WEAK_HOLDOUT_PROFIT_FACTOR",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_HOLDOUT_EXPECTANCY"
+        "NEGATIVE_TRAIN_EXPECTANCY"
       ],
       "expectedFalsification": "Control must remain directionally consistent on train and validation; otherwise pause mutations and diagnose regime/data drift.",
       "sourceEvidence": {
         "train": {
-          "trades": 36,
-          "expectancyBps": 0.67,
-          "profitFactor": 1.019,
-          "tStat": 0.044,
-          "maxDrawdownPct": 4.14
+          "trades": 25,
+          "expectancyBps": -23.16,
+          "profitFactor": 0.814,
+          "tStat": -0.455,
+          "maxDrawdownPct": 13.8
         },
         "validation": {
-          "trades": 13,
-          "expectancyBps": 1.66,
-          "profitFactor": 1.071,
-          "tStat": 0.105,
-          "maxDrawdownPct": 1.06
+          "trades": 10,
+          "expectancyBps": 58.39,
+          "profitFactor": 1.58,
+          "tStat": 0.585,
+          "maxDrawdownPct": 3.54
         },
         "holdout": {
-          "trades": 19,
-          "expectancyBps": -23.53,
-          "profitFactor": 0.477,
-          "tStat": -1.375,
-          "maxDrawdownPct": 7.29
+          "trades": 13,
+          "expectancyBps": 18.33,
+          "profitFactor": 1.168,
+          "tStat": 0.236,
+          "maxDrawdownPct": 9.01
         },
         "walkForward": {
-          "positiveFolds": 2,
+          "positiveFolds": 3,
           "requiredPositiveFolds": 3,
-          "pass": false
+          "pass": true
         }
       }
     },
     {
-      "id": "trend_pullback:LINKUSDT:30m:ASIA:p16:ta2:sa0.75:tb8",
+      "id": "trend_pullback:ADAUSDT:4h:LONDON_NY:p16:ta2:sa0.75:tb8",
       "role": "MUTATION",
-      "priority": "P1",
-      "parentVariant": "trend_pullback:LINKUSDT:30m:ASIA:p20:ta2:sa0.75:tb8",
-      "hypothesisKey": "trend_pullback:LINKUSDT:30m:ASIA",
+      "priority": "P2",
+      "parentVariant": "trend_pullback:ADAUSDT:4h:LONDON_NY:p20:ta2:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:ADAUSDT:4h:LONDON_NY",
       "market": {
-        "pair": "LINKUSDT",
-        "tf": "30m"
+        "pair": "ADAUSDT",
+        "tf": "4h"
       },
       "spec": {
         "family": "trend_pullback",
@@ -4832,54 +4868,56 @@
         "targetAtr": 2,
         "stopAtr": 0.75,
         "timeoutBars": 8,
-        "session": "ASIA"
+        "session": "LONDON_NY"
       },
-      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis.",
       "sentinelCritique": [
+        "TRAIN_SAMPLE_THIN",
+        "VALIDATION_SAMPLE_THIN",
+        "HOLDOUT_SAMPLE_THIN",
         "LOW_HOLDOUT_TSTAT",
         "WEAK_HOLDOUT_PROFIT_FACTOR",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_HOLDOUT_EXPECTANCY"
+        "NEGATIVE_TRAIN_EXPECTANCY"
       ],
       "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
       "sourceEvidence": {
         "train": {
-          "trades": 36,
-          "expectancyBps": 0.67,
-          "profitFactor": 1.019,
-          "tStat": 0.044,
-          "maxDrawdownPct": 4.14
+          "trades": 25,
+          "expectancyBps": -23.16,
+          "profitFactor": 0.814,
+          "tStat": -0.455,
+          "maxDrawdownPct": 13.8
         },
         "validation": {
-          "trades": 13,
-          "expectancyBps": 1.66,
-          "profitFactor": 1.071,
-          "tStat": 0.105,
-          "maxDrawdownPct": 1.06
+          "trades": 10,
+          "expectancyBps": 58.39,
+          "profitFactor": 1.58,
+          "tStat": 0.585,
+          "maxDrawdownPct": 3.54
         },
         "holdout": {
-          "trades": 19,
-          "expectancyBps": -23.53,
-          "profitFactor": 0.477,
-          "tStat": -1.375,
-          "maxDrawdownPct": 7.29
+          "trades": 13,
+          "expectancyBps": 18.33,
+          "profitFactor": 1.168,
+          "tStat": 0.236,
+          "maxDrawdownPct": 9.01
         },
         "walkForward": {
-          "positiveFolds": 2,
+          "positiveFolds": 3,
           "requiredPositiveFolds": 3,
-          "pass": false
+          "pass": true
         }
       }
     },
     {
-      "id": "trend_pullback:LINKUSDT:30m:ASIA:p20:ta1.75:sa0.75:tb8",
+      "id": "trend_pullback:ADAUSDT:4h:LONDON_NY:p20:ta1.75:sa0.75:tb8",
       "role": "MUTATION",
-      "priority": "P1",
-      "parentVariant": "trend_pullback:LINKUSDT:30m:ASIA:p20:ta2:sa0.75:tb8",
-      "hypothesisKey": "trend_pullback:LINKUSDT:30m:ASIA",
+      "priority": "P2",
+      "parentVariant": "trend_pullback:ADAUSDT:4h:LONDON_NY:p20:ta2:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:ADAUSDT:4h:LONDON_NY",
       "market": {
-        "pair": "LINKUSDT",
-        "tf": "30m"
+        "pair": "ADAUSDT",
+        "tf": "4h"
       },
       "spec": {
         "family": "trend_pullback",
@@ -4887,54 +4925,56 @@
         "targetAtr": 1.75,
         "stopAtr": 0.75,
         "timeoutBars": 8,
-        "session": "ASIA"
+        "session": "LONDON_NY"
       },
-      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis.",
       "sentinelCritique": [
+        "TRAIN_SAMPLE_THIN",
+        "VALIDATION_SAMPLE_THIN",
+        "HOLDOUT_SAMPLE_THIN",
         "LOW_HOLDOUT_TSTAT",
         "WEAK_HOLDOUT_PROFIT_FACTOR",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_HOLDOUT_EXPECTANCY"
+        "NEGATIVE_TRAIN_EXPECTANCY"
       ],
       "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
       "sourceEvidence": {
         "train": {
-          "trades": 36,
-          "expectancyBps": 0.67,
-          "profitFactor": 1.019,
-          "tStat": 0.044,
-          "maxDrawdownPct": 4.14
+          "trades": 25,
+          "expectancyBps": -23.16,
+          "profitFactor": 0.814,
+          "tStat": -0.455,
+          "maxDrawdownPct": 13.8
         },
         "validation": {
-          "trades": 13,
-          "expectancyBps": 1.66,
-          "profitFactor": 1.071,
-          "tStat": 0.105,
-          "maxDrawdownPct": 1.06
+          "trades": 10,
+          "expectancyBps": 58.39,
+          "profitFactor": 1.58,
+          "tStat": 0.585,
+          "maxDrawdownPct": 3.54
         },
         "holdout": {
-          "trades": 19,
-          "expectancyBps": -23.53,
-          "profitFactor": 0.477,
-          "tStat": -1.375,
-          "maxDrawdownPct": 7.29
+          "trades": 13,
+          "expectancyBps": 18.33,
+          "profitFactor": 1.168,
+          "tStat": 0.236,
+          "maxDrawdownPct": 9.01
         },
         "walkForward": {
-          "positiveFolds": 2,
+          "positiveFolds": 3,
           "requiredPositiveFolds": 3,
-          "pass": false
+          "pass": true
         }
       }
     },
     {
-      "id": "trend_pullback:LINKUSDT:30m:ASIA:p20:ta2:sa0.75:tb6",
+      "id": "trend_pullback:ADAUSDT:4h:LONDON_NY:p20:ta2:sa0.75:tb6",
       "role": "MUTATION",
-      "priority": "P1",
-      "parentVariant": "trend_pullback:LINKUSDT:30m:ASIA:p20:ta2:sa0.75:tb8",
-      "hypothesisKey": "trend_pullback:LINKUSDT:30m:ASIA",
+      "priority": "P2",
+      "parentVariant": "trend_pullback:ADAUSDT:4h:LONDON_NY:p20:ta2:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:ADAUSDT:4h:LONDON_NY",
       "market": {
-        "pair": "LINKUSDT",
-        "tf": "30m"
+        "pair": "ADAUSDT",
+        "tf": "4h"
       },
       "spec": {
         "family": "trend_pullback",
@@ -4942,54 +4982,56 @@
         "targetAtr": 2,
         "stopAtr": 0.75,
         "timeoutBars": 6,
-        "session": "ASIA"
+        "session": "LONDON_NY"
       },
-      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis.",
       "sentinelCritique": [
+        "TRAIN_SAMPLE_THIN",
+        "VALIDATION_SAMPLE_THIN",
+        "HOLDOUT_SAMPLE_THIN",
         "LOW_HOLDOUT_TSTAT",
         "WEAK_HOLDOUT_PROFIT_FACTOR",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_HOLDOUT_EXPECTANCY"
+        "NEGATIVE_TRAIN_EXPECTANCY"
       ],
       "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
       "sourceEvidence": {
         "train": {
-          "trades": 36,
-          "expectancyBps": 0.67,
-          "profitFactor": 1.019,
-          "tStat": 0.044,
-          "maxDrawdownPct": 4.14
+          "trades": 25,
+          "expectancyBps": -23.16,
+          "profitFactor": 0.814,
+          "tStat": -0.455,
+          "maxDrawdownPct": 13.8
         },
         "validation": {
-          "trades": 13,
-          "expectancyBps": 1.66,
-          "profitFactor": 1.071,
-          "tStat": 0.105,
-          "maxDrawdownPct": 1.06
+          "trades": 10,
+          "expectancyBps": 58.39,
+          "profitFactor": 1.58,
+          "tStat": 0.585,
+          "maxDrawdownPct": 3.54
         },
         "holdout": {
-          "trades": 19,
-          "expectancyBps": -23.53,
-          "profitFactor": 0.477,
-          "tStat": -1.375,
-          "maxDrawdownPct": 7.29
+          "trades": 13,
+          "expectancyBps": 18.33,
+          "profitFactor": 1.168,
+          "tStat": 0.236,
+          "maxDrawdownPct": 9.01
         },
         "walkForward": {
-          "positiveFolds": 2,
+          "positiveFolds": 3,
           "requiredPositiveFolds": 3,
-          "pass": false
+          "pass": true
         }
       }
     },
     {
-      "id": "trend_pullback:LINKUSDT:30m:ASIA:p20:ta2.25:sa0.75:tb8",
+      "id": "trend_pullback:ADAUSDT:4h:LONDON_NY:p20:ta2.25:sa0.75:tb8",
       "role": "MUTATION",
-      "priority": "P1",
-      "parentVariant": "trend_pullback:LINKUSDT:30m:ASIA:p20:ta2:sa0.75:tb8",
-      "hypothesisKey": "trend_pullback:LINKUSDT:30m:ASIA",
+      "priority": "P2",
+      "parentVariant": "trend_pullback:ADAUSDT:4h:LONDON_NY:p20:ta2:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:ADAUSDT:4h:LONDON_NY",
       "market": {
-        "pair": "LINKUSDT",
-        "tf": "30m"
+        "pair": "ADAUSDT",
+        "tf": "4h"
       },
       "spec": {
         "family": "trend_pullback",
@@ -4997,92 +5039,93 @@
         "targetAtr": 2.25,
         "stopAtr": 0.75,
         "timeoutBars": 8,
-        "session": "ASIA"
+        "session": "LONDON_NY"
       },
-      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis.",
       "sentinelCritique": [
+        "TRAIN_SAMPLE_THIN",
+        "VALIDATION_SAMPLE_THIN",
+        "HOLDOUT_SAMPLE_THIN",
         "LOW_HOLDOUT_TSTAT",
         "WEAK_HOLDOUT_PROFIT_FACTOR",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_HOLDOUT_EXPECTANCY"
+        "NEGATIVE_TRAIN_EXPECTANCY"
       ],
       "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
       "sourceEvidence": {
         "train": {
-          "trades": 36,
-          "expectancyBps": 0.67,
-          "profitFactor": 1.019,
-          "tStat": 0.044,
-          "maxDrawdownPct": 4.14
+          "trades": 25,
+          "expectancyBps": -23.16,
+          "profitFactor": 0.814,
+          "tStat": -0.455,
+          "maxDrawdownPct": 13.8
         },
         "validation": {
-          "trades": 13,
-          "expectancyBps": 1.66,
-          "profitFactor": 1.071,
-          "tStat": 0.105,
-          "maxDrawdownPct": 1.06
+          "trades": 10,
+          "expectancyBps": 58.39,
+          "profitFactor": 1.58,
+          "tStat": 0.585,
+          "maxDrawdownPct": 3.54
         },
         "holdout": {
-          "trades": 19,
-          "expectancyBps": -23.53,
-          "profitFactor": 0.477,
-          "tStat": -1.375,
-          "maxDrawdownPct": 7.29
+          "trades": 13,
+          "expectancyBps": 18.33,
+          "profitFactor": 1.168,
+          "tStat": 0.236,
+          "maxDrawdownPct": 9.01
         },
         "walkForward": {
-          "positiveFolds": 2,
+          "positiveFolds": 3,
           "requiredPositiveFolds": 3,
-          "pass": false
+          "pass": true
         }
       }
     },
     {
-      "id": "trend_pullback:LINKUSDT:30m:ASIA:p24:ta2:sa0.75:tb8",
-      "role": "MUTATION",
-      "priority": "P1",
-      "parentVariant": "trend_pullback:LINKUSDT:30m:ASIA:p20:ta2:sa0.75:tb8",
-      "hypothesisKey": "trend_pullback:LINKUSDT:30m:ASIA",
+      "id": "opening_range_breakout:DOGEUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "priority": "P2",
+      "parentVariant": "opening_range_breakout:DOGEUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "opening_range_breakout:DOGEUSDT:4h:ASIA",
       "market": {
-        "pair": "LINKUSDT",
-        "tf": "30m"
+        "pair": "DOGEUSDT",
+        "tf": "4h"
       },
       "spec": {
-        "family": "trend_pullback",
-        "period": 24,
-        "targetAtr": 2,
+        "family": "opening_range_breakout",
+        "period": 20,
+        "targetAtr": 1.5,
         "stopAtr": 0.75,
         "timeoutBars": 8,
         "session": "ASIA"
       },
-      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "rationale": "Control replay of the best parent for this independent hypothesis. It prevents data drift from being mistaken for parameter improvement.",
       "sentinelCritique": [
         "LOW_HOLDOUT_TSTAT",
-        "WEAK_HOLDOUT_PROFIT_FACTOR",
         "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_HOLDOUT_EXPECTANCY"
+        "NEGATIVE_TRAIN_EXPECTANCY"
       ],
-      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "expectedFalsification": "Control must remain directionally consistent on train and validation; otherwise pause mutations and diagnose regime/data drift.",
       "sourceEvidence": {
         "train": {
-          "trades": 36,
-          "expectancyBps": 0.67,
-          "profitFactor": 1.019,
-          "tStat": 0.044,
-          "maxDrawdownPct": 4.14
+          "trades": 89,
+          "expectancyBps": -8.81,
+          "profitFactor": 0.947,
+          "tStat": -0.219,
+          "maxDrawdownPct": 26.04
         },
         "validation": {
-          "trades": 13,
-          "expectancyBps": 1.66,
-          "profitFactor": 1.071,
-          "tStat": 0.105,
-          "maxDrawdownPct": 1.06
+          "trades": 35,
+          "expectancyBps": 36.66,
+          "profitFactor": 1.256,
+          "tStat": 0.61,
+          "maxDrawdownPct": 12.81
         },
         "holdout": {
-          "trades": 19,
-          "expectancyBps": -23.53,
-          "profitFactor": 0.477,
-          "tStat": -1.375,
-          "maxDrawdownPct": 7.29
+          "trades": 31,
+          "expectancyBps": 29.57,
+          "profitFactor": 1.29,
+          "tStat": 0.629,
+          "maxDrawdownPct": 9.64
         },
         "walkForward": {
           "positiveFolds": 2,
@@ -5092,52 +5135,51 @@
       }
     },
     {
-      "id": "trend_pullback:LINKUSDT:30m:ASIA:p20:ta2:sa0.6:tb8",
+      "id": "opening_range_breakout:DOGEUSDT:4h:ASIA:p16:ta1.5:sa0.75:tb8",
       "role": "MUTATION",
-      "priority": "P1",
-      "parentVariant": "trend_pullback:LINKUSDT:30m:ASIA:p20:ta2:sa0.75:tb8",
-      "hypothesisKey": "trend_pullback:LINKUSDT:30m:ASIA",
+      "priority": "P2",
+      "parentVariant": "opening_range_breakout:DOGEUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "opening_range_breakout:DOGEUSDT:4h:ASIA",
       "market": {
-        "pair": "LINKUSDT",
-        "tf": "30m"
+        "pair": "DOGEUSDT",
+        "tf": "4h"
       },
       "spec": {
-        "family": "trend_pullback",
-        "period": 20,
-        "targetAtr": 2,
-        "stopAtr": 0.6,
+        "family": "opening_range_breakout",
+        "period": 16,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
         "timeoutBars": 8,
         "session": "ASIA"
       },
-      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis.",
       "sentinelCritique": [
         "LOW_HOLDOUT_TSTAT",
-        "WEAK_HOLDOUT_PROFIT_FACTOR",
         "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_HOLDOUT_EXPECTANCY"
+        "NEGATIVE_TRAIN_EXPECTANCY"
       ],
       "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
       "sourceEvidence": {
         "train": {
-          "trades": 36,
-          "expectancyBps": 0.67,
-          "profitFactor": 1.019,
-          "tStat": 0.044,
-          "maxDrawdownPct": 4.14
+          "trades": 89,
+          "expectancyBps": -8.81,
+          "profitFactor": 0.947,
+          "tStat": -0.219,
+          "maxDrawdownPct": 26.04
         },
         "validation": {
-          "trades": 13,
-          "expectancyBps": 1.66,
-          "profitFactor": 1.071,
-          "tStat": 0.105,
-          "maxDrawdownPct": 1.06
+          "trades": 35,
+          "expectancyBps": 36.66,
+          "profitFactor": 1.256,
+          "tStat": 0.61,
+          "maxDrawdownPct": 12.81
         },
         "holdout": {
-          "trades": 19,
-          "expectancyBps": -23.53,
-          "profitFactor": 0.477,
-          "tStat": -1.375,
-          "maxDrawdownPct": 7.29
+          "trades": 31,
+          "expectancyBps": 29.57,
+          "profitFactor": 1.29,
+          "tStat": 0.629,
+          "maxDrawdownPct": 9.64
         },
         "walkForward": {
           "positiveFolds": 2,
@@ -5147,52 +5189,51 @@
       }
     },
     {
-      "id": "trend_pullback:LINKUSDT:30m:ASIA:p20:ta2:sa0.9:tb8",
+      "id": "opening_range_breakout:DOGEUSDT:4h:ASIA:p20:ta1.25:sa0.75:tb8",
       "role": "MUTATION",
-      "priority": "P1",
-      "parentVariant": "trend_pullback:LINKUSDT:30m:ASIA:p20:ta2:sa0.75:tb8",
-      "hypothesisKey": "trend_pullback:LINKUSDT:30m:ASIA",
+      "priority": "P2",
+      "parentVariant": "opening_range_breakout:DOGEUSDT:4h:ASIA:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "opening_range_breakout:DOGEUSDT:4h:ASIA",
       "market": {
-        "pair": "LINKUSDT",
-        "tf": "30m"
+        "pair": "DOGEUSDT",
+        "tf": "4h"
       },
       "spec": {
-        "family": "trend_pullback",
+        "family": "opening_range_breakout",
         "period": 20,
-        "targetAtr": 2,
-        "stopAtr": 0.9,
+        "targetAtr": 1.25,
+        "stopAtr": 0.75,
         "timeoutBars": 8,
         "session": "ASIA"
       },
-      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis.",
       "sentinelCritique": [
         "LOW_HOLDOUT_TSTAT",
-        "WEAK_HOLDOUT_PROFIT_FACTOR",
         "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_HOLDOUT_EXPECTANCY"
+        "NEGATIVE_TRAIN_EXPECTANCY"
       ],
       "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
       "sourceEvidence": {
         "train": {
-          "trades": 36,
-          "expectancyBps": 0.67,
-          "profitFactor": 1.019,
-          "tStat": 0.044,
-          "maxDrawdownPct": 4.14
+          "trades": 89,
+          "expectancyBps": -8.81,
+          "profitFactor": 0.947,
+          "tStat": -0.219,
+          "maxDrawdownPct": 26.04
         },
         "validation": {
-          "trades": 13,
-          "expectancyBps": 1.66,
-          "profitFactor": 1.071,
-          "tStat": 0.105,
-          "maxDrawdownPct": 1.06
+          "trades": 35,
+          "expectancyBps": 36.66,
+          "profitFactor": 1.256,
+          "tStat": 0.61,
+          "maxDrawdownPct": 12.81
         },
         "holdout": {
-          "trades": 19,
-          "expectancyBps": -23.53,
-          "profitFactor": 0.477,
-          "tStat": -1.375,
-          "maxDrawdownPct": 7.29
+          "trades": 31,
+          "expectancyBps": 29.57,
+          "profitFactor": 1.29,
+          "tStat": 0.629,
+          "maxDrawdownPct": 9.64
         },
         "walkForward": {
           "positiveFolds": 2,
