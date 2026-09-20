@@ -1,54 +1,60 @@
 {
-  "ts": "2026-09-20T21:29:44.726Z",
+  "ts": "2026-09-20T23:29:16.912Z",
   "liveOff": true,
   "paper": true,
   "go": false,
   "hz": 1,
   "tickers": 467,
-  "preQuote": 4,
+  "preQuote": 3,
   "full": 4,
   "quoted": 0,
   "quotedNames": [],
   "filled": 0,
   "paperPnl": 0,
   "reasons": {
-    "TAPE_PENDING": 4
+    "TAPE_PENDING": 3,
+    "WOULD_CROSS": 1
   },
-  "ms": 806,
+  "ms": 1141,
   "scored": [
     {
-      "symbol": "ENSO-USDT-SWAP",
-      "preH": 0.1828503137133124,
-      "spread": 11.95100089632375,
+      "symbol": "RENDER-USDT-SWAP",
+      "preH": 0.03458213256484566,
+      "spread": 11.527377521613845,
+      "quote": false,
+      "reason": "TAPE_PENDING"
+    },
+    {
+      "symbol": "HMSTR-USDT-SWAP",
+      "preH": 0.08163265306132317,
+      "spread": 11.66180758017521,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
       "symbol": "FET-USDT-SWAP",
-      "preH": 0.006868918145506164,
-      "spread": 11.44819690898716,
+      "preH": -0.0022844089090803266,
+      "spread": 11.422044545974057,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
-      "symbol": "DOOD-USDT-SWAP",
-      "preH": -0.06077658975792355,
-      "spread": 11.254924029263076,
+      "symbol": "CASHCAT-USDT-SWAP",
+      "preH": -0.024985803520612748,
+      "spread": 11.357183418512536,
       "quote": false,
-      "reason": "TAPE_PENDING"
-    },
-    {
-      "symbol": "GRASS-USDT-SWAP",
-      "preH": -0.07733258615902017,
-      "spread": 11.2076211824028,
-      "quote": false,
-      "reason": "TAPE_PENDING"
+      "reason": "WOULD_CROSS",
+      "harvestBps": null,
+      "vpin": 0.8669,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "WOULD_CROSS"
     }
   ],
   "intersection": {
-    "liquid": 227,
-    "hGe": 4,
-    "band": 136,
+    "liquid": 226,
+    "hGe": 3,
+    "band": 138,
     "both": 0
   },
   "formula": "H=spread*0.35-4bps; width is a toxicity prior. Kalman+VPIN+GLFT. not a GO."
