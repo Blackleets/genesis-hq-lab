@@ -5,13 +5,13 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-21T05:30:41.635Z",
+  "completedAt": "2026-09-21T15:20:57.012Z",
   "summary": {
     "hypotheses": 432,
     "paperCandidates": 1,
-    "interesting": 69,
-    "regimeDivergence": 302,
-    "killed": 248
+    "interesting": 67,
+    "regimeDivergence": 300,
+    "killed": 620
   },
   "rules": [
     {
@@ -68,16 +68,6 @@
     },
     {
       "hypothesisKey": "failed_breakout:BNBUSDT:1h:ASIA",
-      "total": 4,
-      "interesting": 4,
-      "regimeDivergence": 0,
-      "paper": 0,
-      "reasons": {},
-      "dominantFailure": null,
-      "action": "MUTATE_AND_RETEST"
-    },
-    {
-      "hypothesisKey": "trend_pullback:SOLUSDT:1h:ASIA",
       "total": 4,
       "interesting": 4,
       "regimeDivergence": 0,
@@ -145,6 +135,18 @@
       "action": "MUTATE_AND_RETEST"
     },
     {
+      "hypothesisKey": "trend_pullback:DOGEUSDT:1h:ALL",
+      "total": 4,
+      "interesting": 2,
+      "regimeDivergence": 2,
+      "paper": 0,
+      "reasons": {
+        "NEGATIVE_TRAIN_EXPECTANCY": 2
+      },
+      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
+      "action": "MUTATE_AND_RETEST"
+    },
+    {
       "hypothesisKey": "trend_pullback:LINKUSDT:30m:ASIA",
       "total": 4,
       "interesting": 2,
@@ -157,7 +159,7 @@
       "action": "MUTATE_AND_RETEST"
     },
     {
-      "hypothesisKey": "trend_pullback:DOGEUSDT:1h:ALL",
+      "hypothesisKey": "trend_pullback:SOLUSDT:1h:ASIA",
       "total": 4,
       "interesting": 2,
       "regimeDivergence": 2,
@@ -188,7 +190,7 @@
       "paper": 0,
       "reasons": {
         "NEGATIVE_TRAIN_EXPECTANCY": 1,
-        "NEGATIVE_VALIDATION_EXPECTANCY": 1
+        "THREE_FAILED_GENERATIONS": 1
       },
       "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
@@ -224,10 +226,9 @@
       "regimeDivergence": 0,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_HOLDOUT_EXPECTANCY": 1,
-        "NEGATIVE_VALIDATION_EXPECTANCY": 1
+        "THREE_FAILED_GENERATIONS": 2
       },
-      "dominantFailure": "NEGATIVE_HOLDOUT_EXPECTANCY",
+      "dominantFailure": "THREE_FAILED_GENERATIONS",
       "action": "MUTATE_AND_RETEST"
     },
     {
