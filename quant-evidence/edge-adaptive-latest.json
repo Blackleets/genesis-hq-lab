@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-22T13:41:11.509Z",
+  "completedAt": "2026-09-22T19:54:08.034Z",
   "methodology": {
     "selectionUsesHoldout": false,
     "selectionInputs": [
@@ -22,9 +22,9 @@
     "barsPerMarket": 12000
   },
   "queueMode": "HIGH_PRIORITY",
-  "sourceQueueCompletedAt": "2026-09-22T13:41:08.270Z",
-  "tested": 5,
-  "controls": 1,
+  "sourceQueueCompletedAt": "2026-09-22T19:54:01.472Z",
+  "tested": 15,
+  "controls": 3,
   "promotableToAudit": 2,
   "verdict": "AUDIT_CANDIDATE_FOUND",
   "bestMutation": {
@@ -146,6 +146,86 @@
         "positiveFolds": 3,
         "requiredPositiveFolds": 3,
         "pass": true
+      }
+    },
+    {
+      "id": "trend_pullback:DOGEUSDT:30m:ASIA:p20:ta1.5:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "trend_pullback:DOGEUSDT:30m:ASIA",
+      "parentVariant": "trend_pullback:DOGEUSDT:30m:ASIA:p20:ta1.5:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "DOGEUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 5.02,
+      "train": {
+        "trades": 59,
+        "expectancyBps": 1.36,
+        "profitFactor": 1.038,
+        "tStat": 0.12,
+        "maxDrawdownPct": 10.32
+      },
+      "validation": {
+        "trades": 18,
+        "expectancyBps": -0.58,
+        "profitFactor": 0.979,
+        "tStat": -0.042,
+        "maxDrawdownPct": 2.3
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "volatility_squeeze:DOGEUSDT:1h:ASIA:p20:ta2:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "volatility_squeeze:DOGEUSDT:1h:ASIA",
+      "parentVariant": "volatility_squeeze:DOGEUSDT:1h:ASIA:p20:ta2:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "DOGEUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "volatility_squeeze",
+        "period": 20,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -7.73,
+      "train": {
+        "trades": 60,
+        "expectancyBps": -9.87,
+        "profitFactor": 0.825,
+        "tStat": -0.617,
+        "maxDrawdownPct": 15.86
+      },
+      "validation": {
+        "trades": 21,
+        "expectancyBps": -18.66,
+        "profitFactor": 0.661,
+        "tStat": -0.838,
+        "maxDrawdownPct": 5.33
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
       }
     }
   ],
@@ -388,6 +468,286 @@
         "positiveFolds": 3,
         "requiredPositiveFolds": 3,
         "pass": true
+      }
+    },
+    {
+      "id": "trend_pullback:DOGEUSDT:30m:ASIA:p20:ta1.75:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "trend_pullback:DOGEUSDT:30m:ASIA",
+      "parentVariant": "trend_pullback:DOGEUSDT:30m:ASIA:p20:ta1.5:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "DOGEUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 1.75,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 15.72,
+      "train": {
+        "trades": 58,
+        "expectancyBps": 0.69,
+        "profitFactor": 1.018,
+        "tStat": 0.056,
+        "maxDrawdownPct": 11.41
+      },
+      "validation": {
+        "trades": 18,
+        "expectancyBps": 4.35,
+        "profitFactor": 1.158,
+        "tStat": 0.285,
+        "maxDrawdownPct": 2.3
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "trend_pullback:DOGEUSDT:30m:ASIA:p20:ta1.25:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "trend_pullback:DOGEUSDT:30m:ASIA",
+      "parentVariant": "trend_pullback:DOGEUSDT:30m:ASIA:p20:ta1.5:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "DOGEUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 1.25,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 9.21,
+      "train": {
+        "trades": 59,
+        "expectancyBps": 0.55,
+        "profitFactor": 1.016,
+        "tStat": 0.053,
+        "maxDrawdownPct": 8.4
+      },
+      "validation": {
+        "trades": 18,
+        "expectancyBps": -1.68,
+        "profitFactor": 0.937,
+        "tStat": -0.131,
+        "maxDrawdownPct": 2.34
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "trend_pullback:DOGEUSDT:30m:ASIA:p20:ta1.5:sa0.75:tb6",
+      "role": "MUTATION",
+      "hypothesisKey": "trend_pullback:DOGEUSDT:30m:ASIA",
+      "parentVariant": "trend_pullback:DOGEUSDT:30m:ASIA:p20:ta1.5:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "DOGEUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 6,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 7.14,
+      "train": {
+        "trades": 59,
+        "expectancyBps": -0.69,
+        "profitFactor": 0.98,
+        "tStat": -0.063,
+        "maxDrawdownPct": 10.16
+      },
+      "validation": {
+        "trades": 18,
+        "expectancyBps": -4.89,
+        "profitFactor": 0.822,
+        "tStat": -0.371,
+        "maxDrawdownPct": 2.57
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "trend_pullback:DOGEUSDT:30m:ASIA:p20:ta1.5:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "trend_pullback:DOGEUSDT:30m:ASIA",
+      "parentVariant": "trend_pullback:DOGEUSDT:30m:ASIA:p20:ta1.5:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "DOGEUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 5.02,
+      "train": {
+        "trades": 59,
+        "expectancyBps": 1.36,
+        "profitFactor": 1.038,
+        "tStat": 0.12,
+        "maxDrawdownPct": 10.32
+      },
+      "validation": {
+        "trades": 18,
+        "expectancyBps": -0.58,
+        "profitFactor": 0.979,
+        "tStat": -0.042,
+        "maxDrawdownPct": 2.3
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "trend_pullback:DOGEUSDT:30m:ASIA:p16:ta1.5:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "trend_pullback:DOGEUSDT:30m:ASIA",
+      "parentVariant": "trend_pullback:DOGEUSDT:30m:ASIA:p20:ta1.5:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "DOGEUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 16,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 5.02,
+      "train": {
+        "trades": 59,
+        "expectancyBps": 1.36,
+        "profitFactor": 1.038,
+        "tStat": 0.12,
+        "maxDrawdownPct": 10.32
+      },
+      "validation": {
+        "trades": 18,
+        "expectancyBps": -0.58,
+        "profitFactor": 0.979,
+        "tStat": -0.042,
+        "maxDrawdownPct": 2.3
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "volatility_squeeze:DOGEUSDT:1h:ASIA:p20:ta2:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "volatility_squeeze:DOGEUSDT:1h:ASIA",
+      "parentVariant": "volatility_squeeze:DOGEUSDT:1h:ASIA:p20:ta2:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "DOGEUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "volatility_squeeze",
+        "period": 20,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -7.73,
+      "train": {
+        "trades": 60,
+        "expectancyBps": -9.87,
+        "profitFactor": 0.825,
+        "tStat": -0.617,
+        "maxDrawdownPct": 15.86
+      },
+      "validation": {
+        "trades": 21,
+        "expectancyBps": -18.66,
+        "profitFactor": 0.661,
+        "tStat": -0.838,
+        "maxDrawdownPct": 5.33
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "volatility_squeeze:DOGEUSDT:1h:ASIA:p20:ta2:sa0.75:tb6",
+      "role": "MUTATION",
+      "hypothesisKey": "volatility_squeeze:DOGEUSDT:1h:ASIA",
+      "parentVariant": "volatility_squeeze:DOGEUSDT:1h:ASIA:p20:ta2:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "DOGEUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "volatility_squeeze",
+        "period": 20,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 6,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -8.64,
+      "train": {
+        "trades": 60,
+        "expectancyBps": -12.89,
+        "profitFactor": 0.759,
+        "tStat": -0.926,
+        "maxDrawdownPct": 13.43
+      },
+      "validation": {
+        "trades": 21,
+        "expectancyBps": -18.94,
+        "profitFactor": 0.635,
+        "tStat": -0.901,
+        "maxDrawdownPct": 4.83
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
       }
     }
   ]
