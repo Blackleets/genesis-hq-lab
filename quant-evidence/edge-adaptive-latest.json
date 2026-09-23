@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-23T19:49:43.167Z",
+  "completedAt": "2026-09-23T23:10:50.847Z",
   "methodology": {
     "selectionUsesHoldout": false,
     "selectionInputs": [
@@ -21,85 +21,85 @@
     "emptyQueueHandoff": true,
     "barsPerMarket": 12000
   },
-  "queueMode": "HIGH_PRIORITY",
-  "sourceQueueCompletedAt": "2026-09-23T19:49:40.604Z",
-  "tested": 5,
-  "controls": 1,
+  "queueMode": "P2_DEEPENING",
+  "sourceQueueCompletedAt": "2026-09-23T23:10:34.373Z",
+  "tested": 10,
+  "controls": 6,
   "promotableToAudit": 0,
   "verdict": "NO_ADAPTIVE_EDGE_FOUND",
   "bestMutation": {
-    "id": "trend_pullback:AVAXUSDT:15m:ASIA:p16:ta2:sa0.75:tb8",
+    "id": "opening_range_breakout:LINKUSDT:4h:LONDON:p8:ta2:sa0.75:tb8",
     "role": "MUTATION",
-    "hypothesisKey": "trend_pullback:AVAXUSDT:15m:ASIA",
-    "parentVariant": "trend_pullback:AVAXUSDT:15m:ASIA:p20:ta2:sa0.75:tb8",
-    "priority": "P1",
+    "hypothesisKey": "opening_range_breakout:LINKUSDT:4h:LONDON",
+    "parentVariant": "opening_range_breakout:LINKUSDT:4h:LONDON:p12:ta2:sa0.75:tb8",
+    "priority": "P2",
     "market": {
-      "pair": "AVAXUSDT",
-      "tf": "15m"
+      "pair": "LINKUSDT",
+      "tf": "4h"
     },
     "spec": {
-      "family": "trend_pullback",
-      "period": 16,
+      "family": "opening_range_breakout",
+      "period": 8,
       "targetAtr": 2,
       "stopAtr": 0.75,
       "timeoutBars": 8,
-      "session": "ASIA"
+      "session": "LONDON"
     },
     "researchStatus": "REJECT",
-    "selectionScore": 35.67,
+    "selectionScore": 45.69,
     "train": {
-      "trades": 48,
-      "expectancyBps": 2.89,
-      "profitFactor": 1.103,
-      "tStat": 0.261,
-      "maxDrawdownPct": 6.73
+      "trades": 117,
+      "expectancyBps": -78.48,
+      "profitFactor": 0.627,
+      "tStat": -2.024,
+      "maxDrawdownPct": 116.19
     },
     "validation": {
-      "trades": 9,
-      "expectancyBps": 18.96,
-      "profitFactor": 1.726,
-      "tStat": 0.703,
-      "maxDrawdownPct": 1.74
+      "trades": 38,
+      "expectancyBps": 75.18,
+      "profitFactor": 1.592,
+      "tStat": 1.264,
+      "maxDrawdownPct": 11.93
     },
     "walkForward": {
-      "positiveFolds": 2,
+      "positiveFolds": 1,
       "requiredPositiveFolds": 3,
       "pass": false
     }
   },
   "control": {
-    "id": "trend_pullback:AVAXUSDT:15m:ASIA:p20:ta2:sa0.75:tb8:control",
+    "id": "opening_range_breakout:AVAXUSDT:4h:NY:p12:ta1.5:sa0.75:tb8:control",
     "role": "CONTROL",
-    "hypothesisKey": "trend_pullback:AVAXUSDT:15m:ASIA",
-    "parentVariant": "trend_pullback:AVAXUSDT:15m:ASIA:p20:ta2:sa0.75:tb8",
-    "priority": "P1",
+    "hypothesisKey": "opening_range_breakout:AVAXUSDT:4h:NY",
+    "parentVariant": "opening_range_breakout:AVAXUSDT:4h:NY:p12:ta1.5:sa0.75:tb8",
+    "priority": "P2",
     "market": {
       "pair": "AVAXUSDT",
-      "tf": "15m"
+      "tf": "4h"
     },
     "spec": {
-      "family": "trend_pullback",
-      "period": 20,
-      "targetAtr": 2,
+      "family": "opening_range_breakout",
+      "period": 12,
+      "targetAtr": 1.5,
       "stopAtr": 0.75,
       "timeoutBars": 8,
-      "session": "ASIA"
+      "session": "NY"
     },
     "researchStatus": "REJECT",
-    "selectionScore": 35.67,
+    "selectionScore": 67.31,
     "train": {
-      "trades": 48,
-      "expectancyBps": 2.89,
-      "profitFactor": 1.103,
-      "tStat": 0.261,
-      "maxDrawdownPct": 6.73
+      "trades": 107,
+      "expectancyBps": 45.67,
+      "profitFactor": 1.254,
+      "tStat": 0.914,
+      "maxDrawdownPct": 35.64
     },
     "validation": {
-      "trades": 9,
-      "expectancyBps": 18.96,
-      "profitFactor": 1.726,
-      "tStat": 0.703,
-      "maxDrawdownPct": 1.74
+      "trades": 54,
+      "expectancyBps": 64.13,
+      "profitFactor": 1.531,
+      "tStat": 1.419,
+      "maxDrawdownPct": 13.74
     },
     "walkForward": {
       "positiveFolds": 2,
@@ -109,14 +109,94 @@
   },
   "controlSet": [
     {
-      "id": "trend_pullback:AVAXUSDT:15m:ASIA:p20:ta2:sa0.75:tb8:control",
+      "id": "opening_range_breakout:AVAXUSDT:4h:NY:p12:ta1.5:sa0.75:tb8:control",
       "role": "CONTROL",
-      "hypothesisKey": "trend_pullback:AVAXUSDT:15m:ASIA",
-      "parentVariant": "trend_pullback:AVAXUSDT:15m:ASIA:p20:ta2:sa0.75:tb8",
-      "priority": "P1",
+      "hypothesisKey": "opening_range_breakout:AVAXUSDT:4h:NY",
+      "parentVariant": "opening_range_breakout:AVAXUSDT:4h:NY:p12:ta1.5:sa0.75:tb8",
+      "priority": "P2",
       "market": {
         "pair": "AVAXUSDT",
-        "tf": "15m"
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 12,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 67.31,
+      "train": {
+        "trades": 107,
+        "expectancyBps": 45.67,
+        "profitFactor": 1.254,
+        "tStat": 0.914,
+        "maxDrawdownPct": 35.64
+      },
+      "validation": {
+        "trades": 54,
+        "expectancyBps": 64.13,
+        "profitFactor": 1.531,
+        "tStat": 1.419,
+        "maxDrawdownPct": 13.74
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:LINKUSDT:30m:ASIA:p34:ta1:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "failed_breakout:LINKUSDT:30m:ASIA",
+      "parentVariant": "failed_breakout:LINKUSDT:30m:ASIA:p34:ta1:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "LINKUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 34,
+        "targetAtr": 1,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 12.39,
+      "train": {
+        "trades": 24,
+        "expectancyBps": -24.65,
+        "profitFactor": 0.532,
+        "tStat": -1.433,
+        "maxDrawdownPct": 6.46
+      },
+      "validation": {
+        "trades": 12,
+        "expectancyBps": 8.96,
+        "profitFactor": 1.431,
+        "tStat": 0.583,
+        "maxDrawdownPct": 2.03
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "trend_pullback:XRPUSDT:1h:ALL:p20:ta2:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "trend_pullback:XRPUSDT:1h:ALL",
+      "parentVariant": "trend_pullback:XRPUSDT:1h:ALL:p20:ta2:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "1h"
       },
       "spec": {
         "family": "trend_pullback",
@@ -124,26 +204,146 @@
         "targetAtr": 2,
         "stopAtr": 0.75,
         "timeoutBars": 8,
-        "session": "ASIA"
+        "session": "ALL"
       },
       "researchStatus": "REJECT",
-      "selectionScore": 35.67,
+      "selectionScore": 7.92,
       "train": {
-        "trades": 48,
-        "expectancyBps": 2.89,
-        "profitFactor": 1.103,
-        "tStat": 0.261,
-        "maxDrawdownPct": 6.73
+        "trades": 173,
+        "expectancyBps": 3.96,
+        "profitFactor": 1.074,
+        "tStat": 0.396,
+        "maxDrawdownPct": 12.32
       },
       "validation": {
-        "trades": 9,
-        "expectancyBps": 18.96,
-        "profitFactor": 1.726,
-        "tStat": 0.703,
-        "maxDrawdownPct": 1.74
+        "trades": 56,
+        "expectancyBps": -5.58,
+        "profitFactor": 0.889,
+        "tStat": -0.372,
+        "maxDrawdownPct": 11.16
       },
       "walkForward": {
         "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "opening_range_breakout:LINKUSDT:4h:LONDON:p12:ta2:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "opening_range_breakout:LINKUSDT:4h:LONDON",
+      "parentVariant": "opening_range_breakout:LINKUSDT:4h:LONDON:p12:ta2:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "LINKUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 12,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 6.48,
+      "train": {
+        "trades": 106,
+        "expectancyBps": -79.8,
+        "profitFactor": 0.621,
+        "tStat": -1.942,
+        "maxDrawdownPct": 108.96
+      },
+      "validation": {
+        "trades": 34,
+        "expectancyBps": 20.36,
+        "profitFactor": 1.139,
+        "tStat": 0.332,
+        "maxDrawdownPct": 13.08
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "volatility_squeeze:AVAXUSDT:30m:ALL:p34:ta2:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "volatility_squeeze:AVAXUSDT:30m:ALL",
+      "parentVariant": "volatility_squeeze:AVAXUSDT:30m:ALL:p34:ta2:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "AVAXUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "volatility_squeeze",
+        "period": 34,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -6.26,
+      "train": {
+        "trades": 139,
+        "expectancyBps": -12.76,
+        "profitFactor": 0.682,
+        "tStat": -2.012,
+        "maxDrawdownPct": 19.92
+      },
+      "validation": {
+        "trades": 47,
+        "expectancyBps": -5.58,
+        "profitFactor": 0.835,
+        "tStat": -0.55,
+        "maxDrawdownPct": 7.44
+      },
+      "walkForward": {
+        "positiveFolds": 0,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:LINKUSDT:1h:LONDON_NY:p20:ta1:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "failed_breakout:LINKUSDT:1h:LONDON_NY",
+      "parentVariant": "failed_breakout:LINKUSDT:1h:LONDON_NY:p20:ta1:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "LINKUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 20,
+        "targetAtr": 1,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -19.96,
+      "train": {
+        "trades": 27,
+        "expectancyBps": -26.89,
+        "profitFactor": 0.632,
+        "tStat": -1.131,
+        "maxDrawdownPct": 9.51
+      },
+      "validation": {
+        "trades": 10,
+        "expectancyBps": -33.16,
+        "profitFactor": 0.476,
+        "tStat": -1.112,
+        "maxDrawdownPct": 4.64
+      },
+      "walkForward": {
+        "positiveFolds": 1,
         "requiredPositiveFolds": 3,
         "pass": false
       }
@@ -152,38 +352,38 @@
   "auditQueue": [],
   "top": [
     {
-      "id": "trend_pullback:AVAXUSDT:15m:ASIA:p20:ta2:sa0.75:tb8:control",
+      "id": "opening_range_breakout:AVAXUSDT:4h:NY:p12:ta1.5:sa0.75:tb8:control",
       "role": "CONTROL",
-      "hypothesisKey": "trend_pullback:AVAXUSDT:15m:ASIA",
-      "parentVariant": "trend_pullback:AVAXUSDT:15m:ASIA:p20:ta2:sa0.75:tb8",
-      "priority": "P1",
+      "hypothesisKey": "opening_range_breakout:AVAXUSDT:4h:NY",
+      "parentVariant": "opening_range_breakout:AVAXUSDT:4h:NY:p12:ta1.5:sa0.75:tb8",
+      "priority": "P2",
       "market": {
         "pair": "AVAXUSDT",
-        "tf": "15m"
+        "tf": "4h"
       },
       "spec": {
-        "family": "trend_pullback",
-        "period": 20,
-        "targetAtr": 2,
+        "family": "opening_range_breakout",
+        "period": 12,
+        "targetAtr": 1.5,
         "stopAtr": 0.75,
         "timeoutBars": 8,
-        "session": "ASIA"
+        "session": "NY"
       },
       "researchStatus": "REJECT",
-      "selectionScore": 35.67,
+      "selectionScore": 67.31,
       "train": {
-        "trades": 48,
-        "expectancyBps": 2.89,
-        "profitFactor": 1.103,
-        "tStat": 0.261,
-        "maxDrawdownPct": 6.73
+        "trades": 107,
+        "expectancyBps": 45.67,
+        "profitFactor": 1.254,
+        "tStat": 0.914,
+        "maxDrawdownPct": 35.64
       },
       "validation": {
-        "trades": 9,
-        "expectancyBps": 18.96,
-        "profitFactor": 1.726,
-        "tStat": 0.703,
-        "maxDrawdownPct": 1.74
+        "trades": 54,
+        "expectancyBps": 64.13,
+        "profitFactor": 1.531,
+        "tStat": 1.419,
+        "maxDrawdownPct": 13.74
       },
       "walkForward": {
         "positiveFolds": 2,
@@ -192,14 +392,134 @@
       }
     },
     {
-      "id": "trend_pullback:AVAXUSDT:15m:ASIA:p16:ta2:sa0.75:tb8",
+      "id": "opening_range_breakout:LINKUSDT:4h:LONDON:p8:ta2:sa0.75:tb8",
       "role": "MUTATION",
-      "hypothesisKey": "trend_pullback:AVAXUSDT:15m:ASIA",
-      "parentVariant": "trend_pullback:AVAXUSDT:15m:ASIA:p20:ta2:sa0.75:tb8",
-      "priority": "P1",
+      "hypothesisKey": "opening_range_breakout:LINKUSDT:4h:LONDON",
+      "parentVariant": "opening_range_breakout:LINKUSDT:4h:LONDON:p12:ta2:sa0.75:tb8",
+      "priority": "P2",
       "market": {
-        "pair": "AVAXUSDT",
-        "tf": "15m"
+        "pair": "LINKUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 8,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 45.69,
+      "train": {
+        "trades": 117,
+        "expectancyBps": -78.48,
+        "profitFactor": 0.627,
+        "tStat": -2.024,
+        "maxDrawdownPct": 116.19
+      },
+      "validation": {
+        "trades": 38,
+        "expectancyBps": 75.18,
+        "profitFactor": 1.592,
+        "tStat": 1.264,
+        "maxDrawdownPct": 11.93
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:LINKUSDT:30m:ASIA:p34:ta1:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "failed_breakout:LINKUSDT:30m:ASIA",
+      "parentVariant": "failed_breakout:LINKUSDT:30m:ASIA:p34:ta1:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "LINKUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 34,
+        "targetAtr": 1,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 12.39,
+      "train": {
+        "trades": 24,
+        "expectancyBps": -24.65,
+        "profitFactor": 0.532,
+        "tStat": -1.433,
+        "maxDrawdownPct": 6.46
+      },
+      "validation": {
+        "trades": 12,
+        "expectancyBps": 8.96,
+        "profitFactor": 1.431,
+        "tStat": 0.583,
+        "maxDrawdownPct": 2.03
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "trend_pullback:XRPUSDT:1h:ALL:p20:ta2:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "trend_pullback:XRPUSDT:1h:ALL",
+      "parentVariant": "trend_pullback:XRPUSDT:1h:ALL:p20:ta2:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 7.92,
+      "train": {
+        "trades": 173,
+        "expectancyBps": 3.96,
+        "profitFactor": 1.074,
+        "tStat": 0.396,
+        "maxDrawdownPct": 12.32
+      },
+      "validation": {
+        "trades": 56,
+        "expectancyBps": -5.58,
+        "profitFactor": 0.889,
+        "tStat": -0.372,
+        "maxDrawdownPct": 11.16
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "trend_pullback:XRPUSDT:1h:ALL:p16:ta2:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "trend_pullback:XRPUSDT:1h:ALL",
+      "parentVariant": "trend_pullback:XRPUSDT:1h:ALL:p20:ta2:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "1h"
       },
       "spec": {
         "family": "trend_pullback",
@@ -207,23 +527,23 @@
         "targetAtr": 2,
         "stopAtr": 0.75,
         "timeoutBars": 8,
-        "session": "ASIA"
+        "session": "ALL"
       },
       "researchStatus": "REJECT",
-      "selectionScore": 35.67,
+      "selectionScore": 7.92,
       "train": {
-        "trades": 48,
-        "expectancyBps": 2.89,
-        "profitFactor": 1.103,
-        "tStat": 0.261,
-        "maxDrawdownPct": 6.73
+        "trades": 173,
+        "expectancyBps": 3.96,
+        "profitFactor": 1.074,
+        "tStat": 0.396,
+        "maxDrawdownPct": 12.32
       },
       "validation": {
-        "trades": 9,
-        "expectancyBps": 18.96,
-        "profitFactor": 1.726,
-        "tStat": 0.703,
-        "maxDrawdownPct": 1.74
+        "trades": 56,
+        "expectancyBps": -5.58,
+        "profitFactor": 0.889,
+        "tStat": -0.372,
+        "maxDrawdownPct": 11.16
       },
       "walkForward": {
         "positiveFolds": 2,
@@ -232,121 +552,201 @@
       }
     },
     {
-      "id": "trend_pullback:AVAXUSDT:15m:ASIA:p20:ta2.25:sa0.75:tb8",
-      "role": "MUTATION",
-      "hypothesisKey": "trend_pullback:AVAXUSDT:15m:ASIA",
-      "parentVariant": "trend_pullback:AVAXUSDT:15m:ASIA:p20:ta2:sa0.75:tb8",
-      "priority": "P1",
+      "id": "opening_range_breakout:LINKUSDT:4h:LONDON:p12:ta2:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "opening_range_breakout:LINKUSDT:4h:LONDON",
+      "parentVariant": "opening_range_breakout:LINKUSDT:4h:LONDON:p12:ta2:sa0.75:tb8",
+      "priority": "P2",
       "market": {
-        "pair": "AVAXUSDT",
-        "tf": "15m"
+        "pair": "LINKUSDT",
+        "tf": "4h"
       },
       "spec": {
-        "family": "trend_pullback",
-        "period": 20,
-        "targetAtr": 2.25,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "researchStatus": "REJECT",
-      "selectionScore": 32.02,
-      "train": {
-        "trades": 48,
-        "expectancyBps": 4.08,
-        "profitFactor": 1.141,
-        "tStat": 0.341,
-        "maxDrawdownPct": 6.62
-      },
-      "validation": {
-        "trades": 9,
-        "expectancyBps": 15.96,
-        "profitFactor": 1.611,
-        "tStat": 0.57,
-        "maxDrawdownPct": 1.74
-      },
-      "walkForward": {
-        "positiveFolds": 2,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
-      "id": "trend_pullback:AVAXUSDT:15m:ASIA:p20:ta1.75:sa0.75:tb8",
-      "role": "MUTATION",
-      "hypothesisKey": "trend_pullback:AVAXUSDT:15m:ASIA",
-      "parentVariant": "trend_pullback:AVAXUSDT:15m:ASIA:p20:ta2:sa0.75:tb8",
-      "priority": "P1",
-      "market": {
-        "pair": "AVAXUSDT",
-        "tf": "15m"
-      },
-      "spec": {
-        "family": "trend_pullback",
-        "period": 20,
-        "targetAtr": 1.75,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "researchStatus": "REJECT",
-      "selectionScore": 29.41,
-      "train": {
-        "trades": 48,
-        "expectancyBps": 2.99,
-        "profitFactor": 1.108,
-        "tStat": 0.286,
-        "maxDrawdownPct": 5.2
-      },
-      "validation": {
-        "trades": 9,
-        "expectancyBps": 14.18,
-        "profitFactor": 1.543,
-        "tStat": 0.568,
-        "maxDrawdownPct": 1.74
-      },
-      "walkForward": {
-        "positiveFolds": 2,
-        "requiredPositiveFolds": 3,
-        "pass": false
-      }
-    },
-    {
-      "id": "trend_pullback:AVAXUSDT:15m:ASIA:p20:ta2:sa0.75:tb6",
-      "role": "MUTATION",
-      "hypothesisKey": "trend_pullback:AVAXUSDT:15m:ASIA",
-      "parentVariant": "trend_pullback:AVAXUSDT:15m:ASIA:p20:ta2:sa0.75:tb8",
-      "priority": "P1",
-      "market": {
-        "pair": "AVAXUSDT",
-        "tf": "15m"
-      },
-      "spec": {
-        "family": "trend_pullback",
-        "period": 20,
+        "family": "opening_range_breakout",
+        "period": 12,
         "targetAtr": 2,
         "stopAtr": 0.75,
-        "timeoutBars": 6,
-        "session": "ASIA"
+        "timeoutBars": 8,
+        "session": "LONDON"
       },
       "researchStatus": "REJECT",
-      "selectionScore": 28.45,
+      "selectionScore": 6.48,
       "train": {
-        "trades": 52,
-        "expectancyBps": -3.74,
-        "profitFactor": 0.872,
-        "tStat": -0.387,
-        "maxDrawdownPct": 8.7
+        "trades": 106,
+        "expectancyBps": -79.8,
+        "profitFactor": 0.621,
+        "tStat": -1.942,
+        "maxDrawdownPct": 108.96
       },
       "validation": {
-        "trades": 9,
-        "expectancyBps": 13.86,
-        "profitFactor": 1.588,
-        "tStat": 0.559,
-        "maxDrawdownPct": 1.74
+        "trades": 34,
+        "expectancyBps": 20.36,
+        "profitFactor": 1.139,
+        "tStat": 0.332,
+        "maxDrawdownPct": 13.08
       },
       "walkForward": {
-        "positiveFolds": 2,
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "volatility_squeeze:AVAXUSDT:30m:ALL:p34:ta2:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "volatility_squeeze:AVAXUSDT:30m:ALL",
+      "parentVariant": "volatility_squeeze:AVAXUSDT:30m:ALL:p34:ta2:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "AVAXUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "volatility_squeeze",
+        "period": 34,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -6.26,
+      "train": {
+        "trades": 139,
+        "expectancyBps": -12.76,
+        "profitFactor": 0.682,
+        "tStat": -2.012,
+        "maxDrawdownPct": 19.92
+      },
+      "validation": {
+        "trades": 47,
+        "expectancyBps": -5.58,
+        "profitFactor": 0.835,
+        "tStat": -0.55,
+        "maxDrawdownPct": 7.44
+      },
+      "walkForward": {
+        "positiveFolds": 0,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "volatility_squeeze:AVAXUSDT:30m:ALL:p30:ta2:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "volatility_squeeze:AVAXUSDT:30m:ALL",
+      "parentVariant": "volatility_squeeze:AVAXUSDT:30m:ALL:p34:ta2:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "AVAXUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "volatility_squeeze",
+        "period": 30,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -6.54,
+      "train": {
+        "trades": 158,
+        "expectancyBps": -11.6,
+        "profitFactor": 0.708,
+        "tStat": -1.938,
+        "maxDrawdownPct": 21
+      },
+      "validation": {
+        "trades": 52,
+        "expectancyBps": -6.61,
+        "profitFactor": 0.807,
+        "tStat": -0.69,
+        "maxDrawdownPct": 8.36
+      },
+      "walkForward": {
+        "positiveFolds": 0,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:LINKUSDT:1h:LONDON_NY:p20:ta1:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "failed_breakout:LINKUSDT:1h:LONDON_NY",
+      "parentVariant": "failed_breakout:LINKUSDT:1h:LONDON_NY:p20:ta1:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "LINKUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 20,
+        "targetAtr": 1,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -19.96,
+      "train": {
+        "trades": 27,
+        "expectancyBps": -26.89,
+        "profitFactor": 0.632,
+        "tStat": -1.131,
+        "maxDrawdownPct": 9.51
+      },
+      "validation": {
+        "trades": 10,
+        "expectancyBps": -33.16,
+        "profitFactor": 0.476,
+        "tStat": -1.112,
+        "maxDrawdownPct": 4.64
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:LINKUSDT:1h:LONDON_NY:p16:ta1:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "failed_breakout:LINKUSDT:1h:LONDON_NY",
+      "parentVariant": "failed_breakout:LINKUSDT:1h:LONDON_NY:p20:ta1:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "LINKUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 16,
+        "targetAtr": 1,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -24.08,
+      "train": {
+        "trades": 29,
+        "expectancyBps": -23.35,
+        "profitFactor": 0.67,
+        "tStat": -1.023,
+        "maxDrawdownPct": 9.42
+      },
+      "validation": {
+        "trades": 10,
+        "expectancyBps": -33.16,
+        "profitFactor": 0.476,
+        "tStat": -1.112,
+        "maxDrawdownPct": 4.64
+      },
+      "walkForward": {
+        "positiveFolds": 0,
         "requiredPositiveFolds": 3,
         "pass": false
       }
