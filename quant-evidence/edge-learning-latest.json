@@ -5,13 +5,13 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-23T23:10:34.225Z",
+  "completedAt": "2026-09-24T05:27:34.495Z",
   "summary": {
     "hypotheses": 432,
     "paperCandidates": 1,
-    "interesting": 64,
+    "interesting": 60,
     "regimeDivergence": 315,
-    "killed": 68
+    "killed": 257
   },
   "rules": [
     {
@@ -78,16 +78,6 @@
     },
     {
       "hypothesisKey": "failed_breakout:BNBUSDT:1h:ASIA",
-      "total": 4,
-      "interesting": 4,
-      "regimeDivergence": 0,
-      "paper": 0,
-      "reasons": {},
-      "dominantFailure": null,
-      "action": "MUTATE_AND_RETEST"
-    },
-    {
-      "hypothesisKey": "trend_pullback:SOLUSDT:4h:LONDON_NY",
       "total": 4,
       "interesting": 4,
       "regimeDivergence": 0,
@@ -176,7 +166,7 @@
       "paper": 0,
       "reasons": {
         "NEGATIVE_TRAIN_EXPECTANCY": 1,
-        "THREE_FAILED_GENERATIONS": 1
+        "NEGATIVE_HOLDOUT_EXPECTANCY": 1
       },
       "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
@@ -286,10 +276,23 @@
       "regimeDivergence": 1,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_TRAIN_EXPECTANCY": 2,
-        "NEGATIVE_VALIDATION_EXPECTANCY": 1
+        "NEGATIVE_TRAIN_EXPECTANCY": 1,
+        "NEGATIVE_VALIDATION_EXPECTANCY": 1,
+        "THREE_FAILED_GENERATIONS": 1
       },
       "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
+      "action": "MUTATE_AND_RETEST"
+    },
+    {
+      "hypothesisKey": "opening_range_breakout:XRPUSDT:4h:LONDON",
+      "total": 4,
+      "interesting": 1,
+      "regimeDivergence": 0,
+      "paper": 0,
+      "reasons": {
+        "THREE_FAILED_GENERATIONS": 3
+      },
+      "dominantFailure": "THREE_FAILED_GENERATIONS",
       "action": "MUTATE_AND_RETEST"
     }
   ]
