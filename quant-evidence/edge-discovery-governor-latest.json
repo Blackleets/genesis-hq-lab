@@ -6,20 +6,20 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-25T05:25:24.297Z",
+  "completedAt": "2026-09-25T14:11:11.667Z",
   "discoveryStatus": "FORWARD_EVIDENCE_ACCUMULATING",
   "objective": "REPRODUCIBLE_POSITIVE_NET_EXPECTANCY",
   "fastResearch": {
     "verdict": "PAPER_CANDIDATE_FOUND",
-    "tested": 1465,
+    "tested": 1151,
     "paperCandidates": 2,
     "researchPoolSize": 120,
     "proofStatus": "HYPOTHESIS_ONLY"
   },
   "deepResearch": {
-    "verdict": "NO_ADAPTIVE_EDGE_FOUND",
+    "verdict": "NO_QUEUE_DISCOVERY_REQUIRED",
     "promotableToAudit": 0,
-    "currentDeepRejectedFamily": "opening_range_breakout:LINKUSDT:4h:ASIA"
+    "currentDeepRejectedFamily": null
   },
   "audit": {
     "verdict": "NO_NEW_AUDIT_CANDIDATES",
@@ -66,8 +66,8 @@
       {
         "familyKey": "trend_pullback:XRPUSDT:4h:LONDON_NY",
         "championId": "trend_pullback:XRPUSDT:4h:LONDON_NY:p20:ta1.5:sa0.75:tb6",
-        "trades": 0,
-        "expectancyBps": null,
+        "trades": 1,
+        "expectancyBps": 482.76,
         "profitFactor": null,
         "tStat": null,
         "maxDrawdownPct": 0,
@@ -90,46 +90,13 @@
     ]
   },
   "hypothesisGovernance": {
-    "rawQueueSize": 5,
+    "rawQueueSize": 0,
     "governedQueueSize": 0,
     "familyCount": 0,
-    "suppressedCount": 5,
-    "suppressed": [
-      {
-        "id": "opening_range_breakout:LINKUSDT:4h:ASIA:p20:ta2:sa0.75:tb8:control",
-        "hypothesisKey": "opening_range_breakout:LINKUSDT:4h:ASIA",
-        "reason": "DEEP_REJECTED"
-      },
-      {
-        "id": "opening_range_breakout:LINKUSDT:4h:ASIA:p16:ta2:sa0.75:tb8",
-        "hypothesisKey": "opening_range_breakout:LINKUSDT:4h:ASIA",
-        "reason": "DEEP_REJECTED"
-      },
-      {
-        "id": "opening_range_breakout:LINKUSDT:4h:ASIA:p20:ta1.75:sa0.75:tb8",
-        "hypothesisKey": "opening_range_breakout:LINKUSDT:4h:ASIA",
-        "reason": "DEEP_REJECTED"
-      },
-      {
-        "id": "opening_range_breakout:LINKUSDT:4h:ASIA:p20:ta2:sa0.75:tb6",
-        "hypothesisKey": "opening_range_breakout:LINKUSDT:4h:ASIA",
-        "reason": "DEEP_REJECTED"
-      },
-      {
-        "id": "opening_range_breakout:LINKUSDT:4h:ASIA:p20:ta2.25:sa0.75:tb8",
-        "hypothesisKey": "opening_range_breakout:LINKUSDT:4h:ASIA",
-        "reason": "DEEP_REJECTED"
-      }
-    ]
+    "suppressedCount": 0,
+    "suppressed": []
   },
-  "contradictions": [
-    {
-      "type": "SHORT_WINDOW_VS_DEEP_RETEST",
-      "severity": "HIGH",
-      "action": "DO_NOT_PROMOTE_FROM_FAST_FACTORY",
-      "explanation": "Fast research found candidates while the deeper adaptive retest found no promotable edge. Treat fast candidates as hypotheses only."
-    }
-  ],
+  "contradictions": [],
   "decision": "CONTINUE_DISCOVERY_AND_ACCUMULATE_FORWARD_EVIDENCE",
   "invariants": {
     "changesV9": false,
