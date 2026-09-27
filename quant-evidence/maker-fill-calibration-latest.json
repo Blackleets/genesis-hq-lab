@@ -58,8 +58,8 @@
     "requiredObservationVersion": "maker_queue_depletion_tape_v2_exact_flow_horizon"
   },
   "protocolSha256": "f9cf4b4ecdf952ad396d003824400679bd0e8bc036bad7ee1c62a5f4859ffd31",
-  "rawObservationCount": 1046,
-  "validObservationCount": 1028,
+  "rawObservationCount": 1064,
+  "validObservationCount": 1046,
   "rejectedObservationCount": 18,
   "cohorts": [
     {
@@ -196,8 +196,8 @@
       "side": "BUY",
       "queueBucket": "lt_0_5",
       "spreadBucket": "lt_2",
-      "sampleSize": 158,
-      "protocolObservationCount": 158,
+      "sampleSize": 161,
+      "protocolObservationCount": 161,
       "postProtocolObservationCount": 0,
       "status": "VALIDATED_RESEARCH_HOLDOUT_ACCUMULATING",
       "calibration": {
@@ -237,7 +237,7 @@
       },
       "holdout": {
         "required": 50,
-        "count": 8,
+        "count": 11,
         "complete": false,
         "status": "SEALED_ACCUMULATING",
         "metrics": null
@@ -379,8 +379,8 @@
       "side": "SELL",
       "queueBucket": "lt_0_5",
       "spreadBucket": "lt_2",
-      "sampleSize": 159,
-      "protocolObservationCount": 159,
+      "sampleSize": 162,
+      "protocolObservationCount": 162,
       "postProtocolObservationCount": 0,
       "status": "VALIDATED_RESEARCH_HOLDOUT_ACCUMULATING",
       "calibration": {
@@ -420,7 +420,7 @@
       },
       "holdout": {
         "required": 50,
-        "count": 9,
+        "count": 12,
         "complete": false,
         "status": "SEALED_ACCUMULATING",
         "metrics": null
@@ -562,8 +562,8 @@
       "side": "BUY",
       "queueBucket": "lt_0_5",
       "spreadBucket": "lt_2",
-      "sampleSize": 141,
-      "protocolObservationCount": 141,
+      "sampleSize": 144,
+      "protocolObservationCount": 144,
       "postProtocolObservationCount": 0,
       "status": "CALIBRATION_COMPLETE_AWAITING_VALIDATION",
       "calibration": {
@@ -585,7 +585,7 @@
       },
       "validation": {
         "required": 50,
-        "count": 41,
+        "count": 44,
         "complete": false,
         "status": "SEALED_ACCUMULATING",
         "metrics": null
@@ -734,10 +734,10 @@
       "side": "SELL",
       "queueBucket": "lt_0_5",
       "spreadBucket": "lt_2",
-      "sampleSize": 149,
-      "protocolObservationCount": 149,
+      "sampleSize": 152,
+      "protocolObservationCount": 152,
       "postProtocolObservationCount": 0,
-      "status": "CALIBRATION_COMPLETE_AWAITING_VALIDATION",
+      "status": "VALIDATED_RESEARCH_HOLDOUT_ACCUMULATING",
       "calibration": {
         "required": 100,
         "count": 100,
@@ -757,20 +757,31 @@
       },
       "validation": {
         "required": 50,
-        "count": 49,
-        "complete": false,
-        "status": "SEALED_ACCUMULATING",
-        "metrics": null
+        "count": 50,
+        "complete": true,
+        "status": "REVEALED_COMPLETE",
+        "metrics": {
+          "sampleSize": 50,
+          "fills": 0,
+          "empiricalFillProbability": 0,
+          "meanFillRatio": 0,
+          "conservativeFillProbability": 0,
+          "adverseSelectionSamples": 0,
+          "adverseSelectionP50Bps": null,
+          "adverseSelectionP75Bps": null,
+          "adverseSelectionP90Bps": null,
+          "meanSpreadCaptureBps": null
+        }
       },
       "holdout": {
         "required": 50,
-        "count": 0,
+        "count": 2,
         "complete": false,
         "status": "SEALED_ACCUMULATING",
         "metrics": null
       },
-      "usableFillProbability": null,
-      "eligibleForShadowCalibration": false
+      "usableFillProbability": 0,
+      "eligibleForShadowCalibration": true
     },
     {
       "targetHorizonMs": 10000,
@@ -906,8 +917,8 @@
       "side": "BUY",
       "queueBucket": "lt_0_5",
       "spreadBucket": "lt_2",
-      "sampleSize": 106,
-      "protocolObservationCount": 106,
+      "sampleSize": 109,
+      "protocolObservationCount": 109,
       "postProtocolObservationCount": 0,
       "status": "CALIBRATION_COMPLETE_AWAITING_VALIDATION",
       "calibration": {
@@ -929,7 +940,7 @@
       },
       "validation": {
         "required": 50,
-        "count": 6,
+        "count": 9,
         "complete": false,
         "status": "SEALED_ACCUMULATING",
         "metrics": null
@@ -1078,8 +1089,8 @@
       "side": "SELL",
       "queueBucket": "lt_0_5",
       "spreadBucket": "lt_2",
-      "sampleSize": 115,
-      "protocolObservationCount": 115,
+      "sampleSize": 118,
+      "protocolObservationCount": 118,
       "postProtocolObservationCount": 0,
       "status": "CALIBRATION_COMPLETE_AWAITING_VALIDATION",
       "calibration": {
@@ -1101,7 +1112,7 @@
       },
       "validation": {
         "required": 50,
-        "count": 15,
+        "count": 18,
         "complete": false,
         "status": "SEALED_ACCUMULATING",
         "metrics": null
@@ -1118,7 +1129,7 @@
     }
   ],
   "calibratedCohortCount": 6,
-  "validatedCohortCount": 2,
+  "validatedCohortCount": 3,
   "holdoutReadyCohortCount": 0,
   "notes": [
     "The first 100 chronological observations per cohort are calibration data.",
@@ -1129,7 +1140,7 @@
     "Rows after the first 200 observations per cohort do not alter the locked v1 calibration/validation/holdout allocation.",
     "This research module has no execution authority."
   ],
-  "generatedAt": "2026-09-26T23:55:56.048Z",
+  "generatedAt": "2026-09-27T05:10:16.954Z",
   "source": {
     "input": "tape/paper-tape/maker-queue-depletion.jsonl",
     "observationContract": "maker_queue_depletion_tape_v2_exact_flow_horizon"
