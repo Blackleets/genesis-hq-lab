@@ -1,5 +1,5 @@
 {
-  "ts": "2026-09-27T13:08:50.846Z",
+  "ts": "2026-09-27T17:49:40.751Z",
   "liveOff": true,
   "paper": true,
   "go": false,
@@ -12,43 +12,55 @@
   "filled": 0,
   "paperPnl": 0,
   "reasons": {
-    "TAPE_PENDING": 4
+    "TAPE_PENDING": 2,
+    "WOULD_CROSS": 1,
+    "VPIN_HALT": 1
   },
-  "ms": 665,
+  "ms": 1082,
   "scored": [
     {
-      "symbol": "NES-USDT-SWAP",
-      "preH": 0.18660287081351612,
-      "spread": 11.96172248803862,
+      "symbol": "RESOLV-USDT-SWAP",
+      "preH": -0.484178804620937,
+      "spread": 10.045203415368752,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
-      "symbol": "0G-USDT-SWAP",
-      "preH": 0.019138755981161992,
-      "spread": 11.483253588517607,
+      "symbol": "TRUST-USDT-SWAP",
+      "preH": -0.294896030245714,
+      "spread": 10.586011342155103,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
-      "symbol": "LPT-USDT-SWAP",
-      "preH": -0.06299212598424919,
-      "spread": 11.24859392575929,
+      "symbol": "QNT-USDT-SWAP",
+      "preH": -0.44994421340927016,
+      "spread": 10.143016533116372,
       "quote": false,
-      "reason": "TAPE_PENDING"
+      "reason": "WOULD_CROSS",
+      "harvestBps": -0.4499,
+      "vpin": 0.5972,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "WOULD_CROSS"
     },
     {
-      "symbol": "CASHCAT-USDT-SWAP",
-      "preH": -0.08282036933451131,
-      "spread": 11.191941801901397,
+      "symbol": "BABY-USDT-SWAP",
+      "preH": -0.5393036231371964,
+      "spread": 9.887703933893725,
       "quote": false,
-      "reason": "TAPE_PENDING"
+      "reason": "VPIN_HALT",
+      "harvestBps": null,
+      "vpin": 0.8204,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "VPIN_HALT"
     }
   ],
   "intersection": {
-    "liquid": 208,
+    "liquid": 207,
     "hGe": 3,
-    "band": 128,
+    "band": 112,
     "both": 0
   },
   "formula": "H=spread*0.35-4bps; width is a toxicity prior. Kalman+VPIN+GLFT. not a GO."
