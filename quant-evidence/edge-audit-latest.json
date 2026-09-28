@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-28T05:53:50.127Z",
+  "completedAt": "2026-09-28T17:02:11.961Z",
   "methodology": {
     "oneShot": true,
     "holdoutStart": 0.8,
@@ -22,8 +22,8 @@
     "familyAuditBudget": true,
     "historyRebuild": true
   },
-  "sourceAdaptiveCompletedAt": "2026-09-28T05:53:50.044Z",
-  "newAudits": 0,
+  "sourceAdaptiveCompletedAt": "2026-09-28T17:02:08.670Z",
+  "newAudits": 1,
   "passed": 0,
   "totalPassedRegistered": 10,
   "exhaustedFamilies": [
@@ -36,6 +36,35 @@
     "trend_pullback:DOGEUSDT:1h:LONDON_NY",
     "trend_pullback:DOGEUSDT:1h:ALL"
   ],
-  "verdict": "NO_NEW_AUDIT_CANDIDATES",
-  "results": []
+  "verdict": "AUDIT_REJECTED",
+  "results": [
+    {
+      "id": "volatility_squeeze:BNBUSDT:1h:ALL:p34:ta2.25:sa0.75:tb8",
+      "hypothesisKey": "volatility_squeeze:BNBUSDT:1h:ALL",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "volatility_squeeze",
+        "period": 34,
+        "targetAtr": 2.25,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "parentVariant": "volatility_squeeze:BNBUSDT:1h:ALL:p34:ta2:sa0.75:tb8",
+      "selectionScore": 29.54,
+      "holdout": {
+        "trades": 40,
+        "expectancyBps": -12,
+        "profitFactor": 0.604,
+        "tStat": -1.381,
+        "maxDrawdownPct": 6.54
+      },
+      "status": "AUDIT_REJECTED",
+      "rejectReason": "NEGATIVE_HOLDOUT_EXPECTANCY",
+      "auditedAt": "2026-09-28T17:02:11.960Z"
+    }
+  ]
 }
