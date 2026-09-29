@@ -77,3 +77,10 @@ Complexity is a cost. A simpler robust candidate outranks a fragile complex cand
 The optimization target is reproducible positive net expectancy with controlled drawdown and robustness, not trade count, win rate, gross PnL, or a visually attractive equity curve.
 
 Genesis must be allowed to conclude NO EDGE and NO TRADE.
+
+## Agent research protocol
+
+Use `docs/GENESIS_QUANT_AGENT_PROTOCOL.md` for role responsibilities, evidence
+contracts, Solana capturability and degradation review. These instructions do not
+install workers or replace deterministic gates. Existing risk limits remain in
+force. QUOTE_EDGE, SIMULATED_EDGE, PAPER_PNL and REALIZED_PNL are distinct.
