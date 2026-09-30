@@ -36,3 +36,9 @@ Runtime integration and deployed-state verification; no claim that these are com
 - Current economic review is recorded in docs/ECONOMIC_CHECKPOINT_2026-09-30.md with exact source/tape revisions and UTC timestamps.
 - Fixed the summary-test import that aborted the institutional research workflow before every lab step. Original ERR_MODULE_NOT_FOUND reproduced; exact safety batch now passes 49/49 tests.
 - Runtime risk/execution and LIVE_LOCKED unchanged. Next: verify the new institutional run and inspect fresh reports; no profitable sleeve is inferred from this code repair.
+
+## Verified institutional recovery — 2026-09-30 22:35 UTC
+- PR #150 merged as a5cbbfb40f643844b06d7d14bd21f99bb0ff9568. Run 36785771684 succeeded through every lab, invariant, summary and artifact step.
+- Fresh allocator: 0 qualified sleeves, 100% PAPER cash, WAIT. No validated profitability claim; no live authority.
+- Fresh lane results and provenance are in docs/ECONOMIC_CHECKPOINT_2026-09-30.md.
+- Next concrete engineering priority: diagnose why the positioning tape has 115 gaps over 60 minutes and only one row in its current cohort. Check capture cadence, provider and publication failures. Preserve thresholds and holdouts; fix observation continuity rather than combining disconnected cohorts.
