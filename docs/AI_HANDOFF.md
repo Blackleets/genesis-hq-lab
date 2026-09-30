@@ -30,3 +30,9 @@ None required for this documentation update.
 
 ## Deferred
 Runtime integration and deployed-state verification; no claim that these are completed.
+
+## Economic continuation — 2026-09-30
+- PR #149 protocol integrated into feat/genesis-life-os after its GitHub checks passed.
+- Current economic review is recorded in docs/ECONOMIC_CHECKPOINT_2026-09-30.md with exact source/tape revisions and UTC timestamps.
+- Fixed the summary-test import that aborted the institutional research workflow before every lab step. Original ERR_MODULE_NOT_FOUND reproduced; exact safety batch now passes 49/49 tests.
+- Runtime risk/execution and LIVE_LOCKED unchanged. Next: verify the new institutional run and inspect fresh reports; no profitable sleeve is inferred from this code repair.

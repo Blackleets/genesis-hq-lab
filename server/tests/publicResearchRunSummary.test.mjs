@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildPublicResearchSummary } from '../publicResearchRunSummary.mjs';
+import { buildPublicResearchSummary } from '../../scripts/publicResearchRunSummary.mjs';
 
 function reports(overrides = {}) {
   return {
