@@ -1,56 +1,32 @@
-# AI_HANDOFF — Live state for the next AI
+# AI_HANDOFF — Verified session checkpoint
 
-Update this file at the end of every session. It is the first thing the
-next AI reads (after `AGENTS.md`).
-
-> Replace the placeholder section below with the current state. Keep the
-> structure. Don't accumulate stale handoffs — overwrite.
-
----
-
-## Current state — 2026-05-25 (bootstrap)
-
-- **Branch:** `main`
-- **What's done:** Vite + React + TS scaffold, Tailwind initialized,
-  docs/ folder populated, `.env.example` created.
-- **What's NOT done:** No real Genesis HQ port yet. `src/` still has the
-  default Vite landing page.
-- **Build status:** `npm run build` — see latest `docs/CHANGELOG_AI.md`.
+## Current state — 2026-09-29
+- Source inspected: feat/genesis-life-os at 9d9f6035eb7eba8e421f52bc46966704f861b7a6.
+- Change branch: docs/quant-agent-protocol-v1.
+- Added corrected research-agent protocol; linked from AGENTS.md and the edge discovery charter.
+- This change is documentation/instructions only. No runtime agents, gates, trading controls or deployment were installed or changed.
+- LIVE_LOCKED and existing risk configuration remain untouched.
+- Historical May/June handoffs do not establish current deployed behavior or profitability.
+- Source contains Node research modules and Supabase TypeScript functions; inspect actual runtime wiring before integration.
+- Verification: documentation review and existing charter invariant tests; no frontend/runtime change, npm build not run.
+- Local git clone failed due unavailable browser-proxy connection. GitHub connector used for repository reads and publication; no destructive git retry.
 
 ## Next concrete task
-
-Port a minimal Genesis HQ slice into this lab:
-
-1. Copy these files from `../genesis/src/` as starting points (re-read
-   them, do not assume they are still current):
-   - `components/genesis/world/OfficeMap.tsx`
-   - `components/genesis/world/Character.tsx`
-   - `components/genesis/world/furniture.tsx`
-   - `components/genesis/world/KenneyAtlas.tsx`
-   - `components/genesis/world/ChatBubble.tsx`
-   - `hooks/usePolling.ts`
-   - `hooks/useAgentChatter.ts`
-2. Stub out anything that pulls from a backend with fixtures from
-   `src/fixtures/agents.json` (you create this).
-3. Make sure the shared types live in `src/types/genesis.ts` (port from
-   `../genesis/shared/types.ts`, trimmed).
-4. `npm run build` must pass.
-5. Update this file with whatever you broke, deferred, or discovered.
+1. Read AGENTS.md, GENESIS_QUANT_AGENT_PROTOCOL.md, EDGE_DISCOVERY_ENGINE.md and RESEARCH_PRINCIPLES.md.
+2. Inspect current research promotion audit, evidence schemas and Solana observer blockers.
+3. Map protocol requirements to existing deterministic checks; report implemented, missing and unverified separately.
+4. Add only missing controls through a separately tested change. Do not alter execution, risk, TP/SL, safe mode, Kelly or persistence as part of this protocol update.
+5. Gather fresh forward net-cost/capturability evidence before making profitability claims.
 
 ## Known traps
+- A model instruction is not an enforced execution barrier.
+- Small trade counts and 30 days alone do not prove edge.
+- Quotes, simulations, paper fills and realized PnL must remain separate.
+- No missing metric may be coerced into a synthetic zero.
+- Do not follow historical instructions to push main directly; AGENTS.md requires feature-branch work.
 
-- The main `genesis` project uses React 18; this lab uses React 19.
-  Some Framer Motion APIs differ — read the Framer Motion 11+ docs if
-  things look weird.
-- Tailwind here is v3 by design (Tailwind v4 changes the config format and
-  we are not ready to migrate the visual conventions).
-- TypeScript strict is on. Don't add `any` to silence errors — narrow the
-  type or refactor.
+## Open questions
+None required for this documentation update.
 
-## Open questions for the human
-
-(none currently)
-
-## Things the previous AI deferred
-
-(none currently — this is the first session)
+## Deferred
+Runtime integration and deployed-state verification; no claim that these are completed.

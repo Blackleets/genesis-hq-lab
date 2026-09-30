@@ -164,3 +164,10 @@ SQLite DB is created automatically at `data/genesis.db` when the server starts.
 | Render deploy | Branch: `main`. Free tier. `npm run start:render` = db:restore + concurrently server+agent+optimizer. Health: `/api/health`. Env vars set in Render dashboard (not in render.yaml). |
 
 _Last updated: 2026-06-12._
+
+## Quantitative research protocol (2026-09-29)
+
+For quantitative research, strategy proposals and Solana edge evaluation, also read
+`docs/GENESIS_QUANT_AGENT_PROTOCOL.md`. It supplements existing safety rules and
+is an instruction protocol, not execution authority. Preserve `LIVE_LOCKED` and
+existing deterministic gates; never convert missing economic evidence to zero.
