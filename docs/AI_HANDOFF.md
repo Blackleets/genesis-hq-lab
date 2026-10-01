@@ -59,3 +59,13 @@ Runtime integration and deployed-state verification; no claim that these are com
 - 67 local tests pass; YAML parses. PR CI/build still to verify.
 - Explicit capture: push or workflow_dispatch now requests a new bounded session; routine maintenance verifies without collecting another market cohort.
 - Pilot 36794235660 is still running on its immutable original source. Review its numerical completeness and provenance before final reporting; do not overwrite old results or claim new data from the tests.
+
+## Verified market outcome — 2026-10-01 00:30 UTC
+- PRs #152/#153 merged; current code dccddab3a07b8827f5e0a8f486488258724eec22. All relevant PR/build/browser checks pass; 67 local capture tests pass.
+- Pilot 36794235660 succeeded: 24 accepted non-overlapping rows, 21 fresh divergence rows, 22 usable labels, 13/5/4 train/validation/sealed holdout. Zero duplicate/overlap/gap defects.
+- Tape snapshot 8018823dba7f39ee986880495b7bb2fb15f75d15; immutable per-run evidence is under paper-tape/positioning-continuity-v1/36794235660-1.
+- Result: NO_EDGE_FOUND, 0 candidates. Three families produced negative validation proxies after 12 bps; two had no qualifying signals. No executed/realized profit inferred.
+- Required core inputs are finite/nonzero. Exact replay with repaired numeric code preserves all cross-capture features, quality, metrics and sealed partitions; historical artifacts untouched.
+- Read docs/POSITIONING_CONTINUITY_PILOT.md for hashes, full results and limitations. Non-overlap is not a statistical independence guarantee; older optional zero-valued fields are not verified measurements.
+- Next task: independently predeclare cost-aware horizons and executable entry/exit quotes; preserve the current holdout and sample/cost gates. Longitudinal capture remains a separate unresolved engineering task, not completed by one bounded session.
+- LIVE_LOCKED and trading/risk/execution controls unchanged; no capital authority or new persistent service.
