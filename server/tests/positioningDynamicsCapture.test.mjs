@@ -239,3 +239,33 @@ test('writes explicit RESEARCH_ONLY positioning capture availability status', ()
   assert.equal(payload.transientDataGap, true);
   assert.ok(Number.isFinite(Date.parse(payload.capturedAt)));
 });
+test('required null features block cross-capture deltas instead of being interpreted as zero', () => {
+  for (const field of ['takerBuySellRatioNow', 'fundingRateNow', 'premiumNowBps']) {
+    for (const target of ['previous', 'current']) {
+      const previous = observation();
+      const current = observation({ capturedAt: '2026-09-09T16:30:00.000Z' });
+      (target === 'previous' ? previous : current).positioning[field] = null;
+      const result = deriveCrossCapturePositioningFeatures(previous, current);
+      assert.equal(result.available, false, field + ' missing in ' + target);
+      assert.equal(result.reason, 'MISSING_REQUIRED_FEATURE');
+    }
+  }
+});
+
+test('observation preserves absent funding, premium and optional features as null while retaining genuine zeros', () => {
+  const c = context();
+  c.raw.funding[0].rate = null;
+  c.premiumNowBps = null;
+  c.fundingAvg = null;
+  c.takerImpulse = null;
+  const result = buildPositioningObservation(c, closedKline(), { capturedAtMs });
+  assert.equal(result.positioning.fundingRateNow, null);
+  assert.equal(result.positioning.premiumNowBps, null);
+  assert.equal(result.positioning.fundingAvg, null);
+  assert.equal(result.positioning.takerImpulse, null);
+  c.raw.funding[0].rate = 0;
+  c.premiumNowBps = 0;
+  const zero = buildPositioningObservation(c, closedKline(), { capturedAtMs });
+  assert.equal(zero.positioning.fundingRateNow, 0);
+  assert.equal(zero.positioning.premiumNowBps, 0);
+});

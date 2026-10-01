@@ -256,3 +256,18 @@ test('real public capture adapters use the supplied bounded fetch instead of an 
   assert.equal(requests.every(r => r.url.startsWith('https://www.okx.com/api/v5/')), true);
   assert.equal(requests.every(r => r.signal instanceof AbortSignal), true);
 });
+test('missing core positioning evidence cannot be admitted to a continuity cohort', async t => {
+  const h = harness(t);
+  let calls = 0;
+  h.options.capture = async () => {
+    const row = h.snapshot();
+    const fields = ['takerBuySellRatioNow', 'fundingRateNow', 'premiumNowBps'];
+    row.positioning[fields[calls++ % fields.length]] = null;
+    return row;
+  };
+  const report = await runPositioningContinuity(h.options);
+  assert.equal(report.acceptedRowCount, 0);
+  assert.equal(report.independentRowCount, 0);
+  assert.equal(report.cohortReadyForResearch, false);
+  assert.equal(report.attempts.every(a => a.reason === 'INCOMPLETE_OBSERVATION'), true);
+});

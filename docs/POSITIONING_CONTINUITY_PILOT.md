@@ -48,3 +48,11 @@ Workflow YAML parsed; PR test job has read-only permission and never collects ma
 Frontend build not run locally for this research-only checkout; the repository PR build must be checked before merge.
 No risk limits, Kelly, TP/SL, execution gateway, accounts, credentials, LIVE_LOCKED, strategy promotion or production scheduler changed.
 Runtime market results are not yet claimed by this document. Append verified run/tape results after the pilot completes.
+
+## Missing-number hardening — 2026-10-01
+The legacy capture helper treated null as zero through Number(null). Two regression tests reproduce that defect: missing required features incorrectly allowed cross-capture deltas, and absent funding/premium/optional metrics appeared as observed zeros.
+The helper now accepts only nonblank numeric strings and numbers; unknown values remain null and genuine numeric zeros remain zero.
+Continuity admission additionally requires finite taker ratio, settled funding and premium before deriving a feature row.
+67 tests pass after the repair; original failing regressions were reproduced before correction.
+Maintenance pushes now verify only. A new market session requires workflow_dispatch or a matching-path push whose commit starts with capture:, following the existing branch-capture convention. This avoids unintentionally spending another 30-minute session on each maintenance merge.
+The already running pilot 36794235660 keeps its original source revision 18bb315c27ea7f578232576e921ee19b20292fe4 and registered dataset; inspect numerical completeness before interpreting its results. No historical evidence is rewritten.
