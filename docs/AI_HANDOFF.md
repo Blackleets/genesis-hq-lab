@@ -42,3 +42,13 @@ Runtime integration and deployed-state verification; no claim that these are com
 - Fresh allocator: 0 qualified sleeves, 100% PAPER cash, WAIT. No validated profitability claim; no live authority.
 - Fresh lane results and provenance are in docs/ECONOMIC_CHECKPOINT_2026-09-30.md.
 - Next concrete engineering priority: diagnose why the positioning tape has 115 gaps over 60 minutes and only one row in its current cohort. Check capture cadence, provider and publication failures. Preserve thresholds and holdouts; fix observation continuity rather than combining disconnected cohorts.
+
+## Positioning continuity repair — 2026-09-30
+- Branch: fix/positioning-continuity-session, based on 95b50c20437b239087ba4f485fef2d9fd2c972e1.
+- Diagnosed four successful September 30 harvest captures separated by hours; 115 historical gap resets and one active independent row. Cause of every historical scheduling gap remains unverified.
+- Added a bounded, isolated BTC continuity pilot to the existing positioning-dynamics-capture workflow: 24 attempts, >=65 seconds after completion, 30-minute request/admission budget, no new schedule.
+- Original five-family study, 12-bps stressed cost, 20-row research minimum, source freshness and sealed holdout unchanged. Closed-bar proxy studies do not prove executable profit.
+- Verification: 64 local tests, including 13 new negative/budget/adapter tests; workflow YAML parsed. PR CI/build and real pilot results must be verified.
+- Preserve LIVE_LOCKED, zero execution/capital authority and all trading-risk controls.
+- Protocol, hypotheses, limitations and evidence paths: docs/POSITIONING_CONTINUITY_PILOT.md.
+- Next: verify merge/run status, inspect its immutable quality/study/session artifacts, and append actual results. Do not imply the collector has already observed edge.
