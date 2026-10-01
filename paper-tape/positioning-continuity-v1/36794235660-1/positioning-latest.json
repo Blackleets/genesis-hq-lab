@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 4,
+  "mode": "RESEARCH_ONLY",
+  "provider": "okx_public_market_data",
+  "symbol": "BTCUSDT",
+  "capturedAt": "2026-10-01T00:30:42.174Z",
+  "price": {
+    "interval": "1m",
+    "openTime": "2026-10-01T00:29:00.000Z",
+    "closeTime": "2026-10-01T00:29:59.999Z",
+    "close": 83446.2
+  },
+  "positioning": {
+    "openInterest": {
+      "value": 2751461.420000007,
+      "unit": "CONTRACTS"
+    },
+    "oiRecentChangePct": 0,
+    "oiAccelerationPct": 0,
+    "takerBuySellRatioNow": 8.332018451808608,
+    "takerBuyFractionNow": 0.8928420464271378,
+    "takerNotionalBuyFractionNow": 0.8928339572276903,
+    "takerTradeCount": 1239,
+    "takerWindowMs": 60000,
+    "takerWindowCoverageMs": 59983,
+    "takerRecentBias": 8.332018451808608,
+    "takerImpulse": 0,
+    "takerPressure": "buy_pressure",
+    "takerReversal": false,
+    "fundingRateNow": 0.0000530190324008,
+    "fundingAvg": 0.00003668,
+    "fundingCrowd": "balanced",
+    "premiumNowBps": -4.637,
+    "premiumImpulseBps": 0.359,
+    "volatilityState": "shock",
+    "volatilityExpansionRatio": 0.7940094613602946
+  },
+  "crossCapture": {
+    "available": true,
+    "priorCapturedAt": "2026-10-01T00:29:30.396Z",
+    "elapsedMinutes": 1.1963,
+    "minimumSeparationMinutes": 1,
+    "oiChangePct": -0.2082179378335769,
+    "takerBuySellRatioDelta": -0.18270943298664122,
+    "takerBuyFractionDelta": -0.002057732935126122,
+    "fundingDeltaBps": 0,
+    "premiumDeltaBps": -0.08599999999999941,
+    "perpReturnBps": 0.3595195381291194,
+    "causal": true,
+    "nonOverlappingTakerWindows": true,
+    "researchUse": "OBSERVATIONAL_ONLY_NOT_FOR_RANKING"
+  },
+  "provenance": {
+    "securityType": "PUBLIC_READ_ONLY_NO_API_KEY",
+    "endpoints": {
+      "price": "https://www.okx.com/api/v5/market/candles",
+      "openInterest": "https://www.okx.com/api/v5/public/open-interest",
+      "taker": "https://www.okx.com/api/v5/market/history-trades",
+      "funding": "https://www.okx.com/api/v5/public/funding-rate-history"
+    },
+    "instrument": "BTC-USDT-SWAP",
+    "sourceTimes": {
+      "price": "2026-10-01T00:29:59.999Z",
+      "openInterest": "2026-10-01T00:30:39.140Z",
+      "taker": "2026-10-01T00:30:38.745Z",
+      "funding": "2026-10-01T00:00:00.000Z"
+    },
+    "agesMs": {
+      "price": 42175,
+      "openInterest": 3034,
+      "taker": 3429,
+      "funding": 1842174
+    },
+    "maxAgeMs": {
+      "price": 300000,
+      "openInterest": 900000,
+      "taker": 120000,
+      "funding": 43200000
+    },
+    "closedPriceBarOnly": true,
+    "fixedWindowTakerFlow": true,
+    "takerWindowMs": 60000,
+    "takerWindowCoverageMs": 59983,
+    "takerTradeCount": 1239,
+    "takerPagesFetched": 9,
+    "takerSampleSource": "okx_public_history_trades_fixed_window",
+    "crossCaptureUsesStrictlyPriorDurableObservation": true,
+    "crossCaptureRequiresSameSchema": true,
+    "crossCaptureRequiresNonOverlappingTakerWindows": true,
+    "note": "openInterest.value preserves provider-native contract units; taker flow uses a fixed one-minute public-trade window; cross-capture deltas require same-schema non-overlapping taker windows"
+  },
+  "researchUse": "OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING"
+}

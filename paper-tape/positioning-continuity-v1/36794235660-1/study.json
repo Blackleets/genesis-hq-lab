@@ -1,0 +1,243 @@
+{
+  "ok": true,
+  "version": "positioning_edge_factory_v7_strict_numeric",
+  "mode": "RESEARCH_ONLY",
+  "symbol": "BTCUSDT",
+  "paperOnly": true,
+  "liveOrders": false,
+  "executionAuthority": false,
+  "capitalEligible": false,
+  "methodology": {
+    "selectionUsesHoldout": false,
+    "finitePredeclaredFamilies": true,
+    "holdoutSealed": true,
+    "minIndependentRows": 20,
+    "stressedCostBps": 12,
+    "maxForwardLabelGapMinutes": 30,
+    "holdoutFraction": 0.2,
+    "temporalOrderPreserved": true,
+    "walkForwardFolds": 2,
+    "independentNonOverlappingRowsOnly": true,
+    "outageStartsNewCohortSegment": true,
+    "labelsNeverCrossSegmentBreaks": true,
+    "symbolIsolation": true,
+    "activeQualityCohortOnly": true,
+    "strictMissingNumericEvidence": true,
+    "qualityCohortStart": "2026-10-01T00:04:00.062Z",
+    "qualityCohortEnd": "2026-10-01T00:30:42.174Z",
+    "spotPerpJoin": "PRIOR_ASOF_ONLY",
+    "maxDivergenceAgeMs": 30000,
+    "futureDivergenceForbidden": true
+  },
+  "verdict": "NO_EDGE_FOUND",
+  "dataQuality": {
+    "qualityPass": true,
+    "independentRowCount": 24,
+    "reconstructedIndependentRows": 23,
+    "usableForwardSamples": 22,
+    "rejectedForwardGaps": 0,
+    "segmentBreaks": 0,
+    "segmentCount": 1
+  },
+  "partitions": {
+    "trainSamples": 13,
+    "validationSamples": 5,
+    "sealedHoldoutSamples": 4,
+    "holdoutOpened": false,
+    "holdoutMetricsComputed": false
+  },
+  "candidates": [
+    {
+      "family": "funding_oi_taker_reversal",
+      "description": "funding extreme × OI expansion × taker reversal",
+      "train": {
+        "trades": 0,
+        "expectancyBps": null,
+        "profitFactor": null,
+        "tStat": null,
+        "maxDrawdownPct": null
+      },
+      "validation": {
+        "trades": 0,
+        "expectancyBps": null,
+        "profitFactor": null,
+        "tStat": null,
+        "maxDrawdownPct": null
+      },
+      "walkForward": {
+        "folds": [
+          {
+            "trades": 0,
+            "expectancyBps": null,
+            "profitFactor": null,
+            "tStat": null,
+            "maxDrawdownPct": null
+          },
+          {
+            "trades": 0,
+            "expectancyBps": null,
+            "profitFactor": null,
+            "tStat": null,
+            "maxDrawdownPct": null
+          }
+        ],
+        "pass": false
+      },
+      "status": "REJECTED"
+    },
+    {
+      "family": "funding_price_disagreement",
+      "description": "funding sign disagrees with recent perp return",
+      "train": {
+        "trades": 1,
+        "expectancyBps": -14.047878447010172,
+        "profitFactor": 0,
+        "tStat": null,
+        "maxDrawdownPct": 0.14047878447010173
+      },
+      "validation": {
+        "trades": 1,
+        "expectancyBps": -10.16670190958289,
+        "profitFactor": 0,
+        "tStat": null,
+        "maxDrawdownPct": 0.10166701909582891
+      },
+      "walkForward": {
+        "folds": [
+          {
+            "trades": 1,
+            "expectancyBps": -10.16670190958289,
+            "profitFactor": 0,
+            "tStat": null,
+            "maxDrawdownPct": 0.10166701909582891
+          },
+          {
+            "trades": 0,
+            "expectancyBps": null,
+            "profitFactor": null,
+            "tStat": null,
+            "maxDrawdownPct": null
+          }
+        ],
+        "pass": false
+      },
+      "status": "REJECTED"
+    },
+    {
+      "family": "oi_shock_failed_continuation",
+      "description": "OI expansion with price/taker divergence",
+      "train": {
+        "trades": 0,
+        "expectancyBps": null,
+        "profitFactor": null,
+        "tStat": null,
+        "maxDrawdownPct": null
+      },
+      "validation": {
+        "trades": 0,
+        "expectancyBps": null,
+        "profitFactor": null,
+        "tStat": null,
+        "maxDrawdownPct": null
+      },
+      "walkForward": {
+        "folds": [
+          {
+            "trades": 0,
+            "expectancyBps": null,
+            "profitFactor": null,
+            "tStat": null,
+            "maxDrawdownPct": null
+          },
+          {
+            "trades": 0,
+            "expectancyBps": null,
+            "profitFactor": null,
+            "tStat": null,
+            "maxDrawdownPct": null
+          }
+        ],
+        "pass": false
+      },
+      "status": "REJECTED"
+    },
+    {
+      "family": "taker_reversal_after_vol_expansion",
+      "description": "aggressive-flow reversal after volatility expansion",
+      "train": {
+        "trades": 5,
+        "expectancyBps": -11.28129774157993,
+        "profitFactor": 0,
+        "tStat": -12.52093331735157,
+        "maxDrawdownPct": 0.5640648870789964
+      },
+      "validation": {
+        "trades": 2,
+        "expectancyBps": -9.758594613297475,
+        "profitFactor": 0,
+        "tStat": -2.3949214140597364,
+        "maxDrawdownPct": 0.1951718922659495
+      },
+      "walkForward": {
+        "folds": [
+          {
+            "trades": 2,
+            "expectancyBps": -9.758594613297475,
+            "profitFactor": 0,
+            "tStat": -2.3949214140597364,
+            "maxDrawdownPct": 0.1951718922659495
+          },
+          {
+            "trades": 0,
+            "expectancyBps": null,
+            "profitFactor": null,
+            "tStat": null,
+            "maxDrawdownPct": null
+          }
+        ],
+        "pass": false
+      },
+      "status": "REJECTED"
+    },
+    {
+      "family": "spot_perp_taker_divergence_continuation",
+      "description": "causal spot-perp taker aggression divergence continuation",
+      "train": {
+        "trades": 9,
+        "expectancyBps": -13.101935849496158,
+        "profitFactor": 0,
+        "tStat": -12.822572587152953,
+        "maxDrawdownPct": 1.179174226454654
+      },
+      "validation": {
+        "trades": 2,
+        "expectancyBps": -16.488552573468358,
+        "profitFactor": 0,
+        "tStat": -9.022185888608822,
+        "maxDrawdownPct": 0.32977105146936714
+      },
+      "walkForward": {
+        "folds": [
+          {
+            "trades": 1,
+            "expectancyBps": -18.31610886382216,
+            "profitFactor": 0,
+            "tStat": null,
+            "maxDrawdownPct": 0.1831610886382216
+          },
+          {
+            "trades": 1,
+            "expectancyBps": -14.660996283114555,
+            "profitFactor": 0,
+            "tStat": null,
+            "maxDrawdownPct": 0.14660996283114555
+          }
+        ],
+        "pass": false
+      },
+      "status": "REJECTED"
+    }
+  ],
+  "survivors": [],
+  "holdoutOpened": false
+}
