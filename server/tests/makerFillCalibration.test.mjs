@@ -206,3 +206,12 @@ test('invalid sequential split policy is rejected', () => {
     /invalid_validationSamplesPerCohort/,
   );
 });
+
+
+test('protocol hash is reproducible from the persisted JSON policy', () => {
+  const report = calibrateMakerFillProbability(rows(10));
+  const persistedPolicy = JSON.parse(JSON.stringify(report.policy));
+  assert.equal(makerFillPolicyHash(persistedPolicy), report.protocolSha256);
+  assert.equal(persistedPolicy.queueCoverageBuckets.at(-1).max, null);
+  assert.equal(persistedPolicy.spreadBucketsBps.at(-1).max, null);
+});
