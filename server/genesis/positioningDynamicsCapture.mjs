@@ -259,10 +259,10 @@ function readLastJsonlObservation(jsonl) {
   }
 }
 
-export async function capturePositioning({ symbol = 'BTCUSDT', out, jsonl } = {}) {
+export async function capturePositioning({ symbol = 'BTCUSDT', out, jsonl, fetchImpl = fetch } = {}) {
   const upper = symbol.toUpperCase();
   const { perp } = okxInstrumentIds(upper);
-  const contexts = await getOkxResearchContexts(upper, { points: 120 });
+  const contexts = await getOkxResearchContexts(upper, { points: 120, fetchImpl });
   const context = contexts.derivatives;
   const bar = context?.raw?.volatility?.at(-1);
   if (!bar) throw new Error('No confirmed OKX 1m perpetual bar available');
@@ -271,6 +271,7 @@ export async function capturePositioning({ symbol = 'BTCUSDT', out, jsonl } = {}
     windowMs: 60_000,
     minimumCoverageRatio: 0.9,
     maxPages: 20,
+    fetchImpl,
   });
   if (!fixedTaker.available) throw new Error(`Fixed-window taker flow unavailable: ${fixedTaker.reason}`);
 

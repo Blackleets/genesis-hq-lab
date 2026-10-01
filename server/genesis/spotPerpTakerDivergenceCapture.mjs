@@ -70,8 +70,8 @@ export function buildSpotPerpTakerDivergence(spot, perp, {
   };
 }
 
-export async function captureSpotPerpTakerDivergence({ out, jsonl } = {}) {
-  const options = { windowMs: 60_000, minimumCoverageRatio: 0.9, maxPages: 20 };
+export async function captureSpotPerpTakerDivergence({ out, jsonl, fetchImpl = fetch } = {}) {
+  const options = { windowMs: 60_000, minimumCoverageRatio: 0.9, maxPages: 20, fetchImpl };
   // Sequential requests reduce rate-limit pressure. Synchronization is validated from exchange timestamps.
   const spot = await fetchFixedWindowTaker('BTC-USDT', options);
   const perp = await fetchFixedWindowTaker('BTC-USDT-SWAP', options);

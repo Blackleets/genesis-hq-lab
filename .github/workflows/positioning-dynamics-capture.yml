@@ -1,78 +1,122 @@
-# RESEARCH_ONLY synchronized BTCUSDT derivatives-positioning evidence.
-# Public read-only market data. Never places orders or changes trading gates.
-# Scheduled market capture is owned by paper-capture-harvest to avoid duplicate/overlapping samples.
+# Bounded RESEARCH_ONLY continuity pilot; no schedule, orders or trading-gate edits.
+# Isolated per-run tapes avoid overwriting concurrent paper-harvest evidence.
 name: positioning-dynamics-capture
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [feat/genesis-life-os]
+    paths:
+      - .github/workflows/positioning-dynamics-capture.yml
+      - server/research/runPositioningContinuity.mjs
+      - server/genesis/positioningDynamicsCapture.mjs
+      - server/genesis/spotPerpTakerDivergenceCapture.mjs
+      - server/tests/positioningContinuity.test.mjs
   push:
     branches: [feat/genesis-life-os]
     paths:
       - .github/workflows/positioning-dynamics-capture.yml
       - .github/genesis/positioning-capture-trigger.txt
+      - server/research/runPositioningContinuity.mjs
       - server/genesis/positioningDynamicsCapture.mjs
+      - server/genesis/spotPerpTakerDivergenceCapture.mjs
       - server/genesis/okxFixedWindowTaker.mjs
       - server/genesis/derivativesContext.mjs
       - server/research/positioningDataQualityAudit.mjs
+      - server/tests/positioningContinuity.test.mjs
       - server/tests/positioningDynamicsCapture.test.mjs
       - server/tests/okxFixedWindowTaker.test.mjs
       - server/tests/derivativesContext.test.mjs
       - server/tests/positioningDataQualityAudit.test.mjs
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: positioning-dynamics-capture
-  cancel-in-progress: true
+  group: positioning-continuity-${{ github.event.pull_request.number || 'capture' }}
+  cancel-in-progress: false
 
 jobs:
-  capture:
+  verify:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: code
         uses: actions/checkout@v4
+      - name: node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: verify capture budgets, causal evidence and sealed study
+        run: node --test server/tests/positioningContinuity.test.mjs server/tests/positioningDynamicsCapture.test.mjs server/tests/okxFixedWindowTaker.test.mjs server/tests/derivativesContext.test.mjs server/tests/positioningDataQualityAudit.test.mjs server/tests/positioningEdgeFactory.test.mjs server/tests/spotPerpTakerDivergenceCapture.test.mjs
+  capture:
+    if: github.event_name != 'pull_request'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: write
+    env:
+      GENESIS_TAKER_MAX_PAGES: '50'
+      GENESIS_TAKER_PAGE_DELAY_MS: '125'
+      GENESIS_CONTINUITY_SESSION: ${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: code
+        uses: actions/checkout@v4
+      - name: node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
       - name: tape
         uses: actions/checkout@v4
         with:
           ref: capture-tape
           path: tape
-      - name: verify causal capture, fixed-window taker and evidence-quality discipline
-        run: node --test server/tests/positioningDynamicsCapture.test.mjs server/tests/okxFixedWindowTaker.test.mjs server/tests/derivativesContext.test.mjs server/tests/positioningDataQualityAudit.test.mjs
-      - name: capture synchronized closed-price + funding + OI + fixed-window taker evidence
-        run: node server/genesis/positioningDynamicsCapture.mjs --symbol BTCUSDT --out tape/paper-tape/positioning-dynamics-latest.json --jsonl tape/paper-tape/positioning-dynamics.jsonl
-      - name: audit effective independent positioning evidence
-        run: node server/research/positioningDataQualityAudit.mjs --input tape/paper-tape/positioning-dynamics.jsonl --out tape/paper-tape/positioning-data-quality-latest.json
-      - name: assert RESEARCH_ONLY boundary
-        shell: bash
+      - name: collect bounded public observations and evaluate fixed hypotheses
+        id: collect
+        timeout-minutes: 32
         run: |
-          node - <<'NODE'
-          const fs = require('fs');
-          const x = JSON.parse(fs.readFileSync('tape/paper-tape/positioning-dynamics-latest.json', 'utf8'));
-          const q = JSON.parse(fs.readFileSync('tape/paper-tape/positioning-data-quality-latest.json', 'utf8'));
-          if (x.mode !== 'RESEARCH_ONLY') throw new Error('mode must remain RESEARCH_ONLY');
-          if (x.researchUse !== 'OBSERVATIONAL_ONLY_NOT_IN_H1_NOT_FOR_RANKING') throw new Error('ranking boundary missing');
-          if (!x.provenance?.closedPriceBarOnly) throw new Error('causal closed-bar provenance missing');
-          if (!x.provenance?.fixedWindowTakerFlow) throw new Error('fixed-window taker provenance missing');
-          if (x.positioning?.takerWindowMs !== 60000) throw new Error('taker window must remain fixed at one minute');
-          if (!(x.positioning?.takerWindowCoverageMs >= 54000)) throw new Error('taker window coverage below 90%');
-          if (q.mode !== 'RESEARCH_ONLY') throw new Error('quality audit must remain RESEARCH_ONLY');
-          if (q.researchUse !== 'DATA_QUALITY_ONLY_NOT_FOR_RANKING') throw new Error('quality audit ranking boundary missing');
-          if (q.boundaries?.holdoutUsedForRanking !== false) throw new Error('holdout ranking boundary violated');
-          if (q.boundaries?.liveTradingEnabled !== false || q.boundaries?.realOrdersPlaced !== false) throw new Error('live boundary violated');
+          node server/research/runPositioningContinuity.mjs \
+            --session-dir "tape/paper-tape/positioning-continuity-v1/$GENESIS_CONTINUITY_SESSION" \
+            --evidence-prefix "paper-tape/positioning-continuity-v1/$GENESIS_CONTINUITY_SESSION" \
+            --out tape/quant-evidence/positioning-continuity-latest.json
+      - name: assert research-only boundary before publishing complete or partial evidence
+        id: boundaries
+        if: always() && steps.collect.outcome != 'skipped'
+        run: |
+          node --input-type=module - <<'NODE'
+          import fs from 'node:fs';
+          import { CONTINUITY_PROTOCOL, CONTINUITY_PROTOCOL_SHA256 } from './server/research/runPositioningContinuity.mjs';
+          const dir = 'tape/paper-tape/positioning-continuity-v1/' + process.env.GENESIS_CONTINUITY_SESSION;
+          const x = JSON.parse(fs.readFileSync(dir + '/session.json', 'utf8'));
+          const q = JSON.parse(fs.readFileSync(dir + '/quality.json', 'utf8'));
+          const e = JSON.parse(fs.readFileSync(dir + '/study.json', 'utf8'));
+          if (x.mode !== 'RESEARCH_ONLY' || !x.paperOnly || x.liveOrders !== false || x.executionAuthority !== false || x.capitalEligible !== false || x.changesRiskGates !== false) throw new Error('session authority boundary violated');
+          if (x.protocolSha256 !== CONTINUITY_PROTOCOL_SHA256 || JSON.stringify(x.protocol) !== JSON.stringify(CONTINUITY_PROTOCOL)) throw new Error('predeclared protocol changed');
+          if (x.attemptCount > 24 || q.maxGapMinutes !== 60 || q.readiness.minimumIndependentRows !== 20) throw new Error('evidence budget or cohort gate changed');
+          if (q.boundaries.holdoutUsedForRanking !== false || q.boundaries.liveTradingEnabled !== false || q.boundaries.realOrdersPlaced !== false) throw new Error('quality authority boundary violated');
+          if (e.methodology.holdoutSealed !== true || e.methodology.selectionUsesHoldout !== false || e.methodology.stressedCostBps !== 12) throw new Error('study protocol weakened');
+          if (e.executionAuthority !== false || e.capitalEligible !== false || e.liveOrders !== false || e.holdoutOpened === true || e.partitions?.holdoutMetricsComputed === true) throw new Error('study authority or holdout violated');
           NODE
-      - name: publish durable evidence
+      - name: archive immutable session including failure diagnostics
+        if: always() && steps.collect.outcome != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: positioning-continuity-${{ env.GENESIS_CONTINUITY_SESSION }}
+          path: tape/paper-tape/positioning-continuity-v1/${{ env.GENESIS_CONTINUITY_SESSION }}/
+          retention-days: 14
+      - name: publish isolated durable evidence
+        if: always() && steps.boundaries.outcome == 'success'
         working-directory: tape
-        shell: bash
         run: |
           git config user.name "genesis-capture"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f paper-tape/positioning-dynamics-latest.json paper-tape/positioning-dynamics.jsonl paper-tape/positioning-data-quality-latest.json
-          if git diff --staged --quiet; then
-            echo "no change"
-            exit 0
-          fi
-          git commit -m "positioning dynamics capture $(date -u +%Y-%m-%dT%H:%MZ)"
-          git pull --rebase origin capture-tape
-          git push
+          git add -f "paper-tape/positioning-continuity-v1/$GENESIS_CONTINUITY_SESSION" quant-evidence/positioning-continuity-latest.json
+          if git diff --staged --quiet; then exit 0; fi
+          git commit -m "research: bounded positioning continuity $GENESIS_CONTINUITY_SESSION"
+          for attempt in 1 2 3; do
+            git pull --rebase origin capture-tape
+            if git push origin HEAD:capture-tape; then exit 0; fi
+            sleep $((attempt * 2))
+          done
+          exit 1
