@@ -1,54 +1,65 @@
 {
-  "ts": "2026-09-30T20:46:02.948Z",
+  "ts": "2026-10-01T00:12:35.902Z",
   "liveOff": true,
   "paper": true,
   "go": false,
   "hz": 1,
   "tickers": 479,
-  "preQuote": 3,
+  "preQuote": 1,
   "full": 4,
   "quoted": 0,
   "quotedNames": [],
   "filled": 0,
   "paperPnl": 0,
   "reasons": {
-    "TAPE_PENDING": 4
+    "TAPE_PENDING": 2,
+    "VPIN_HALT": 2
   },
-  "ms": 985,
+  "ms": 2516,
   "scored": [
     {
       "symbol": "KSM-USDT-SWAP",
-      "preH": 0.058755315036275846,
-      "spread": 11.596443757246503,
+      "preH": 0.050925925926078364,
+      "spread": 11.574074074074511,
+      "quote": false,
+      "reason": "TAPE_PENDING"
+    },
+    {
+      "symbol": "KAT-USDT-SWAP",
+      "preH": 0.13874655104449118,
+      "spread": 11.824990145841404,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
       "symbol": "AZTEC-USDT-SWAP",
-      "preH": 0.02530189764215951,
-      "spread": 11.500862564691884,
+      "preH": 0.011461318051412483,
+      "spread": 11.461318051575464,
       "quote": false,
-      "reason": "TAPE_PENDING"
-    },
-    {
-      "symbol": "LPT-USDT-SWAP",
-      "preH": -0.06299212598424919,
-      "spread": 11.24859392575929,
-      "quote": false,
-      "reason": "TAPE_PENDING"
+      "reason": "VPIN_HALT",
+      "harvestBps": null,
+      "vpin": 0.7895,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "VPIN_HALT"
     },
     {
       "symbol": "LIGHT-USDT-SWAP",
-      "preH": -0.1706783369801972,
-      "spread": 10.940919037199437,
+      "preH": -0.2100703844070373,
+      "spread": 10.828370330265608,
       "quote": false,
-      "reason": "TAPE_PENDING"
+      "reason": "VPIN_HALT",
+      "harvestBps": null,
+      "vpin": 0.718,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "VPIN_HALT"
     }
   ],
   "intersection": {
-    "liquid": 253,
-    "hGe": 3,
-    "band": 153,
+    "liquid": 255,
+    "hGe": 1,
+    "band": 154,
     "both": 0
   },
   "formula": "H=spread*0.35-4bps; width is a toxicity prior. Kalman+VPIN+GLFT. not a GO."
