@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-09-30T21:01:06.989Z",
+  "completedAt": "2026-10-01T06:34:22.638Z",
   "methodology": {
     "selectionUsesHoldout": false,
     "balancedNeighborhood": true,
@@ -20,8 +20,8 @@
   },
   "sourceVerdict": "PAPER_CANDIDATE_FOUND",
   "sourcePoolSize": 120,
-  "eligibleHypotheses": 0,
-  "queueSize": 0,
+  "eligibleHypotheses": 1,
+  "queueSize": 11,
   "deepOverrides": [
     {
       "hypothesisKey": "opening_range_breakout:BTCUSDT:1h:LONDON",
@@ -4763,6 +4763,647 @@
       "reason": "Family exhausted its one-shot holdout audit budget without a pass. Do not keep fishing the same holdout."
     }
   ],
-  "focus": null,
-  "queue": []
+  "focus": {
+    "hypothesisKey": "trend_pullback:XRPUSDT:30m:LONDON_NY",
+    "variantKey": "trend_pullback:XRPUSDT:30m:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+    "market": {
+      "pair": "XRPUSDT",
+      "tf": "30m"
+    },
+    "candidate": {
+      "family": "trend_pullback",
+      "period": 20,
+      "targetAtr": 1.5,
+      "stopAtr": 0.75,
+      "timeoutBars": 8,
+      "session": "LONDON_NY"
+    },
+    "status": "INTERESTING",
+    "researchScore": 81.66,
+    "sentinelCritique": [
+      "TRAIN_SAMPLE_THIN",
+      "HOLDOUT_SAMPLE_THIN",
+      "LOW_HOLDOUT_TSTAT",
+      "WEAK_HOLDOUT_PROFIT_FACTOR",
+      "NEGATIVE_HOLDOUT_EXPECTANCY"
+    ]
+  },
+  "queue": [
+    {
+      "id": "trend_pullback:XRPUSDT:30m:LONDON_NY:p20:ta1.5:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "priority": "P1",
+      "parentVariant": "trend_pullback:XRPUSDT:30m:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:XRPUSDT:30m:LONDON_NY",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "rationale": "Control replay of the best parent for this independent hypothesis. It prevents data drift from being mistaken for parameter improvement.",
+      "sentinelCritique": [
+        "TRAIN_SAMPLE_THIN",
+        "HOLDOUT_SAMPLE_THIN",
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Control must remain directionally consistent on train and validation; otherwise pause mutations and diagnose regime/data drift.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 22,
+          "expectancyBps": 2.33,
+          "profitFactor": 1.089,
+          "tStat": 0.18,
+          "maxDrawdownPct": 2.05
+        },
+        "validation": {
+          "trades": 15,
+          "expectancyBps": 6.63,
+          "profitFactor": 1.259,
+          "tStat": 0.356,
+          "maxDrawdownPct": 1.95
+        },
+        "holdout": {
+          "trades": 11,
+          "expectancyBps": -22.84,
+          "profitFactor": 0.527,
+          "tStat": -0.985,
+          "maxDrawdownPct": 3.84
+        },
+        "walkForward": {
+          "positiveFolds": 3,
+          "requiredPositiveFolds": 3,
+          "pass": true
+        }
+      }
+    },
+    {
+      "id": "trend_pullback:XRPUSDT:30m:LONDON_NY:p16:ta1.5:sa0.75:tb8",
+      "role": "MUTATION",
+      "priority": "P1",
+      "parentVariant": "trend_pullback:XRPUSDT:30m:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:XRPUSDT:30m:LONDON_NY",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 16,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "sentinelCritique": [
+        "TRAIN_SAMPLE_THIN",
+        "HOLDOUT_SAMPLE_THIN",
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 22,
+          "expectancyBps": 2.33,
+          "profitFactor": 1.089,
+          "tStat": 0.18,
+          "maxDrawdownPct": 2.05
+        },
+        "validation": {
+          "trades": 15,
+          "expectancyBps": 6.63,
+          "profitFactor": 1.259,
+          "tStat": 0.356,
+          "maxDrawdownPct": 1.95
+        },
+        "holdout": {
+          "trades": 11,
+          "expectancyBps": -22.84,
+          "profitFactor": 0.527,
+          "tStat": -0.985,
+          "maxDrawdownPct": 3.84
+        },
+        "walkForward": {
+          "positiveFolds": 3,
+          "requiredPositiveFolds": 3,
+          "pass": true
+        }
+      }
+    },
+    {
+      "id": "trend_pullback:XRPUSDT:30m:LONDON_NY:p20:ta1.25:sa0.75:tb8",
+      "role": "MUTATION",
+      "priority": "P1",
+      "parentVariant": "trend_pullback:XRPUSDT:30m:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:XRPUSDT:30m:LONDON_NY",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 1.25,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "sentinelCritique": [
+        "TRAIN_SAMPLE_THIN",
+        "HOLDOUT_SAMPLE_THIN",
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 22,
+          "expectancyBps": 2.33,
+          "profitFactor": 1.089,
+          "tStat": 0.18,
+          "maxDrawdownPct": 2.05
+        },
+        "validation": {
+          "trades": 15,
+          "expectancyBps": 6.63,
+          "profitFactor": 1.259,
+          "tStat": 0.356,
+          "maxDrawdownPct": 1.95
+        },
+        "holdout": {
+          "trades": 11,
+          "expectancyBps": -22.84,
+          "profitFactor": 0.527,
+          "tStat": -0.985,
+          "maxDrawdownPct": 3.84
+        },
+        "walkForward": {
+          "positiveFolds": 3,
+          "requiredPositiveFolds": 3,
+          "pass": true
+        }
+      }
+    },
+    {
+      "id": "trend_pullback:XRPUSDT:30m:LONDON_NY:p20:ta1.5:sa0.75:tb6",
+      "role": "MUTATION",
+      "priority": "P1",
+      "parentVariant": "trend_pullback:XRPUSDT:30m:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:XRPUSDT:30m:LONDON_NY",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 6,
+        "session": "LONDON_NY"
+      },
+      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "sentinelCritique": [
+        "TRAIN_SAMPLE_THIN",
+        "HOLDOUT_SAMPLE_THIN",
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 22,
+          "expectancyBps": 2.33,
+          "profitFactor": 1.089,
+          "tStat": 0.18,
+          "maxDrawdownPct": 2.05
+        },
+        "validation": {
+          "trades": 15,
+          "expectancyBps": 6.63,
+          "profitFactor": 1.259,
+          "tStat": 0.356,
+          "maxDrawdownPct": 1.95
+        },
+        "holdout": {
+          "trades": 11,
+          "expectancyBps": -22.84,
+          "profitFactor": 0.527,
+          "tStat": -0.985,
+          "maxDrawdownPct": 3.84
+        },
+        "walkForward": {
+          "positiveFolds": 3,
+          "requiredPositiveFolds": 3,
+          "pass": true
+        }
+      }
+    },
+    {
+      "id": "trend_pullback:XRPUSDT:30m:LONDON_NY:p20:ta1.75:sa0.75:tb8",
+      "role": "MUTATION",
+      "priority": "P1",
+      "parentVariant": "trend_pullback:XRPUSDT:30m:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:XRPUSDT:30m:LONDON_NY",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 1.75,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "sentinelCritique": [
+        "TRAIN_SAMPLE_THIN",
+        "HOLDOUT_SAMPLE_THIN",
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 22,
+          "expectancyBps": 2.33,
+          "profitFactor": 1.089,
+          "tStat": 0.18,
+          "maxDrawdownPct": 2.05
+        },
+        "validation": {
+          "trades": 15,
+          "expectancyBps": 6.63,
+          "profitFactor": 1.259,
+          "tStat": 0.356,
+          "maxDrawdownPct": 1.95
+        },
+        "holdout": {
+          "trades": 11,
+          "expectancyBps": -22.84,
+          "profitFactor": 0.527,
+          "tStat": -0.985,
+          "maxDrawdownPct": 3.84
+        },
+        "walkForward": {
+          "positiveFolds": 3,
+          "requiredPositiveFolds": 3,
+          "pass": true
+        }
+      }
+    },
+    {
+      "id": "trend_pullback:XRPUSDT:30m:LONDON_NY:p24:ta1.5:sa0.75:tb8",
+      "role": "MUTATION",
+      "priority": "P1",
+      "parentVariant": "trend_pullback:XRPUSDT:30m:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:XRPUSDT:30m:LONDON_NY",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 24,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "sentinelCritique": [
+        "TRAIN_SAMPLE_THIN",
+        "HOLDOUT_SAMPLE_THIN",
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 22,
+          "expectancyBps": 2.33,
+          "profitFactor": 1.089,
+          "tStat": 0.18,
+          "maxDrawdownPct": 2.05
+        },
+        "validation": {
+          "trades": 15,
+          "expectancyBps": 6.63,
+          "profitFactor": 1.259,
+          "tStat": 0.356,
+          "maxDrawdownPct": 1.95
+        },
+        "holdout": {
+          "trades": 11,
+          "expectancyBps": -22.84,
+          "profitFactor": 0.527,
+          "tStat": -0.985,
+          "maxDrawdownPct": 3.84
+        },
+        "walkForward": {
+          "positiveFolds": 3,
+          "requiredPositiveFolds": 3,
+          "pass": true
+        }
+      }
+    },
+    {
+      "id": "trend_pullback:XRPUSDT:30m:LONDON_NY:p20:ta1.5:sa0.6:tb8",
+      "role": "MUTATION",
+      "priority": "P1",
+      "parentVariant": "trend_pullback:XRPUSDT:30m:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:XRPUSDT:30m:LONDON_NY",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.6,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "sentinelCritique": [
+        "TRAIN_SAMPLE_THIN",
+        "HOLDOUT_SAMPLE_THIN",
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 22,
+          "expectancyBps": 2.33,
+          "profitFactor": 1.089,
+          "tStat": 0.18,
+          "maxDrawdownPct": 2.05
+        },
+        "validation": {
+          "trades": 15,
+          "expectancyBps": 6.63,
+          "profitFactor": 1.259,
+          "tStat": 0.356,
+          "maxDrawdownPct": 1.95
+        },
+        "holdout": {
+          "trades": 11,
+          "expectancyBps": -22.84,
+          "profitFactor": 0.527,
+          "tStat": -0.985,
+          "maxDrawdownPct": 3.84
+        },
+        "walkForward": {
+          "positiveFolds": 3,
+          "requiredPositiveFolds": 3,
+          "pass": true
+        }
+      }
+    },
+    {
+      "id": "trend_pullback:XRPUSDT:30m:LONDON_NY:p20:ta1.5:sa0.9:tb8",
+      "role": "MUTATION",
+      "priority": "P1",
+      "parentVariant": "trend_pullback:XRPUSDT:30m:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:XRPUSDT:30m:LONDON_NY",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.9,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "sentinelCritique": [
+        "TRAIN_SAMPLE_THIN",
+        "HOLDOUT_SAMPLE_THIN",
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 22,
+          "expectancyBps": 2.33,
+          "profitFactor": 1.089,
+          "tStat": 0.18,
+          "maxDrawdownPct": 2.05
+        },
+        "validation": {
+          "trades": 15,
+          "expectancyBps": 6.63,
+          "profitFactor": 1.259,
+          "tStat": 0.356,
+          "maxDrawdownPct": 1.95
+        },
+        "holdout": {
+          "trades": 11,
+          "expectancyBps": -22.84,
+          "profitFactor": 0.527,
+          "tStat": -0.985,
+          "maxDrawdownPct": 3.84
+        },
+        "walkForward": {
+          "positiveFolds": 3,
+          "requiredPositiveFolds": 3,
+          "pass": true
+        }
+      }
+    },
+    {
+      "id": "trend_pullback:XRPUSDT:30m:LONDON_NY:p20:ta1.5:sa0.75:tb12",
+      "role": "MUTATION",
+      "priority": "P1",
+      "parentVariant": "trend_pullback:XRPUSDT:30m:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:XRPUSDT:30m:LONDON_NY",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 12,
+        "session": "LONDON_NY"
+      },
+      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "sentinelCritique": [
+        "TRAIN_SAMPLE_THIN",
+        "HOLDOUT_SAMPLE_THIN",
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 22,
+          "expectancyBps": 2.33,
+          "profitFactor": 1.089,
+          "tStat": 0.18,
+          "maxDrawdownPct": 2.05
+        },
+        "validation": {
+          "trades": 15,
+          "expectancyBps": 6.63,
+          "profitFactor": 1.259,
+          "tStat": 0.356,
+          "maxDrawdownPct": 1.95
+        },
+        "holdout": {
+          "trades": 11,
+          "expectancyBps": -22.84,
+          "profitFactor": 0.527,
+          "tStat": -0.985,
+          "maxDrawdownPct": 3.84
+        },
+        "walkForward": {
+          "positiveFolds": 3,
+          "requiredPositiveFolds": 3,
+          "pass": true
+        }
+      }
+    },
+    {
+      "id": "trend_pullback:XRPUSDT:30m:LONDON_NY:p16:ta1.25:sa0.75:tb8",
+      "role": "MUTATION",
+      "priority": "P1",
+      "parentVariant": "trend_pullback:XRPUSDT:30m:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:XRPUSDT:30m:LONDON_NY",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 16,
+        "targetAtr": 1.25,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "sentinelCritique": [
+        "TRAIN_SAMPLE_THIN",
+        "HOLDOUT_SAMPLE_THIN",
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 22,
+          "expectancyBps": 2.33,
+          "profitFactor": 1.089,
+          "tStat": 0.18,
+          "maxDrawdownPct": 2.05
+        },
+        "validation": {
+          "trades": 15,
+          "expectancyBps": 6.63,
+          "profitFactor": 1.259,
+          "tStat": 0.356,
+          "maxDrawdownPct": 1.95
+        },
+        "holdout": {
+          "trades": 11,
+          "expectancyBps": -22.84,
+          "profitFactor": 0.527,
+          "tStat": -0.985,
+          "maxDrawdownPct": 3.84
+        },
+        "walkForward": {
+          "positiveFolds": 3,
+          "requiredPositiveFolds": 3,
+          "pass": true
+        }
+      }
+    },
+    {
+      "id": "trend_pullback:XRPUSDT:30m:LONDON_NY:p16:ta1.5:sa0.6:tb8",
+      "role": "MUTATION",
+      "priority": "P1",
+      "parentVariant": "trend_pullback:XRPUSDT:30m:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:XRPUSDT:30m:LONDON_NY",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "30m"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 16,
+        "targetAtr": 1.5,
+        "stopAtr": 0.6,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "sentinelCritique": [
+        "TRAIN_SAMPLE_THIN",
+        "HOLDOUT_SAMPLE_THIN",
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 22,
+          "expectancyBps": 2.33,
+          "profitFactor": 1.089,
+          "tStat": 0.18,
+          "maxDrawdownPct": 2.05
+        },
+        "validation": {
+          "trades": 15,
+          "expectancyBps": 6.63,
+          "profitFactor": 1.259,
+          "tStat": 0.356,
+          "maxDrawdownPct": 1.95
+        },
+        "holdout": {
+          "trades": 11,
+          "expectancyBps": -22.84,
+          "profitFactor": 0.527,
+          "tStat": -0.985,
+          "maxDrawdownPct": 3.84
+        },
+        "walkForward": {
+          "positiveFolds": 3,
+          "requiredPositiveFolds": 3,
+          "pass": true
+        }
+      }
+    }
+  ]
 }
