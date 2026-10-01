@@ -52,3 +52,10 @@ Runtime integration and deployed-state verification; no claim that these are com
 - Preserve LIVE_LOCKED, zero execution/capital authority and all trading-risk controls.
 - Protocol, hypotheses, limitations and evidence paths: docs/POSITIONING_CONTINUITY_PILOT.md.
 - Next: verify merge/run status, inspect its immutable quality/study/session artifacts, and append actual results. Do not imply the collector has already observed edge.
+
+## Numeric evidence hardening — 2026-10-01
+- Branch: fix/positioning-numeric-evidence; base 18bb315c27ea7f578232576e921ee19b20292fe4.
+- Reproduced two regressions caused by Number(null)=0 in the positioning capture helper. Missing funding/taker/premium now stays null; required missing features block deltas and continuity admission. Genuine zeros remain valid.
+- 67 local tests pass; YAML parses. PR CI/build still to verify.
+- Explicit capture: push or workflow_dispatch now requests a new bounded session; routine maintenance verifies without collecting another market cohort.
+- Pilot 36794235660 is still running on its immutable original source. Review its numerical completeness and provenance before final reporting; do not overwrite old results or claim new data from the tests.

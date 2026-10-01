@@ -61,6 +61,7 @@ function observationRejection(row, previous, currentMs) {
       || captured - taker > 2 * 60_000) return 'INVALID_OR_STALE_SOURCE_TIME';
   if (!numeric(row?.price?.close) || row.price.close <= 0
       || !numeric(row?.positioning?.openInterest?.value) || row.positioning.openInterest.value <= 0
+      || !['takerBuySellRatioNow', 'fundingRateNow', 'premiumNowBps'].every(key => numeric(row.positioning[key]))
       || row.positioning.openInterest.unit !== 'CONTRACTS'
       || row.positioning.takerWindowMs !== CONTINUITY_PROTOCOL.takerWindowMs
       || !numeric(row.positioning.takerWindowCoverageMs)

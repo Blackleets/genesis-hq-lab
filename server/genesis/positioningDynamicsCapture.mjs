@@ -15,6 +15,8 @@ const OKX_ENDPOINTS = {
 };
 
 function finite(value) {
+  if ((typeof value !== 'number' && typeof value !== 'string')
+      || (typeof value === 'string' && value.trim() === '')) return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }

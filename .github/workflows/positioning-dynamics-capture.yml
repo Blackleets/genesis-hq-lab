@@ -50,7 +50,7 @@ jobs:
       - name: verify capture budgets, causal evidence and sealed study
         run: node --test server/tests/positioningContinuity.test.mjs server/tests/positioningDynamicsCapture.test.mjs server/tests/okxFixedWindowTaker.test.mjs server/tests/derivativesContext.test.mjs server/tests/positioningDataQualityAudit.test.mjs server/tests/positioningEdgeFactory.test.mjs server/tests/spotPerpTakerDivergenceCapture.test.mjs
   capture:
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.event.head_commit.message, 'capture:'))
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 40
