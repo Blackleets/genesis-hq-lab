@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-10-02T20:59:19.897Z",
+  "completedAt": "2026-10-03T05:46:13.782Z",
   "methodology": {
     "selectionUsesHoldout": false,
     "selectionInputs": [
@@ -21,15 +21,575 @@
     "emptyQueueHandoff": true,
     "barsPerMarket": 12000
   },
-  "queueMode": "EMPTY_QUEUE_DISCOVERY_HANDOFF",
-  "sourceQueueCompletedAt": "2026-10-02T20:59:19.837Z",
-  "tested": 0,
-  "controls": 0,
+  "queueMode": "P2_DEEPENING",
+  "sourceQueueCompletedAt": "2026-10-03T05:46:08.810Z",
+  "tested": 10,
+  "controls": 2,
   "promotableToAudit": 0,
-  "verdict": "NO_QUEUE_DISCOVERY_REQUIRED",
-  "bestMutation": null,
-  "control": null,
-  "controlSet": [],
+  "verdict": "NO_ADAPTIVE_EDGE_FOUND",
+  "bestMutation": {
+    "id": "failed_breakout:LINKUSDT:15m:LONDON_NY:p30:ta1.5:sa0.75:tb8",
+    "role": "MUTATION",
+    "hypothesisKey": "failed_breakout:LINKUSDT:15m:LONDON_NY",
+    "parentVariant": "failed_breakout:LINKUSDT:15m:LONDON_NY:p34:ta1.5:sa0.75:tb8",
+    "priority": "P2",
+    "market": {
+      "pair": "LINKUSDT",
+      "tf": "15m"
+    },
+    "spec": {
+      "family": "failed_breakout",
+      "period": 30,
+      "targetAtr": 1.5,
+      "stopAtr": 0.75,
+      "timeoutBars": 8,
+      "session": "LONDON_NY"
+    },
+    "researchStatus": "REJECT",
+    "selectionScore": 8.67,
+    "train": {
+      "trades": 30,
+      "expectancyBps": 3.98,
+      "profitFactor": 1.162,
+      "tStat": 0.362,
+      "maxDrawdownPct": 3.27
+    },
+    "validation": {
+      "trades": 10,
+      "expectancyBps": -4.23,
+      "profitFactor": 0.873,
+      "tStat": -0.179,
+      "maxDrawdownPct": 1.86
+    },
+    "walkForward": {
+      "positiveFolds": 2,
+      "requiredPositiveFolds": 3,
+      "pass": false
+    }
+  },
+  "control": {
+    "id": "failed_breakout:LINKUSDT:15m:LONDON_NY:p34:ta1.5:sa0.75:tb8:control",
+    "role": "CONTROL",
+    "hypothesisKey": "failed_breakout:LINKUSDT:15m:LONDON_NY",
+    "parentVariant": "failed_breakout:LINKUSDT:15m:LONDON_NY:p34:ta1.5:sa0.75:tb8",
+    "priority": "P2",
+    "market": {
+      "pair": "LINKUSDT",
+      "tf": "15m"
+    },
+    "spec": {
+      "family": "failed_breakout",
+      "period": 34,
+      "targetAtr": 1.5,
+      "stopAtr": 0.75,
+      "timeoutBars": 8,
+      "session": "LONDON_NY"
+    },
+    "researchStatus": "REJECT",
+    "selectionScore": 8.17,
+    "train": {
+      "trades": 29,
+      "expectancyBps": 1.97,
+      "profitFactor": 1.077,
+      "tStat": 0.177,
+      "maxDrawdownPct": 3.27
+    },
+    "validation": {
+      "trades": 10,
+      "expectancyBps": -4.23,
+      "profitFactor": 0.873,
+      "tStat": -0.179,
+      "maxDrawdownPct": 1.86
+    },
+    "walkForward": {
+      "positiveFolds": 2,
+      "requiredPositiveFolds": 3,
+      "pass": false
+    }
+  },
+  "controlSet": [
+    {
+      "id": "failed_breakout:LINKUSDT:15m:LONDON_NY:p34:ta1.5:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "failed_breakout:LINKUSDT:15m:LONDON_NY",
+      "parentVariant": "failed_breakout:LINKUSDT:15m:LONDON_NY:p34:ta1.5:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "LINKUSDT",
+        "tf": "15m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 34,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 8.17,
+      "train": {
+        "trades": 29,
+        "expectancyBps": 1.97,
+        "profitFactor": 1.077,
+        "tStat": 0.177,
+        "maxDrawdownPct": 3.27
+      },
+      "validation": {
+        "trades": 10,
+        "expectancyBps": -4.23,
+        "profitFactor": 0.873,
+        "tStat": -0.179,
+        "maxDrawdownPct": 1.86
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:ADAUSDT:15m:LONDON_NY:p20:ta1.5:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "failed_breakout:ADAUSDT:15m:LONDON_NY",
+      "parentVariant": "failed_breakout:ADAUSDT:15m:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "ADAUSDT",
+        "tf": "15m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -14.99,
+      "train": {
+        "trades": 15,
+        "expectancyBps": 24.8,
+        "profitFactor": 2.049,
+        "tStat": 1.219,
+        "maxDrawdownPct": 2.33
+      },
+      "validation": {
+        "trades": 12,
+        "expectancyBps": -47.61,
+        "profitFactor": 0.245,
+        "tStat": -2.373,
+        "maxDrawdownPct": 5.71
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    }
+  ],
   "auditQueue": [],
-  "top": []
+  "top": [
+    {
+      "id": "failed_breakout:LINKUSDT:15m:LONDON_NY:p30:ta1.5:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "failed_breakout:LINKUSDT:15m:LONDON_NY",
+      "parentVariant": "failed_breakout:LINKUSDT:15m:LONDON_NY:p34:ta1.5:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "LINKUSDT",
+        "tf": "15m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 30,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 8.67,
+      "train": {
+        "trades": 30,
+        "expectancyBps": 3.98,
+        "profitFactor": 1.162,
+        "tStat": 0.362,
+        "maxDrawdownPct": 3.27
+      },
+      "validation": {
+        "trades": 10,
+        "expectancyBps": -4.23,
+        "profitFactor": 0.873,
+        "tStat": -0.179,
+        "maxDrawdownPct": 1.86
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:LINKUSDT:15m:LONDON_NY:p34:ta1.5:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "failed_breakout:LINKUSDT:15m:LONDON_NY",
+      "parentVariant": "failed_breakout:LINKUSDT:15m:LONDON_NY:p34:ta1.5:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "LINKUSDT",
+        "tf": "15m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 34,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 8.17,
+      "train": {
+        "trades": 29,
+        "expectancyBps": 1.97,
+        "profitFactor": 1.077,
+        "tStat": 0.177,
+        "maxDrawdownPct": 3.27
+      },
+      "validation": {
+        "trades": 10,
+        "expectancyBps": -4.23,
+        "profitFactor": 0.873,
+        "tStat": -0.179,
+        "maxDrawdownPct": 1.86
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:LINKUSDT:15m:LONDON_NY:p34:ta1.5:sa0.75:tb6",
+      "role": "MUTATION",
+      "hypothesisKey": "failed_breakout:LINKUSDT:15m:LONDON_NY",
+      "parentVariant": "failed_breakout:LINKUSDT:15m:LONDON_NY:p34:ta1.5:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "LINKUSDT",
+        "tf": "15m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 34,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 6,
+        "session": "LONDON_NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 6.66,
+      "train": {
+        "trades": 29,
+        "expectancyBps": 1.97,
+        "profitFactor": 1.077,
+        "tStat": 0.177,
+        "maxDrawdownPct": 3.27
+      },
+      "validation": {
+        "trades": 10,
+        "expectancyBps": -6.96,
+        "profitFactor": 0.791,
+        "tStat": -0.303,
+        "maxDrawdownPct": 1.86
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:LINKUSDT:15m:LONDON_NY:p34:ta1.25:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "failed_breakout:LINKUSDT:15m:LONDON_NY",
+      "parentVariant": "failed_breakout:LINKUSDT:15m:LONDON_NY:p34:ta1.5:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "LINKUSDT",
+        "tf": "15m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 34,
+        "targetAtr": 1.25,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 3.95,
+      "train": {
+        "trades": 29,
+        "expectancyBps": -3.2,
+        "profitFactor": 0.874,
+        "tStat": -0.327,
+        "maxDrawdownPct": 3.51
+      },
+      "validation": {
+        "trades": 10,
+        "expectancyBps": -9.54,
+        "profitFactor": 0.713,
+        "tStat": -0.461,
+        "maxDrawdownPct": 1.86
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:LINKUSDT:15m:LONDON_NY:p34:ta1.75:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "failed_breakout:LINKUSDT:15m:LONDON_NY",
+      "parentVariant": "failed_breakout:LINKUSDT:15m:LONDON_NY:p34:ta1.5:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "LINKUSDT",
+        "tf": "15m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 34,
+        "targetAtr": 1.75,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 1.16,
+      "train": {
+        "trades": 29,
+        "expectancyBps": -2.61,
+        "profitFactor": 0.911,
+        "tStat": -0.212,
+        "maxDrawdownPct": 5.17
+      },
+      "validation": {
+        "trades": 10,
+        "expectancyBps": -14.89,
+        "profitFactor": 0.552,
+        "tStat": -0.814,
+        "maxDrawdownPct": 2.74
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:ADAUSDT:15m:LONDON_NY:p16:ta1.5:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "failed_breakout:ADAUSDT:15m:LONDON_NY",
+      "parentVariant": "failed_breakout:ADAUSDT:15m:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "ADAUSDT",
+        "tf": "15m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 16,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -11.58,
+      "train": {
+        "trades": 18,
+        "expectancyBps": 23.7,
+        "profitFactor": 2.057,
+        "tStat": 1.351,
+        "maxDrawdownPct": 1.85
+      },
+      "validation": {
+        "trades": 11,
+        "expectancyBps": -60.38,
+        "profitFactor": 0.123,
+        "tStat": -3.563,
+        "maxDrawdownPct": 6.64
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:ADAUSDT:15m:LONDON_NY:p20:ta1.5:sa0.75:tb6",
+      "role": "MUTATION",
+      "hypothesisKey": "failed_breakout:ADAUSDT:15m:LONDON_NY",
+      "parentVariant": "failed_breakout:ADAUSDT:15m:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "ADAUSDT",
+        "tf": "15m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 6,
+        "session": "LONDON_NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -11.81,
+      "train": {
+        "trades": 15,
+        "expectancyBps": 21.98,
+        "profitFactor": 1.9,
+        "tStat": 1.108,
+        "maxDrawdownPct": 2.45
+      },
+      "validation": {
+        "trades": 12,
+        "expectancyBps": -40.56,
+        "profitFactor": 0.308,
+        "tStat": -1.924,
+        "maxDrawdownPct": 5.18
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:ADAUSDT:15m:LONDON_NY:p20:ta1.75:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "failed_breakout:ADAUSDT:15m:LONDON_NY",
+      "parentVariant": "failed_breakout:ADAUSDT:15m:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "ADAUSDT",
+        "tf": "15m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 20,
+        "targetAtr": 1.75,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -12.79,
+      "train": {
+        "trades": 15,
+        "expectancyBps": 27.32,
+        "profitFactor": 2.042,
+        "tStat": 1.175,
+        "maxDrawdownPct": 2.33
+      },
+      "validation": {
+        "trades": 12,
+        "expectancyBps": -44.76,
+        "profitFactor": 0.29,
+        "tStat": -2.046,
+        "maxDrawdownPct": 5.37
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:ADAUSDT:15m:LONDON_NY:p20:ta1.5:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "failed_breakout:ADAUSDT:15m:LONDON_NY",
+      "parentVariant": "failed_breakout:ADAUSDT:15m:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "ADAUSDT",
+        "tf": "15m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -14.99,
+      "train": {
+        "trades": 15,
+        "expectancyBps": 24.8,
+        "profitFactor": 2.049,
+        "tStat": 1.219,
+        "maxDrawdownPct": 2.33
+      },
+      "validation": {
+        "trades": 12,
+        "expectancyBps": -47.61,
+        "profitFactor": 0.245,
+        "tStat": -2.373,
+        "maxDrawdownPct": 5.71
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:ADAUSDT:15m:LONDON_NY:p20:ta1.25:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "failed_breakout:ADAUSDT:15m:LONDON_NY",
+      "parentVariant": "failed_breakout:ADAUSDT:15m:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "ADAUSDT",
+        "tf": "15m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 20,
+        "targetAtr": 1.25,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -18.53,
+      "train": {
+        "trades": 15,
+        "expectancyBps": 15.89,
+        "profitFactor": 1.672,
+        "tStat": 0.889,
+        "maxDrawdownPct": 2.33
+      },
+      "validation": {
+        "trades": 12,
+        "expectancyBps": -50.45,
+        "profitFactor": 0.2,
+        "tStat": -2.763,
+        "maxDrawdownPct": 6.05
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    }
+  ]
 }
