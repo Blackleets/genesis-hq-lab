@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-10-06T01:29:01.467Z",
+  "completedAt": "2026-10-06T11:31:57.469Z",
   "methodology": {
     "selectionUsesHoldout": false,
     "selectionInputs": [
@@ -21,15 +21,335 @@
     "emptyQueueHandoff": true,
     "barsPerMarket": 12000
   },
-  "queueMode": "EMPTY_QUEUE_DISCOVERY_HANDOFF",
-  "sourceQueueCompletedAt": "2026-10-06T01:29:01.417Z",
-  "tested": 0,
-  "controls": 0,
+  "queueMode": "P2_DEEPENING",
+  "sourceQueueCompletedAt": "2026-10-06T11:31:54.509Z",
+  "tested": 5,
+  "controls": 1,
   "promotableToAudit": 0,
-  "verdict": "NO_QUEUE_DISCOVERY_REQUIRED",
-  "bestMutation": null,
-  "control": null,
-  "controlSet": [],
+  "verdict": "NO_ADAPTIVE_EDGE_FOUND",
+  "bestMutation": {
+    "id": "failed_breakout:ADAUSDT:15m:ALL:p34:ta1.75:sa0.75:tb8",
+    "role": "MUTATION",
+    "hypothesisKey": "failed_breakout:ADAUSDT:15m:ALL",
+    "parentVariant": "failed_breakout:ADAUSDT:15m:ALL:p34:ta1.5:sa0.75:tb8",
+    "priority": "P2",
+    "market": {
+      "pair": "ADAUSDT",
+      "tf": "15m"
+    },
+    "spec": {
+      "family": "failed_breakout",
+      "period": 34,
+      "targetAtr": 1.75,
+      "stopAtr": 0.75,
+      "timeoutBars": 8,
+      "session": "ALL"
+    },
+    "researchStatus": "REJECT",
+    "selectionScore": -2.32,
+    "train": {
+      "trades": 66,
+      "expectancyBps": 6.13,
+      "profitFactor": 1.19,
+      "tStat": 0.582,
+      "maxDrawdownPct": 4.68
+    },
+    "validation": {
+      "trades": 23,
+      "expectancyBps": -25.18,
+      "profitFactor": 0.53,
+      "tStat": -1.428,
+      "maxDrawdownPct": 6.56
+    },
+    "walkForward": {
+      "positiveFolds": 2,
+      "requiredPositiveFolds": 3,
+      "pass": false
+    }
+  },
+  "control": {
+    "id": "failed_breakout:ADAUSDT:15m:ALL:p34:ta1.5:sa0.75:tb8:control",
+    "role": "CONTROL",
+    "hypothesisKey": "failed_breakout:ADAUSDT:15m:ALL",
+    "parentVariant": "failed_breakout:ADAUSDT:15m:ALL:p34:ta1.5:sa0.75:tb8",
+    "priority": "P2",
+    "market": {
+      "pair": "ADAUSDT",
+      "tf": "15m"
+    },
+    "spec": {
+      "family": "failed_breakout",
+      "period": 34,
+      "targetAtr": 1.5,
+      "stopAtr": 0.75,
+      "timeoutBars": 8,
+      "session": "ALL"
+    },
+    "researchStatus": "REJECT",
+    "selectionScore": -5.3,
+    "train": {
+      "trades": 66,
+      "expectancyBps": 3.22,
+      "profitFactor": 1.102,
+      "tStat": 0.335,
+      "maxDrawdownPct": 4.21
+    },
+    "validation": {
+      "trades": 23,
+      "expectancyBps": -29.29,
+      "profitFactor": 0.454,
+      "tStat": -1.801,
+      "maxDrawdownPct": 7.32
+    },
+    "walkForward": {
+      "positiveFolds": 2,
+      "requiredPositiveFolds": 3,
+      "pass": false
+    }
+  },
+  "controlSet": [
+    {
+      "id": "failed_breakout:ADAUSDT:15m:ALL:p34:ta1.5:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "failed_breakout:ADAUSDT:15m:ALL",
+      "parentVariant": "failed_breakout:ADAUSDT:15m:ALL:p34:ta1.5:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "ADAUSDT",
+        "tf": "15m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 34,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -5.3,
+      "train": {
+        "trades": 66,
+        "expectancyBps": 3.22,
+        "profitFactor": 1.102,
+        "tStat": 0.335,
+        "maxDrawdownPct": 4.21
+      },
+      "validation": {
+        "trades": 23,
+        "expectancyBps": -29.29,
+        "profitFactor": 0.454,
+        "tStat": -1.801,
+        "maxDrawdownPct": 7.32
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    }
+  ],
   "auditQueue": [],
-  "top": []
+  "top": [
+    {
+      "id": "failed_breakout:ADAUSDT:15m:ALL:p34:ta1.75:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "failed_breakout:ADAUSDT:15m:ALL",
+      "parentVariant": "failed_breakout:ADAUSDT:15m:ALL:p34:ta1.5:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "ADAUSDT",
+        "tf": "15m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 34,
+        "targetAtr": 1.75,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -2.32,
+      "train": {
+        "trades": 66,
+        "expectancyBps": 6.13,
+        "profitFactor": 1.19,
+        "tStat": 0.582,
+        "maxDrawdownPct": 4.68
+      },
+      "validation": {
+        "trades": 23,
+        "expectancyBps": -25.18,
+        "profitFactor": 0.53,
+        "tStat": -1.428,
+        "maxDrawdownPct": 6.56
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:ADAUSDT:15m:ALL:p34:ta1.5:sa0.75:tb6",
+      "role": "MUTATION",
+      "hypothesisKey": "failed_breakout:ADAUSDT:15m:ALL",
+      "parentVariant": "failed_breakout:ADAUSDT:15m:ALL:p34:ta1.5:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "ADAUSDT",
+        "tf": "15m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 34,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 6,
+        "session": "ALL"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -4.12,
+      "train": {
+        "trades": 66,
+        "expectancyBps": -0.53,
+        "profitFactor": 0.983,
+        "tStat": -0.057,
+        "maxDrawdownPct": 4.55
+      },
+      "validation": {
+        "trades": 23,
+        "expectancyBps": -25.44,
+        "profitFactor": 0.488,
+        "tStat": -1.602,
+        "maxDrawdownPct": 7.29
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:ADAUSDT:15m:ALL:p34:ta1.5:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "failed_breakout:ADAUSDT:15m:ALL",
+      "parentVariant": "failed_breakout:ADAUSDT:15m:ALL:p34:ta1.5:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "ADAUSDT",
+        "tf": "15m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 34,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -5.3,
+      "train": {
+        "trades": 66,
+        "expectancyBps": 3.22,
+        "profitFactor": 1.102,
+        "tStat": 0.335,
+        "maxDrawdownPct": 4.21
+      },
+      "validation": {
+        "trades": 23,
+        "expectancyBps": -29.29,
+        "profitFactor": 0.454,
+        "tStat": -1.801,
+        "maxDrawdownPct": 7.32
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:ADAUSDT:15m:ALL:p30:ta1.5:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "failed_breakout:ADAUSDT:15m:ALL",
+      "parentVariant": "failed_breakout:ADAUSDT:15m:ALL:p34:ta1.5:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "ADAUSDT",
+        "tf": "15m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 30,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -6.43,
+      "train": {
+        "trades": 70,
+        "expectancyBps": 3.34,
+        "profitFactor": 1.106,
+        "tStat": 0.361,
+        "maxDrawdownPct": 4.86
+      },
+      "validation": {
+        "trades": 24,
+        "expectancyBps": -31.4,
+        "profitFactor": 0.426,
+        "tStat": -1.999,
+        "maxDrawdownPct": 8.12
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:ADAUSDT:15m:ALL:p34:ta1.25:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "failed_breakout:ADAUSDT:15m:ALL",
+      "parentVariant": "failed_breakout:ADAUSDT:15m:ALL:p34:ta1.5:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "ADAUSDT",
+        "tf": "15m"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 34,
+        "targetAtr": 1.25,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -8.29,
+      "train": {
+        "trades": 66,
+        "expectancyBps": 0.35,
+        "profitFactor": 1.011,
+        "tStat": 0.039,
+        "maxDrawdownPct": 4.34
+      },
+      "validation": {
+        "trades": 23,
+        "expectancyBps": -33.41,
+        "profitFactor": 0.377,
+        "tStat": -2.241,
+        "maxDrawdownPct": 8.17
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    }
+  ]
 }
