@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-10-08T21:31:34.567Z",
+  "completedAt": "2026-10-09T06:45:04.838Z",
   "methodology": {
     "selectionUsesHoldout": false,
     "selectionInputs": [
@@ -21,15 +21,335 @@
     "emptyQueueHandoff": true,
     "barsPerMarket": 12000
   },
-  "queueMode": "EMPTY_QUEUE_DISCOVERY_HANDOFF",
-  "sourceQueueCompletedAt": "2026-10-08T21:31:34.505Z",
-  "tested": 0,
-  "controls": 0,
+  "queueMode": "HIGH_PRIORITY",
+  "sourceQueueCompletedAt": "2026-10-09T06:44:58.849Z",
+  "tested": 5,
+  "controls": 1,
   "promotableToAudit": 0,
-  "verdict": "NO_QUEUE_DISCOVERY_REQUIRED",
-  "bestMutation": null,
-  "control": null,
-  "controlSet": [],
+  "verdict": "NO_ADAPTIVE_EDGE_FOUND",
+  "bestMutation": {
+    "id": "failed_breakout:BNBUSDT:1h:LONDON_NY:p20:ta1.75:sa0.75:tb8",
+    "role": "MUTATION",
+    "hypothesisKey": "failed_breakout:BNBUSDT:1h:LONDON_NY",
+    "parentVariant": "failed_breakout:BNBUSDT:1h:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+    "priority": "P1",
+    "market": {
+      "pair": "BNBUSDT",
+      "tf": "1h"
+    },
+    "spec": {
+      "family": "failed_breakout",
+      "period": 20,
+      "targetAtr": 1.75,
+      "stopAtr": 0.75,
+      "timeoutBars": 8,
+      "session": "LONDON_NY"
+    },
+    "researchStatus": "REJECT",
+    "selectionScore": 3.26,
+    "train": {
+      "trades": 26,
+      "expectancyBps": 2.1,
+      "profitFactor": 1.049,
+      "tStat": 0.108,
+      "maxDrawdownPct": 5.98
+    },
+    "validation": {
+      "trades": 13,
+      "expectancyBps": -13.21,
+      "profitFactor": 0.655,
+      "tStat": -0.704,
+      "maxDrawdownPct": 3.11
+    },
+    "walkForward": {
+      "positiveFolds": 2,
+      "requiredPositiveFolds": 3,
+      "pass": false
+    }
+  },
+  "control": {
+    "id": "failed_breakout:BNBUSDT:1h:LONDON_NY:p20:ta1.5:sa0.75:tb8:control",
+    "role": "CONTROL",
+    "hypothesisKey": "failed_breakout:BNBUSDT:1h:LONDON_NY",
+    "parentVariant": "failed_breakout:BNBUSDT:1h:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+    "priority": "P1",
+    "market": {
+      "pair": "BNBUSDT",
+      "tf": "1h"
+    },
+    "spec": {
+      "family": "failed_breakout",
+      "period": 20,
+      "targetAtr": 1.5,
+      "stopAtr": 0.75,
+      "timeoutBars": 8,
+      "session": "LONDON_NY"
+    },
+    "researchStatus": "REJECT",
+    "selectionScore": 1.12,
+    "train": {
+      "trades": 26,
+      "expectancyBps": 0.71,
+      "profitFactor": 1.017,
+      "tStat": 0.04,
+      "maxDrawdownPct": 6.09
+    },
+    "validation": {
+      "trades": 13,
+      "expectancyBps": -16.47,
+      "profitFactor": 0.57,
+      "tStat": -0.954,
+      "maxDrawdownPct": 3.11
+    },
+    "walkForward": {
+      "positiveFolds": 2,
+      "requiredPositiveFolds": 3,
+      "pass": false
+    }
+  },
+  "controlSet": [
+    {
+      "id": "failed_breakout:BNBUSDT:1h:LONDON_NY:p20:ta1.5:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "failed_breakout:BNBUSDT:1h:LONDON_NY",
+      "parentVariant": "failed_breakout:BNBUSDT:1h:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 1.12,
+      "train": {
+        "trades": 26,
+        "expectancyBps": 0.71,
+        "profitFactor": 1.017,
+        "tStat": 0.04,
+        "maxDrawdownPct": 6.09
+      },
+      "validation": {
+        "trades": 13,
+        "expectancyBps": -16.47,
+        "profitFactor": 0.57,
+        "tStat": -0.954,
+        "maxDrawdownPct": 3.11
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    }
+  ],
   "auditQueue": [],
-  "top": []
+  "top": [
+    {
+      "id": "failed_breakout:BNBUSDT:1h:LONDON_NY:p20:ta1.75:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "failed_breakout:BNBUSDT:1h:LONDON_NY",
+      "parentVariant": "failed_breakout:BNBUSDT:1h:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 20,
+        "targetAtr": 1.75,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 3.26,
+      "train": {
+        "trades": 26,
+        "expectancyBps": 2.1,
+        "profitFactor": 1.049,
+        "tStat": 0.108,
+        "maxDrawdownPct": 5.98
+      },
+      "validation": {
+        "trades": 13,
+        "expectancyBps": -13.21,
+        "profitFactor": 0.655,
+        "tStat": -0.704,
+        "maxDrawdownPct": 3.11
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:BNBUSDT:1h:LONDON_NY:p20:ta1.5:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "failed_breakout:BNBUSDT:1h:LONDON_NY",
+      "parentVariant": "failed_breakout:BNBUSDT:1h:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 1.12,
+      "train": {
+        "trades": 26,
+        "expectancyBps": 0.71,
+        "profitFactor": 1.017,
+        "tStat": 0.04,
+        "maxDrawdownPct": 6.09
+      },
+      "validation": {
+        "trades": 13,
+        "expectancyBps": -16.47,
+        "profitFactor": 0.57,
+        "tStat": -0.954,
+        "maxDrawdownPct": 3.11
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:BNBUSDT:1h:LONDON_NY:p16:ta1.5:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "failed_breakout:BNBUSDT:1h:LONDON_NY",
+      "parentVariant": "failed_breakout:BNBUSDT:1h:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 16,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -5.63,
+      "train": {
+        "trades": 29,
+        "expectancyBps": -1.79,
+        "profitFactor": 0.955,
+        "tStat": -0.11,
+        "maxDrawdownPct": 6.49
+      },
+      "validation": {
+        "trades": 14,
+        "expectancyBps": -18.52,
+        "profitFactor": 0.523,
+        "tStat": -1.149,
+        "maxDrawdownPct": 3.56
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:BNBUSDT:1h:LONDON_NY:p20:ta1.5:sa0.75:tb6",
+      "role": "MUTATION",
+      "hypothesisKey": "failed_breakout:BNBUSDT:1h:LONDON_NY",
+      "parentVariant": "failed_breakout:BNBUSDT:1h:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 6,
+        "session": "LONDON_NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -6.98,
+      "train": {
+        "trades": 26,
+        "expectancyBps": -3.55,
+        "profitFactor": 0.913,
+        "tStat": -0.211,
+        "maxDrawdownPct": 6.09
+      },
+      "validation": {
+        "trades": 13,
+        "expectancyBps": -20.16,
+        "profitFactor": 0.474,
+        "tStat": -1.239,
+        "maxDrawdownPct": 3.11
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:BNBUSDT:1h:LONDON_NY:p20:ta1.25:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "failed_breakout:BNBUSDT:1h:LONDON_NY",
+      "parentVariant": "failed_breakout:BNBUSDT:1h:LONDON_NY:p20:ta1.5:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "BNBUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 20,
+        "targetAtr": 1.25,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON_NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -7.27,
+      "train": {
+        "trades": 26,
+        "expectancyBps": -5.73,
+        "profitFactor": 0.86,
+        "tStat": -0.346,
+        "maxDrawdownPct": 6.2
+      },
+      "validation": {
+        "trades": 13,
+        "expectancyBps": -19.7,
+        "profitFactor": 0.486,
+        "tStat": -1.245,
+        "maxDrawdownPct": 3.37
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    }
+  ]
 }
