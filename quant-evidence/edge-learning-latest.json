@@ -5,13 +5,13 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-10-14T14:03:50.440Z",
+  "completedAt": "2026-10-14T20:21:07.437Z",
   "summary": {
     "hypotheses": 432,
     "paperCandidates": 1,
-    "interesting": 58,
-    "regimeDivergence": 322,
-    "killed": 523
+    "interesting": 57,
+    "regimeDivergence": 316,
+    "killed": 408
   },
   "rules": [
     {
@@ -169,31 +169,7 @@
       "action": "MUTATE_AND_RETEST"
     },
     {
-      "hypothesisKey": "trend_pullback:SOLUSDT:4h:ALL",
-      "total": 4,
-      "interesting": 2,
-      "regimeDivergence": 0,
-      "paper": 0,
-      "reasons": {
-        "NEGATIVE_VALIDATION_EXPECTANCY": 2
-      },
-      "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
-      "action": "MUTATE_AND_RETEST"
-    },
-    {
       "hypothesisKey": "failed_breakout:BNBUSDT:1h:ASIA",
-      "total": 4,
-      "interesting": 2,
-      "regimeDivergence": 0,
-      "paper": 0,
-      "reasons": {
-        "NEGATIVE_VALIDATION_EXPECTANCY": 2
-      },
-      "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
-      "action": "MUTATE_AND_RETEST"
-    },
-    {
-      "hypothesisKey": "volatility_squeeze:XRPUSDT:1h:ASIA",
       "total": 4,
       "interesting": 2,
       "regimeDivergence": 0,
@@ -205,16 +181,40 @@
       "action": "MUTATE_AND_RETEST"
     },
     {
+      "hypothesisKey": "volatility_squeeze:BNBUSDT:1h:NY",
+      "total": 4,
+      "interesting": 2,
+      "regimeDivergence": 0,
+      "paper": 0,
+      "reasons": {
+        "THREE_FAILED_GENERATIONS": 2
+      },
+      "dominantFailure": "THREE_FAILED_GENERATIONS",
+      "action": "MUTATE_AND_RETEST"
+    },
+    {
+      "hypothesisKey": "volatility_squeeze:XRPUSDT:1h:ASIA",
+      "total": 4,
+      "interesting": 2,
+      "regimeDivergence": 0,
+      "paper": 0,
+      "reasons": {
+        "INSUFFICIENT_SAMPLE": 2
+      },
+      "dominantFailure": "INSUFFICIENT_SAMPLE",
+      "action": "MUTATE_AND_RETEST"
+    },
+    {
       "hypothesisKey": "volatility_squeeze:AVAXUSDT:4h:ALL",
       "total": 4,
       "interesting": 2,
       "regimeDivergence": 0,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_HOLDOUT_EXPECTANCY": 1,
+        "NEGATIVE_VALIDATION_EXPECTANCY": 1,
         "THREE_FAILED_GENERATIONS": 1
       },
-      "dominantFailure": "NEGATIVE_HOLDOUT_EXPECTANCY",
+      "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
     },
     {
@@ -227,19 +227,6 @@
         "NEGATIVE_TRAIN_EXPECTANCY": 2
       },
       "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
-      "action": "MUTATE_AND_RETEST"
-    },
-    {
-      "hypothesisKey": "volatility_squeeze:BNBUSDT:1h:NY",
-      "total": 4,
-      "interesting": 2,
-      "regimeDivergence": 0,
-      "paper": 0,
-      "reasons": {
-        "NEGATIVE_VALIDATION_EXPECTANCY": 1,
-        "NEGATIVE_HOLDOUT_EXPECTANCY": 1
-      },
-      "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
     },
     {
@@ -290,9 +277,24 @@
       "paper": 0,
       "reasons": {
         "NEGATIVE_HOLDOUT_EXPECTANCY": 1,
-        "THREE_FAILED_GENERATIONS": 2
+        "NEGATIVE_TRAIN_EXPECTANCY": 1,
+        "NEGATIVE_VALIDATION_EXPECTANCY": 1
       },
-      "dominantFailure": "THREE_FAILED_GENERATIONS",
+      "dominantFailure": "NEGATIVE_HOLDOUT_EXPECTANCY",
+      "action": "MUTATE_AND_RETEST"
+    },
+    {
+      "hypothesisKey": "volatility_squeeze:BNBUSDT:30m:NY",
+      "total": 4,
+      "interesting": 1,
+      "regimeDivergence": 0,
+      "paper": 0,
+      "reasons": {
+        "NEGATIVE_VALIDATION_EXPECTANCY": 1,
+        "NEGATIVE_TRAIN_EXPECTANCY": 1,
+        "THREE_FAILED_GENERATIONS": 1
+      },
+      "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
     }
   ]
