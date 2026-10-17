@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-10-17T15:57:37.661Z",
+  "completedAt": "2026-10-17T18:51:27.034Z",
   "methodology": {
     "selectionUsesHoldout": false,
     "balancedNeighborhood": true,
@@ -20,8 +20,8 @@
   },
   "sourceVerdict": "PAPER_CANDIDATE_FOUND",
   "sourcePoolSize": 120,
-  "eligibleHypotheses": 2,
-  "queueSize": 10,
+  "eligibleHypotheses": 0,
+  "queueSize": 0,
   "deepOverrides": [
     {
       "hypothesisKey": "opening_range_breakout:BTCUSDT:1h:LONDON",
@@ -5428,6 +5428,74 @@
           }
         }
       }
+    },
+    {
+      "hypothesisKey": "failed_breakout:AVAXUSDT:1h:ALL",
+      "action": "SUPPRESS_DEEP_REJECTED",
+      "ledger": {
+        "status": "DEEP_REJECTED",
+        "firstSeen": "2026-10-17T15:57:43.869Z",
+        "lastSeen": "2026-10-17T15:57:43.869Z",
+        "parentVariant": "failed_breakout:AVAXUSDT:1h:ALL:p34:ta1.5:sa0.75:tb8",
+        "barsPerMarket": 12000,
+        "reason": "DEEP_NEGATIVE_TRAIN_EXPECTANCY",
+        "resetPolicy": "MATERIAL_REGIME_OR_CONTEXT_CHANGE",
+        "evidence": {
+          "train": {
+            "trades": 97,
+            "expectancyBps": -10.73,
+            "profitFactor": 0.858,
+            "tStat": -0.644,
+            "maxDrawdownPct": 22.68
+          },
+          "validation": {
+            "trades": 33,
+            "expectancyBps": -24.28,
+            "profitFactor": 0.66,
+            "tStat": -1.033,
+            "maxDrawdownPct": 13.9
+          },
+          "walkForward": {
+            "positiveFolds": 1,
+            "requiredPositiveFolds": 3,
+            "pass": false
+          }
+        }
+      }
+    },
+    {
+      "hypothesisKey": "failed_breakout:ADAUSDT:1h:ASIA",
+      "action": "SUPPRESS_DEEP_REJECTED",
+      "ledger": {
+        "status": "DEEP_REJECTED",
+        "firstSeen": "2026-10-17T15:57:43.869Z",
+        "lastSeen": "2026-10-17T15:57:43.869Z",
+        "parentVariant": "failed_breakout:ADAUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8",
+        "barsPerMarket": 12000,
+        "reason": "DEEP_NEGATIVE_TRAIN_EXPECTANCY",
+        "resetPolicy": "MATERIAL_REGIME_OR_CONTEXT_CHANGE",
+        "evidence": {
+          "train": {
+            "trades": 34,
+            "expectancyBps": -31.8,
+            "profitFactor": 0.591,
+            "tStat": -1.407,
+            "maxDrawdownPct": 12.44
+          },
+          "validation": {
+            "trades": 11,
+            "expectancyBps": -59.04,
+            "profitFactor": 0.361,
+            "tStat": -1.463,
+            "maxDrawdownPct": 8.32
+          },
+          "walkForward": {
+            "positiveFolds": 1,
+            "requiredPositiveFolds": 3,
+            "pass": false
+          }
+        }
+      }
     }
   ],
   "forwardSuppressed": [
@@ -5579,584 +5647,6 @@
       "reason": "Family exhausted its one-shot holdout audit budget without a pass. Do not keep fishing the same holdout."
     }
   ],
-  "focus": {
-    "hypothesisKey": "failed_breakout:AVAXUSDT:1h:ALL",
-    "variantKey": "failed_breakout:AVAXUSDT:1h:ALL:p34:ta1.5:sa0.75:tb8",
-    "market": {
-      "pair": "AVAXUSDT",
-      "tf": "1h"
-    },
-    "candidate": {
-      "family": "failed_breakout",
-      "period": 34,
-      "targetAtr": 1.5,
-      "stopAtr": 0.75,
-      "timeoutBars": 8,
-      "session": "ALL"
-    },
-    "status": "REGIME_DIVERGENCE",
-    "researchScore": 47.33,
-    "sentinelCritique": [
-      "LOW_HOLDOUT_TSTAT",
-      "WALK_FORWARD_UNSTABLE",
-      "NEGATIVE_TRAIN_EXPECTANCY"
-    ]
-  },
-  "queue": [
-    {
-      "id": "failed_breakout:AVAXUSDT:1h:ALL:p34:ta1.5:sa0.75:tb8:control",
-      "role": "CONTROL",
-      "priority": "P2",
-      "parentVariant": "failed_breakout:AVAXUSDT:1h:ALL:p34:ta1.5:sa0.75:tb8",
-      "hypothesisKey": "failed_breakout:AVAXUSDT:1h:ALL",
-      "market": {
-        "pair": "AVAXUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "failed_breakout",
-        "period": 34,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ALL"
-      },
-      "rationale": "Control replay of the best parent for this independent hypothesis. It prevents data drift from being mistaken for parameter improvement.",
-      "sentinelCritique": [
-        "LOW_HOLDOUT_TSTAT",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_TRAIN_EXPECTANCY"
-      ],
-      "expectedFalsification": "Control must remain directionally consistent on train and validation; otherwise pause mutations and diagnose regime/data drift.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 62,
-          "expectancyBps": -5.14,
-          "profitFactor": 0.917,
-          "tStat": -0.303,
-          "maxDrawdownPct": 13.92
-        },
-        "validation": {
-          "trades": 15,
-          "expectancyBps": 18.32,
-          "profitFactor": 1.387,
-          "tStat": 0.56,
-          "maxDrawdownPct": 2.79
-        },
-        "holdout": {
-          "trades": 27,
-          "expectancyBps": 19.27,
-          "profitFactor": 1.309,
-          "tStat": 0.575,
-          "maxDrawdownPct": 8.43
-        },
-        "walkForward": {
-          "positiveFolds": 2,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    },
-    {
-      "id": "failed_breakout:AVAXUSDT:1h:ALL:p30:ta1.5:sa0.75:tb8",
-      "role": "MUTATION",
-      "priority": "P2",
-      "parentVariant": "failed_breakout:AVAXUSDT:1h:ALL:p34:ta1.5:sa0.75:tb8",
-      "hypothesisKey": "failed_breakout:AVAXUSDT:1h:ALL",
-      "market": {
-        "pair": "AVAXUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "failed_breakout",
-        "period": 30,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ALL"
-      },
-      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis.",
-      "sentinelCritique": [
-        "LOW_HOLDOUT_TSTAT",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_TRAIN_EXPECTANCY"
-      ],
-      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 62,
-          "expectancyBps": -5.14,
-          "profitFactor": 0.917,
-          "tStat": -0.303,
-          "maxDrawdownPct": 13.92
-        },
-        "validation": {
-          "trades": 15,
-          "expectancyBps": 18.32,
-          "profitFactor": 1.387,
-          "tStat": 0.56,
-          "maxDrawdownPct": 2.79
-        },
-        "holdout": {
-          "trades": 27,
-          "expectancyBps": 19.27,
-          "profitFactor": 1.309,
-          "tStat": 0.575,
-          "maxDrawdownPct": 8.43
-        },
-        "walkForward": {
-          "positiveFolds": 2,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    },
-    {
-      "id": "failed_breakout:AVAXUSDT:1h:ALL:p34:ta1.25:sa0.75:tb8",
-      "role": "MUTATION",
-      "priority": "P2",
-      "parentVariant": "failed_breakout:AVAXUSDT:1h:ALL:p34:ta1.5:sa0.75:tb8",
-      "hypothesisKey": "failed_breakout:AVAXUSDT:1h:ALL",
-      "market": {
-        "pair": "AVAXUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "failed_breakout",
-        "period": 34,
-        "targetAtr": 1.25,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ALL"
-      },
-      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis.",
-      "sentinelCritique": [
-        "LOW_HOLDOUT_TSTAT",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_TRAIN_EXPECTANCY"
-      ],
-      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 62,
-          "expectancyBps": -5.14,
-          "profitFactor": 0.917,
-          "tStat": -0.303,
-          "maxDrawdownPct": 13.92
-        },
-        "validation": {
-          "trades": 15,
-          "expectancyBps": 18.32,
-          "profitFactor": 1.387,
-          "tStat": 0.56,
-          "maxDrawdownPct": 2.79
-        },
-        "holdout": {
-          "trades": 27,
-          "expectancyBps": 19.27,
-          "profitFactor": 1.309,
-          "tStat": 0.575,
-          "maxDrawdownPct": 8.43
-        },
-        "walkForward": {
-          "positiveFolds": 2,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    },
-    {
-      "id": "failed_breakout:AVAXUSDT:1h:ALL:p34:ta1.5:sa0.75:tb6",
-      "role": "MUTATION",
-      "priority": "P2",
-      "parentVariant": "failed_breakout:AVAXUSDT:1h:ALL:p34:ta1.5:sa0.75:tb8",
-      "hypothesisKey": "failed_breakout:AVAXUSDT:1h:ALL",
-      "market": {
-        "pair": "AVAXUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "failed_breakout",
-        "period": 34,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 6,
-        "session": "ALL"
-      },
-      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis.",
-      "sentinelCritique": [
-        "LOW_HOLDOUT_TSTAT",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_TRAIN_EXPECTANCY"
-      ],
-      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 62,
-          "expectancyBps": -5.14,
-          "profitFactor": 0.917,
-          "tStat": -0.303,
-          "maxDrawdownPct": 13.92
-        },
-        "validation": {
-          "trades": 15,
-          "expectancyBps": 18.32,
-          "profitFactor": 1.387,
-          "tStat": 0.56,
-          "maxDrawdownPct": 2.79
-        },
-        "holdout": {
-          "trades": 27,
-          "expectancyBps": 19.27,
-          "profitFactor": 1.309,
-          "tStat": 0.575,
-          "maxDrawdownPct": 8.43
-        },
-        "walkForward": {
-          "positiveFolds": 2,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    },
-    {
-      "id": "failed_breakout:AVAXUSDT:1h:ALL:p34:ta1.75:sa0.75:tb8",
-      "role": "MUTATION",
-      "priority": "P2",
-      "parentVariant": "failed_breakout:AVAXUSDT:1h:ALL:p34:ta1.5:sa0.75:tb8",
-      "hypothesisKey": "failed_breakout:AVAXUSDT:1h:ALL",
-      "market": {
-        "pair": "AVAXUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "failed_breakout",
-        "period": 34,
-        "targetAtr": 1.75,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ALL"
-      },
-      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis.",
-      "sentinelCritique": [
-        "LOW_HOLDOUT_TSTAT",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_TRAIN_EXPECTANCY"
-      ],
-      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 62,
-          "expectancyBps": -5.14,
-          "profitFactor": 0.917,
-          "tStat": -0.303,
-          "maxDrawdownPct": 13.92
-        },
-        "validation": {
-          "trades": 15,
-          "expectancyBps": 18.32,
-          "profitFactor": 1.387,
-          "tStat": 0.56,
-          "maxDrawdownPct": 2.79
-        },
-        "holdout": {
-          "trades": 27,
-          "expectancyBps": 19.27,
-          "profitFactor": 1.309,
-          "tStat": 0.575,
-          "maxDrawdownPct": 8.43
-        },
-        "walkForward": {
-          "positiveFolds": 2,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    },
-    {
-      "id": "failed_breakout:ADAUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8:control",
-      "role": "CONTROL",
-      "priority": "P2",
-      "parentVariant": "failed_breakout:ADAUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8",
-      "hypothesisKey": "failed_breakout:ADAUSDT:1h:ASIA",
-      "market": {
-        "pair": "ADAUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "failed_breakout",
-        "period": 20,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "rationale": "Control replay of the best parent for this independent hypothesis. It prevents data drift from being mistaken for parameter improvement.",
-      "sentinelCritique": [
-        "TRAIN_SAMPLE_THIN",
-        "VALIDATION_SAMPLE_THIN",
-        "HOLDOUT_SAMPLE_THIN",
-        "LOW_HOLDOUT_TSTAT",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_TRAIN_EXPECTANCY"
-      ],
-      "expectedFalsification": "Control must remain directionally consistent on train and validation; otherwise pause mutations and diagnose regime/data drift.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 20,
-          "expectancyBps": -31.03,
-          "profitFactor": 0.592,
-          "tStat": -1.038,
-          "maxDrawdownPct": 9.96
-        },
-        "validation": {
-          "trades": 6,
-          "expectancyBps": 4.15,
-          "profitFactor": 1.063,
-          "tStat": 0.067,
-          "maxDrawdownPct": 2.84
-        },
-        "holdout": {
-          "trades": 10,
-          "expectancyBps": 23.23,
-          "profitFactor": 1.308,
-          "tStat": 0.285,
-          "maxDrawdownPct": 5.08
-        },
-        "walkForward": {
-          "positiveFolds": 2,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    },
-    {
-      "id": "failed_breakout:ADAUSDT:1h:ASIA:p16:ta1.5:sa0.75:tb8",
-      "role": "MUTATION",
-      "priority": "P2",
-      "parentVariant": "failed_breakout:ADAUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8",
-      "hypothesisKey": "failed_breakout:ADAUSDT:1h:ASIA",
-      "market": {
-        "pair": "ADAUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "failed_breakout",
-        "period": 16,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis.",
-      "sentinelCritique": [
-        "TRAIN_SAMPLE_THIN",
-        "VALIDATION_SAMPLE_THIN",
-        "HOLDOUT_SAMPLE_THIN",
-        "LOW_HOLDOUT_TSTAT",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_TRAIN_EXPECTANCY"
-      ],
-      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 20,
-          "expectancyBps": -31.03,
-          "profitFactor": 0.592,
-          "tStat": -1.038,
-          "maxDrawdownPct": 9.96
-        },
-        "validation": {
-          "trades": 6,
-          "expectancyBps": 4.15,
-          "profitFactor": 1.063,
-          "tStat": 0.067,
-          "maxDrawdownPct": 2.84
-        },
-        "holdout": {
-          "trades": 10,
-          "expectancyBps": 23.23,
-          "profitFactor": 1.308,
-          "tStat": 0.285,
-          "maxDrawdownPct": 5.08
-        },
-        "walkForward": {
-          "positiveFolds": 2,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    },
-    {
-      "id": "failed_breakout:ADAUSDT:1h:ASIA:p20:ta1.25:sa0.75:tb8",
-      "role": "MUTATION",
-      "priority": "P2",
-      "parentVariant": "failed_breakout:ADAUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8",
-      "hypothesisKey": "failed_breakout:ADAUSDT:1h:ASIA",
-      "market": {
-        "pair": "ADAUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "failed_breakout",
-        "period": 20,
-        "targetAtr": 1.25,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis.",
-      "sentinelCritique": [
-        "TRAIN_SAMPLE_THIN",
-        "VALIDATION_SAMPLE_THIN",
-        "HOLDOUT_SAMPLE_THIN",
-        "LOW_HOLDOUT_TSTAT",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_TRAIN_EXPECTANCY"
-      ],
-      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 20,
-          "expectancyBps": -31.03,
-          "profitFactor": 0.592,
-          "tStat": -1.038,
-          "maxDrawdownPct": 9.96
-        },
-        "validation": {
-          "trades": 6,
-          "expectancyBps": 4.15,
-          "profitFactor": 1.063,
-          "tStat": 0.067,
-          "maxDrawdownPct": 2.84
-        },
-        "holdout": {
-          "trades": 10,
-          "expectancyBps": 23.23,
-          "profitFactor": 1.308,
-          "tStat": 0.285,
-          "maxDrawdownPct": 5.08
-        },
-        "walkForward": {
-          "positiveFolds": 2,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    },
-    {
-      "id": "failed_breakout:ADAUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb6",
-      "role": "MUTATION",
-      "priority": "P2",
-      "parentVariant": "failed_breakout:ADAUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8",
-      "hypothesisKey": "failed_breakout:ADAUSDT:1h:ASIA",
-      "market": {
-        "pair": "ADAUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "failed_breakout",
-        "period": 20,
-        "targetAtr": 1.5,
-        "stopAtr": 0.75,
-        "timeoutBars": 6,
-        "session": "ASIA"
-      },
-      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis.",
-      "sentinelCritique": [
-        "TRAIN_SAMPLE_THIN",
-        "VALIDATION_SAMPLE_THIN",
-        "HOLDOUT_SAMPLE_THIN",
-        "LOW_HOLDOUT_TSTAT",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_TRAIN_EXPECTANCY"
-      ],
-      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 20,
-          "expectancyBps": -31.03,
-          "profitFactor": 0.592,
-          "tStat": -1.038,
-          "maxDrawdownPct": 9.96
-        },
-        "validation": {
-          "trades": 6,
-          "expectancyBps": 4.15,
-          "profitFactor": 1.063,
-          "tStat": 0.067,
-          "maxDrawdownPct": 2.84
-        },
-        "holdout": {
-          "trades": 10,
-          "expectancyBps": 23.23,
-          "profitFactor": 1.308,
-          "tStat": 0.285,
-          "maxDrawdownPct": 5.08
-        },
-        "walkForward": {
-          "positiveFolds": 2,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    },
-    {
-      "id": "failed_breakout:ADAUSDT:1h:ASIA:p20:ta1.75:sa0.75:tb8",
-      "role": "MUTATION",
-      "priority": "P2",
-      "parentVariant": "failed_breakout:ADAUSDT:1h:ASIA:p20:ta1.5:sa0.75:tb8",
-      "hypothesisKey": "failed_breakout:ADAUSDT:1h:ASIA",
-      "market": {
-        "pair": "ADAUSDT",
-        "tf": "1h"
-      },
-      "spec": {
-        "family": "failed_breakout",
-        "period": 20,
-        "targetAtr": 1.75,
-        "stopAtr": 0.75,
-        "timeoutBars": 8,
-        "session": "ASIA"
-      },
-      "rationale": "Recent validation improved while prior regime did not. Retest only as a regime-specific hypothesis.",
-      "sentinelCritique": [
-        "TRAIN_SAMPLE_THIN",
-        "VALIDATION_SAMPLE_THIN",
-        "HOLDOUT_SAMPLE_THIN",
-        "LOW_HOLDOUT_TSTAT",
-        "WALK_FORWARD_UNSTABLE",
-        "NEGATIVE_TRAIN_EXPECTANCY"
-      ],
-      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
-      "sourceEvidence": {
-        "train": {
-          "trades": 20,
-          "expectancyBps": -31.03,
-          "profitFactor": 0.592,
-          "tStat": -1.038,
-          "maxDrawdownPct": 9.96
-        },
-        "validation": {
-          "trades": 6,
-          "expectancyBps": 4.15,
-          "profitFactor": 1.063,
-          "tStat": 0.067,
-          "maxDrawdownPct": 2.84
-        },
-        "holdout": {
-          "trades": 10,
-          "expectancyBps": 23.23,
-          "profitFactor": 1.308,
-          "tStat": 0.285,
-          "maxDrawdownPct": 5.08
-        },
-        "walkForward": {
-          "positiveFolds": 2,
-          "requiredPositiveFolds": 3,
-          "pass": false
-        }
-      }
-    }
-  ]
+  "focus": null,
+  "queue": []
 }
