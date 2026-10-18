@@ -1,5 +1,5 @@
 {
-  "ts": "2026-10-18T13:57:55.418Z",
+  "ts": "2026-10-18T17:17:52.690Z",
   "liveOff": true,
   "paper": true,
   "go": false,
@@ -12,43 +12,54 @@
   "filled": 0,
   "paperPnl": 0,
   "reasons": {
-    "TAPE_PENDING": 4
+    "TAPE_PENDING": 2,
+    "VPIN_HALT": 2
   },
-  "ms": 1009,
+  "ms": 1189,
   "scored": [
     {
       "symbol": "SNXX-USDT-SWAP",
-      "preH": 0.05797101449338715,
-      "spread": 11.594202898552536,
-      "quote": false,
-      "reason": "TAPE_PENDING"
-    },
-    {
-      "symbol": "CORE-USDT-SWAP",
-      "preH": 0.018369690012014495,
-      "spread": 11.481056257177185,
+      "preH": 0.10557184750724513,
+      "spread": 11.730205278592129,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
       "symbol": "CP-USDT-SWAP",
-      "preH": -0.015936254980242204,
-      "spread": 11.383039271485023,
+      "preH": 0.12979351032431463,
+      "spread": 11.799410029498043,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
-      "symbol": "DOS-USDT-SWAP",
-      "preH": -0.05633802816890077,
-      "spread": 11.267605633803141,
+      "symbol": "INIT-USDT-SWAP",
+      "preH": -0.3671204439301423,
+      "spread": 10.379655874485309,
       "quote": false,
-      "reason": "TAPE_PENDING"
+      "reason": "VPIN_HALT",
+      "harvestBps": null,
+      "vpin": 0.8676,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "VPIN_HALT"
+    },
+    {
+      "symbol": "DOS-USDT-SWAP",
+      "preH": -0.19151251360163268,
+      "spread": 10.88139281828105,
+      "quote": false,
+      "reason": "VPIN_HALT",
+      "harvestBps": null,
+      "vpin": 0.8335,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "VPIN_HALT"
     }
   ],
   "intersection": {
-    "liquid": 198,
+    "liquid": 203,
     "hGe": 5,
-    "band": 103,
+    "band": 98,
     "both": 0
   },
   "formula": "H=spread*0.35-4bps; width is a toxicity prior. Kalman+VPIN+GLFT. not a GO."
