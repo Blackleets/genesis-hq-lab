@@ -5,13 +5,13 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-10-19T21:15:42.976Z",
+  "completedAt": "2026-10-20T05:19:54.001Z",
   "summary": {
     "hypotheses": 432,
     "paperCandidates": 3,
-    "interesting": 42,
-    "regimeDivergence": 294,
-    "killed": 121
+    "interesting": 41,
+    "regimeDivergence": 292,
+    "killed": 332
   },
   "rules": [
     {
@@ -166,18 +166,6 @@
       "action": "MUTATE_AND_RETEST"
     },
     {
-      "hypothesisKey": "opening_range_breakout:ADAUSDT:1h:LONDON",
-      "total": 4,
-      "interesting": 2,
-      "regimeDivergence": 0,
-      "paper": 0,
-      "reasons": {
-        "NEGATIVE_VALIDATION_EXPECTANCY": 2
-      },
-      "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
-      "action": "MUTATE_AND_RETEST"
-    },
-    {
       "hypothesisKey": "trend_pullback:DOGEUSDT:1h:LONDON_NY",
       "total": 4,
       "interesting": 2,
@@ -210,7 +198,7 @@
       "reasons": {
         "NEGATIVE_TRAIN_EXPECTANCY": 1,
         "NEGATIVE_VALIDATION_EXPECTANCY": 1,
-        "THREE_FAILED_GENERATIONS": 1
+        "WEAK_VALIDATION_PROFIT_FACTOR": 1
       },
       "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
@@ -223,9 +211,22 @@
       "paper": 0,
       "reasons": {
         "NEGATIVE_TRAIN_EXPECTANCY": 1,
-        "INSUFFICIENT_SAMPLE": 2
+        "THREE_FAILED_GENERATIONS": 2
       },
-      "dominantFailure": "INSUFFICIENT_SAMPLE",
+      "dominantFailure": "THREE_FAILED_GENERATIONS",
+      "action": "MUTATE_AND_RETEST"
+    },
+    {
+      "hypothesisKey": "failed_breakout:BTCUSDT:1h:LONDON_NY",
+      "total": 4,
+      "interesting": 1,
+      "regimeDivergence": 1,
+      "paper": 0,
+      "reasons": {
+        "NEGATIVE_TRAIN_EXPECTANCY": 1,
+        "THREE_FAILED_GENERATIONS": 2
+      },
+      "dominantFailure": "THREE_FAILED_GENERATIONS",
       "action": "MUTATE_AND_RETEST"
     },
     {
@@ -236,7 +237,7 @@
       "paper": 0,
       "reasons": {
         "NEGATIVE_TRAIN_EXPECTANCY": 1,
-        "NEGATIVE_HOLDOUT_EXPECTANCY": 1,
+        "NEGATIVE_VALIDATION_EXPECTANCY": 1,
         "THREE_FAILED_GENERATIONS": 1
       },
       "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
@@ -249,10 +250,9 @@
       "regimeDivergence": 0,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_VALIDATION_EXPECTANCY": 1,
-        "NEGATIVE_TRAIN_EXPECTANCY": 2
+        "THREE_FAILED_GENERATIONS": 3
       },
-      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
+      "dominantFailure": "THREE_FAILED_GENERATIONS",
       "action": "MUTATE_AND_RETEST"
     },
     {
@@ -299,7 +299,8 @@
       "regimeDivergence": 0,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_VALIDATION_EXPECTANCY": 3
+        "NEGATIVE_VALIDATION_EXPECTANCY": 2,
+        "THREE_FAILED_GENERATIONS": 1
       },
       "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
