@@ -1,54 +1,60 @@
 {
-  "ts": "2026-10-23T23:27:43.971Z",
+  "ts": "2026-10-24T01:56:04.913Z",
   "liveOff": true,
   "paper": true,
   "go": false,
   "hz": 1,
   "tickers": 507,
-  "preQuote": 5,
+  "preQuote": 3,
   "full": 4,
   "quoted": 0,
   "quotedNames": [],
   "filled": 0,
   "paperPnl": 0,
   "reasons": {
-    "TAPE_PENDING": 4
+    "TAPE_PENDING": 3,
+    "WOULD_CROSS": 1
   },
-  "ms": 721,
+  "ms": 1021,
   "scored": [
     {
-      "symbol": "KMNO-USDT-SWAP",
-      "preH": 0.1951336449719525,
-      "spread": 11.986096128491294,
+      "symbol": "INIT-USDT-SWAP",
+      "preH": 0.14735301293006753,
+      "spread": 11.84958003694305,
+      "quote": false,
+      "reason": "TAPE_PENDING"
+    },
+    {
+      "symbol": "HUMA-USDT-SWAP",
+      "preH": -0.006845407872382303,
+      "spread": 11.409013120364623,
+      "quote": false,
+      "reason": "TAPE_PENDING"
+    },
+    {
+      "symbol": "SYRUP-USDT-SWAP",
+      "preH": -0.1283185840706862,
+      "spread": 11.061946902655183,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
       "symbol": "CORE-USDT-SWAP",
-      "preH": -0.05855855855803549,
-      "spread": 11.261261261262757,
+      "preH": -0.1643835616439917,
+      "spread": 10.958904109588596,
       "quote": false,
-      "reason": "TAPE_PENDING"
-    },
-    {
-      "symbol": "TRB-USDT-SWAP",
-      "preH": -0.08938547486041815,
-      "spread": 11.173184357541663,
-      "quote": false,
-      "reason": "TAPE_PENDING"
-    },
-    {
-      "symbol": "AI-USDT-SWAP",
-      "preH": -0.13259668508235878,
-      "spread": 11.049723756907547,
-      "quote": false,
-      "reason": "TAPE_PENDING"
+      "reason": "WOULD_CROSS",
+      "harvestBps": null,
+      "vpin": 0.8077,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "WOULD_CROSS"
     }
   ],
   "intersection": {
-    "liquid": 255,
-    "hGe": 5,
-    "band": 131,
+    "liquid": 261,
+    "hGe": 3,
+    "band": 146,
     "both": 0
   },
   "formula": "H=spread*0.35-4bps; width is a toxicity prior. Kalman+VPIN+GLFT. not a GO."
