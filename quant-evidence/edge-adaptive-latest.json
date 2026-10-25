@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-10-24T22:44:42.157Z",
+  "completedAt": "2026-10-25T05:19:56.950Z",
   "methodology": {
     "selectionUsesHoldout": false,
     "selectionInputs": [
@@ -21,15 +21,335 @@
     "emptyQueueHandoff": true,
     "barsPerMarket": 12000
   },
-  "queueMode": "EMPTY_QUEUE_DISCOVERY_HANDOFF",
-  "sourceQueueCompletedAt": "2026-10-24T22:44:42.113Z",
-  "tested": 0,
-  "controls": 0,
+  "queueMode": "P2_DEEPENING",
+  "sourceQueueCompletedAt": "2026-10-25T05:19:53.908Z",
+  "tested": 5,
+  "controls": 1,
   "promotableToAudit": 0,
-  "verdict": "NO_QUEUE_DISCOVERY_REQUIRED",
-  "bestMutation": null,
-  "control": null,
-  "controlSet": [],
+  "verdict": "NO_ADAPTIVE_EDGE_FOUND",
+  "bestMutation": {
+    "id": "opening_range_breakout:DOGEUSDT:4h:LONDON:p8:ta2:sa0.75:tb8",
+    "role": "MUTATION",
+    "hypothesisKey": "opening_range_breakout:DOGEUSDT:4h:LONDON",
+    "parentVariant": "opening_range_breakout:DOGEUSDT:4h:LONDON:p12:ta2:sa0.75:tb8",
+    "priority": "P2",
+    "market": {
+      "pair": "DOGEUSDT",
+      "tf": "4h"
+    },
+    "spec": {
+      "family": "opening_range_breakout",
+      "period": 8,
+      "targetAtr": 2,
+      "stopAtr": 0.75,
+      "timeoutBars": 8,
+      "session": "LONDON"
+    },
+    "researchStatus": "REJECT",
+    "selectionScore": -34.76,
+    "train": {
+      "trades": 115,
+      "expectancyBps": -62.73,
+      "profitFactor": 0.684,
+      "tStat": -1.661,
+      "maxDrawdownPct": 96.85
+    },
+    "validation": {
+      "trades": 37,
+      "expectancyBps": -40.48,
+      "profitFactor": 0.779,
+      "tStat": -0.685,
+      "maxDrawdownPct": 38.44
+    },
+    "walkForward": {
+      "positiveFolds": 0,
+      "requiredPositiveFolds": 3,
+      "pass": false
+    }
+  },
+  "control": {
+    "id": "opening_range_breakout:DOGEUSDT:4h:LONDON:p12:ta2:sa0.75:tb8:control",
+    "role": "CONTROL",
+    "hypothesisKey": "opening_range_breakout:DOGEUSDT:4h:LONDON",
+    "parentVariant": "opening_range_breakout:DOGEUSDT:4h:LONDON:p12:ta2:sa0.75:tb8",
+    "priority": "P2",
+    "market": {
+      "pair": "DOGEUSDT",
+      "tf": "4h"
+    },
+    "spec": {
+      "family": "opening_range_breakout",
+      "period": 12,
+      "targetAtr": 2,
+      "stopAtr": 0.75,
+      "timeoutBars": 8,
+      "session": "LONDON"
+    },
+    "researchStatus": "REJECT",
+    "selectionScore": -40,
+    "train": {
+      "trades": 98,
+      "expectancyBps": -52.39,
+      "profitFactor": 0.733,
+      "tStat": -1.24,
+      "maxDrawdownPct": 74.23
+    },
+    "validation": {
+      "trades": 30,
+      "expectancyBps": -80.57,
+      "profitFactor": 0.583,
+      "tStat": -1.342,
+      "maxDrawdownPct": 37.83
+    },
+    "walkForward": {
+      "positiveFolds": 0,
+      "requiredPositiveFolds": 3,
+      "pass": false
+    }
+  },
+  "controlSet": [
+    {
+      "id": "opening_range_breakout:DOGEUSDT:4h:LONDON:p12:ta2:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "opening_range_breakout:DOGEUSDT:4h:LONDON",
+      "parentVariant": "opening_range_breakout:DOGEUSDT:4h:LONDON:p12:ta2:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "DOGEUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 12,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -40,
+      "train": {
+        "trades": 98,
+        "expectancyBps": -52.39,
+        "profitFactor": 0.733,
+        "tStat": -1.24,
+        "maxDrawdownPct": 74.23
+      },
+      "validation": {
+        "trades": 30,
+        "expectancyBps": -80.57,
+        "profitFactor": 0.583,
+        "tStat": -1.342,
+        "maxDrawdownPct": 37.83
+      },
+      "walkForward": {
+        "positiveFolds": 0,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    }
+  ],
   "auditQueue": [],
-  "top": []
+  "top": [
+    {
+      "id": "opening_range_breakout:DOGEUSDT:4h:LONDON:p8:ta2:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "opening_range_breakout:DOGEUSDT:4h:LONDON",
+      "parentVariant": "opening_range_breakout:DOGEUSDT:4h:LONDON:p12:ta2:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "DOGEUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 8,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -34.76,
+      "train": {
+        "trades": 115,
+        "expectancyBps": -62.73,
+        "profitFactor": 0.684,
+        "tStat": -1.661,
+        "maxDrawdownPct": 96.85
+      },
+      "validation": {
+        "trades": 37,
+        "expectancyBps": -40.48,
+        "profitFactor": 0.779,
+        "tStat": -0.685,
+        "maxDrawdownPct": 38.44
+      },
+      "walkForward": {
+        "positiveFolds": 0,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "opening_range_breakout:DOGEUSDT:4h:LONDON:p12:ta2.25:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "opening_range_breakout:DOGEUSDT:4h:LONDON",
+      "parentVariant": "opening_range_breakout:DOGEUSDT:4h:LONDON:p12:ta2:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "DOGEUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 12,
+        "targetAtr": 2.25,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -37.3,
+      "train": {
+        "trades": 98,
+        "expectancyBps": -39.19,
+        "profitFactor": 0.801,
+        "tStat": -0.87,
+        "maxDrawdownPct": 64.15
+      },
+      "validation": {
+        "trades": 30,
+        "expectancyBps": -98.11,
+        "profitFactor": 0.492,
+        "tStat": -1.706,
+        "maxDrawdownPct": 37.66
+      },
+      "walkForward": {
+        "positiveFolds": 0,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "opening_range_breakout:DOGEUSDT:4h:LONDON:p12:ta2:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "opening_range_breakout:DOGEUSDT:4h:LONDON",
+      "parentVariant": "opening_range_breakout:DOGEUSDT:4h:LONDON:p12:ta2:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "DOGEUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 12,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -40,
+      "train": {
+        "trades": 98,
+        "expectancyBps": -52.39,
+        "profitFactor": 0.733,
+        "tStat": -1.24,
+        "maxDrawdownPct": 74.23
+      },
+      "validation": {
+        "trades": 30,
+        "expectancyBps": -80.57,
+        "profitFactor": 0.583,
+        "tStat": -1.342,
+        "maxDrawdownPct": 37.83
+      },
+      "walkForward": {
+        "positiveFolds": 0,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "opening_range_breakout:DOGEUSDT:4h:LONDON:p12:ta1.75:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "opening_range_breakout:DOGEUSDT:4h:LONDON",
+      "parentVariant": "opening_range_breakout:DOGEUSDT:4h:LONDON:p12:ta2:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "DOGEUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 12,
+        "targetAtr": 1.75,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "LONDON"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -40,
+      "train": {
+        "trades": 98,
+        "expectancyBps": -70.64,
+        "profitFactor": 0.641,
+        "tStat": -1.83,
+        "maxDrawdownPct": 86.13
+      },
+      "validation": {
+        "trades": 30,
+        "expectancyBps": -94.1,
+        "profitFactor": 0.513,
+        "tStat": -1.687,
+        "maxDrawdownPct": 39.67
+      },
+      "walkForward": {
+        "positiveFolds": 0,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "opening_range_breakout:DOGEUSDT:4h:LONDON:p12:ta2:sa0.75:tb6",
+      "role": "MUTATION",
+      "hypothesisKey": "opening_range_breakout:DOGEUSDT:4h:LONDON",
+      "parentVariant": "opening_range_breakout:DOGEUSDT:4h:LONDON:p12:ta2:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "DOGEUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 12,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 6,
+        "session": "LONDON"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -40,
+      "train": {
+        "trades": 98,
+        "expectancyBps": -55.36,
+        "profitFactor": 0.717,
+        "tStat": -1.333,
+        "maxDrawdownPct": 75.22
+      },
+      "validation": {
+        "trades": 30,
+        "expectancyBps": -84.69,
+        "profitFactor": 0.561,
+        "tStat": -1.422,
+        "maxDrawdownPct": 39.06
+      },
+      "walkForward": {
+        "positiveFolds": 0,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    }
+  ]
 }
