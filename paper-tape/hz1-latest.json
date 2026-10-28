@@ -1,20 +1,21 @@
 {
-  "ts": "2026-10-28T14:28:45.939Z",
+  "ts": "2026-10-28T19:51:03.555Z",
   "liveOff": true,
   "paper": true,
   "go": false,
   "hz": 1,
   "tickers": 512,
-  "preQuote": 4,
+  "preQuote": 8,
   "full": 4,
   "quoted": 0,
   "quotedNames": [],
   "filled": 0,
   "paperPnl": 0,
   "reasons": {
-    "TAPE_PENDING": 4
+    "TAPE_PENDING": 3,
+    "H_LE_EDGE": 1
   },
-  "ms": 770,
+  "ms": 1053,
   "scored": [
     {
       "symbol": "POPMART-USDT-SWAP",
@@ -25,30 +26,35 @@
     },
     {
       "symbol": "VRT-USDT-SWAP",
-      "preH": 0.10574385185807422,
-      "spread": 11.7306967195945,
+      "preH": 0.022162938641510976,
+      "spread": 11.491894110404317,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
-      "symbol": "CORE-USDT-SWAP",
-      "preH": 0.06976744186029915,
-      "spread": 11.627906976743713,
+      "symbol": "DNA-USDT-SWAP",
+      "preH": -0.1283185840706862,
+      "spread": 11.061946902655183,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
-      "symbol": "BB-USDT-SWAP",
-      "preH": 0.0704128561614974,
-      "spread": 11.62975101760428,
+      "symbol": "XDP-USDT-SWAP",
+      "preH": -0.30021141649063754,
+      "spread": 10.570824524312465,
       "quote": false,
-      "reason": "TAPE_PENDING"
+      "reason": "H_LE_EDGE",
+      "harvestBps": -0.3002,
+      "vpin": 0.6865,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "H_LE_EDGE"
     }
   ],
   "intersection": {
-    "liquid": 251,
-    "hGe": 4,
-    "band": 145,
+    "liquid": 256,
+    "hGe": 8,
+    "band": 158,
     "both": 0
   },
   "formula": "H=spread*0.35-4bps; width is a toxicity prior. Kalman+VPIN+GLFT. not a GO."
