@@ -6,20 +6,20 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-10-27T20:59:31.122Z",
+  "completedAt": "2026-10-28T06:19:14.661Z",
   "discoveryStatus": "FORWARD_EVIDENCE_ACCUMULATING",
   "objective": "REPRODUCIBLE_POSITIVE_NET_EXPECTANCY",
   "fastResearch": {
     "verdict": "PAPER_CANDIDATE_FOUND",
-    "tested": 1241,
+    "tested": 1320,
     "paperCandidates": 6,
     "researchPoolSize": 120,
     "proofStatus": "HYPOTHESIS_ONLY"
   },
   "deepResearch": {
-    "verdict": "NO_QUEUE_DISCOVERY_REQUIRED",
+    "verdict": "NO_ADAPTIVE_EDGE_FOUND",
     "promotableToAudit": 0,
-    "currentDeepRejectedFamily": null
+    "currentDeepRejectedFamily": "volatility_squeeze:LINKUSDT:1h:ALL"
   },
   "audit": {
     "verdict": "NO_NEW_AUDIT_CANDIDATES",
@@ -90,13 +90,96 @@
     ]
   },
   "hypothesisGovernance": {
-    "rawQueueSize": 0,
+    "rawQueueSize": 15,
     "governedQueueSize": 0,
     "familyCount": 0,
-    "suppressedCount": 0,
-    "suppressed": []
+    "suppressedCount": 15,
+    "suppressed": [
+      {
+        "id": "failed_breakout:ADAUSDT:1h:ALL:p34:ta1:sa0.75:tb8:control",
+        "hypothesisKey": "failed_breakout:ADAUSDT:1h:ALL",
+        "reason": "DEEP_REJECTED"
+      },
+      {
+        "id": "failed_breakout:ADAUSDT:1h:ALL:p30:ta1:sa0.75:tb8",
+        "hypothesisKey": "failed_breakout:ADAUSDT:1h:ALL",
+        "reason": "DEEP_REJECTED"
+      },
+      {
+        "id": "failed_breakout:ADAUSDT:1h:ALL:p34:ta0.75:sa0.75:tb8",
+        "hypothesisKey": "failed_breakout:ADAUSDT:1h:ALL",
+        "reason": "DEEP_REJECTED"
+      },
+      {
+        "id": "failed_breakout:ADAUSDT:1h:ALL:p34:ta1:sa0.75:tb6",
+        "hypothesisKey": "failed_breakout:ADAUSDT:1h:ALL",
+        "reason": "DEEP_REJECTED"
+      },
+      {
+        "id": "failed_breakout:ADAUSDT:1h:ALL:p34:ta1.25:sa0.75:tb8",
+        "hypothesisKey": "failed_breakout:ADAUSDT:1h:ALL",
+        "reason": "DEEP_REJECTED"
+      },
+      {
+        "id": "volatility_squeeze:LINKUSDT:1h:ALL:p34:ta1.5:sa0.75:tb8:control",
+        "hypothesisKey": "volatility_squeeze:LINKUSDT:1h:ALL",
+        "reason": "DEEP_REJECTED"
+      },
+      {
+        "id": "volatility_squeeze:LINKUSDT:1h:ALL:p30:ta1.5:sa0.75:tb8",
+        "hypothesisKey": "volatility_squeeze:LINKUSDT:1h:ALL",
+        "reason": "DEEP_REJECTED"
+      },
+      {
+        "id": "volatility_squeeze:LINKUSDT:1h:ALL:p34:ta1.25:sa0.75:tb8",
+        "hypothesisKey": "volatility_squeeze:LINKUSDT:1h:ALL",
+        "reason": "DEEP_REJECTED"
+      },
+      {
+        "id": "volatility_squeeze:LINKUSDT:1h:ALL:p34:ta1.5:sa0.75:tb6",
+        "hypothesisKey": "volatility_squeeze:LINKUSDT:1h:ALL",
+        "reason": "DEEP_REJECTED"
+      },
+      {
+        "id": "volatility_squeeze:LINKUSDT:1h:ALL:p34:ta1.75:sa0.75:tb8",
+        "hypothesisKey": "volatility_squeeze:LINKUSDT:1h:ALL",
+        "reason": "DEEP_REJECTED"
+      },
+      {
+        "id": "opening_range_breakout:LINKUSDT:30m:LONDON:p20:ta2:sa0.75:tb8:control",
+        "hypothesisKey": "opening_range_breakout:LINKUSDT:30m:LONDON",
+        "reason": "DEEP_REJECTED"
+      },
+      {
+        "id": "opening_range_breakout:LINKUSDT:30m:LONDON:p16:ta2:sa0.75:tb8",
+        "hypothesisKey": "opening_range_breakout:LINKUSDT:30m:LONDON",
+        "reason": "DEEP_REJECTED"
+      },
+      {
+        "id": "opening_range_breakout:LINKUSDT:30m:LONDON:p20:ta1.75:sa0.75:tb8",
+        "hypothesisKey": "opening_range_breakout:LINKUSDT:30m:LONDON",
+        "reason": "DEEP_REJECTED"
+      },
+      {
+        "id": "opening_range_breakout:LINKUSDT:30m:LONDON:p20:ta2:sa0.75:tb6",
+        "hypothesisKey": "opening_range_breakout:LINKUSDT:30m:LONDON",
+        "reason": "DEEP_REJECTED"
+      },
+      {
+        "id": "opening_range_breakout:LINKUSDT:30m:LONDON:p20:ta2.25:sa0.75:tb8",
+        "hypothesisKey": "opening_range_breakout:LINKUSDT:30m:LONDON",
+        "reason": "DEEP_REJECTED"
+      }
+    ]
   },
-  "contradictions": [],
+  "contradictions": [
+    {
+      "type": "SHORT_WINDOW_VS_DEEP_RETEST",
+      "severity": "HIGH",
+      "action": "DO_NOT_PROMOTE_FROM_FAST_FACTORY",
+      "explanation": "Fast research found candidates while the deeper adaptive retest found no promotable edge. Treat fast candidates as hypotheses only."
+    }
+  ],
   "decision": "CONTINUE_DISCOVERY_AND_ACCUMULATE_FORWARD_EVIDENCE",
   "invariants": {
     "changesV9": false,
