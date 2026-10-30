@@ -5,13 +5,13 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-10-29T21:27:05.228Z",
+  "completedAt": "2026-10-30T06:28:43.804Z",
   "summary": {
     "hypotheses": 432,
-    "paperCandidates": 4,
-    "interesting": 52,
-    "regimeDivergence": 300,
-    "killed": 140
+    "paperCandidates": 3,
+    "interesting": 53,
+    "regimeDivergence": 303,
+    "killed": 338
   },
   "rules": [
     {
@@ -22,18 +22,6 @@
       "paper": 2,
       "reasons": {
         "NEGATIVE_TRAIN_EXPECTANCY": 1
-      },
-      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
-      "action": "PROMOTE_TO_FORWARD_PAPER"
-    },
-    {
-      "hypothesisKey": "opening_range_breakout:XRPUSDT:4h:LONDON",
-      "total": 4,
-      "interesting": 1,
-      "regimeDivergence": 1,
-      "paper": 1,
-      "reasons": {
-        "NEGATIVE_TRAIN_EXPECTANCY": 2
       },
       "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
       "action": "PROMOTE_TO_FORWARD_PAPER"
@@ -163,6 +151,18 @@
       "action": "MUTATE_AND_RETEST"
     },
     {
+      "hypothesisKey": "trend_pullback:AVAXUSDT:15m:LONDON_NY",
+      "total": 4,
+      "interesting": 2,
+      "regimeDivergence": 2,
+      "paper": 0,
+      "reasons": {
+        "NEGATIVE_TRAIN_EXPECTANCY": 2
+      },
+      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
+      "action": "MUTATE_AND_RETEST"
+    },
+    {
       "hypothesisKey": "volatility_squeeze:LINKUSDT:1h:ASIA",
       "total": 4,
       "interesting": 2,
@@ -170,7 +170,20 @@
       "paper": 0,
       "reasons": {
         "NEGATIVE_TRAIN_EXPECTANCY": 1,
-        "NEGATIVE_VALIDATION_EXPECTANCY": 1
+        "THREE_FAILED_GENERATIONS": 1
+      },
+      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
+      "action": "MUTATE_AND_RETEST"
+    },
+    {
+      "hypothesisKey": "opening_range_breakout:XRPUSDT:4h:LONDON",
+      "total": 4,
+      "interesting": 2,
+      "regimeDivergence": 1,
+      "paper": 0,
+      "reasons": {
+        "NEGATIVE_TRAIN_EXPECTANCY": 1,
+        "THREE_FAILED_GENERATIONS": 1
       },
       "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
@@ -185,18 +198,6 @@
         "INSUFFICIENT_SAMPLE": 2
       },
       "dominantFailure": "INSUFFICIENT_SAMPLE",
-      "action": "MUTATE_AND_RETEST"
-    },
-    {
-      "hypothesisKey": "trend_pullback:DOGEUSDT:1h:LONDON_NY",
-      "total": 4,
-      "interesting": 2,
-      "regimeDivergence": 0,
-      "paper": 0,
-      "reasons": {
-        "NEGATIVE_VALIDATION_EXPECTANCY": 2
-      },
-      "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
     },
     {
@@ -218,8 +219,7 @@
       "regimeDivergence": 2,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_TRAIN_EXPECTANCY": 2,
-        "THREE_FAILED_GENERATIONS": 1
+        "NEGATIVE_TRAIN_EXPECTANCY": 3
       },
       "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
@@ -239,7 +239,7 @@
       "action": "MUTATE_AND_RETEST"
     },
     {
-      "hypothesisKey": "opening_range_breakout:ETHUSDT:4h:NY",
+      "hypothesisKey": "volatility_squeeze:ADAUSDT:30m:NY",
       "total": 4,
       "interesting": 1,
       "regimeDivergence": 1,
@@ -252,16 +252,16 @@
       "action": "MUTATE_AND_RETEST"
     },
     {
-      "hypothesisKey": "volatility_squeeze:ADAUSDT:30m:NY",
+      "hypothesisKey": "opening_range_breakout:ETHUSDT:4h:NY",
       "total": 4,
       "interesting": 1,
       "regimeDivergence": 1,
       "paper": 0,
       "reasons": {
         "NEGATIVE_TRAIN_EXPECTANCY": 1,
-        "INSUFFICIENT_SAMPLE": 2
+        "NEGATIVE_VALIDATION_EXPECTANCY": 2
       },
-      "dominantFailure": "INSUFFICIENT_SAMPLE",
+      "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
     },
     {
@@ -271,10 +271,10 @@
       "regimeDivergence": 1,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_TRAIN_EXPECTANCY": 2,
-        "NEGATIVE_VALIDATION_EXPECTANCY": 1
+        "NEGATIVE_TRAIN_EXPECTANCY": 1,
+        "THREE_FAILED_GENERATIONS": 2
       },
-      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
+      "dominantFailure": "THREE_FAILED_GENERATIONS",
       "action": "MUTATE_AND_RETEST"
     },
     {
@@ -284,8 +284,9 @@
       "regimeDivergence": 0,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_VALIDATION_EXPECTANCY": 2,
-        "NEGATIVE_TRAIN_EXPECTANCY": 1
+        "NEGATIVE_VALIDATION_EXPECTANCY": 1,
+        "NEGATIVE_TRAIN_EXPECTANCY": 1,
+        "THREE_FAILED_GENERATIONS": 1
       },
       "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
@@ -297,8 +298,9 @@
       "regimeDivergence": 0,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_VALIDATION_EXPECTANCY": 2,
-        "NEGATIVE_TRAIN_EXPECTANCY": 1
+        "NEGATIVE_VALIDATION_EXPECTANCY": 1,
+        "NEGATIVE_TRAIN_EXPECTANCY": 1,
+        "THREE_FAILED_GENERATIONS": 1
       },
       "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
