@@ -5,13 +5,13 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-11-01T15:28:35.958Z",
+  "completedAt": "2026-11-01T20:50:44.957Z",
   "summary": {
     "hypotheses": 432,
     "paperCandidates": 3,
     "interesting": 66,
-    "regimeDivergence": 284,
-    "killed": 334
+    "regimeDivergence": 288,
+    "killed": 475
   },
   "rules": [
     {
@@ -49,7 +49,7 @@
       "action": "MUTATE_AND_RETEST"
     },
     {
-      "hypothesisKey": "trend_pullback:SOLUSDT:4h:ASIA",
+      "hypothesisKey": "trend_pullback:SOLUSDT:4h:ALL",
       "total": 4,
       "interesting": 4,
       "regimeDivergence": 0,
@@ -59,7 +59,7 @@
       "action": "MUTATE_AND_RETEST"
     },
     {
-      "hypothesisKey": "trend_pullback:SOLUSDT:4h:ALL",
+      "hypothesisKey": "trend_pullback:SOLUSDT:4h:ASIA",
       "total": 4,
       "interesting": 4,
       "regimeDivergence": 0,
@@ -129,9 +129,9 @@
       "regimeDivergence": 0,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_HOLDOUT_EXPECTANCY": 1
+        "THREE_FAILED_GENERATIONS": 1
       },
-      "dominantFailure": "NEGATIVE_HOLDOUT_EXPECTANCY",
+      "dominantFailure": "THREE_FAILED_GENERATIONS",
       "action": "MUTATE_AND_RETEST"
     },
     {
@@ -141,9 +141,9 @@
       "regimeDivergence": 0,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_VALIDATION_EXPECTANCY": 1
+        "THREE_FAILED_GENERATIONS": 1
       },
-      "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
+      "dominantFailure": "THREE_FAILED_GENERATIONS",
       "action": "MUTATE_AND_RETEST"
     },
     {
@@ -274,10 +274,10 @@
       "regimeDivergence": 1,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_TRAIN_EXPECTANCY": 1,
-        "THREE_FAILED_GENERATIONS": 2
+        "NEGATIVE_TRAIN_EXPECTANCY": 2,
+        "NEGATIVE_VALIDATION_EXPECTANCY": 1
       },
-      "dominantFailure": "THREE_FAILED_GENERATIONS",
+      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
     },
     {
@@ -288,10 +288,9 @@
       "paper": 0,
       "reasons": {
         "NEGATIVE_TRAIN_EXPECTANCY": 1,
-        "INSUFFICIENT_SAMPLE": 1,
-        "THREE_FAILED_GENERATIONS": 1
+        "INSUFFICIENT_SAMPLE": 2
       },
-      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
+      "dominantFailure": "INSUFFICIENT_SAMPLE",
       "action": "MUTATE_AND_RETEST"
     }
   ]
