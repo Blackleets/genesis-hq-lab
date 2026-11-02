@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-11-02T06:51:06.508Z",
+  "completedAt": "2026-11-02T18:51:10.452Z",
   "methodology": {
     "selectionUsesHoldout": false,
     "selectionInputs": [
@@ -22,9 +22,9 @@
     "barsPerMarket": 12000
   },
   "queueMode": "HIGH_PRIORITY",
-  "sourceQueueCompletedAt": "2026-11-02T06:51:03.918Z",
-  "tested": 5,
-  "controls": 1,
+  "sourceQueueCompletedAt": "2026-11-02T18:51:04.527Z",
+  "tested": 10,
+  "controls": 2,
   "promotableToAudit": 1,
   "verdict": "AUDIT_CANDIDATE_FOUND",
   "bestMutation": {
@@ -141,6 +141,46 @@
         "profitFactor": 1.111,
         "tStat": 0.211,
         "maxDrawdownPct": 21.09
+      },
+      "walkForward": {
+        "positiveFolds": 3,
+        "requiredPositiveFolds": 3,
+        "pass": true
+      }
+    },
+    {
+      "id": "opening_range_breakout:XRPUSDT:1h:NY:p12:ta2:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "opening_range_breakout:XRPUSDT:1h:NY",
+      "parentVariant": "opening_range_breakout:XRPUSDT:1h:NY:p12:ta2:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 12,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 4.23,
+      "train": {
+        "trades": 111,
+        "expectancyBps": 11.43,
+        "profitFactor": 1.203,
+        "tStat": 0.769,
+        "maxDrawdownPct": 10.51
+      },
+      "validation": {
+        "trades": 40,
+        "expectancyBps": -24.78,
+        "profitFactor": 0.551,
+        "tStat": -1.686,
+        "maxDrawdownPct": 13.46
       },
       "walkForward": {
         "positiveFolds": 3,
@@ -364,6 +404,206 @@
         "profitFactor": 1.111,
         "tStat": 0.211,
         "maxDrawdownPct": 21.09
+      },
+      "walkForward": {
+        "positiveFolds": 3,
+        "requiredPositiveFolds": 3,
+        "pass": true
+      }
+    },
+    {
+      "id": "opening_range_breakout:XRPUSDT:1h:NY:p8:ta2:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "opening_range_breakout:XRPUSDT:1h:NY",
+      "parentVariant": "opening_range_breakout:XRPUSDT:1h:NY:p12:ta2:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 8,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 8.11,
+      "train": {
+        "trades": 120,
+        "expectancyBps": 14,
+        "profitFactor": 1.254,
+        "tStat": 0.99,
+        "maxDrawdownPct": 10.65
+      },
+      "validation": {
+        "trades": 44,
+        "expectancyBps": -18.89,
+        "profitFactor": 0.651,
+        "tStat": -1.267,
+        "maxDrawdownPct": 11.27
+      },
+      "walkForward": {
+        "positiveFolds": 3,
+        "requiredPositiveFolds": 3,
+        "pass": true
+      }
+    },
+    {
+      "id": "opening_range_breakout:XRPUSDT:1h:NY:p12:ta2:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "opening_range_breakout:XRPUSDT:1h:NY",
+      "parentVariant": "opening_range_breakout:XRPUSDT:1h:NY:p12:ta2:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 12,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 4.23,
+      "train": {
+        "trades": 111,
+        "expectancyBps": 11.43,
+        "profitFactor": 1.203,
+        "tStat": 0.769,
+        "maxDrawdownPct": 10.51
+      },
+      "validation": {
+        "trades": 40,
+        "expectancyBps": -24.78,
+        "profitFactor": 0.551,
+        "tStat": -1.686,
+        "maxDrawdownPct": 13.46
+      },
+      "walkForward": {
+        "positiveFolds": 3,
+        "requiredPositiveFolds": 3,
+        "pass": true
+      }
+    },
+    {
+      "id": "opening_range_breakout:XRPUSDT:1h:NY:p12:ta2.25:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "opening_range_breakout:XRPUSDT:1h:NY",
+      "parentVariant": "opening_range_breakout:XRPUSDT:1h:NY:p12:ta2:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 12,
+        "targetAtr": 2.25,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 3.72,
+      "train": {
+        "trades": 110,
+        "expectancyBps": 17.91,
+        "profitFactor": 1.32,
+        "tStat": 1.111,
+        "maxDrawdownPct": 9.98
+      },
+      "validation": {
+        "trades": 40,
+        "expectancyBps": -28.65,
+        "profitFactor": 0.495,
+        "tStat": -1.922,
+        "maxDrawdownPct": 12.38
+      },
+      "walkForward": {
+        "positiveFolds": 3,
+        "requiredPositiveFolds": 3,
+        "pass": true
+      }
+    },
+    {
+      "id": "opening_range_breakout:XRPUSDT:1h:NY:p12:ta2:sa0.75:tb6",
+      "role": "MUTATION",
+      "hypothesisKey": "opening_range_breakout:XRPUSDT:1h:NY",
+      "parentVariant": "opening_range_breakout:XRPUSDT:1h:NY:p12:ta2:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 12,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 6,
+        "session": "NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 3.63,
+      "train": {
+        "trades": 111,
+        "expectancyBps": 15.33,
+        "profitFactor": 1.279,
+        "tStat": 1.028,
+        "maxDrawdownPct": 10.66
+      },
+      "validation": {
+        "trades": 40,
+        "expectancyBps": -27.64,
+        "profitFactor": 0.514,
+        "tStat": -1.896,
+        "maxDrawdownPct": 13.97
+      },
+      "walkForward": {
+        "positiveFolds": 3,
+        "requiredPositiveFolds": 3,
+        "pass": true
+      }
+    },
+    {
+      "id": "opening_range_breakout:XRPUSDT:1h:NY:p12:ta1.75:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "opening_range_breakout:XRPUSDT:1h:NY",
+      "parentVariant": "opening_range_breakout:XRPUSDT:1h:NY:p12:ta2:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "XRPUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "opening_range_breakout",
+        "period": 12,
+        "targetAtr": 1.75,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "NY"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 3.11,
+      "train": {
+        "trades": 111,
+        "expectancyBps": 9.71,
+        "profitFactor": 1.178,
+        "tStat": 0.714,
+        "maxDrawdownPct": 11.04
+      },
+      "validation": {
+        "trades": 40,
+        "expectancyBps": -26.04,
+        "profitFactor": 0.524,
+        "tStat": -1.887,
+        "maxDrawdownPct": 14.54
       },
       "walkForward": {
         "positiveFolds": 3,
