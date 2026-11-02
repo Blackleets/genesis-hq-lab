@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-11-01T20:50:48.226Z",
+  "completedAt": "2026-11-02T06:51:09.150Z",
   "methodology": {
     "oneShot": true,
     "holdoutStart": 0.8,
@@ -22,8 +22,8 @@
     "familyAuditBudget": true,
     "historyRebuild": true
   },
-  "sourceAdaptiveCompletedAt": "2026-11-01T20:50:48.129Z",
-  "newAudits": 0,
+  "sourceAdaptiveCompletedAt": "2026-11-02T06:51:06.508Z",
+  "newAudits": 1,
   "passed": 0,
   "totalPassedRegistered": 10,
   "exhaustedFamilies": [
@@ -36,6 +36,35 @@
     "trend_pullback:DOGEUSDT:1h:LONDON_NY",
     "trend_pullback:DOGEUSDT:1h:ALL"
   ],
-  "verdict": "NO_NEW_AUDIT_CANDIDATES",
-  "results": []
+  "verdict": "AUDIT_REJECTED",
+  "results": [
+    {
+      "id": "volatility_squeeze:AVAXUSDT:4h:NY:p34:ta2.25:sa0.75:tb8",
+      "hypothesisKey": "volatility_squeeze:AVAXUSDT:4h:NY",
+      "market": {
+        "pair": "AVAXUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "volatility_squeeze",
+        "period": 34,
+        "targetAtr": 2.25,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "NY"
+      },
+      "parentVariant": "volatility_squeeze:AVAXUSDT:4h:NY:p34:ta2:sa0.75:tb8",
+      "selectionScore": 44.65,
+      "holdout": {
+        "trades": 15,
+        "expectancyBps": -30.38,
+        "profitFactor": 0.747,
+        "tStat": -0.422,
+        "maxDrawdownPct": 14.01
+      },
+      "status": "AUDIT_REJECTED",
+      "rejectReason": "NEGATIVE_HOLDOUT_EXPECTANCY",
+      "auditedAt": "2026-11-02T06:51:09.149Z"
+    }
+  ]
 }
