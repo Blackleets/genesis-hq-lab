@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-11-03T19:50:10.235Z",
+  "completedAt": "2026-11-04T00:55:28.495Z",
   "methodology": {
     "selectionUsesHoldout": false,
     "balancedNeighborhood": true,
@@ -20,8 +20,8 @@
   },
   "sourceVerdict": "PAPER_CANDIDATE_FOUND",
   "sourcePoolSize": 120,
-  "eligibleHypotheses": 0,
-  "queueSize": 0,
+  "eligibleHypotheses": 1,
+  "queueSize": 11,
   "deepOverrides": [
     {
       "hypothesisKey": "opening_range_breakout:BTCUSDT:1h:LONDON",
@@ -6633,6 +6633,635 @@
       "reason": "Family exhausted its one-shot holdout audit budget without a pass. Do not keep fishing the same holdout."
     }
   ],
-  "focus": null,
-  "queue": []
+  "focus": {
+    "hypothesisKey": "trend_pullback:AVAXUSDT:4h:ALL",
+    "variantKey": "trend_pullback:AVAXUSDT:4h:ALL:p20:ta1.5:sa0.75:tb8",
+    "market": {
+      "pair": "AVAXUSDT",
+      "tf": "4h"
+    },
+    "candidate": {
+      "family": "trend_pullback",
+      "period": 20,
+      "targetAtr": 1.5,
+      "stopAtr": 0.75,
+      "timeoutBars": 8,
+      "session": "ALL"
+    },
+    "status": "INTERESTING",
+    "researchScore": 78.44,
+    "sentinelCritique": [
+      "LOW_HOLDOUT_TSTAT",
+      "WEAK_HOLDOUT_PROFIT_FACTOR",
+      "WALK_FORWARD_UNSTABLE",
+      "NEGATIVE_HOLDOUT_EXPECTANCY"
+    ]
+  },
+  "queue": [
+    {
+      "id": "trend_pullback:AVAXUSDT:4h:ALL:p20:ta1.5:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "priority": "P1",
+      "parentVariant": "trend_pullback:AVAXUSDT:4h:ALL:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:AVAXUSDT:4h:ALL",
+      "market": {
+        "pair": "AVAXUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "rationale": "Control replay of the best parent for this independent hypothesis. It prevents data drift from being mistaken for parameter improvement.",
+      "sentinelCritique": [
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "WALK_FORWARD_UNSTABLE",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Control must remain directionally consistent on train and validation; otherwise pause mutations and diagnose regime/data drift.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 118,
+          "expectancyBps": 12.58,
+          "profitFactor": 1.085,
+          "tStat": 0.38,
+          "maxDrawdownPct": 35.24
+        },
+        "validation": {
+          "trades": 57,
+          "expectancyBps": 6.29,
+          "profitFactor": 1.05,
+          "tStat": 0.169,
+          "maxDrawdownPct": 20.87
+        },
+        "holdout": {
+          "trades": 45,
+          "expectancyBps": -44.98,
+          "profitFactor": 0.64,
+          "tStat": -1.392,
+          "maxDrawdownPct": 34.8
+        },
+        "walkForward": {
+          "positiveFolds": 2,
+          "requiredPositiveFolds": 3,
+          "pass": false
+        }
+      }
+    },
+    {
+      "id": "trend_pullback:AVAXUSDT:4h:ALL:p16:ta1.5:sa0.75:tb8",
+      "role": "MUTATION",
+      "priority": "P1",
+      "parentVariant": "trend_pullback:AVAXUSDT:4h:ALL:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:AVAXUSDT:4h:ALL",
+      "market": {
+        "pair": "AVAXUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 16,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "sentinelCritique": [
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "WALK_FORWARD_UNSTABLE",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 118,
+          "expectancyBps": 12.58,
+          "profitFactor": 1.085,
+          "tStat": 0.38,
+          "maxDrawdownPct": 35.24
+        },
+        "validation": {
+          "trades": 57,
+          "expectancyBps": 6.29,
+          "profitFactor": 1.05,
+          "tStat": 0.169,
+          "maxDrawdownPct": 20.87
+        },
+        "holdout": {
+          "trades": 45,
+          "expectancyBps": -44.98,
+          "profitFactor": 0.64,
+          "tStat": -1.392,
+          "maxDrawdownPct": 34.8
+        },
+        "walkForward": {
+          "positiveFolds": 2,
+          "requiredPositiveFolds": 3,
+          "pass": false
+        }
+      }
+    },
+    {
+      "id": "trend_pullback:AVAXUSDT:4h:ALL:p20:ta1.25:sa0.75:tb8",
+      "role": "MUTATION",
+      "priority": "P1",
+      "parentVariant": "trend_pullback:AVAXUSDT:4h:ALL:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:AVAXUSDT:4h:ALL",
+      "market": {
+        "pair": "AVAXUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 1.25,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "sentinelCritique": [
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "WALK_FORWARD_UNSTABLE",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 118,
+          "expectancyBps": 12.58,
+          "profitFactor": 1.085,
+          "tStat": 0.38,
+          "maxDrawdownPct": 35.24
+        },
+        "validation": {
+          "trades": 57,
+          "expectancyBps": 6.29,
+          "profitFactor": 1.05,
+          "tStat": 0.169,
+          "maxDrawdownPct": 20.87
+        },
+        "holdout": {
+          "trades": 45,
+          "expectancyBps": -44.98,
+          "profitFactor": 0.64,
+          "tStat": -1.392,
+          "maxDrawdownPct": 34.8
+        },
+        "walkForward": {
+          "positiveFolds": 2,
+          "requiredPositiveFolds": 3,
+          "pass": false
+        }
+      }
+    },
+    {
+      "id": "trend_pullback:AVAXUSDT:4h:ALL:p20:ta1.5:sa0.75:tb6",
+      "role": "MUTATION",
+      "priority": "P1",
+      "parentVariant": "trend_pullback:AVAXUSDT:4h:ALL:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:AVAXUSDT:4h:ALL",
+      "market": {
+        "pair": "AVAXUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 6,
+        "session": "ALL"
+      },
+      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "sentinelCritique": [
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "WALK_FORWARD_UNSTABLE",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 118,
+          "expectancyBps": 12.58,
+          "profitFactor": 1.085,
+          "tStat": 0.38,
+          "maxDrawdownPct": 35.24
+        },
+        "validation": {
+          "trades": 57,
+          "expectancyBps": 6.29,
+          "profitFactor": 1.05,
+          "tStat": 0.169,
+          "maxDrawdownPct": 20.87
+        },
+        "holdout": {
+          "trades": 45,
+          "expectancyBps": -44.98,
+          "profitFactor": 0.64,
+          "tStat": -1.392,
+          "maxDrawdownPct": 34.8
+        },
+        "walkForward": {
+          "positiveFolds": 2,
+          "requiredPositiveFolds": 3,
+          "pass": false
+        }
+      }
+    },
+    {
+      "id": "trend_pullback:AVAXUSDT:4h:ALL:p20:ta1.75:sa0.75:tb8",
+      "role": "MUTATION",
+      "priority": "P1",
+      "parentVariant": "trend_pullback:AVAXUSDT:4h:ALL:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:AVAXUSDT:4h:ALL",
+      "market": {
+        "pair": "AVAXUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 1.75,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "sentinelCritique": [
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "WALK_FORWARD_UNSTABLE",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 118,
+          "expectancyBps": 12.58,
+          "profitFactor": 1.085,
+          "tStat": 0.38,
+          "maxDrawdownPct": 35.24
+        },
+        "validation": {
+          "trades": 57,
+          "expectancyBps": 6.29,
+          "profitFactor": 1.05,
+          "tStat": 0.169,
+          "maxDrawdownPct": 20.87
+        },
+        "holdout": {
+          "trades": 45,
+          "expectancyBps": -44.98,
+          "profitFactor": 0.64,
+          "tStat": -1.392,
+          "maxDrawdownPct": 34.8
+        },
+        "walkForward": {
+          "positiveFolds": 2,
+          "requiredPositiveFolds": 3,
+          "pass": false
+        }
+      }
+    },
+    {
+      "id": "trend_pullback:AVAXUSDT:4h:ALL:p24:ta1.5:sa0.75:tb8",
+      "role": "MUTATION",
+      "priority": "P1",
+      "parentVariant": "trend_pullback:AVAXUSDT:4h:ALL:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:AVAXUSDT:4h:ALL",
+      "market": {
+        "pair": "AVAXUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 24,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "sentinelCritique": [
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "WALK_FORWARD_UNSTABLE",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 118,
+          "expectancyBps": 12.58,
+          "profitFactor": 1.085,
+          "tStat": 0.38,
+          "maxDrawdownPct": 35.24
+        },
+        "validation": {
+          "trades": 57,
+          "expectancyBps": 6.29,
+          "profitFactor": 1.05,
+          "tStat": 0.169,
+          "maxDrawdownPct": 20.87
+        },
+        "holdout": {
+          "trades": 45,
+          "expectancyBps": -44.98,
+          "profitFactor": 0.64,
+          "tStat": -1.392,
+          "maxDrawdownPct": 34.8
+        },
+        "walkForward": {
+          "positiveFolds": 2,
+          "requiredPositiveFolds": 3,
+          "pass": false
+        }
+      }
+    },
+    {
+      "id": "trend_pullback:AVAXUSDT:4h:ALL:p20:ta1.5:sa0.6:tb8",
+      "role": "MUTATION",
+      "priority": "P1",
+      "parentVariant": "trend_pullback:AVAXUSDT:4h:ALL:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:AVAXUSDT:4h:ALL",
+      "market": {
+        "pair": "AVAXUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.6,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "sentinelCritique": [
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "WALK_FORWARD_UNSTABLE",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 118,
+          "expectancyBps": 12.58,
+          "profitFactor": 1.085,
+          "tStat": 0.38,
+          "maxDrawdownPct": 35.24
+        },
+        "validation": {
+          "trades": 57,
+          "expectancyBps": 6.29,
+          "profitFactor": 1.05,
+          "tStat": 0.169,
+          "maxDrawdownPct": 20.87
+        },
+        "holdout": {
+          "trades": 45,
+          "expectancyBps": -44.98,
+          "profitFactor": 0.64,
+          "tStat": -1.392,
+          "maxDrawdownPct": 34.8
+        },
+        "walkForward": {
+          "positiveFolds": 2,
+          "requiredPositiveFolds": 3,
+          "pass": false
+        }
+      }
+    },
+    {
+      "id": "trend_pullback:AVAXUSDT:4h:ALL:p20:ta1.5:sa0.9:tb8",
+      "role": "MUTATION",
+      "priority": "P1",
+      "parentVariant": "trend_pullback:AVAXUSDT:4h:ALL:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:AVAXUSDT:4h:ALL",
+      "market": {
+        "pair": "AVAXUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.9,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "sentinelCritique": [
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "WALK_FORWARD_UNSTABLE",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 118,
+          "expectancyBps": 12.58,
+          "profitFactor": 1.085,
+          "tStat": 0.38,
+          "maxDrawdownPct": 35.24
+        },
+        "validation": {
+          "trades": 57,
+          "expectancyBps": 6.29,
+          "profitFactor": 1.05,
+          "tStat": 0.169,
+          "maxDrawdownPct": 20.87
+        },
+        "holdout": {
+          "trades": 45,
+          "expectancyBps": -44.98,
+          "profitFactor": 0.64,
+          "tStat": -1.392,
+          "maxDrawdownPct": 34.8
+        },
+        "walkForward": {
+          "positiveFolds": 2,
+          "requiredPositiveFolds": 3,
+          "pass": false
+        }
+      }
+    },
+    {
+      "id": "trend_pullback:AVAXUSDT:4h:ALL:p20:ta1.5:sa0.75:tb12",
+      "role": "MUTATION",
+      "priority": "P1",
+      "parentVariant": "trend_pullback:AVAXUSDT:4h:ALL:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:AVAXUSDT:4h:ALL",
+      "market": {
+        "pair": "AVAXUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 1.5,
+        "stopAtr": 0.75,
+        "timeoutBars": 12,
+        "session": "ALL"
+      },
+      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "sentinelCritique": [
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "WALK_FORWARD_UNSTABLE",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 118,
+          "expectancyBps": 12.58,
+          "profitFactor": 1.085,
+          "tStat": 0.38,
+          "maxDrawdownPct": 35.24
+        },
+        "validation": {
+          "trades": 57,
+          "expectancyBps": 6.29,
+          "profitFactor": 1.05,
+          "tStat": 0.169,
+          "maxDrawdownPct": 20.87
+        },
+        "holdout": {
+          "trades": 45,
+          "expectancyBps": -44.98,
+          "profitFactor": 0.64,
+          "tStat": -1.392,
+          "maxDrawdownPct": 34.8
+        },
+        "walkForward": {
+          "positiveFolds": 2,
+          "requiredPositiveFolds": 3,
+          "pass": false
+        }
+      }
+    },
+    {
+      "id": "trend_pullback:AVAXUSDT:4h:ALL:p16:ta1.25:sa0.75:tb8",
+      "role": "MUTATION",
+      "priority": "P1",
+      "parentVariant": "trend_pullback:AVAXUSDT:4h:ALL:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:AVAXUSDT:4h:ALL",
+      "market": {
+        "pair": "AVAXUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 16,
+        "targetAtr": 1.25,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "sentinelCritique": [
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "WALK_FORWARD_UNSTABLE",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 118,
+          "expectancyBps": 12.58,
+          "profitFactor": 1.085,
+          "tStat": 0.38,
+          "maxDrawdownPct": 35.24
+        },
+        "validation": {
+          "trades": 57,
+          "expectancyBps": 6.29,
+          "profitFactor": 1.05,
+          "tStat": 0.169,
+          "maxDrawdownPct": 20.87
+        },
+        "holdout": {
+          "trades": 45,
+          "expectancyBps": -44.98,
+          "profitFactor": 0.64,
+          "tStat": -1.392,
+          "maxDrawdownPct": 34.8
+        },
+        "walkForward": {
+          "positiveFolds": 2,
+          "requiredPositiveFolds": 3,
+          "pass": false
+        }
+      }
+    },
+    {
+      "id": "trend_pullback:AVAXUSDT:4h:ALL:p16:ta1.5:sa0.6:tb8",
+      "role": "MUTATION",
+      "priority": "P1",
+      "parentVariant": "trend_pullback:AVAXUSDT:4h:ALL:p20:ta1.5:sa0.75:tb8",
+      "hypothesisKey": "trend_pullback:AVAXUSDT:4h:ALL",
+      "market": {
+        "pair": "AVAXUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 16,
+        "targetAtr": 1.5,
+        "stopAtr": 0.6,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "rationale": "Train and validation are directionally consistent; test balanced nearby parameters without using holdout for selection.",
+      "sentinelCritique": [
+        "LOW_HOLDOUT_TSTAT",
+        "WEAK_HOLDOUT_PROFIT_FACTOR",
+        "WALK_FORWARD_UNSTABLE",
+        "NEGATIVE_HOLDOUT_EXPECTANCY"
+      ],
+      "expectedFalsification": "Reject if train/validation expectancy loses sign, validation PF < 1.05, or walk-forward stability deteriorates. Holdout is not consulted for mutation selection.",
+      "sourceEvidence": {
+        "train": {
+          "trades": 118,
+          "expectancyBps": 12.58,
+          "profitFactor": 1.085,
+          "tStat": 0.38,
+          "maxDrawdownPct": 35.24
+        },
+        "validation": {
+          "trades": 57,
+          "expectancyBps": 6.29,
+          "profitFactor": 1.05,
+          "tStat": 0.169,
+          "maxDrawdownPct": 20.87
+        },
+        "holdout": {
+          "trades": 45,
+          "expectancyBps": -44.98,
+          "profitFactor": 0.64,
+          "tStat": -1.392,
+          "maxDrawdownPct": 34.8
+        },
+        "walkForward": {
+          "positiveFolds": 2,
+          "requiredPositiveFolds": 3,
+          "pass": false
+        }
+      }
+    }
+  ]
 }
