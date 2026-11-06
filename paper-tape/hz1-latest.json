@@ -1,54 +1,60 @@
 {
-  "ts": "2026-11-05T19:04:51.534Z",
+  "ts": "2026-11-06T00:10:50.657Z",
   "liveOff": true,
   "paper": true,
   "go": false,
   "hz": 1,
   "tickers": 527,
-  "preQuote": 17,
+  "preQuote": 25,
   "full": 4,
   "quoted": 0,
   "quotedNames": [],
   "filled": 0,
   "paperPnl": 0,
   "reasons": {
-    "TAPE_PENDING": 4
+    "TAPE_PENDING": 3,
+    "WOULD_CROSS": 1
   },
-  "ms": 672,
+  "ms": 1132,
   "scored": [
     {
-      "symbol": "MVLL-USDT-SWAP",
-      "preH": 0.17412045319013014,
-      "spread": 11.926058437686088,
+      "symbol": "O-USDT-SWAP",
+      "preH": 0.1327193293186948,
+      "spread": 11.80776951233913,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
-      "symbol": "RAM-USDT-SWAP",
-      "preH": 0.1469194312797777,
-      "spread": 11.848341232227938,
+      "symbol": "CRWD-USDT-SWAP",
+      "preH": 0.01772390201345342,
+      "spread": 11.479211148609867,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
-      "symbol": "SMCI-USDT-SWAP",
-      "preH": -0.0696238068499353,
-      "spread": 11.229646266143043,
+      "symbol": "HPE-USDT-SWAP",
+      "preH": -0.024985803520953365,
+      "spread": 11.357183418511562,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
       "symbol": "SENT-USDT-SWAP",
-      "preH": -0.10244988864158433,
-      "spread": 11.135857461024045,
+      "preH": -0.10461880912648036,
+      "spread": 11.129660545352914,
       "quote": false,
-      "reason": "TAPE_PENDING"
+      "reason": "WOULD_CROSS",
+      "harvestBps": -0.1046,
+      "vpin": 0.597,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "WOULD_CROSS"
     }
   ],
   "intersection": {
-    "liquid": 285,
-    "hGe": 17,
-    "band": 172,
+    "liquid": 295,
+    "hGe": 25,
+    "band": 185,
     "both": 0
   },
   "formula": "H=spread*0.35-4bps; width is a toxicity prior. Kalman+VPIN+GLFT. not a GO."
