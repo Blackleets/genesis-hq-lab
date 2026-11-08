@@ -5,13 +5,13 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-11-07T23:59:16.933Z",
+  "completedAt": "2026-11-08T06:43:40.594Z",
   "summary": {
     "hypotheses": 432,
     "paperCandidates": 4,
-    "interesting": 73,
-    "regimeDivergence": 314,
-    "killed": 158
+    "interesting": 74,
+    "regimeDivergence": 317,
+    "killed": 324
   },
   "rules": [
     {
@@ -199,7 +199,8 @@
       "regimeDivergence": 0,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_VALIDATION_EXPECTANCY": 2
+        "NEGATIVE_VALIDATION_EXPECTANCY": 1,
+        "THREE_FAILED_GENERATIONS": 1
       },
       "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
@@ -211,9 +212,9 @@
       "regimeDivergence": 0,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_VALIDATION_EXPECTANCY": 2
+        "THREE_FAILED_GENERATIONS": 2
       },
-      "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
+      "dominantFailure": "THREE_FAILED_GENERATIONS",
       "action": "MUTATE_AND_RETEST"
     },
     {
@@ -239,6 +240,18 @@
         "NEGATIVE_VALIDATION_EXPECTANCY": 2
       },
       "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
+      "action": "MUTATE_AND_RETEST"
+    },
+    {
+      "hypothesisKey": "opening_range_breakout:XRPUSDT:15m:NY",
+      "total": 4,
+      "interesting": 2,
+      "regimeDivergence": 0,
+      "paper": 0,
+      "reasons": {
+        "NEGATIVE_TRAIN_EXPECTANCY": 2
+      },
+      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
     },
     {
@@ -276,18 +289,6 @@
         "NEGATIVE_HOLDOUT_EXPECTANCY": 1
       },
       "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
-      "action": "MUTATE_AND_RETEST"
-    },
-    {
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:1h:ASIA",
-      "total": 4,
-      "interesting": 1,
-      "regimeDivergence": 3,
-      "paper": 0,
-      "reasons": {
-        "NEGATIVE_TRAIN_EXPECTANCY": 3
-      },
-      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
     }
   ]
