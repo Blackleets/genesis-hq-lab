@@ -7,8 +7,8 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "startedAt": "2026-11-11T07:08:00.764Z",
-  "completedAt": "2026-11-11T07:08:11.909Z",
+  "startedAt": "2026-11-11T19:51:27.734Z",
+  "completedAt": "2026-11-11T19:51:39.746Z",
   "methodology": {
     "barsPerMarketTarget": 6000,
     "train": "first_60pct",
@@ -34,49 +34,155 @@
   "coverage": {
     "BTCUSDT:15m": {
       "bars": 6000,
-      "startAt": "2026-09-09T19:15:00.000Z",
-      "endAt": "2026-11-11T07:14:59.999Z"
+      "startAt": "2026-09-10T08:00:00.000Z",
+      "endAt": "2026-11-11T19:59:59.999Z"
     },
     "ETHUSDT:15m": {
       "bars": 6000,
-      "startAt": "2026-09-09T19:15:00.000Z",
-      "endAt": "2026-11-11T07:14:59.999Z"
+      "startAt": "2026-09-10T08:00:00.000Z",
+      "endAt": "2026-11-11T19:59:59.999Z"
     },
     "SOLUSDT:15m": {
       "bars": 6000,
-      "startAt": "2026-09-09T19:15:00.000Z",
-      "endAt": "2026-11-11T07:14:59.999Z"
+      "startAt": "2026-09-10T08:00:00.000Z",
+      "endAt": "2026-11-11T19:59:59.999Z"
     },
     "BTCUSDT:1h": {
       "bars": 6000,
-      "startAt": "2026-03-06T08:00:00.000Z",
-      "endAt": "2026-11-11T07:59:59.999Z"
+      "startAt": "2026-03-06T20:00:00.000Z",
+      "endAt": "2026-11-11T19:59:59.999Z"
     },
     "ETHUSDT:1h": {
       "bars": 6000,
-      "startAt": "2026-03-06T08:00:00.000Z",
-      "endAt": "2026-11-11T07:59:59.999Z"
+      "startAt": "2026-03-06T20:00:00.000Z",
+      "endAt": "2026-11-11T19:59:59.999Z"
     },
     "SOLUSDT:1h": {
       "bars": 6000,
-      "startAt": "2026-03-06T08:00:00.000Z",
-      "endAt": "2026-11-11T07:59:59.999Z"
+      "startAt": "2026-03-06T20:00:00.000Z",
+      "endAt": "2026-11-11T19:59:59.999Z"
     },
     "BNBUSDT:1h": {
       "bars": 6000,
-      "startAt": "2026-03-06T08:00:00.000Z",
-      "endAt": "2026-11-11T07:59:59.999Z"
+      "startAt": "2026-03-06T20:00:00.000Z",
+      "endAt": "2026-11-11T19:59:59.999Z"
     },
     "XRPUSDT:1h": {
       "bars": 6000,
-      "startAt": "2026-03-06T08:00:00.000Z",
-      "endAt": "2026-11-11T07:59:59.999Z"
+      "startAt": "2026-03-06T20:00:00.000Z",
+      "endAt": "2026-11-11T19:59:59.999Z"
     }
   },
   "candidateCount": 80,
   "survivorCount": 0,
   "verdict": "NO_EDGE_FOUND",
   "topCandidates": [
+    {
+      "id": "mean_reversion:p55:ta1.5:sa1.5:tb8",
+      "params": {
+        "family": "mean_reversion",
+        "period": 55,
+        "targetAtr": 1.5,
+        "stopAtr": 1.5,
+        "timeoutBars": 8
+      },
+      "pass": false,
+      "score": -1000000000,
+      "train": {
+        "trades": 980,
+        "winRate": 0.4551,
+        "netReturnPct": -134.127,
+        "expectancyBps": -13.686,
+        "profitFactor": 0.6545,
+        "tStat": -5.6781,
+        "maxDrawdownPct": 134.3131
+      },
+      "validation": {
+        "trades": 320,
+        "winRate": 0.4906,
+        "netReturnPct": -29.53,
+        "expectancyBps": -9.228,
+        "profitFactor": 0.7239,
+        "tStat": -2.4218,
+        "maxDrawdownPct": 31.1111
+      },
+      "holdout": {
+        "trades": 348,
+        "winRate": 0.5115,
+        "netReturnPct": -26.1967,
+        "expectancyBps": -7.528,
+        "profitFactor": 0.8071,
+        "tStat": -1.7192,
+        "maxDrawdownPct": 29.4308
+      },
+      "walkForward": {
+        "positiveFolds": 0,
+        "requiredPositiveFolds": 3,
+        "pass": false,
+        "folds": [
+          {
+            "fold": 1,
+            "range": [
+              0,
+              0.2
+            ],
+            "pass": false,
+            "trades": 283,
+            "winRate": 0.4134,
+            "netReturnPct": -58.4367,
+            "expectancyBps": -20.649,
+            "profitFactor": 0.5443,
+            "tStat": -4.456,
+            "maxDrawdownPct": 59.4084
+          },
+          {
+            "fold": 2,
+            "range": [
+              0.2,
+              0.4
+            ],
+            "pass": false,
+            "trades": 347,
+            "winRate": 0.4697,
+            "netReturnPct": -36.6504,
+            "expectancyBps": -10.562,
+            "profitFactor": 0.7099,
+            "tStat": -2.6989,
+            "maxDrawdownPct": 37.2132
+          },
+          {
+            "fold": 3,
+            "range": [
+              0.4,
+              0.6
+            ],
+            "pass": false,
+            "trades": 350,
+            "winRate": 0.4743,
+            "netReturnPct": -39.0399,
+            "expectancyBps": -11.154,
+            "profitFactor": 0.708,
+            "tStat": -2.7549,
+            "maxDrawdownPct": 39.73
+          },
+          {
+            "fold": 4,
+            "range": [
+              0.6,
+              0.8
+            ],
+            "pass": false,
+            "trades": 320,
+            "winRate": 0.4906,
+            "netReturnPct": -29.53,
+            "expectancyBps": -9.228,
+            "profitFactor": 0.7239,
+            "tStat": -2.4218,
+            "maxDrawdownPct": 31.1111
+          }
+        ]
+      }
+    },
     {
       "id": "momentum:p34:ta1.5:sa1:tb16",
       "params": {
@@ -89,31 +195,31 @@
       "pass": false,
       "score": -1000000000,
       "train": {
-        "trades": 629,
-        "winRate": 0.4356,
-        "netReturnPct": -20.3975,
-        "expectancyBps": -3.243,
-        "profitFactor": 0.9078,
-        "tStat": -1.0644,
-        "maxDrawdownPct": 32.0787
+        "trades": 634,
+        "winRate": 0.4338,
+        "netReturnPct": -24.0176,
+        "expectancyBps": -3.788,
+        "profitFactor": 0.8925,
+        "tStat": -1.2566,
+        "maxDrawdownPct": 34.7712
       },
       "validation": {
-        "trades": 206,
-        "winRate": 0.3447,
-        "netReturnPct": -46.0294,
-        "expectancyBps": -22.344,
-        "profitFactor": 0.4537,
-        "tStat": -4.6931,
-        "maxDrawdownPct": 46.1395
+        "trades": 200,
+        "winRate": 0.35,
+        "netReturnPct": -42.3609,
+        "expectancyBps": -21.18,
+        "profitFactor": 0.4779,
+        "tStat": -4.325,
+        "maxDrawdownPct": 42.4588
       },
       "holdout": {
-        "trades": 228,
-        "winRate": 0.3904,
-        "netReturnPct": -16.388,
-        "expectancyBps": -7.188,
-        "profitFactor": 0.8015,
-        "tStat": -1.4494,
-        "maxDrawdownPct": 20.2073
+        "trades": 235,
+        "winRate": 0.3872,
+        "netReturnPct": -17.6965,
+        "expectancyBps": -7.53,
+        "profitFactor": 0.7917,
+        "tStat": -1.5535,
+        "maxDrawdownPct": 21.1701
       },
       "walkForward": {
         "positiveFolds": 1,
@@ -127,13 +233,13 @@
               0.2
             ],
             "pass": true,
-            "trades": 223,
-            "winRate": 0.4933,
-            "netReturnPct": 3.7098,
-            "expectancyBps": 1.664,
-            "profitFactor": 1.0468,
-            "tStat": 0.2969,
-            "maxDrawdownPct": 9.7747
+            "trades": 226,
+            "winRate": 0.4823,
+            "netReturnPct": 1.2067,
+            "expectancyBps": 0.534,
+            "profitFactor": 1.015,
+            "tStat": 0.0974,
+            "maxDrawdownPct": 10.263
           },
           {
             "fold": 2,
@@ -142,13 +248,13 @@
               0.4
             ],
             "pass": false,
-            "trades": 209,
-            "winRate": 0.4115,
-            "netReturnPct": -9.7951,
-            "expectancyBps": -4.687,
-            "profitFactor": 0.8538,
-            "tStat": -1.0156,
-            "maxDrawdownPct": 17.4234
+            "trades": 211,
+            "winRate": 0.4076,
+            "netReturnPct": -11.1414,
+            "expectancyBps": -5.28,
+            "profitFactor": 0.8375,
+            "tStat": -1.1497,
+            "maxDrawdownPct": 17.4508
           },
           {
             "fold": 3,
@@ -158,12 +264,12 @@
             ],
             "pass": false,
             "trades": 197,
-            "winRate": 0.3959,
-            "netReturnPct": -14.3122,
-            "expectancyBps": -7.265,
-            "profitFactor": 0.8091,
-            "tStat": -1.3155,
-            "maxDrawdownPct": 18.2585
+            "winRate": 0.4061,
+            "netReturnPct": -14.0829,
+            "expectancyBps": -7.149,
+            "profitFactor": 0.8114,
+            "tStat": -1.2942,
+            "maxDrawdownPct": 17.776
           },
           {
             "fold": 4,
@@ -172,119 +278,13 @@
               0.8
             ],
             "pass": false,
-            "trades": 206,
-            "winRate": 0.3447,
-            "netReturnPct": -46.0294,
-            "expectancyBps": -22.344,
-            "profitFactor": 0.4537,
-            "tStat": -4.6931,
-            "maxDrawdownPct": 46.1395
-          }
-        ]
-      }
-    },
-    {
-      "id": "momentum:p34:ta1.5:sa1:tb8",
-      "params": {
-        "family": "momentum",
-        "period": 34,
-        "targetAtr": 1.5,
-        "stopAtr": 1,
-        "timeoutBars": 8
-      },
-      "pass": false,
-      "score": -1000000000,
-      "train": {
-        "trades": 630,
-        "winRate": 0.4413,
-        "netReturnPct": -17.4762,
-        "expectancyBps": -2.774,
-        "profitFactor": 0.9123,
-        "tStat": -0.9831,
-        "maxDrawdownPct": 29.2757
-      },
-      "validation": {
-        "trades": 206,
-        "winRate": 0.335,
-        "netReturnPct": -46.6439,
-        "expectancyBps": -22.643,
-        "profitFactor": 0.4263,
-        "tStat": -4.9464,
-        "maxDrawdownPct": 48.0981
-      },
-      "holdout": {
-        "trades": 228,
-        "winRate": 0.3991,
-        "netReturnPct": -17.6312,
-        "expectancyBps": -7.733,
-        "profitFactor": 0.7722,
-        "tStat": -1.6818,
-        "maxDrawdownPct": 21.4505
-      },
-      "walkForward": {
-        "positiveFolds": 1,
-        "requiredPositiveFolds": 3,
-        "pass": false,
-        "folds": [
-          {
-            "fold": 1,
-            "range": [
-              0,
-              0.2
-            ],
-            "pass": true,
-            "trades": 223,
-            "winRate": 0.5112,
-            "netReturnPct": 9.7618,
-            "expectancyBps": 4.378,
-            "profitFactor": 1.1464,
-            "tStat": 0.86,
-            "maxDrawdownPct": 6.887
-          },
-          {
-            "fold": 2,
-            "range": [
-              0.2,
-              0.4
-            ],
-            "pass": false,
-            "trades": 210,
-            "winRate": 0.4429,
-            "netReturnPct": -3.6736,
-            "expectancyBps": -1.749,
-            "profitFactor": 0.9373,
-            "tStat": -0.4035,
-            "maxDrawdownPct": 14.67
-          },
-          {
-            "fold": 3,
-            "range": [
-              0.4,
-              0.6
-            ],
-            "pass": false,
-            "trades": 197,
-            "winRate": 0.3604,
-            "netReturnPct": -23.5645,
-            "expectancyBps": -11.962,
-            "profitFactor": 0.6811,
-            "tStat": -2.3278,
-            "maxDrawdownPct": 26.3269
-          },
-          {
-            "fold": 4,
-            "range": [
-              0.6,
-              0.8
-            ],
-            "pass": false,
-            "trades": 206,
-            "winRate": 0.335,
-            "netReturnPct": -46.6439,
-            "expectancyBps": -22.643,
-            "profitFactor": 0.4263,
-            "tStat": -4.9464,
-            "maxDrawdownPct": 48.0981
+            "trades": 200,
+            "winRate": 0.35,
+            "netReturnPct": -42.3609,
+            "expectancyBps": -21.18,
+            "profitFactor": 0.4779,
+            "tStat": -4.325,
+            "maxDrawdownPct": 42.4588
           }
         ]
       }
@@ -301,31 +301,31 @@
       "pass": false,
       "score": -1000000000,
       "train": {
-        "trades": 632,
-        "winRate": 0.3481,
-        "netReturnPct": -41.7286,
-        "expectancyBps": -6.603,
-        "profitFactor": 0.7981,
-        "tStat": -2.4816,
-        "maxDrawdownPct": 47.3514
+        "trades": 637,
+        "winRate": 0.3469,
+        "netReturnPct": -44.9281,
+        "expectancyBps": -7.053,
+        "profitFactor": 0.7844,
+        "tStat": -2.6836,
+        "maxDrawdownPct": 49.8899
       },
       "validation": {
-        "trades": 207,
-        "winRate": 0.2947,
-        "netReturnPct": -38.6689,
-        "expectancyBps": -18.681,
-        "profitFactor": 0.4647,
-        "tStat": -4.6064,
-        "maxDrawdownPct": 39.7891
+        "trades": 201,
+        "winRate": 0.3035,
+        "netReturnPct": -35.2623,
+        "expectancyBps": -17.543,
+        "profitFactor": 0.493,
+        "tStat": -4.1952,
+        "maxDrawdownPct": 36.3702
       },
       "holdout": {
-        "trades": 230,
-        "winRate": 0.3261,
-        "netReturnPct": -17.9854,
-        "expectancyBps": -7.82,
-        "profitFactor": 0.76,
-        "tStat": -1.7835,
-        "maxDrawdownPct": 21.8047
+        "trades": 237,
+        "winRate": 0.3249,
+        "netReturnPct": -18.9512,
+        "expectancyBps": -7.996,
+        "profitFactor": 0.7538,
+        "tStat": -1.865,
+        "maxDrawdownPct": 22.4249
       },
       "walkForward": {
         "positiveFolds": 0,
@@ -339,13 +339,13 @@
               0.2
             ],
             "pass": false,
-            "trades": 223,
-            "winRate": 0.3587,
-            "netReturnPct": -15.893,
-            "expectancyBps": -7.127,
-            "profitFactor": 0.8027,
-            "tStat": -1.4406,
-            "maxDrawdownPct": 22.1236
+            "trades": 227,
+            "winRate": 0.3568,
+            "netReturnPct": -17.6546,
+            "expectancyBps": -7.777,
+            "profitFactor": 0.7824,
+            "tStat": -1.6198,
+            "maxDrawdownPct": 24.0698
           },
           {
             "fold": 2,
@@ -354,13 +354,13 @@
               0.4
             ],
             "pass": false,
-            "trades": 212,
-            "winRate": 0.3443,
-            "netReturnPct": -12.7082,
-            "expectancyBps": -5.994,
-            "profitFactor": 0.7906,
-            "tStat": -1.5028,
-            "maxDrawdownPct": 16.4581
+            "trades": 213,
+            "winRate": 0.338,
+            "netReturnPct": -13.9411,
+            "expectancyBps": -6.545,
+            "profitFactor": 0.7747,
+            "tStat": -1.6429,
+            "maxDrawdownPct": 16.6174
           },
           {
             "fold": 3,
@@ -370,12 +370,12 @@
             ],
             "pass": false,
             "trades": 197,
-            "winRate": 0.3401,
-            "netReturnPct": -13.1274,
-            "expectancyBps": -6.664,
-            "profitFactor": 0.7994,
-            "tStat": -1.3806,
-            "maxDrawdownPct": 16.5613
+            "winRate": 0.3452,
+            "netReturnPct": -13.3324,
+            "expectancyBps": -6.768,
+            "profitFactor": 0.796,
+            "tStat": -1.4028,
+            "maxDrawdownPct": 16.4594
           },
           {
             "fold": 4,
@@ -384,119 +384,13 @@
               0.8
             ],
             "pass": false,
-            "trades": 207,
-            "winRate": 0.2947,
-            "netReturnPct": -38.6689,
-            "expectancyBps": -18.681,
-            "profitFactor": 0.4647,
-            "tStat": -4.6064,
-            "maxDrawdownPct": 39.7891
-          }
-        ]
-      }
-    },
-    {
-      "id": "mean_reversion:p55:ta1.5:sa1.5:tb8",
-      "params": {
-        "family": "mean_reversion",
-        "period": 55,
-        "targetAtr": 1.5,
-        "stopAtr": 1.5,
-        "timeoutBars": 8
-      },
-      "pass": false,
-      "score": -1000000000,
-      "train": {
-        "trades": 981,
-        "winRate": 0.4546,
-        "netReturnPct": -131.2962,
-        "expectancyBps": -13.384,
-        "profitFactor": 0.6626,
-        "tStat": -5.5214,
-        "maxDrawdownPct": 131.2962
-      },
-      "validation": {
-        "trades": 326,
-        "winRate": 0.5,
-        "netReturnPct": -26.0384,
-        "expectancyBps": -7.987,
-        "profitFactor": 0.7535,
-        "tStat": -2.1371,
-        "maxDrawdownPct": 28.0549
-      },
-      "holdout": {
-        "trades": 343,
-        "winRate": 0.5073,
-        "netReturnPct": -27.7417,
-        "expectancyBps": -8.088,
-        "profitFactor": 0.795,
-        "tStat": -1.8277,
-        "maxDrawdownPct": 30.9758
-      },
-      "walkForward": {
-        "positiveFolds": 0,
-        "requiredPositiveFolds": 3,
-        "pass": false,
-        "folds": [
-          {
-            "fold": 1,
-            "range": [
-              0,
-              0.2
-            ],
-            "pass": false,
-            "trades": 288,
-            "winRate": 0.4201,
-            "netReturnPct": -54.9649,
-            "expectancyBps": -19.085,
-            "profitFactor": 0.5766,
-            "tStat": -4.0811,
-            "maxDrawdownPct": 55.7521
-          },
-          {
-            "fold": 2,
-            "range": [
-              0.2,
-              0.4
-            ],
-            "pass": false,
-            "trades": 339,
-            "winRate": 0.4661,
-            "netReturnPct": -36.1192,
-            "expectancyBps": -10.655,
-            "profitFactor": 0.7107,
-            "tStat": -2.6668,
-            "maxDrawdownPct": 36.5574
-          },
-          {
-            "fold": 3,
-            "range": [
-              0.4,
-              0.6
-            ],
-            "pass": false,
-            "trades": 354,
-            "winRate": 0.4718,
-            "netReturnPct": -40.2121,
-            "expectancyBps": -11.359,
-            "profitFactor": 0.7008,
-            "tStat": -2.8402,
-            "maxDrawdownPct": 40.3072
-          },
-          {
-            "fold": 4,
-            "range": [
-              0.6,
-              0.8
-            ],
-            "pass": false,
-            "trades": 326,
-            "winRate": 0.5,
-            "netReturnPct": -26.0384,
-            "expectancyBps": -7.987,
-            "profitFactor": 0.7535,
-            "tStat": -2.1371,
-            "maxDrawdownPct": 28.0549
+            "trades": 201,
+            "winRate": 0.3035,
+            "netReturnPct": -35.2623,
+            "expectancyBps": -17.543,
+            "profitFactor": 0.493,
+            "tStat": -4.1952,
+            "maxDrawdownPct": 36.3702
           }
         ]
       }
@@ -513,31 +407,31 @@
       "pass": false,
       "score": -1000000000,
       "train": {
-        "trades": 1097,
-        "winRate": 0.3756,
-        "netReturnPct": -149.1542,
-        "expectancyBps": -13.597,
-        "profitFactor": 0.6242,
-        "tStat": -6.9033,
-        "maxDrawdownPct": 149.1581
+        "trades": 1099,
+        "winRate": 0.3749,
+        "netReturnPct": -153.0845,
+        "expectancyBps": -13.929,
+        "profitFactor": 0.6146,
+        "tStat": -7.1398,
+        "maxDrawdownPct": 153.2706
       },
       "validation": {
-        "trades": 359,
-        "winRate": 0.4345,
-        "netReturnPct": -32.1999,
-        "expectancyBps": -8.969,
-        "profitFactor": 0.7023,
-        "tStat": -2.9199,
-        "maxDrawdownPct": 33.4934
+        "trades": 351,
+        "winRate": 0.4274,
+        "netReturnPct": -35.5306,
+        "expectancyBps": -10.123,
+        "profitFactor": 0.6749,
+        "tStat": -3.2226,
+        "maxDrawdownPct": 36.9064
       },
       "holdout": {
-        "trades": 383,
-        "winRate": 0.4178,
-        "netReturnPct": -33.2539,
-        "expectancyBps": -8.682,
-        "profitFactor": 0.75,
-        "tStat": -2.4906,
-        "maxDrawdownPct": 38.2883
+        "trades": 390,
+        "winRate": 0.4205,
+        "netReturnPct": -31.9453,
+        "expectancyBps": -8.191,
+        "profitFactor": 0.761,
+        "tStat": -2.3828,
+        "maxDrawdownPct": 36.9797
       },
       "walkForward": {
         "positiveFolds": 0,
@@ -551,13 +445,13 @@
               0.2
             ],
             "pass": false,
-            "trades": 323,
-            "winRate": 0.3437,
-            "netReturnPct": -62.4204,
-            "expectancyBps": -19.325,
-            "profitFactor": 0.5272,
-            "tStat": -5.1335,
-            "maxDrawdownPct": 62.4244
+            "trades": 320,
+            "winRate": 0.3312,
+            "netReturnPct": -67.9117,
+            "expectancyBps": -21.222,
+            "profitFactor": 0.4859,
+            "tStat": -5.7668,
+            "maxDrawdownPct": 68.0977
           },
           {
             "fold": 2,
@@ -566,13 +460,13 @@
               0.4
             ],
             "pass": false,
-            "trades": 375,
-            "winRate": 0.3947,
-            "netReturnPct": -36.9249,
-            "expectancyBps": -9.847,
-            "profitFactor": 0.703,
-            "tStat": -2.9985,
-            "maxDrawdownPct": 37.6216
+            "trades": 383,
+            "winRate": 0.3969,
+            "netReturnPct": -37.7562,
+            "expectancyBps": -9.858,
+            "profitFactor": 0.7005,
+            "tStat": -3.0588,
+            "maxDrawdownPct": 38.5774
           },
           {
             "fold": 3,
@@ -581,13 +475,13 @@
               0.6
             ],
             "pass": false,
-            "trades": 399,
-            "winRate": 0.3835,
-            "netReturnPct": -49.8089,
-            "expectancyBps": -12.483,
-            "profitFactor": 0.6457,
-            "tStat": -3.8595,
-            "maxDrawdownPct": 49.8089
+            "trades": 396,
+            "winRate": 0.3889,
+            "netReturnPct": -47.4167,
+            "expectancyBps": -11.974,
+            "profitFactor": 0.659,
+            "tStat": -3.669,
+            "maxDrawdownPct": 48.1091
           },
           {
             "fold": 4,
@@ -596,13 +490,13 @@
               0.8
             ],
             "pass": false,
-            "trades": 359,
-            "winRate": 0.4345,
-            "netReturnPct": -32.1999,
-            "expectancyBps": -8.969,
-            "profitFactor": 0.7023,
-            "tStat": -2.9199,
-            "maxDrawdownPct": 33.4934
+            "trades": 351,
+            "winRate": 0.4274,
+            "netReturnPct": -35.5306,
+            "expectancyBps": -10.123,
+            "profitFactor": 0.6749,
+            "tStat": -3.2226,
+            "maxDrawdownPct": 36.9064
           }
         ]
       }
@@ -619,31 +513,31 @@
       "pass": false,
       "score": -1000000000,
       "train": {
-        "trades": 951,
-        "winRate": 0.4627,
-        "netReturnPct": -142.0744,
-        "expectancyBps": -14.939,
-        "profitFactor": 0.6606,
-        "tStat": -5.5995,
-        "maxDrawdownPct": 142.0744
+        "trades": 950,
+        "winRate": 0.4632,
+        "netReturnPct": -145.2522,
+        "expectancyBps": -15.29,
+        "profitFactor": 0.6525,
+        "tStat": -5.7593,
+        "maxDrawdownPct": 145.4382
       },
       "validation": {
-        "trades": 313,
-        "winRate": 0.4888,
-        "netReturnPct": -32.6764,
-        "expectancyBps": -10.44,
-        "profitFactor": 0.7178,
-        "tStat": -2.542,
-        "maxDrawdownPct": 32.9984
+        "trades": 307,
+        "winRate": 0.4788,
+        "netReturnPct": -37.075,
+        "expectancyBps": -12.077,
+        "profitFactor": 0.6863,
+        "tStat": -2.87,
+        "maxDrawdownPct": 37.4144
       },
       "holdout": {
-        "trades": 337,
-        "winRate": 0.5193,
-        "netReturnPct": -29.9938,
-        "expectancyBps": -8.9,
-        "profitFactor": 0.7883,
-        "tStat": -1.9137,
-        "maxDrawdownPct": 34.928
+        "trades": 342,
+        "winRate": 0.5234,
+        "netReturnPct": -28.0488,
+        "expectancyBps": -8.201,
+        "profitFactor": 0.8021,
+        "tStat": -1.7865,
+        "maxDrawdownPct": 33.0332
       },
       "walkForward": {
         "positiveFolds": 0,
@@ -657,13 +551,13 @@
               0.2
             ],
             "pass": false,
-            "trades": 279,
-            "winRate": 0.4014,
-            "netReturnPct": -67.928,
-            "expectancyBps": -24.347,
-            "profitFactor": 0.5331,
-            "tStat": -4.6173,
-            "maxDrawdownPct": 68.3077
+            "trades": 274,
+            "winRate": 0.4015,
+            "netReturnPct": -70.6337,
+            "expectancyBps": -25.779,
+            "profitFactor": 0.5087,
+            "tStat": -4.9081,
+            "maxDrawdownPct": 71.536
           },
           {
             "fold": 2,
@@ -672,13 +566,13 @@
               0.4
             ],
             "pass": false,
-            "trades": 329,
-            "winRate": 0.5046,
-            "netReturnPct": -30.2175,
-            "expectancyBps": -9.185,
-            "profitFactor": 0.7636,
-            "tStat": -2.1397,
-            "maxDrawdownPct": 31.3293
+            "trades": 337,
+            "winRate": 0.5045,
+            "netReturnPct": -30.9865,
+            "expectancyBps": -9.195,
+            "profitFactor": 0.7608,
+            "tStat": -2.1882,
+            "maxDrawdownPct": 31.7888
           },
           {
             "fold": 3,
@@ -687,13 +581,13 @@
               0.6
             ],
             "pass": false,
-            "trades": 343,
-            "winRate": 0.4723,
-            "netReturnPct": -43.9288,
-            "expectancyBps": -12.807,
-            "profitFactor": 0.6978,
-            "tStat": -2.925,
-            "maxDrawdownPct": 44.7353
+            "trades": 339,
+            "winRate": 0.472,
+            "netReturnPct": -43.6319,
+            "expectancyBps": -12.871,
+            "profitFactor": 0.6983,
+            "tStat": -2.9068,
+            "maxDrawdownPct": 44.6648
           },
           {
             "fold": 4,
@@ -702,13 +596,119 @@
               0.8
             ],
             "pass": false,
-            "trades": 313,
-            "winRate": 0.4888,
-            "netReturnPct": -32.6764,
-            "expectancyBps": -10.44,
-            "profitFactor": 0.7178,
-            "tStat": -2.542,
-            "maxDrawdownPct": 32.9984
+            "trades": 307,
+            "winRate": 0.4788,
+            "netReturnPct": -37.075,
+            "expectancyBps": -12.077,
+            "profitFactor": 0.6863,
+            "tStat": -2.87,
+            "maxDrawdownPct": 37.4144
+          }
+        ]
+      }
+    },
+    {
+      "id": "momentum:p34:ta1.5:sa1:tb8",
+      "params": {
+        "family": "momentum",
+        "period": 34,
+        "targetAtr": 1.5,
+        "stopAtr": 1,
+        "timeoutBars": 8
+      },
+      "pass": false,
+      "score": -1000000000,
+      "train": {
+        "trades": 635,
+        "winRate": 0.4394,
+        "netReturnPct": -21.0964,
+        "expectancyBps": -3.322,
+        "profitFactor": 0.8952,
+        "tStat": -1.1903,
+        "maxDrawdownPct": 30.5972
+      },
+      "validation": {
+        "trades": 200,
+        "winRate": 0.34,
+        "netReturnPct": -42.9754,
+        "expectancyBps": -21.488,
+        "profitFactor": 0.4504,
+        "tStat": -4.5638,
+        "maxDrawdownPct": 44.4173
+      },
+      "holdout": {
+        "trades": 235,
+        "winRate": 0.3957,
+        "netReturnPct": -19.4606,
+        "expectancyBps": -8.281,
+        "profitFactor": 0.7561,
+        "tStat": -1.8441,
+        "maxDrawdownPct": 22.9342
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false,
+        "folds": [
+          {
+            "fold": 1,
+            "range": [
+              0,
+              0.2
+            ],
+            "pass": true,
+            "trades": 227,
+            "winRate": 0.5066,
+            "netReturnPct": 7.8681,
+            "expectancyBps": 3.466,
+            "profitFactor": 1.1168,
+            "tStat": 0.7005,
+            "maxDrawdownPct": 9.6508
+          },
+          {
+            "fold": 2,
+            "range": [
+              0.2,
+              0.4
+            ],
+            "pass": false,
+            "trades": 211,
+            "winRate": 0.4313,
+            "netReturnPct": -5.6293,
+            "expectancyBps": -2.668,
+            "profitFactor": 0.9068,
+            "tStat": -0.6145,
+            "maxDrawdownPct": 15.0864
+          },
+          {
+            "fold": 3,
+            "range": [
+              0.4,
+              0.6
+            ],
+            "pass": false,
+            "trades": 197,
+            "winRate": 0.3706,
+            "netReturnPct": -23.3352,
+            "expectancyBps": -11.845,
+            "profitFactor": 0.6828,
+            "tStat": -2.3045,
+            "maxDrawdownPct": 25.7442
+          },
+          {
+            "fold": 4,
+            "range": [
+              0.6,
+              0.8
+            ],
+            "pass": false,
+            "trades": 200,
+            "winRate": 0.34,
+            "netReturnPct": -42.9754,
+            "expectancyBps": -21.488,
+            "profitFactor": 0.4504,
+            "tStat": -4.5638,
+            "maxDrawdownPct": 44.4173
           }
         ]
       }
@@ -725,31 +725,31 @@
       "pass": false,
       "score": -1000000000,
       "train": {
-        "trades": 632,
-        "winRate": 0.3671,
-        "netReturnPct": -38.9129,
-        "expectancyBps": -6.157,
-        "profitFactor": 0.7972,
-        "tStat": -2.4549,
-        "maxDrawdownPct": 42.521
+        "trades": 637,
+        "winRate": 0.3658,
+        "netReturnPct": -42.1125,
+        "expectancyBps": -6.611,
+        "profitFactor": 0.7824,
+        "tStat": -2.6698,
+        "maxDrawdownPct": 45.451
       },
       "validation": {
-        "trades": 207,
-        "winRate": 0.2995,
-        "netReturnPct": -38.5117,
-        "expectancyBps": -18.605,
-        "profitFactor": 0.4507,
-        "tStat": -4.7373,
-        "maxDrawdownPct": 40.6809
+        "trades": 201,
+        "winRate": 0.3085,
+        "netReturnPct": -35.1051,
+        "expectancyBps": -17.465,
+        "profitFactor": 0.4794,
+        "tStat": -4.3125,
+        "maxDrawdownPct": 37.262
       },
       "holdout": {
-        "trades": 230,
-        "winRate": 0.3304,
-        "netReturnPct": -21.1443,
-        "expectancyBps": -9.193,
-        "profitFactor": 0.7093,
-        "tStat": -2.2425,
-        "maxDrawdownPct": 24.9635
+        "trades": 237,
+        "winRate": 0.3291,
+        "netReturnPct": -22.631,
+        "expectancyBps": -9.549,
+        "profitFactor": 0.6974,
+        "tStat": -2.3859,
+        "maxDrawdownPct": 26.1047
       },
       "walkForward": {
         "positiveFolds": 0,
@@ -763,13 +763,13 @@
               0.2
             ],
             "pass": false,
-            "trades": 223,
-            "winRate": 0.3857,
-            "netReturnPct": -11.5862,
-            "expectancyBps": -5.196,
-            "profitFactor": 0.8394,
-            "tStat": -1.1266,
-            "maxDrawdownPct": 17.6828
+            "trades": 227,
+            "winRate": 0.3877,
+            "netReturnPct": -13.046,
+            "expectancyBps": -5.747,
+            "profitFactor": 0.8202,
+            "tStat": -1.2861,
+            "maxDrawdownPct": 19.3273
           },
           {
             "fold": 2,
@@ -778,13 +778,13 @@
               0.4
             ],
             "pass": false,
-            "trades": 212,
-            "winRate": 0.3821,
-            "netReturnPct": -8.143,
-            "expectancyBps": -3.841,
-            "profitFactor": 0.8529,
-            "tStat": -0.9965,
-            "maxDrawdownPct": 13.956
+            "trades": 213,
+            "winRate": 0.3709,
+            "netReturnPct": -9.6777,
+            "expectancyBps": -4.544,
+            "profitFactor": 0.8294,
+            "tStat": -1.1793,
+            "maxDrawdownPct": 14.8618
           },
           {
             "fold": 3,
@@ -794,12 +794,12 @@
             ],
             "pass": false,
             "trades": 197,
-            "winRate": 0.3299,
-            "netReturnPct": -19.1838,
-            "expectancyBps": -9.738,
-            "profitFactor": 0.7018,
-            "tStat": -2.1567,
-            "maxDrawdownPct": 21.4026
+            "winRate": 0.335,
+            "netReturnPct": -19.3888,
+            "expectancyBps": -9.842,
+            "profitFactor": 0.6984,
+            "tStat": -2.181,
+            "maxDrawdownPct": 21.4561
           },
           {
             "fold": 4,
@@ -808,119 +808,13 @@
               0.8
             ],
             "pass": false,
-            "trades": 207,
-            "winRate": 0.2995,
-            "netReturnPct": -38.5117,
-            "expectancyBps": -18.605,
-            "profitFactor": 0.4507,
-            "tStat": -4.7373,
-            "maxDrawdownPct": 40.6809
-          }
-        ]
-      }
-    },
-    {
-      "id": "momentum:p34:ta2:sa1:tb16",
-      "params": {
-        "family": "momentum",
-        "period": 34,
-        "targetAtr": 2,
-        "stopAtr": 1,
-        "timeoutBars": 16
-      },
-      "pass": false,
-      "score": -1000000000,
-      "train": {
-        "trades": 627,
-        "winRate": 0.3764,
-        "netReturnPct": -24.7055,
-        "expectancyBps": -3.94,
-        "profitFactor": 0.8999,
-        "tStat": -1.1334,
-        "maxDrawdownPct": 33.1445
-      },
-      "validation": {
-        "trades": 206,
-        "winRate": 0.2913,
-        "netReturnPct": -42.1141,
-        "expectancyBps": -20.444,
-        "profitFactor": 0.522,
-        "tStat": -3.8307,
-        "maxDrawdownPct": 44.0244
-      },
-      "holdout": {
-        "trades": 228,
-        "winRate": 0.307,
-        "netReturnPct": -22.5755,
-        "expectancyBps": -9.902,
-        "profitFactor": 0.7529,
-        "tStat": -1.8173,
-        "maxDrawdownPct": 27.6436
-      },
-      "walkForward": {
-        "positiveFolds": 0,
-        "requiredPositiveFolds": 3,
-        "pass": false,
-        "folds": [
-          {
-            "fold": 1,
-            "range": [
-              0,
-              0.2
-            ],
-            "pass": false,
-            "trades": 222,
-            "winRate": 0.4144,
-            "netReturnPct": -4.5345,
-            "expectancyBps": -2.043,
-            "profitFactor": 0.9502,
-            "tStat": -0.3233,
-            "maxDrawdownPct": 10.3319
-          },
-          {
-            "fold": 2,
-            "range": [
-              0.2,
-              0.4
-            ],
-            "pass": false,
-            "trades": 208,
-            "winRate": 0.3654,
-            "netReturnPct": -8.2164,
-            "expectancyBps": -3.95,
-            "profitFactor": 0.8889,
-            "tStat": -0.737,
-            "maxDrawdownPct": 14.8921
-          },
-          {
-            "fold": 3,
-            "range": [
-              0.4,
-              0.6
-            ],
-            "pass": false,
-            "trades": 197,
-            "winRate": 0.3452,
-            "netReturnPct": -11.9546,
-            "expectancyBps": -6.068,
-            "profitFactor": 0.8537,
-            "tStat": -0.9588,
-            "maxDrawdownPct": 18.013
-          },
-          {
-            "fold": 4,
-            "range": [
-              0.6,
-              0.8
-            ],
-            "pass": false,
-            "trades": 206,
-            "winRate": 0.2913,
-            "netReturnPct": -42.1141,
-            "expectancyBps": -20.444,
-            "profitFactor": 0.522,
-            "tStat": -3.8307,
-            "maxDrawdownPct": 44.0244
+            "trades": 201,
+            "winRate": 0.3085,
+            "netReturnPct": -35.1051,
+            "expectancyBps": -17.465,
+            "profitFactor": 0.4794,
+            "tStat": -4.3125,
+            "maxDrawdownPct": 37.262
           }
         ]
       }
@@ -937,31 +831,31 @@
       "pass": false,
       "score": -1000000000,
       "train": {
-        "trades": 1080,
-        "winRate": 0.3694,
-        "netReturnPct": -162.2901,
-        "expectancyBps": -15.027,
-        "profitFactor": 0.6128,
-        "tStat": -7.255,
-        "maxDrawdownPct": 162.294
+        "trades": 1082,
+        "winRate": 0.3688,
+        "netReturnPct": -166.3857,
+        "expectancyBps": -15.378,
+        "profitFactor": 0.6033,
+        "tStat": -7.4937,
+        "maxDrawdownPct": 166.5717
       },
       "validation": {
-        "trades": 352,
-        "winRate": 0.4034,
-        "netReturnPct": -35.7835,
-        "expectancyBps": -10.166,
-        "profitFactor": 0.6869,
-        "tStat": -3.1086,
-        "maxDrawdownPct": 36.9013
+        "trades": 344,
+        "winRate": 0.3953,
+        "netReturnPct": -38.9489,
+        "expectancyBps": -11.322,
+        "profitFactor": 0.6626,
+        "tStat": -3.3833,
+        "maxDrawdownPct": 40.1491
       },
       "holdout": {
-        "trades": 379,
-        "winRate": 0.4063,
-        "netReturnPct": -39.4749,
-        "expectancyBps": -10.416,
-        "profitFactor": 0.7148,
-        "tStat": -2.9199,
-        "maxDrawdownPct": 44.6564
+        "trades": 385,
+        "winRate": 0.4104,
+        "netReturnPct": -38.1096,
+        "expectancyBps": -9.899,
+        "profitFactor": 0.7259,
+        "tStat": -2.8066,
+        "maxDrawdownPct": 43.291
       },
       "walkForward": {
         "positiveFolds": 0,
@@ -975,13 +869,13 @@
               0.2
             ],
             "pass": false,
-            "trades": 319,
-            "winRate": 0.3197,
-            "netReturnPct": -68.5194,
-            "expectancyBps": -21.479,
-            "profitFactor": 0.513,
-            "tStat": -5.4151,
-            "maxDrawdownPct": 69.5583
+            "trades": 316,
+            "winRate": 0.3165,
+            "netReturnPct": -72.7435,
+            "expectancyBps": -23.02,
+            "profitFactor": 0.4823,
+            "tStat": -5.9087,
+            "maxDrawdownPct": 74.3011
           },
           {
             "fold": 2,
@@ -990,13 +884,13 @@
               0.4
             ],
             "pass": false,
-            "trades": 371,
-            "winRate": 0.4043,
-            "netReturnPct": -41.5127,
-            "expectancyBps": -11.189,
-            "profitFactor": 0.685,
-            "tStat": -3.2798,
-            "maxDrawdownPct": 42.8479
+            "trades": 379,
+            "winRate": 0.3984,
+            "netReturnPct": -43.6111,
+            "expectancyBps": -11.507,
+            "profitFactor": 0.6741,
+            "tStat": -3.4443,
+            "maxDrawdownPct": 44.6368
           },
           {
             "fold": 3,
@@ -1005,13 +899,13 @@
               0.6
             ],
             "pass": false,
-            "trades": 390,
-            "winRate": 0.3769,
-            "netReturnPct": -52.258,
-            "expectancyBps": -13.399,
-            "profitFactor": 0.6436,
-            "tStat": -3.9056,
-            "maxDrawdownPct": 52.258
+            "trades": 387,
+            "winRate": 0.3824,
+            "netReturnPct": -50.0311,
+            "expectancyBps": -12.928,
+            "profitFactor": 0.6551,
+            "tStat": -3.7357,
+            "maxDrawdownPct": 50.9744
           },
           {
             "fold": 4,
@@ -1020,160 +914,54 @@
               0.8
             ],
             "pass": false,
-            "trades": 352,
-            "winRate": 0.4034,
-            "netReturnPct": -35.7835,
-            "expectancyBps": -10.166,
-            "profitFactor": 0.6869,
-            "tStat": -3.1086,
-            "maxDrawdownPct": 36.9013
+            "trades": 344,
+            "winRate": 0.3953,
+            "netReturnPct": -38.9489,
+            "expectancyBps": -11.322,
+            "profitFactor": 0.6626,
+            "tStat": -3.3833,
+            "maxDrawdownPct": 40.1491
           }
         ]
       }
     },
     {
-      "id": "breakout:p20:ta2:sa0.75:tb8",
-      "params": {
-        "family": "breakout",
-        "period": 20,
-        "targetAtr": 2,
-        "stopAtr": 0.75,
-        "timeoutBars": 8
-      },
-      "pass": false,
-      "score": -1000000000,
-      "train": {
-        "trades": 2548,
-        "winRate": 0.2908,
-        "netReturnPct": -286.0003,
-        "expectancyBps": -11.225,
-        "profitFactor": 0.6875,
-        "tStat": -7.797,
-        "maxDrawdownPct": 286.0003
-      },
-      "validation": {
-        "trades": 884,
-        "winRate": 0.2726,
-        "netReturnPct": -82.3806,
-        "expectancyBps": -9.319,
-        "profitFactor": 0.7362,
-        "tStat": -3.4496,
-        "maxDrawdownPct": 91.0765
-      },
-      "holdout": {
-        "trades": 814,
-        "winRate": 0.285,
-        "netReturnPct": -87.8509,
-        "expectancyBps": -10.792,
-        "profitFactor": 0.6936,
-        "tStat": -4.3065,
-        "maxDrawdownPct": 97.2633
-      },
-      "walkForward": {
-        "positiveFolds": 0,
-        "requiredPositiveFolds": 3,
-        "pass": false,
-        "folds": [
-          {
-            "fold": 1,
-            "range": [
-              0,
-              0.2
-            ],
-            "pass": false,
-            "trades": 819,
-            "winRate": 0.3089,
-            "netReturnPct": -89.9381,
-            "expectancyBps": -10.981,
-            "profitFactor": 0.7051,
-            "tStat": -4.1973,
-            "maxDrawdownPct": 89.9381
-          },
-          {
-            "fold": 2,
-            "range": [
-              0.2,
-              0.4
-            ],
-            "pass": false,
-            "trades": 872,
-            "winRate": 0.2741,
-            "netReturnPct": -108.1845,
-            "expectancyBps": -12.406,
-            "profitFactor": 0.6616,
-            "tStat": -4.8771,
-            "maxDrawdownPct": 109.0346
-          },
-          {
-            "fold": 3,
-            "range": [
-              0.4,
-              0.6
-            ],
-            "pass": false,
-            "trades": 857,
-            "winRate": 0.2905,
-            "netReturnPct": -87.8777,
-            "expectancyBps": -10.254,
-            "profitFactor": 0.6975,
-            "tStat": -4.4209,
-            "maxDrawdownPct": 88.1881
-          },
-          {
-            "fold": 4,
-            "range": [
-              0.6,
-              0.8
-            ],
-            "pass": false,
-            "trades": 884,
-            "winRate": 0.2726,
-            "netReturnPct": -82.3806,
-            "expectancyBps": -9.319,
-            "profitFactor": 0.7362,
-            "tStat": -3.4496,
-            "maxDrawdownPct": 91.0765
-          }
-        ]
-      }
-    },
-    {
-      "id": "momentum:p34:ta2:sa0.75:tb16",
+      "id": "momentum:p34:ta2:sa1:tb16",
       "params": {
         "family": "momentum",
         "period": 34,
         "targetAtr": 2,
-        "stopAtr": 0.75,
+        "stopAtr": 1,
         "timeoutBars": 16
       },
       "pass": false,
       "score": -1000000000,
       "train": {
         "trades": 632,
-        "winRate": 0.2975,
-        "netReturnPct": -43.5716,
-        "expectancyBps": -6.894,
-        "profitFactor": 0.807,
-        "tStat": -2.2754,
-        "maxDrawdownPct": 50.8363
+        "winRate": 0.375,
+        "netReturnPct": -28.7761,
+        "expectancyBps": -4.553,
+        "profitFactor": 0.8844,
+        "tStat": -1.326,
+        "maxDrawdownPct": 36.3993
       },
       "validation": {
-        "trades": 207,
-        "winRate": 0.2464,
-        "netReturnPct": -35.1041,
-        "expectancyBps": -16.958,
-        "profitFactor": 0.5336,
-        "tStat": -3.6645,
-        "maxDrawdownPct": 38.5809
+        "trades": 200,
+        "winRate": 0.295,
+        "netReturnPct": -38.2893,
+        "expectancyBps": -19.145,
+        "profitFactor": 0.5495,
+        "tStat": -3.4822,
+        "maxDrawdownPct": 40.1536
       },
       "holdout": {
-        "trades": 230,
-        "winRate": 0.2565,
-        "netReturnPct": -25.1914,
-        "expectancyBps": -10.953,
-        "profitFactor": 0.6932,
-        "tStat": -2.3047,
-        "maxDrawdownPct": 30.089
+        "trades": 235,
+        "winRate": 0.3064,
+        "netReturnPct": -24.1511,
+        "expectancyBps": -10.277,
+        "profitFactor": 0.7424,
+        "tStat": -1.9321,
+        "maxDrawdownPct": 28.7265
       },
       "walkForward": {
         "positiveFolds": 0,
@@ -1187,13 +975,13 @@
               0.2
             ],
             "pass": false,
-            "trades": 223,
-            "winRate": 0.296,
-            "netReturnPct": -21.3851,
-            "expectancyBps": -9.59,
-            "profitFactor": 0.7601,
-            "tStat": -1.7313,
-            "maxDrawdownPct": 21.8338
+            "trades": 225,
+            "winRate": 0.4044,
+            "netReturnPct": -7.5775,
+            "expectancyBps": -3.368,
+            "profitFactor": 0.9177,
+            "tStat": -0.5474,
+            "maxDrawdownPct": 11.5418
           },
           {
             "fold": 2,
@@ -1202,13 +990,13 @@
               0.4
             ],
             "pass": false,
-            "trades": 212,
-            "winRate": 0.3066,
-            "netReturnPct": -11.2093,
-            "expectancyBps": -5.287,
-            "profitFactor": 0.8298,
-            "tStat": -1.1533,
-            "maxDrawdownPct": 15.2457
+            "trades": 210,
+            "winRate": 0.3571,
+            "netReturnPct": -10.5924,
+            "expectancyBps": -5.044,
+            "profitFactor": 0.8606,
+            "tStat": -0.9473,
+            "maxDrawdownPct": 15.0469
           },
           {
             "fold": 3,
@@ -1218,12 +1006,12 @@
             ],
             "pass": false,
             "trades": 197,
-            "winRate": 0.2893,
-            "netReturnPct": -10.9773,
-            "expectancyBps": -5.572,
-            "profitFactor": 0.8449,
-            "tStat": -0.9998,
-            "maxDrawdownPct": 16.2554
+            "winRate": 0.3604,
+            "netReturnPct": -10.6062,
+            "expectancyBps": -5.384,
+            "profitFactor": 0.869,
+            "tStat": -0.85,
+            "maxDrawdownPct": 17.6063
           },
           {
             "fold": 4,
@@ -1232,13 +1020,13 @@
               0.8
             ],
             "pass": false,
-            "trades": 207,
-            "winRate": 0.2464,
-            "netReturnPct": -35.1041,
-            "expectancyBps": -16.958,
-            "profitFactor": 0.5336,
-            "tStat": -3.6645,
-            "maxDrawdownPct": 38.5809
+            "trades": 200,
+            "winRate": 0.295,
+            "netReturnPct": -38.2893,
+            "expectancyBps": -19.145,
+            "profitFactor": 0.5495,
+            "tStat": -3.4822,
+            "maxDrawdownPct": 40.1536
           }
         ]
       }
@@ -1255,31 +1043,31 @@
       "pass": false,
       "score": -1000000000,
       "train": {
-        "trades": 1169,
-        "winRate": 0.4594,
-        "netReturnPct": -154.9338,
-        "expectancyBps": -13.254,
-        "profitFactor": 0.5996,
-        "tStat": -7.7852,
-        "maxDrawdownPct": 155.4082
+        "trades": 1170,
+        "winRate": 0.459,
+        "netReturnPct": -158.0581,
+        "expectancyBps": -13.509,
+        "profitFactor": 0.5916,
+        "tStat": -7.9799,
+        "maxDrawdownPct": 158.5809
       },
       "validation": {
-        "trades": 384,
-        "winRate": 0.5026,
-        "netReturnPct": -36.0216,
-        "expectancyBps": -9.381,
-        "profitFactor": 0.6568,
-        "tStat": -3.5623,
-        "maxDrawdownPct": 41.2869
+        "trades": 376,
+        "winRate": 0.4947,
+        "netReturnPct": -38.209,
+        "expectancyBps": -10.162,
+        "profitFactor": 0.6408,
+        "tStat": -3.751,
+        "maxDrawdownPct": 43.4726
       },
       "holdout": {
-        "trades": 405,
-        "winRate": 0.4815,
-        "netReturnPct": -44.4173,
-        "expectancyBps": -10.967,
-        "profitFactor": 0.6519,
-        "tStat": -3.8016,
-        "maxDrawdownPct": 45.3956
+        "trades": 410,
+        "winRate": 0.4829,
+        "netReturnPct": -44.121,
+        "expectancyBps": -10.761,
+        "profitFactor": 0.6556,
+        "tStat": -3.777,
+        "maxDrawdownPct": 45.0993
       },
       "walkForward": {
         "positiveFolds": 0,
@@ -1293,13 +1081,13 @@
               0.2
             ],
             "pass": false,
-            "trades": 344,
-            "winRate": 0.4128,
-            "netReturnPct": -67.3932,
-            "expectancyBps": -19.591,
-            "profitFactor": 0.491,
-            "tStat": -5.9323,
-            "maxDrawdownPct": 68.09
+            "trades": 339,
+            "winRate": 0.4071,
+            "netReturnPct": -70.7645,
+            "expectancyBps": -20.874,
+            "profitFactor": 0.4648,
+            "tStat": -6.3422,
+            "maxDrawdownPct": 71.7061
           },
           {
             "fold": 2,
@@ -1308,13 +1096,13 @@
               0.4
             ],
             "pass": false,
-            "trades": 406,
-            "winRate": 0.4877,
-            "netReturnPct": -41.8325,
-            "expectancyBps": -10.304,
-            "profitFactor": 0.6553,
-            "tStat": -3.7723,
-            "maxDrawdownPct": 42.8095
+            "trades": 416,
+            "winRate": 0.4856,
+            "netReturnPct": -43.338,
+            "expectancyBps": -10.418,
+            "profitFactor": 0.6479,
+            "tStat": -3.9042,
+            "maxDrawdownPct": 44.0107
           },
           {
             "fold": 3,
@@ -1323,13 +1111,13 @@
               0.6
             ],
             "pass": false,
-            "trades": 419,
-            "winRate": 0.4702,
-            "netReturnPct": -45.7081,
-            "expectancyBps": -10.909,
-            "profitFactor": 0.6567,
-            "tStat": -3.8258,
-            "maxDrawdownPct": 46.1387
+            "trades": 415,
+            "winRate": 0.4747,
+            "netReturnPct": -43.9557,
+            "expectancyBps": -10.592,
+            "profitFactor": 0.6662,
+            "tStat": -3.6797,
+            "maxDrawdownPct": 44.5831
           },
           {
             "fold": 4,
@@ -1338,13 +1126,13 @@
               0.8
             ],
             "pass": false,
-            "trades": 384,
-            "winRate": 0.5026,
-            "netReturnPct": -36.0216,
-            "expectancyBps": -9.381,
-            "profitFactor": 0.6568,
-            "tStat": -3.5623,
-            "maxDrawdownPct": 41.2869
+            "trades": 376,
+            "winRate": 0.4947,
+            "netReturnPct": -38.209,
+            "expectancyBps": -10.162,
+            "profitFactor": 0.6408,
+            "tStat": -3.751,
+            "maxDrawdownPct": 43.4726
           }
         ]
       }
@@ -1362,30 +1150,30 @@
       "score": -1000000000,
       "train": {
         "trades": 1033,
-        "winRate": 0.5479,
-        "netReturnPct": -152.022,
-        "expectancyBps": -14.717,
-        "profitFactor": 0.6116,
-        "tStat": -6.6308,
-        "maxDrawdownPct": 153.7064
+        "winRate": 0.547,
+        "netReturnPct": -155.088,
+        "expectancyBps": -15.013,
+        "profitFactor": 0.6037,
+        "tStat": -6.7908,
+        "maxDrawdownPct": 156.5802
       },
       "validation": {
-        "trades": 345,
-        "winRate": 0.5855,
-        "netReturnPct": -33.1551,
-        "expectancyBps": -9.61,
-        "profitFactor": 0.6824,
-        "tStat": -2.9063,
-        "maxDrawdownPct": 37.9735
+        "trades": 338,
+        "winRate": 0.5769,
+        "netReturnPct": -36.4408,
+        "expectancyBps": -10.781,
+        "profitFactor": 0.6592,
+        "tStat": -3.1536,
+        "maxDrawdownPct": 41.2574
       },
       "holdout": {
-        "trades": 367,
-        "winRate": 0.594,
-        "netReturnPct": -41.0956,
-        "expectancyBps": -11.198,
-        "profitFactor": 0.6842,
-        "tStat": -3.0093,
-        "maxDrawdownPct": 44.6599
+        "trades": 371,
+        "winRate": 0.5957,
+        "netReturnPct": -40.168,
+        "expectancyBps": -10.827,
+        "profitFactor": 0.6911,
+        "tStat": -2.9489,
+        "maxDrawdownPct": 44.6501
       },
       "walkForward": {
         "positiveFolds": 0,
@@ -1399,13 +1187,13 @@
               0.2
             ],
             "pass": false,
-            "trades": 304,
-            "winRate": 0.4934,
-            "netReturnPct": -72.6834,
-            "expectancyBps": -23.909,
-            "profitFactor": 0.4769,
-            "tStat": -5.4284,
-            "maxDrawdownPct": 74.2156
+            "trades": 298,
+            "winRate": 0.4866,
+            "netReturnPct": -75.2012,
+            "expectancyBps": -25.235,
+            "profitFactor": 0.4543,
+            "tStat": -5.7044,
+            "maxDrawdownPct": 76.7377
           },
           {
             "fold": 2,
@@ -1414,13 +1202,13 @@
               0.4
             ],
             "pass": false,
-            "trades": 361,
-            "winRate": 0.5845,
-            "netReturnPct": -36.3713,
-            "expectancyBps": -10.075,
-            "profitFactor": 0.6934,
-            "tStat": -2.9034,
-            "maxDrawdownPct": 37.4342
+            "trades": 370,
+            "winRate": 0.5838,
+            "netReturnPct": -37.7667,
+            "expectancyBps": -10.207,
+            "profitFactor": 0.6866,
+            "tStat": -3.0076,
+            "maxDrawdownPct": 38.5252
           },
           {
             "fold": 3,
@@ -1429,13 +1217,13 @@
               0.6
             ],
             "pass": false,
-            "trades": 368,
-            "winRate": 0.5571,
-            "netReturnPct": -42.9673,
-            "expectancyBps": -11.676,
-            "profitFactor": 0.679,
-            "tStat": -3.1441,
-            "maxDrawdownPct": 43.5413
+            "trades": 365,
+            "winRate": 0.5589,
+            "netReturnPct": -42.1201,
+            "expectancyBps": -11.54,
+            "profitFactor": 0.6834,
+            "tStat": -3.0825,
+            "maxDrawdownPct": 43.313
           },
           {
             "fold": 4,
@@ -1444,225 +1232,13 @@
               0.8
             ],
             "pass": false,
-            "trades": 345,
-            "winRate": 0.5855,
-            "netReturnPct": -33.1551,
-            "expectancyBps": -9.61,
-            "profitFactor": 0.6824,
-            "tStat": -2.9063,
-            "maxDrawdownPct": 37.9735
-          }
-        ]
-      }
-    },
-    {
-      "id": "momentum:p34:ta2:sa1:tb8",
-      "params": {
-        "family": "momentum",
-        "period": 34,
-        "targetAtr": 2,
-        "stopAtr": 1,
-        "timeoutBars": 8
-      },
-      "pass": false,
-      "score": -1000000000,
-      "train": {
-        "trades": 628,
-        "winRate": 0.4108,
-        "netReturnPct": -18.2669,
-        "expectancyBps": -2.909,
-        "profitFactor": 0.9128,
-        "tStat": -0.9482,
-        "maxDrawdownPct": 25.8301
-      },
-      "validation": {
-        "trades": 206,
-        "winRate": 0.2864,
-        "netReturnPct": -43.4868,
-        "expectancyBps": -21.11,
-        "profitFactor": 0.4836,
-        "tStat": -4.1558,
-        "maxDrawdownPct": 46.6952
-      },
-      "holdout": {
-        "trades": 228,
-        "winRate": 0.3421,
-        "netReturnPct": -25.8511,
-        "expectancyBps": -11.338,
-        "profitFactor": 0.6885,
-        "tStat": -2.3461,
-        "maxDrawdownPct": 30.3491
-      },
-      "walkForward": {
-        "positiveFolds": 2,
-        "requiredPositiveFolds": 3,
-        "pass": false,
-        "folds": [
-          {
-            "fold": 1,
-            "range": [
-              0,
-              0.2
-            ],
-            "pass": true,
-            "trades": 222,
-            "winRate": 0.4775,
-            "netReturnPct": 8.6703,
-            "expectancyBps": 3.906,
-            "profitFactor": 1.1236,
-            "tStat": 0.7089,
-            "maxDrawdownPct": 5.4495
-          },
-          {
-            "fold": 2,
-            "range": [
-              0.2,
-              0.4
-            ],
-            "pass": true,
-            "trades": 209,
-            "winRate": 0.4306,
-            "netReturnPct": 1.6526,
-            "expectancyBps": 0.791,
-            "profitFactor": 1.0271,
-            "tStat": 0.1604,
-            "maxDrawdownPct": 13.3181
-          },
-          {
-            "fold": 3,
-            "range": [
-              0.4,
-              0.6
-            ],
-            "pass": false,
-            "trades": 197,
-            "winRate": 0.3147,
-            "netReturnPct": -28.5897,
-            "expectancyBps": -14.513,
-            "profitFactor": 0.6352,
-            "tStat": -2.6947,
-            "maxDrawdownPct": 30.6984
-          },
-          {
-            "fold": 4,
-            "range": [
-              0.6,
-              0.8
-            ],
-            "pass": false,
-            "trades": 206,
-            "winRate": 0.2864,
-            "netReturnPct": -43.4868,
-            "expectancyBps": -21.11,
-            "profitFactor": 0.4836,
-            "tStat": -4.1558,
-            "maxDrawdownPct": 46.6952
-          }
-        ]
-      }
-    },
-    {
-      "id": "mean_reversion:p55:ta1:sa1:tb8",
-      "params": {
-        "family": "mean_reversion",
-        "period": 55,
-        "targetAtr": 1,
-        "stopAtr": 1,
-        "timeoutBars": 8
-      },
-      "pass": false,
-      "score": -1000000000,
-      "train": {
-        "trades": 1177,
-        "winRate": 0.4537,
-        "netReturnPct": -150.2111,
-        "expectancyBps": -12.762,
-        "profitFactor": 0.6008,
-        "tStat": -7.7265,
-        "maxDrawdownPct": 150.6855
-      },
-      "validation": {
-        "trades": 387,
-        "winRate": 0.5168,
-        "netReturnPct": -34.5568,
-        "expectancyBps": -8.929,
-        "profitFactor": 0.6661,
-        "tStat": -3.4233,
-        "maxDrawdownPct": 39.8221
-      },
-      "holdout": {
-        "trades": 406,
-        "winRate": 0.4754,
-        "netReturnPct": -46.6438,
-        "expectancyBps": -11.489,
-        "profitFactor": 0.6327,
-        "tStat": -4.0507,
-        "maxDrawdownPct": 47.622
-      },
-      "walkForward": {
-        "positiveFolds": 0,
-        "requiredPositiveFolds": 3,
-        "pass": false,
-        "folds": [
-          {
-            "fold": 1,
-            "range": [
-              0,
-              0.2
-            ],
-            "pass": false,
-            "trades": 345,
-            "winRate": 0.4058,
-            "netReturnPct": -64.7929,
-            "expectancyBps": -18.781,
-            "profitFactor": 0.4916,
-            "tStat": -5.8817,
-            "maxDrawdownPct": 64.8367
-          },
-          {
-            "fold": 2,
-            "range": [
-              0.2,
-              0.4
-            ],
-            "pass": false,
-            "trades": 408,
-            "winRate": 0.4804,
-            "netReturnPct": -40.7058,
-            "expectancyBps": -9.977,
-            "profitFactor": 0.6552,
-            "tStat": -3.7564,
-            "maxDrawdownPct": 41.6829
-          },
-          {
-            "fold": 3,
-            "range": [
-              0.4,
-              0.6
-            ],
-            "pass": false,
-            "trades": 424,
-            "winRate": 0.467,
-            "netReturnPct": -44.7124,
-            "expectancyBps": -10.545,
-            "profitFactor": 0.6582,
-            "tStat": -3.8055,
-            "maxDrawdownPct": 45.1429
-          },
-          {
-            "fold": 4,
-            "range": [
-              0.6,
-              0.8
-            ],
-            "pass": false,
-            "trades": 387,
-            "winRate": 0.5168,
-            "netReturnPct": -34.5568,
-            "expectancyBps": -8.929,
-            "profitFactor": 0.6661,
-            "tStat": -3.4233,
-            "maxDrawdownPct": 39.8221
+            "trades": 338,
+            "winRate": 0.5769,
+            "netReturnPct": -36.4408,
+            "expectancyBps": -10.781,
+            "profitFactor": 0.6592,
+            "tStat": -3.1536,
+            "maxDrawdownPct": 41.2574
           }
         ]
       }
@@ -1679,31 +1255,31 @@
       "pass": false,
       "score": -1000000000,
       "train": {
-        "trades": 1187,
-        "winRate": 0.4591,
-        "netReturnPct": -161.2002,
-        "expectancyBps": -13.58,
-        "profitFactor": 0.658,
-        "tStat": -6.13,
-        "maxDrawdownPct": 161.787
+        "trades": 1189,
+        "winRate": 0.4601,
+        "netReturnPct": -165.7104,
+        "expectancyBps": -13.937,
+        "profitFactor": 0.6479,
+        "tStat": -6.3541,
+        "maxDrawdownPct": 167.5027
       },
       "validation": {
-        "trades": 416,
-        "winRate": 0.4808,
-        "netReturnPct": -49.581,
-        "expectancyBps": -11.918,
-        "profitFactor": 0.6635,
-        "tStat": -3.4664,
-        "maxDrawdownPct": 49.8927
+        "trades": 407,
+        "winRate": 0.4717,
+        "netReturnPct": -52.4924,
+        "expectancyBps": -12.897,
+        "profitFactor": 0.6449,
+        "tStat": -3.6814,
+        "maxDrawdownPct": 52.912
       },
       "holdout": {
-        "trades": 381,
-        "winRate": 0.4698,
-        "netReturnPct": -44.8748,
-        "expectancyBps": -11.778,
-        "profitFactor": 0.6878,
-        "tStat": -3.1072,
-        "maxDrawdownPct": 46.8294
+        "trades": 386,
+        "winRate": 0.4793,
+        "netReturnPct": -41.9439,
+        "expectancyBps": -10.866,
+        "profitFactor": 0.7083,
+        "tStat": -2.8822,
+        "maxDrawdownPct": 44.9434
       },
       "walkForward": {
         "positiveFolds": 0,
@@ -1717,13 +1293,13 @@
               0.2
             ],
             "pass": false,
-            "trades": 366,
-            "winRate": 0.4153,
-            "netReturnPct": -82.2095,
-            "expectancyBps": -22.462,
-            "profitFactor": 0.5196,
-            "tStat": -5.2818,
-            "maxDrawdownPct": 83.0019
+            "trades": 367,
+            "winRate": 0.4196,
+            "netReturnPct": -85.2988,
+            "expectancyBps": -23.242,
+            "profitFactor": 0.4977,
+            "tStat": -5.6182,
+            "maxDrawdownPct": 86.1841
           },
           {
             "fold": 2,
@@ -1732,13 +1308,13 @@
               0.4
             ],
             "pass": false,
-            "trades": 389,
-            "winRate": 0.4859,
-            "netReturnPct": -33.4733,
-            "expectancyBps": -8.605,
-            "profitFactor": 0.7592,
-            "tStat": -2.3466,
-            "maxDrawdownPct": 36.0294
+            "trades": 393,
+            "winRate": 0.486,
+            "netReturnPct": -34.2266,
+            "expectancyBps": -8.709,
+            "profitFactor": 0.7553,
+            "tStat": -2.398,
+            "maxDrawdownPct": 36.6466
           },
           {
             "fold": 3,
@@ -1747,13 +1323,13 @@
               0.6
             ],
             "pass": false,
-            "trades": 432,
-            "winRate": 0.4722,
-            "netReturnPct": -45.5173,
-            "expectancyBps": -10.536,
-            "profitFactor": 0.7175,
-            "tStat": -2.9217,
-            "maxDrawdownPct": 46.1418
+            "trades": 429,
+            "winRate": 0.4709,
+            "netReturnPct": -46.1849,
+            "expectancyBps": -10.766,
+            "profitFactor": 0.713,
+            "tStat": -2.9667,
+            "maxDrawdownPct": 47.7563
           },
           {
             "fold": 4,
@@ -1762,13 +1338,543 @@
               0.8
             ],
             "pass": false,
-            "trades": 416,
-            "winRate": 0.4808,
-            "netReturnPct": -49.581,
-            "expectancyBps": -11.918,
-            "profitFactor": 0.6635,
-            "tStat": -3.4664,
-            "maxDrawdownPct": 49.8927
+            "trades": 407,
+            "winRate": 0.4717,
+            "netReturnPct": -52.4924,
+            "expectancyBps": -12.897,
+            "profitFactor": 0.6449,
+            "tStat": -3.6814,
+            "maxDrawdownPct": 52.912
+          }
+        ]
+      }
+    },
+    {
+      "id": "mean_reversion:p34:ta1.5:sa1.5:tb16",
+      "params": {
+        "family": "mean_reversion",
+        "period": 34,
+        "targetAtr": 1.5,
+        "stopAtr": 1.5,
+        "timeoutBars": 16
+      },
+      "pass": false,
+      "score": -1000000000,
+      "train": {
+        "trades": 1172,
+        "winRate": 0.4684,
+        "netReturnPct": -177.0929,
+        "expectancyBps": -15.11,
+        "profitFactor": 0.6502,
+        "tStat": -6.3957,
+        "maxDrawdownPct": 178.2983
+      },
+      "validation": {
+        "trades": 399,
+        "winRate": 0.4586,
+        "netReturnPct": -63.6737,
+        "expectancyBps": -15.958,
+        "profitFactor": 0.6194,
+        "tStat": -4.112,
+        "maxDrawdownPct": 63.8489
+      },
+      "holdout": {
+        "trades": 379,
+        "winRate": 0.504,
+        "netReturnPct": -42.168,
+        "expectancyBps": -11.126,
+        "profitFactor": 0.7298,
+        "tStat": -2.6719,
+        "maxDrawdownPct": 49.3857
+      },
+      "walkForward": {
+        "positiveFolds": 0,
+        "requiredPositiveFolds": 3,
+        "pass": false,
+        "folds": [
+          {
+            "fold": 1,
+            "range": [
+              0,
+              0.2
+            ],
+            "pass": false,
+            "trades": 363,
+            "winRate": 0.4132,
+            "netReturnPct": -95.0881,
+            "expectancyBps": -26.195,
+            "profitFactor": 0.4877,
+            "tStat": -5.8527,
+            "maxDrawdownPct": 96.2748
+          },
+          {
+            "fold": 2,
+            "range": [
+              0.2,
+              0.4
+            ],
+            "pass": false,
+            "trades": 390,
+            "winRate": 0.5077,
+            "netReturnPct": -31.2903,
+            "expectancyBps": -8.023,
+            "profitFactor": 0.7874,
+            "tStat": -2.0791,
+            "maxDrawdownPct": 33.9549
+          },
+          {
+            "fold": 3,
+            "range": [
+              0.4,
+              0.6
+            ],
+            "pass": false,
+            "trades": 419,
+            "winRate": 0.4797,
+            "netReturnPct": -50.7145,
+            "expectancyBps": -12.104,
+            "profitFactor": 0.7077,
+            "tStat": -3.0822,
+            "maxDrawdownPct": 51.8599
+          },
+          {
+            "fold": 4,
+            "range": [
+              0.6,
+              0.8
+            ],
+            "pass": false,
+            "trades": 399,
+            "winRate": 0.4586,
+            "netReturnPct": -63.6737,
+            "expectancyBps": -15.958,
+            "profitFactor": 0.6194,
+            "tStat": -4.112,
+            "maxDrawdownPct": 63.8489
+          }
+        ]
+      }
+    },
+    {
+      "id": "momentum:p34:ta2:sa0.75:tb16",
+      "params": {
+        "family": "momentum",
+        "period": 34,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 16
+      },
+      "pass": false,
+      "score": -1000000000,
+      "train": {
+        "trades": 637,
+        "winRate": 0.2967,
+        "netReturnPct": -47.2267,
+        "expectancyBps": -7.414,
+        "profitFactor": 0.7924,
+        "tStat": -2.4825,
+        "maxDrawdownPct": 54.2576
+      },
+      "validation": {
+        "trades": 201,
+        "winRate": 0.2537,
+        "netReturnPct": -31.4526,
+        "expectancyBps": -15.648,
+        "profitFactor": 0.5667,
+        "tStat": -3.2734,
+        "maxDrawdownPct": 34.8835
+      },
+      "holdout": {
+        "trades": 237,
+        "winRate": 0.2574,
+        "netReturnPct": -26.4243,
+        "expectancyBps": -11.15,
+        "profitFactor": 0.686,
+        "tStat": -2.4017,
+        "maxDrawdownPct": 30.8292
+      },
+      "walkForward": {
+        "positiveFolds": 0,
+        "requiredPositiveFolds": 3,
+        "pass": false,
+        "folds": [
+          {
+            "fold": 1,
+            "range": [
+              0,
+              0.2
+            ],
+            "pass": false,
+            "trades": 227,
+            "winRate": 0.2952,
+            "netReturnPct": -23.5003,
+            "expectancyBps": -10.353,
+            "profitFactor": 0.738,
+            "tStat": -1.9357,
+            "maxDrawdownPct": 24.1694
+          },
+          {
+            "fold": 2,
+            "range": [
+              0.2,
+              0.4
+            ],
+            "pass": false,
+            "trades": 213,
+            "winRate": 0.2958,
+            "netReturnPct": -13.4844,
+            "expectancyBps": -6.331,
+            "profitFactor": 0.8001,
+            "tStat": -1.3859,
+            "maxDrawdownPct": 17.0445
+          },
+          {
+            "fold": 3,
+            "range": [
+              0.4,
+              0.6
+            ],
+            "pass": false,
+            "trades": 197,
+            "winRate": 0.2995,
+            "netReturnPct": -10.242,
+            "expectancyBps": -5.199,
+            "profitFactor": 0.8543,
+            "tStat": -0.9323,
+            "maxDrawdownPct": 15.6396
+          },
+          {
+            "fold": 4,
+            "range": [
+              0.6,
+              0.8
+            ],
+            "pass": false,
+            "trades": 201,
+            "winRate": 0.2537,
+            "netReturnPct": -31.4526,
+            "expectancyBps": -15.648,
+            "profitFactor": 0.5667,
+            "tStat": -3.2734,
+            "maxDrawdownPct": 34.8835
+          }
+        ]
+      }
+    },
+    {
+      "id": "mean_reversion:p55:ta1:sa1:tb8",
+      "params": {
+        "family": "mean_reversion",
+        "period": 55,
+        "targetAtr": 1,
+        "stopAtr": 1,
+        "timeoutBars": 8
+      },
+      "pass": false,
+      "score": -1000000000,
+      "train": {
+        "trades": 1178,
+        "winRate": 0.4533,
+        "netReturnPct": -153.3354,
+        "expectancyBps": -13.017,
+        "profitFactor": 0.5926,
+        "tStat": -7.9261,
+        "maxDrawdownPct": 153.8582
+      },
+      "validation": {
+        "trades": 379,
+        "winRate": 0.5092,
+        "netReturnPct": -36.7443,
+        "expectancyBps": -9.695,
+        "profitFactor": 0.6498,
+        "tStat": -3.6127,
+        "maxDrawdownPct": 42.0078
+      },
+      "holdout": {
+        "trades": 412,
+        "winRate": 0.4757,
+        "netReturnPct": -46.4043,
+        "expectancyBps": -11.263,
+        "profitFactor": 0.6361,
+        "tStat": -4.0318,
+        "maxDrawdownPct": 47.3826
+      },
+      "walkForward": {
+        "positiveFolds": 0,
+        "requiredPositiveFolds": 3,
+        "pass": false,
+        "folds": [
+          {
+            "fold": 1,
+            "range": [
+              0,
+              0.2
+            ],
+            "pass": false,
+            "trades": 340,
+            "winRate": 0.3971,
+            "netReturnPct": -68.5025,
+            "expectancyBps": -20.148,
+            "profitFactor": 0.4622,
+            "tStat": -6.3412,
+            "maxDrawdownPct": 68.7912
+          },
+          {
+            "fold": 2,
+            "range": [
+              0.2,
+              0.4
+            ],
+            "pass": false,
+            "trades": 418,
+            "winRate": 0.4809,
+            "netReturnPct": -41.873,
+            "expectancyBps": -10.017,
+            "profitFactor": 0.65,
+            "tStat": -3.8585,
+            "maxDrawdownPct": 42.5456
+          },
+          {
+            "fold": 3,
+            "range": [
+              0.4,
+              0.6
+            ],
+            "pass": false,
+            "trades": 420,
+            "winRate": 0.4714,
+            "netReturnPct": -42.9599,
+            "expectancyBps": -10.229,
+            "profitFactor": 0.6678,
+            "tStat": -3.6571,
+            "maxDrawdownPct": 43.5874
+          },
+          {
+            "fold": 4,
+            "range": [
+              0.6,
+              0.8
+            ],
+            "pass": false,
+            "trades": 379,
+            "winRate": 0.5092,
+            "netReturnPct": -36.7443,
+            "expectancyBps": -9.695,
+            "profitFactor": 0.6498,
+            "tStat": -3.6127,
+            "maxDrawdownPct": 42.0078
+          }
+        ]
+      }
+    },
+    {
+      "id": "breakout:p20:ta2:sa0.75:tb8",
+      "params": {
+        "family": "breakout",
+        "period": 20,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8
+      },
+      "pass": false,
+      "score": -1000000000,
+      "train": {
+        "trades": 2554,
+        "winRate": 0.2897,
+        "netReturnPct": -287.2794,
+        "expectancyBps": -11.248,
+        "profitFactor": 0.6858,
+        "tStat": -7.8459,
+        "maxDrawdownPct": 287.2794
+      },
+      "validation": {
+        "trades": 877,
+        "winRate": 0.2794,
+        "netReturnPct": -73.6736,
+        "expectancyBps": -8.401,
+        "profitFactor": 0.7638,
+        "tStat": -3.0395,
+        "maxDrawdownPct": 81.168
+      },
+      "holdout": {
+        "trades": 816,
+        "winRate": 0.2806,
+        "netReturnPct": -94.3377,
+        "expectancyBps": -11.561,
+        "profitFactor": 0.671,
+        "tStat": -4.708,
+        "maxDrawdownPct": 103.4408
+      },
+      "walkForward": {
+        "positiveFolds": 0,
+        "requiredPositiveFolds": 3,
+        "pass": false,
+        "folds": [
+          {
+            "fold": 1,
+            "range": [
+              0,
+              0.2
+            ],
+            "pass": false,
+            "trades": 825,
+            "winRate": 0.3067,
+            "netReturnPct": -92.1908,
+            "expectancyBps": -11.175,
+            "profitFactor": 0.6981,
+            "tStat": -4.3217,
+            "maxDrawdownPct": 92.3174
+          },
+          {
+            "fold": 2,
+            "range": [
+              0.2,
+              0.4
+            ],
+            "pass": false,
+            "trades": 877,
+            "winRate": 0.2759,
+            "netReturnPct": -107.2838,
+            "expectancyBps": -12.233,
+            "profitFactor": 0.6646,
+            "tStat": -4.8324,
+            "maxDrawdownPct": 108.2778
+          },
+          {
+            "fold": 3,
+            "range": [
+              0.4,
+              0.6
+            ],
+            "pass": false,
+            "trades": 852,
+            "winRate": 0.2876,
+            "netReturnPct": -87.8048,
+            "expectancyBps": -10.306,
+            "profitFactor": 0.6961,
+            "tStat": -4.4257,
+            "maxDrawdownPct": 88.1477
+          },
+          {
+            "fold": 4,
+            "range": [
+              0.6,
+              0.8
+            ],
+            "pass": false,
+            "trades": 877,
+            "winRate": 0.2794,
+            "netReturnPct": -73.6736,
+            "expectancyBps": -8.401,
+            "profitFactor": 0.7638,
+            "tStat": -3.0395,
+            "maxDrawdownPct": 81.168
+          }
+        ]
+      }
+    },
+    {
+      "id": "mean_reversion:p55:ta1:sa1.5:tb8",
+      "params": {
+        "family": "mean_reversion",
+        "period": 55,
+        "targetAtr": 1,
+        "stopAtr": 1.5,
+        "timeoutBars": 8
+      },
+      "pass": false,
+      "score": -1000000000,
+      "train": {
+        "trades": 1054,
+        "winRate": 0.5342,
+        "netReturnPct": -139.4849,
+        "expectancyBps": -13.234,
+        "profitFactor": 0.6214,
+        "tStat": -6.4427,
+        "maxDrawdownPct": 140.9772
+      },
+      "validation": {
+        "trades": 346,
+        "winRate": 0.5723,
+        "netReturnPct": -33.7975,
+        "expectancyBps": -9.768,
+        "profitFactor": 0.6697,
+        "tStat": -3.0126,
+        "maxDrawdownPct": 38.6141
+      },
+      "holdout": {
+        "trades": 374,
+        "winRate": 0.5775,
+        "netReturnPct": -43.46,
+        "expectancyBps": -11.62,
+        "profitFactor": 0.6646,
+        "tStat": -3.2454,
+        "maxDrawdownPct": 47.0372
+      },
+      "walkForward": {
+        "positiveFolds": 0,
+        "requiredPositiveFolds": 3,
+        "pass": false,
+        "folds": [
+          {
+            "fold": 1,
+            "range": [
+              0,
+              0.2
+            ],
+            "pass": false,
+            "trades": 304,
+            "winRate": 0.4803,
+            "netReturnPct": -63.8998,
+            "expectancyBps": -21.02,
+            "profitFactor": 0.4926,
+            "tStat": -5.2331,
+            "maxDrawdownPct": 65.5506
+          },
+          {
+            "fold": 2,
+            "range": [
+              0.2,
+              0.4
+            ],
+            "pass": false,
+            "trades": 375,
+            "winRate": 0.5653,
+            "netReturnPct": -39.5288,
+            "expectancyBps": -10.541,
+            "profitFactor": 0.6662,
+            "tStat": -3.2348,
+            "maxDrawdownPct": 40.2911
+          },
+          {
+            "fold": 3,
+            "range": [
+              0.4,
+              0.6
+            ],
+            "pass": false,
+            "trades": 375,
+            "winRate": 0.5467,
+            "netReturnPct": -36.0563,
+            "expectancyBps": -9.615,
+            "profitFactor": 0.7094,
+            "tStat": -2.7769,
+            "maxDrawdownPct": 36.9468
+          },
+          {
+            "fold": 4,
+            "range": [
+              0.6,
+              0.8
+            ],
+            "pass": false,
+            "trades": 346,
+            "winRate": 0.5723,
+            "netReturnPct": -33.7975,
+            "expectancyBps": -9.768,
+            "profitFactor": 0.6697,
+            "tStat": -3.0126,
+            "maxDrawdownPct": 38.6141
           }
         ]
       }
@@ -1785,31 +1891,137 @@
       "pass": false,
       "score": -1000000000,
       "train": {
-        "trades": 874,
-        "winRate": 0.3066,
-        "netReturnPct": -53.9373,
-        "expectancyBps": -6.171,
-        "profitFactor": 0.8081,
-        "tStat": -2.5482,
-        "maxDrawdownPct": 58.2683
+        "trades": 871,
+        "winRate": 0.3054,
+        "netReturnPct": -55.6466,
+        "expectancyBps": -6.389,
+        "profitFactor": 0.8016,
+        "tStat": -2.6449,
+        "maxDrawdownPct": 59.4717
       },
       "validation": {
-        "trades": 267,
-        "winRate": 0.221,
-        "netReturnPct": -56.1839,
-        "expectancyBps": -21.043,
-        "profitFactor": 0.4155,
-        "tStat": -6.0212,
-        "maxDrawdownPct": 56.5401
+        "trades": 265,
+        "winRate": 0.2264,
+        "netReturnPct": -54.3323,
+        "expectancyBps": -20.503,
+        "profitFactor": 0.4256,
+        "tStat": -5.8217,
+        "maxDrawdownPct": 54.6884
       },
       "holdout": {
-        "trades": 369,
-        "winRate": 0.2764,
-        "netReturnPct": -43.556,
-        "expectancyBps": -11.804,
-        "profitFactor": 0.6432,
-        "tStat": -3.5251,
-        "maxDrawdownPct": 46.7229
+        "trades": 374,
+        "winRate": 0.2754,
+        "netReturnPct": -44.0156,
+        "expectancyBps": -11.769,
+        "profitFactor": 0.6431,
+        "tStat": -3.5492,
+        "maxDrawdownPct": 47.1824
+      },
+      "walkForward": {
+        "positiveFolds": 0,
+        "requiredPositiveFolds": 3,
+        "pass": false,
+        "folds": [
+          {
+            "fold": 1,
+            "range": [
+              0,
+              0.2
+            ],
+            "pass": false,
+            "trades": 265,
+            "winRate": 0.3321,
+            "netReturnPct": -11.9624,
+            "expectancyBps": -4.514,
+            "profitFactor": 0.866,
+            "tStat": -0.9593,
+            "maxDrawdownPct": 20.6868
+          },
+          {
+            "fold": 2,
+            "range": [
+              0.2,
+              0.4
+            ],
+            "pass": false,
+            "trades": 299,
+            "winRate": 0.3211,
+            "netReturnPct": -13.3961,
+            "expectancyBps": -4.48,
+            "profitFactor": 0.8493,
+            "tStat": -1.1553,
+            "maxDrawdownPct": 19.7303
+          },
+          {
+            "fold": 3,
+            "range": [
+              0.4,
+              0.6
+            ],
+            "pass": false,
+            "trades": 307,
+            "winRate": 0.2671,
+            "netReturnPct": -30.2881,
+            "expectancyBps": -9.866,
+            "profitFactor": 0.704,
+            "tStat": -2.4473,
+            "maxDrawdownPct": 31.1344
+          },
+          {
+            "fold": 4,
+            "range": [
+              0.6,
+              0.8
+            ],
+            "pass": false,
+            "trades": 265,
+            "winRate": 0.2264,
+            "netReturnPct": -54.3323,
+            "expectancyBps": -20.503,
+            "profitFactor": 0.4256,
+            "tStat": -5.8217,
+            "maxDrawdownPct": 54.6884
+          }
+        ]
+      }
+    },
+    {
+      "id": "momentum:p20:ta2:sa0.75:tb16",
+      "params": {
+        "family": "momentum",
+        "period": 20,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 16
+      },
+      "pass": false,
+      "score": -1000000000,
+      "train": {
+        "trades": 869,
+        "winRate": 0.2923,
+        "netReturnPct": -50.0077,
+        "expectancyBps": -5.755,
+        "profitFactor": 0.8319,
+        "tStat": -2.2291,
+        "maxDrawdownPct": 51.8359
+      },
+      "validation": {
+        "trades": 264,
+        "winRate": 0.2273,
+        "netReturnPct": -54.0031,
+        "expectancyBps": -20.456,
+        "profitFactor": 0.4525,
+        "tStat": -5.361,
+        "maxDrawdownPct": 54.3592
+      },
+      "holdout": {
+        "trades": 370,
+        "winRate": 0.2541,
+        "netReturnPct": -44.2663,
+        "expectancyBps": -11.964,
+        "profitFactor": 0.6522,
+        "tStat": -3.4015,
+        "maxDrawdownPct": 47.5237
       },
       "walkForward": {
         "positiveFolds": 0,
@@ -1824,12 +2036,12 @@
             ],
             "pass": false,
             "trades": 264,
-            "winRate": 0.3371,
-            "netReturnPct": -10.1262,
-            "expectancyBps": -3.836,
-            "profitFactor": 0.887,
-            "tStat": -0.7977,
-            "maxDrawdownPct": 19.1354
+            "winRate": 0.3068,
+            "netReturnPct": -10.9175,
+            "expectancyBps": -4.135,
+            "profitFactor": 0.8865,
+            "tStat": -0.8143,
+            "maxDrawdownPct": 16.5661
           },
           {
             "fold": 2,
@@ -1838,13 +2050,13 @@
               0.4
             ],
             "pass": false,
-            "trades": 301,
-            "winRate": 0.3223,
-            "netReturnPct": -13.4948,
-            "expectancyBps": -4.483,
-            "profitFactor": 0.8486,
-            "tStat": -1.1635,
-            "maxDrawdownPct": 18.8627
+            "trades": 298,
+            "winRate": 0.2953,
+            "netReturnPct": -15.1235,
+            "expectancyBps": -5.075,
+            "profitFactor": 0.8441,
+            "tStat": -1.2134,
+            "maxDrawdownPct": 19.2655
           },
           {
             "fold": 3,
@@ -1853,13 +2065,13 @@
               0.6
             ],
             "pass": false,
-            "trades": 309,
-            "winRate": 0.2654,
-            "netReturnPct": -30.3163,
-            "expectancyBps": -9.811,
-            "profitFactor": 0.7038,
-            "tStat": -2.4528,
-            "maxDrawdownPct": 31.6685
+            "trades": 307,
+            "winRate": 0.2769,
+            "netReturnPct": -23.9667,
+            "expectancyBps": -7.807,
+            "profitFactor": 0.7702,
+            "tStat": -1.8426,
+            "maxDrawdownPct": 25.4284
           },
           {
             "fold": 4,
@@ -1868,128 +2080,22 @@
               0.8
             ],
             "pass": false,
-            "trades": 267,
-            "winRate": 0.221,
-            "netReturnPct": -56.1839,
-            "expectancyBps": -21.043,
-            "profitFactor": 0.4155,
-            "tStat": -6.0212,
-            "maxDrawdownPct": 56.5401
+            "trades": 264,
+            "winRate": 0.2273,
+            "netReturnPct": -54.0031,
+            "expectancyBps": -20.456,
+            "profitFactor": 0.4525,
+            "tStat": -5.361,
+            "maxDrawdownPct": 54.3592
           }
         ]
       }
     },
     {
-      "id": "breakout:p20:ta2:sa1:tb8",
-      "params": {
-        "family": "breakout",
-        "period": 20,
-        "targetAtr": 2,
-        "stopAtr": 1,
-        "timeoutBars": 8
-      },
-      "pass": false,
-      "score": -1000000000,
-      "train": {
-        "trades": 2338,
-        "winRate": 0.3576,
-        "netReturnPct": -246.8758,
-        "expectancyBps": -10.559,
-        "profitFactor": 0.734,
-        "tStat": -6.2131,
-        "maxDrawdownPct": 246.8788
-      },
-      "validation": {
-        "trades": 814,
-        "winRate": 0.3256,
-        "netReturnPct": -88.3406,
-        "expectancyBps": -10.853,
-        "profitFactor": 0.7286,
-        "tStat": -3.5015,
-        "maxDrawdownPct": 90.0306
-      },
-      "holdout": {
-        "trades": 763,
-        "winRate": 0.3381,
-        "netReturnPct": -90.5463,
-        "expectancyBps": -11.867,
-        "profitFactor": 0.705,
-        "tStat": -4.0512,
-        "maxDrawdownPct": 98.3423
-      },
-      "walkForward": {
-        "positiveFolds": 0,
-        "requiredPositiveFolds": 3,
-        "pass": false,
-        "folds": [
-          {
-            "fold": 1,
-            "range": [
-              0,
-              0.2
-            ],
-            "pass": false,
-            "trades": 744,
-            "winRate": 0.3911,
-            "netReturnPct": -68.228,
-            "expectancyBps": -9.17,
-            "profitFactor": 0.7709,
-            "tStat": -3.011,
-            "maxDrawdownPct": 68.2309
-          },
-          {
-            "fold": 2,
-            "range": [
-              0.2,
-              0.4
-            ],
-            "pass": false,
-            "trades": 798,
-            "winRate": 0.3383,
-            "netReturnPct": -95.0153,
-            "expectancyBps": -11.907,
-            "profitFactor": 0.7086,
-            "tStat": -3.9124,
-            "maxDrawdownPct": 95.8654
-          },
-          {
-            "fold": 3,
-            "range": [
-              0.4,
-              0.6
-            ],
-            "pass": false,
-            "trades": 796,
-            "winRate": 0.3455,
-            "netReturnPct": -83.6326,
-            "expectancyBps": -10.507,
-            "profitFactor": 0.7251,
-            "tStat": -3.8306,
-            "maxDrawdownPct": 84.1422
-          },
-          {
-            "fold": 4,
-            "range": [
-              0.6,
-              0.8
-            ],
-            "pass": false,
-            "trades": 814,
-            "winRate": 0.3256,
-            "netReturnPct": -88.3406,
-            "expectancyBps": -10.853,
-            "profitFactor": 0.7286,
-            "tStat": -3.5015,
-            "maxDrawdownPct": 90.0306
-          }
-        ]
-      }
-    },
-    {
-      "id": "momentum:p20:ta2:sa1:tb8",
+      "id": "momentum:p34:ta2:sa1:tb8",
       "params": {
         "family": "momentum",
-        "period": 20,
+        "period": 34,
         "targetAtr": 2,
         "stopAtr": 1,
         "timeoutBars": 8
@@ -1997,34 +2103,34 @@
       "pass": false,
       "score": -1000000000,
       "train": {
-        "trades": 864,
-        "winRate": 0.3611,
-        "netReturnPct": -47.4161,
-        "expectancyBps": -5.488,
-        "profitFactor": 0.8442,
-        "tStat": -2.0472,
-        "maxDrawdownPct": 52.4289
+        "trades": 633,
+        "winRate": 0.4076,
+        "netReturnPct": -22.3928,
+        "expectancyBps": -3.538,
+        "profitFactor": 0.8942,
+        "tStat": -1.1689,
+        "maxDrawdownPct": 29.1209
       },
       "validation": {
-        "trades": 266,
-        "winRate": 0.2932,
-        "netReturnPct": -54.1024,
-        "expectancyBps": -20.339,
-        "profitFactor": 0.4863,
-        "tStat": -4.8547,
-        "maxDrawdownPct": 55.8559
+        "trades": 200,
+        "winRate": 0.295,
+        "netReturnPct": -39.6066,
+        "expectancyBps": -19.803,
+        "profitFactor": 0.5116,
+        "tStat": -3.7832,
+        "maxDrawdownPct": 42.815
       },
       "holdout": {
-        "trades": 361,
-        "winRate": 0.3324,
-        "netReturnPct": -42.8564,
-        "expectancyBps": -11.872,
-        "profitFactor": 0.6739,
-        "tStat": -3.1454,
-        "maxDrawdownPct": 47.5352
+        "trades": 235,
+        "winRate": 0.3362,
+        "netReturnPct": -28.4337,
+        "expectancyBps": -12.099,
+        "profitFactor": 0.6673,
+        "tStat": -2.5708,
+        "maxDrawdownPct": 32.4389
       },
       "walkForward": {
-        "positiveFolds": 0,
+        "positiveFolds": 1,
         "requiredPositiveFolds": 3,
         "pass": false,
         "folds": [
@@ -2034,14 +2140,14 @@
               0,
               0.2
             ],
-            "pass": false,
-            "trades": 259,
-            "winRate": 0.3977,
-            "netReturnPct": -10.7544,
-            "expectancyBps": -4.152,
-            "profitFactor": 0.8902,
-            "tStat": -0.7904,
-            "maxDrawdownPct": 17.4668
+            "pass": true,
+            "trades": 226,
+            "winRate": 0.4735,
+            "netReturnPct": 6.3395,
+            "expectancyBps": 2.805,
+            "profitFactor": 1.0895,
+            "tStat": 0.5269,
+            "maxDrawdownPct": 8.0276
           },
           {
             "fold": 2,
@@ -2050,13 +2156,13 @@
               0.4
             ],
             "pass": false,
-            "trades": 296,
-            "winRate": 0.3818,
-            "netReturnPct": -6.1471,
-            "expectancyBps": -2.077,
-            "profitFactor": 0.9347,
-            "tStat": -0.4752,
-            "maxDrawdownPct": 16.6261
+            "trades": 210,
+            "winRate": 0.4143,
+            "netReturnPct": -1.4357,
+            "expectancyBps": -0.684,
+            "profitFactor": 0.9773,
+            "tStat": -0.1386,
+            "maxDrawdownPct": 13.7344
           },
           {
             "fold": 3,
@@ -2065,13 +2171,13 @@
               0.6
             ],
             "pass": false,
-            "trades": 309,
-            "winRate": 0.3107,
-            "netReturnPct": -30.5145,
-            "expectancyBps": -9.875,
-            "profitFactor": 0.7284,
-            "tStat": -2.2479,
-            "maxDrawdownPct": 32.2838
+            "trades": 197,
+            "winRate": 0.3249,
+            "netReturnPct": -27.2966,
+            "expectancyBps": -13.856,
+            "profitFactor": 0.6482,
+            "tStat": -2.568,
+            "maxDrawdownPct": 29.1993
           },
           {
             "fold": 4,
@@ -2080,119 +2186,13 @@
               0.8
             ],
             "pass": false,
-            "trades": 266,
-            "winRate": 0.2932,
-            "netReturnPct": -54.1024,
-            "expectancyBps": -20.339,
-            "profitFactor": 0.4863,
-            "tStat": -4.8547,
-            "maxDrawdownPct": 55.8559
-          }
-        ]
-      }
-    },
-    {
-      "id": "breakout:p20:ta2:sa0.75:tb16",
-      "params": {
-        "family": "breakout",
-        "period": 20,
-        "targetAtr": 2,
-        "stopAtr": 0.75,
-        "timeoutBars": 16
-      },
-      "pass": false,
-      "score": -1000000000,
-      "train": {
-        "trades": 2433,
-        "winRate": 0.2746,
-        "netReturnPct": -259.2439,
-        "expectancyBps": -10.655,
-        "profitFactor": 0.7179,
-        "tStat": -6.771,
-        "maxDrawdownPct": 263.4285
-      },
-      "validation": {
-        "trades": 860,
-        "winRate": 0.2698,
-        "netReturnPct": -78.7755,
-        "expectancyBps": -9.16,
-        "profitFactor": 0.7475,
-        "tStat": -3.2555,
-        "maxDrawdownPct": 87.4216
-      },
-      "holdout": {
-        "trades": 791,
-        "winRate": 0.2642,
-        "netReturnPct": -95.0859,
-        "expectancyBps": -12.021,
-        "profitFactor": 0.6747,
-        "tStat": -4.5925,
-        "maxDrawdownPct": 103.7361
-      },
-      "walkForward": {
-        "positiveFolds": 0,
-        "requiredPositiveFolds": 3,
-        "pass": false,
-        "folds": [
-          {
-            "fold": 1,
-            "range": [
-              0,
-              0.2
-            ],
-            "pass": false,
-            "trades": 776,
-            "winRate": 0.2874,
-            "netReturnPct": -87.9226,
-            "expectancyBps": -11.33,
-            "profitFactor": 0.7177,
-            "tStat": -3.9023,
-            "maxDrawdownPct": 87.9226
-          },
-          {
-            "fold": 2,
-            "range": [
-              0.2,
-              0.4
-            ],
-            "pass": false,
-            "trades": 834,
-            "winRate": 0.2614,
-            "netReturnPct": -94.8907,
-            "expectancyBps": -11.378,
-            "profitFactor": 0.7002,
-            "tStat": -4.1543,
-            "maxDrawdownPct": 95.7409
-          },
-          {
-            "fold": 3,
-            "range": [
-              0.4,
-              0.6
-            ],
-            "pass": false,
-            "trades": 823,
-            "winRate": 0.2758,
-            "netReturnPct": -76.4305,
-            "expectancyBps": -9.287,
-            "profitFactor": 0.7374,
-            "tStat": -3.6541,
-            "maxDrawdownPct": 81.0384
-          },
-          {
-            "fold": 4,
-            "range": [
-              0.6,
-              0.8
-            ],
-            "pass": false,
-            "trades": 860,
-            "winRate": 0.2698,
-            "netReturnPct": -78.7755,
-            "expectancyBps": -9.16,
-            "profitFactor": 0.7475,
-            "tStat": -3.2555,
-            "maxDrawdownPct": 87.4216
+            "trades": 200,
+            "winRate": 0.295,
+            "netReturnPct": -39.6066,
+            "expectancyBps": -19.803,
+            "profitFactor": 0.5116,
+            "tStat": -3.7832,
+            "maxDrawdownPct": 42.815
           }
         ]
       }
