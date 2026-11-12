@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-11-12T07:45:02.219Z",
+  "completedAt": "2026-11-12T17:06:01.633Z",
   "methodology": {
     "selectionUsesHoldout": false,
     "selectionInputs": [
@@ -21,15 +21,335 @@
     "emptyQueueHandoff": true,
     "barsPerMarket": 12000
   },
-  "queueMode": "EMPTY_QUEUE_DISCOVERY_HANDOFF",
-  "sourceQueueCompletedAt": "2026-11-12T07:45:02.161Z",
-  "tested": 0,
-  "controls": 0,
+  "queueMode": "P2_DEEPENING",
+  "sourceQueueCompletedAt": "2026-11-12T17:05:58.629Z",
+  "tested": 5,
+  "controls": 1,
   "promotableToAudit": 0,
-  "verdict": "NO_QUEUE_DISCOVERY_REQUIRED",
-  "bestMutation": null,
-  "control": null,
-  "controlSet": [],
+  "verdict": "NO_ADAPTIVE_EDGE_FOUND",
+  "bestMutation": {
+    "id": "failed_breakout:SOLUSDT:1h:ASIA:p16:ta1:sa0.75:tb8",
+    "role": "MUTATION",
+    "hypothesisKey": "failed_breakout:SOLUSDT:1h:ASIA",
+    "parentVariant": "failed_breakout:SOLUSDT:1h:ASIA:p20:ta1:sa0.75:tb8",
+    "priority": "P2",
+    "market": {
+      "pair": "SOLUSDT",
+      "tf": "1h"
+    },
+    "spec": {
+      "family": "failed_breakout",
+      "period": 16,
+      "targetAtr": 1,
+      "stopAtr": 0.75,
+      "timeoutBars": 8,
+      "session": "ASIA"
+    },
+    "researchStatus": "REJECT",
+    "selectionScore": -28.59,
+    "train": {
+      "trades": 46,
+      "expectancyBps": -53.96,
+      "profitFactor": 0.361,
+      "tStat": -3.052,
+      "maxDrawdownPct": 24.82
+    },
+    "validation": {
+      "trades": 16,
+      "expectancyBps": -29.26,
+      "profitFactor": 0.466,
+      "tStat": -1.402,
+      "maxDrawdownPct": 7
+    },
+    "walkForward": {
+      "positiveFolds": 0,
+      "requiredPositiveFolds": 3,
+      "pass": false
+    }
+  },
+  "control": {
+    "id": "failed_breakout:SOLUSDT:1h:ASIA:p20:ta1:sa0.75:tb8:control",
+    "role": "CONTROL",
+    "hypothesisKey": "failed_breakout:SOLUSDT:1h:ASIA",
+    "parentVariant": "failed_breakout:SOLUSDT:1h:ASIA:p20:ta1:sa0.75:tb8",
+    "priority": "P2",
+    "market": {
+      "pair": "SOLUSDT",
+      "tf": "1h"
+    },
+    "spec": {
+      "family": "failed_breakout",
+      "period": 20,
+      "targetAtr": 1,
+      "stopAtr": 0.75,
+      "timeoutBars": 8,
+      "session": "ASIA"
+    },
+    "researchStatus": "REJECT",
+    "selectionScore": -30.16,
+    "train": {
+      "trades": 42,
+      "expectancyBps": -54.99,
+      "profitFactor": 0.36,
+      "tStat": -2.907,
+      "maxDrawdownPct": 23.1
+    },
+    "validation": {
+      "trades": 14,
+      "expectancyBps": -32.1,
+      "profitFactor": 0.443,
+      "tStat": -1.394,
+      "maxDrawdownPct": 6.31
+    },
+    "walkForward": {
+      "positiveFolds": 0,
+      "requiredPositiveFolds": 3,
+      "pass": false
+    }
+  },
+  "controlSet": [
+    {
+      "id": "failed_breakout:SOLUSDT:1h:ASIA:p20:ta1:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "failed_breakout:SOLUSDT:1h:ASIA",
+      "parentVariant": "failed_breakout:SOLUSDT:1h:ASIA:p20:ta1:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "SOLUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 20,
+        "targetAtr": 1,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -30.16,
+      "train": {
+        "trades": 42,
+        "expectancyBps": -54.99,
+        "profitFactor": 0.36,
+        "tStat": -2.907,
+        "maxDrawdownPct": 23.1
+      },
+      "validation": {
+        "trades": 14,
+        "expectancyBps": -32.1,
+        "profitFactor": 0.443,
+        "tStat": -1.394,
+        "maxDrawdownPct": 6.31
+      },
+      "walkForward": {
+        "positiveFolds": 0,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    }
+  ],
   "auditQueue": [],
-  "top": []
+  "top": [
+    {
+      "id": "failed_breakout:SOLUSDT:1h:ASIA:p16:ta1:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "failed_breakout:SOLUSDT:1h:ASIA",
+      "parentVariant": "failed_breakout:SOLUSDT:1h:ASIA:p20:ta1:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "SOLUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 16,
+        "targetAtr": 1,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -28.59,
+      "train": {
+        "trades": 46,
+        "expectancyBps": -53.96,
+        "profitFactor": 0.361,
+        "tStat": -3.052,
+        "maxDrawdownPct": 24.82
+      },
+      "validation": {
+        "trades": 16,
+        "expectancyBps": -29.26,
+        "profitFactor": 0.466,
+        "tStat": -1.402,
+        "maxDrawdownPct": 7
+      },
+      "walkForward": {
+        "positiveFolds": 0,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:SOLUSDT:1h:ASIA:p20:ta1:sa0.75:tb6",
+      "role": "MUTATION",
+      "hypothesisKey": "failed_breakout:SOLUSDT:1h:ASIA",
+      "parentVariant": "failed_breakout:SOLUSDT:1h:ASIA:p20:ta1:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "SOLUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 20,
+        "targetAtr": 1,
+        "stopAtr": 0.75,
+        "timeoutBars": 6,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -29.86,
+      "train": {
+        "trades": 42,
+        "expectancyBps": -48.83,
+        "profitFactor": 0.4,
+        "tStat": -2.568,
+        "maxDrawdownPct": 20.51
+      },
+      "validation": {
+        "trades": 14,
+        "expectancyBps": -32.1,
+        "profitFactor": 0.443,
+        "tStat": -1.394,
+        "maxDrawdownPct": 6.31
+      },
+      "walkForward": {
+        "positiveFolds": 0,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:SOLUSDT:1h:ASIA:p20:ta1:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "failed_breakout:SOLUSDT:1h:ASIA",
+      "parentVariant": "failed_breakout:SOLUSDT:1h:ASIA:p20:ta1:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "SOLUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 20,
+        "targetAtr": 1,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -30.16,
+      "train": {
+        "trades": 42,
+        "expectancyBps": -54.99,
+        "profitFactor": 0.36,
+        "tStat": -2.907,
+        "maxDrawdownPct": 23.1
+      },
+      "validation": {
+        "trades": 14,
+        "expectancyBps": -32.1,
+        "profitFactor": 0.443,
+        "tStat": -1.394,
+        "maxDrawdownPct": 6.31
+      },
+      "walkForward": {
+        "positiveFolds": 0,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:SOLUSDT:1h:ASIA:p20:ta0.75:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "failed_breakout:SOLUSDT:1h:ASIA",
+      "parentVariant": "failed_breakout:SOLUSDT:1h:ASIA:p20:ta1:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "SOLUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 20,
+        "targetAtr": 0.75,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -30.73,
+      "train": {
+        "trades": 42,
+        "expectancyBps": -52.45,
+        "profitFactor": 0.344,
+        "tStat": -2.947,
+        "maxDrawdownPct": 22.34
+      },
+      "validation": {
+        "trades": 14,
+        "expectancyBps": -33.15,
+        "profitFactor": 0.385,
+        "tStat": -1.64,
+        "maxDrawdownPct": 6.25
+      },
+      "walkForward": {
+        "positiveFolds": 0,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "failed_breakout:SOLUSDT:1h:ASIA:p20:ta1.25:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "failed_breakout:SOLUSDT:1h:ASIA",
+      "parentVariant": "failed_breakout:SOLUSDT:1h:ASIA:p20:ta1:sa0.75:tb8",
+      "priority": "P2",
+      "market": {
+        "pair": "SOLUSDT",
+        "tf": "1h"
+      },
+      "spec": {
+        "family": "failed_breakout",
+        "period": 20,
+        "targetAtr": 1.25,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ASIA"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -32.78,
+      "train": {
+        "trades": 42,
+        "expectancyBps": -57.36,
+        "profitFactor": 0.354,
+        "tStat": -2.925,
+        "maxDrawdownPct": 24.09
+      },
+      "validation": {
+        "trades": 14,
+        "expectancyBps": -36.87,
+        "profitFactor": 0.36,
+        "tStat": -1.861,
+        "maxDrawdownPct": 7.5
+      },
+      "walkForward": {
+        "positiveFolds": 0,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    }
+  ]
 }
