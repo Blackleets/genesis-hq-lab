@@ -6,20 +6,20 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-11-15T07:13:31.237Z",
+  "completedAt": "2026-11-15T15:53:59.827Z",
   "discoveryStatus": "FORWARD_EVIDENCE_ACCUMULATING",
   "objective": "REPRODUCIBLE_POSITIVE_NET_EXPECTANCY",
   "fastResearch": {
     "verdict": "PAPER_CANDIDATE_FOUND",
-    "tested": 1389,
+    "tested": 1268,
     "paperCandidates": 4,
     "researchPoolSize": 120,
     "proofStatus": "HYPOTHESIS_ONLY"
   },
   "deepResearch": {
-    "verdict": "NO_QUEUE_DISCOVERY_REQUIRED",
+    "verdict": "NO_ADAPTIVE_EDGE_FOUND",
     "promotableToAudit": 0,
-    "currentDeepRejectedFamily": null
+    "currentDeepRejectedFamily": "trend_pullback:AVAXUSDT:30m:LONDON_NY"
   },
   "audit": {
     "verdict": "NO_NEW_AUDIT_CANDIDATES",
@@ -78,10 +78,10 @@
       {
         "familyKey": "failed_breakout:AVAXUSDT:1h:ASIA",
         "championId": "failed_breakout:AVAXUSDT:1h:ASIA:p30:ta1.5:sa0.75:tb8",
-        "trades": 10,
-        "expectancyBps": 40.4,
-        "profitFactor": 1.636,
-        "tStat": 0.633,
+        "trades": 11,
+        "expectancyBps": 56.47,
+        "profitFactor": 1.978,
+        "tStat": 0.942,
         "maxDrawdownPct": 3.92,
         "status": "FORWARD_SAMPLE_BUILDING",
         "proven": false,
@@ -90,13 +90,46 @@
     ]
   },
   "hypothesisGovernance": {
-    "rawQueueSize": 0,
+    "rawQueueSize": 5,
     "governedQueueSize": 0,
     "familyCount": 0,
-    "suppressedCount": 0,
-    "suppressed": []
+    "suppressedCount": 5,
+    "suppressed": [
+      {
+        "id": "trend_pullback:AVAXUSDT:30m:LONDON_NY:p20:ta1.5:sa0.75:tb8:control",
+        "hypothesisKey": "trend_pullback:AVAXUSDT:30m:LONDON_NY",
+        "reason": "DEEP_REJECTED"
+      },
+      {
+        "id": "trend_pullback:AVAXUSDT:30m:LONDON_NY:p16:ta1.5:sa0.75:tb8",
+        "hypothesisKey": "trend_pullback:AVAXUSDT:30m:LONDON_NY",
+        "reason": "DEEP_REJECTED"
+      },
+      {
+        "id": "trend_pullback:AVAXUSDT:30m:LONDON_NY:p20:ta1.25:sa0.75:tb8",
+        "hypothesisKey": "trend_pullback:AVAXUSDT:30m:LONDON_NY",
+        "reason": "DEEP_REJECTED"
+      },
+      {
+        "id": "trend_pullback:AVAXUSDT:30m:LONDON_NY:p20:ta1.5:sa0.75:tb6",
+        "hypothesisKey": "trend_pullback:AVAXUSDT:30m:LONDON_NY",
+        "reason": "DEEP_REJECTED"
+      },
+      {
+        "id": "trend_pullback:AVAXUSDT:30m:LONDON_NY:p20:ta1.75:sa0.75:tb8",
+        "hypothesisKey": "trend_pullback:AVAXUSDT:30m:LONDON_NY",
+        "reason": "DEEP_REJECTED"
+      }
+    ]
   },
-  "contradictions": [],
+  "contradictions": [
+    {
+      "type": "SHORT_WINDOW_VS_DEEP_RETEST",
+      "severity": "HIGH",
+      "action": "DO_NOT_PROMOTE_FROM_FAST_FACTORY",
+      "explanation": "Fast research found candidates while the deeper adaptive retest found no promotable edge. Treat fast candidates as hypotheses only."
+    }
+  ],
   "decision": "CONTINUE_DISCOVERY_AND_ACCUMULATE_FORWARD_EVIDENCE",
   "invariants": {
     "changesV9": false,
