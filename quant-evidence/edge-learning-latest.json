@@ -5,13 +5,13 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-11-15T00:18:24.712Z",
+  "completedAt": "2026-11-15T07:13:30.046Z",
   "summary": {
     "hypotheses": 432,
     "paperCandidates": 4,
     "interesting": 72,
-    "regimeDivergence": 284,
-    "killed": 187
+    "regimeDivergence": 285,
+    "killed": 339
   },
   "rules": [
     {
@@ -89,7 +89,7 @@
       "action": "MUTATE_AND_RETEST"
     },
     {
-      "hypothesisKey": "failed_breakout:BTCUSDT:1h:ASIA",
+      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:NY",
       "total": 4,
       "interesting": 4,
       "regimeDivergence": 0,
@@ -99,7 +99,7 @@
       "action": "MUTATE_AND_RETEST"
     },
     {
-      "hypothesisKey": "volatility_squeeze:SOLUSDT:4h:NY",
+      "hypothesisKey": "failed_breakout:BTCUSDT:1h:ASIA",
       "total": 4,
       "interesting": 4,
       "regimeDivergence": 0,
@@ -155,18 +155,6 @@
       "action": "MUTATE_AND_RETEST"
     },
     {
-      "hypothesisKey": "failed_breakout:SOLUSDT:30m:ASIA",
-      "total": 4,
-      "interesting": 2,
-      "regimeDivergence": 1,
-      "paper": 0,
-      "reasons": {
-        "NEGATIVE_TRAIN_EXPECTANCY": 2
-      },
-      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
-      "action": "MUTATE_AND_RETEST"
-    },
-    {
       "hypothesisKey": "volatility_squeeze:AVAXUSDT:4h:ALL",
       "total": 4,
       "interesting": 2,
@@ -174,7 +162,19 @@
       "paper": 0,
       "reasons": {
         "NEGATIVE_TRAIN_EXPECTANCY": 1,
-        "NEGATIVE_VALIDATION_EXPECTANCY": 1
+        "THREE_FAILED_GENERATIONS": 1
+      },
+      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
+      "action": "MUTATE_AND_RETEST"
+    },
+    {
+      "hypothesisKey": "failed_breakout:SOLUSDT:30m:ASIA",
+      "total": 4,
+      "interesting": 2,
+      "regimeDivergence": 1,
+      "paper": 0,
+      "reasons": {
+        "NEGATIVE_TRAIN_EXPECTANCY": 2
       },
       "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
@@ -199,8 +199,7 @@
       "regimeDivergence": 0,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_VALIDATION_EXPECTANCY": 1,
-        "THREE_FAILED_GENERATIONS": 1
+        "NEGATIVE_VALIDATION_EXPECTANCY": 2
       },
       "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
@@ -249,9 +248,9 @@
       "regimeDivergence": 0,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_VALIDATION_EXPECTANCY": 2
+        "THREE_FAILED_GENERATIONS": 2
       },
-      "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
+      "dominantFailure": "THREE_FAILED_GENERATIONS",
       "action": "MUTATE_AND_RETEST"
     },
     {
