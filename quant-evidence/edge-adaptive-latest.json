@@ -6,7 +6,7 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-11-16T07:18:33.913Z",
+  "completedAt": "2026-11-16T18:56:32.819Z",
   "methodology": {
     "selectionUsesHoldout": false,
     "selectionInputs": [
@@ -21,15 +21,335 @@
     "emptyQueueHandoff": true,
     "barsPerMarket": 12000
   },
-  "queueMode": "EMPTY_QUEUE_DISCOVERY_HANDOFF",
-  "sourceQueueCompletedAt": "2026-11-16T07:18:33.861Z",
-  "tested": 0,
-  "controls": 0,
+  "queueMode": "HIGH_PRIORITY",
+  "sourceQueueCompletedAt": "2026-11-16T18:56:29.435Z",
+  "tested": 5,
+  "controls": 1,
   "promotableToAudit": 0,
-  "verdict": "NO_QUEUE_DISCOVERY_REQUIRED",
-  "bestMutation": null,
-  "control": null,
-  "controlSet": [],
+  "verdict": "NO_ADAPTIVE_EDGE_FOUND",
+  "bestMutation": {
+    "id": "trend_pullback:ADAUSDT:4h:ALL:p20:ta2.25:sa0.75:tb8",
+    "role": "MUTATION",
+    "hypothesisKey": "trend_pullback:ADAUSDT:4h:ALL",
+    "parentVariant": "trend_pullback:ADAUSDT:4h:ALL:p20:ta2:sa0.75:tb8",
+    "priority": "P1",
+    "market": {
+      "pair": "ADAUSDT",
+      "tf": "4h"
+    },
+    "spec": {
+      "family": "trend_pullback",
+      "period": 20,
+      "targetAtr": 2.25,
+      "stopAtr": 0.75,
+      "timeoutBars": 8,
+      "session": "ALL"
+    },
+    "researchStatus": "REJECT",
+    "selectionScore": 11.59,
+    "train": {
+      "trades": 195,
+      "expectancyBps": -4.67,
+      "profitFactor": 0.968,
+      "tStat": -0.187,
+      "maxDrawdownPct": 90.9
+    },
+    "validation": {
+      "trades": 64,
+      "expectancyBps": 4.07,
+      "profitFactor": 1.026,
+      "tStat": 0.08,
+      "maxDrawdownPct": 36.11
+    },
+    "walkForward": {
+      "positiveFolds": 2,
+      "requiredPositiveFolds": 3,
+      "pass": false
+    }
+  },
+  "control": {
+    "id": "trend_pullback:ADAUSDT:4h:ALL:p20:ta2:sa0.75:tb8:control",
+    "role": "CONTROL",
+    "hypothesisKey": "trend_pullback:ADAUSDT:4h:ALL",
+    "parentVariant": "trend_pullback:ADAUSDT:4h:ALL:p20:ta2:sa0.75:tb8",
+    "priority": "P1",
+    "market": {
+      "pair": "ADAUSDT",
+      "tf": "4h"
+    },
+    "spec": {
+      "family": "trend_pullback",
+      "period": 20,
+      "targetAtr": 2,
+      "stopAtr": 0.75,
+      "timeoutBars": 8,
+      "session": "ALL"
+    },
+    "researchStatus": "REJECT",
+    "selectionScore": -2.43,
+    "train": {
+      "trades": 197,
+      "expectancyBps": -2.51,
+      "profitFactor": 0.982,
+      "tStat": -0.104,
+      "maxDrawdownPct": 75.67
+    },
+    "validation": {
+      "trades": 64,
+      "expectancyBps": -12.37,
+      "profitFactor": 0.922,
+      "tStat": -0.263,
+      "maxDrawdownPct": 39.64
+    },
+    "walkForward": {
+      "positiveFolds": 1,
+      "requiredPositiveFolds": 3,
+      "pass": false
+    }
+  },
+  "controlSet": [
+    {
+      "id": "trend_pullback:ADAUSDT:4h:ALL:p20:ta2:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "trend_pullback:ADAUSDT:4h:ALL",
+      "parentVariant": "trend_pullback:ADAUSDT:4h:ALL:p20:ta2:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "ADAUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -2.43,
+      "train": {
+        "trades": 197,
+        "expectancyBps": -2.51,
+        "profitFactor": 0.982,
+        "tStat": -0.104,
+        "maxDrawdownPct": 75.67
+      },
+      "validation": {
+        "trades": 64,
+        "expectancyBps": -12.37,
+        "profitFactor": 0.922,
+        "tStat": -0.263,
+        "maxDrawdownPct": 39.64
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    }
+  ],
   "auditQueue": [],
-  "top": []
+  "top": [
+    {
+      "id": "trend_pullback:ADAUSDT:4h:ALL:p20:ta2.25:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "trend_pullback:ADAUSDT:4h:ALL",
+      "parentVariant": "trend_pullback:ADAUSDT:4h:ALL:p20:ta2:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "ADAUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 2.25,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 11.59,
+      "train": {
+        "trades": 195,
+        "expectancyBps": -4.67,
+        "profitFactor": 0.968,
+        "tStat": -0.187,
+        "maxDrawdownPct": 90.9
+      },
+      "validation": {
+        "trades": 64,
+        "expectancyBps": 4.07,
+        "profitFactor": 1.026,
+        "tStat": 0.08,
+        "maxDrawdownPct": 36.11
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "trend_pullback:ADAUSDT:4h:ALL:p20:ta2:sa0.75:tb6",
+      "role": "MUTATION",
+      "hypothesisKey": "trend_pullback:ADAUSDT:4h:ALL",
+      "parentVariant": "trend_pullback:ADAUSDT:4h:ALL:p20:ta2:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "ADAUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 6,
+        "session": "ALL"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": 2.2,
+      "train": {
+        "trades": 199,
+        "expectancyBps": -0.35,
+        "profitFactor": 0.997,
+        "tStat": -0.015,
+        "maxDrawdownPct": 64.39
+      },
+      "validation": {
+        "trades": 67,
+        "expectancyBps": -14.02,
+        "profitFactor": 0.907,
+        "tStat": -0.328,
+        "maxDrawdownPct": 38.38
+      },
+      "walkForward": {
+        "positiveFolds": 2,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "trend_pullback:ADAUSDT:4h:ALL:p20:ta2:sa0.75:tb8:control",
+      "role": "CONTROL",
+      "hypothesisKey": "trend_pullback:ADAUSDT:4h:ALL",
+      "parentVariant": "trend_pullback:ADAUSDT:4h:ALL:p20:ta2:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "ADAUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -2.43,
+      "train": {
+        "trades": 197,
+        "expectancyBps": -2.51,
+        "profitFactor": 0.982,
+        "tStat": -0.104,
+        "maxDrawdownPct": 75.67
+      },
+      "validation": {
+        "trades": 64,
+        "expectancyBps": -12.37,
+        "profitFactor": 0.922,
+        "tStat": -0.263,
+        "maxDrawdownPct": 39.64
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "trend_pullback:ADAUSDT:4h:ALL:p16:ta2:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "trend_pullback:ADAUSDT:4h:ALL",
+      "parentVariant": "trend_pullback:ADAUSDT:4h:ALL:p20:ta2:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "ADAUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 16,
+        "targetAtr": 2,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -2.43,
+      "train": {
+        "trades": 197,
+        "expectancyBps": -2.51,
+        "profitFactor": 0.982,
+        "tStat": -0.104,
+        "maxDrawdownPct": 75.67
+      },
+      "validation": {
+        "trades": 64,
+        "expectancyBps": -12.37,
+        "profitFactor": 0.922,
+        "tStat": -0.263,
+        "maxDrawdownPct": 39.64
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    },
+    {
+      "id": "trend_pullback:ADAUSDT:4h:ALL:p20:ta1.75:sa0.75:tb8",
+      "role": "MUTATION",
+      "hypothesisKey": "trend_pullback:ADAUSDT:4h:ALL",
+      "parentVariant": "trend_pullback:ADAUSDT:4h:ALL:p20:ta2:sa0.75:tb8",
+      "priority": "P1",
+      "market": {
+        "pair": "ADAUSDT",
+        "tf": "4h"
+      },
+      "spec": {
+        "family": "trend_pullback",
+        "period": 20,
+        "targetAtr": 1.75,
+        "stopAtr": 0.75,
+        "timeoutBars": 8,
+        "session": "ALL"
+      },
+      "researchStatus": "REJECT",
+      "selectionScore": -10.07,
+      "train": {
+        "trades": 198,
+        "expectancyBps": -13.98,
+        "profitFactor": 0.901,
+        "tStat": -0.625,
+        "maxDrawdownPct": 85.73
+      },
+      "validation": {
+        "trades": 65,
+        "expectancyBps": -21.05,
+        "profitFactor": 0.866,
+        "tStat": -0.491,
+        "maxDrawdownPct": 43.16
+      },
+      "walkForward": {
+        "positiveFolds": 1,
+        "requiredPositiveFolds": 3,
+        "pass": false
+      }
+    }
+  ]
 }
