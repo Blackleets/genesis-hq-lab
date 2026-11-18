@@ -1,54 +1,71 @@
 {
-  "ts": "2026-11-17T19:55:23.645Z",
+  "ts": "2026-11-18T02:22:03.194Z",
   "liveOff": true,
   "paper": true,
   "go": false,
   "hz": 1,
   "tickers": 530,
-  "preQuote": 9,
+  "preQuote": 10,
   "full": 4,
   "quoted": 0,
   "quotedNames": [],
   "filled": 0,
   "paperPnl": 0,
   "reasons": {
-    "TAPE_PENDING": 4
+    "TAPE_PENDING": 1,
+    "VPIN_HALT": 2,
+    "WOULD_CROSS": 1
   },
-  "ms": 911,
+  "ms": 1294,
   "scored": [
     {
+      "symbol": "CSOPSKHYNIX2L-USDT-SWAP",
+      "preH": 0.1444641799881614,
+      "spread": 11.841326228537605,
+      "quote": false,
+      "reason": "TAPE_PENDING"
+    },
+    {
+      "symbol": "KSTR-USDT-SWAP",
+      "preH": 0.16914830256120617,
+      "spread": 11.911852293032018,
+      "quote": false,
+      "reason": "VPIN_HALT",
+      "harvestBps": null,
+      "vpin": 0.7693,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "VPIN_HALT"
+    },
+    {
+      "symbol": "HOME-USDT-SWAP",
+      "preH": 0.10942820241852491,
+      "spread": 11.7412234354815,
+      "quote": false,
+      "reason": "VPIN_HALT",
+      "harvestBps": null,
+      "vpin": 0.8334,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "VPIN_HALT"
+    },
+    {
       "symbol": "SOPH-USDT-SWAP",
-      "preH": 0.0206777713958477,
-      "spread": 11.487650775416707,
+      "preH": -0.024985803521061722,
+      "spread": 11.357183418511253,
       "quote": false,
-      "reason": "TAPE_PENDING"
-    },
-    {
-      "symbol": "ASTS-USDT-SWAP",
-      "preH": -0.20596205962045255,
-      "spread": 10.840108401084422,
-      "quote": false,
-      "reason": "TAPE_PENDING"
-    },
-    {
-      "symbol": "FARTCOIN-USDT-SWAP",
-      "preH": -0.10894941634230149,
-      "spread": 11.11728738187914,
-      "quote": false,
-      "reason": "TAPE_PENDING"
-    },
-    {
-      "symbol": "SENT-USDT-SWAP",
-      "preH": -0.19565217391319845,
-      "spread": 10.869565217390862,
-      "quote": false,
-      "reason": "TAPE_PENDING"
+      "reason": "WOULD_CROSS",
+      "harvestBps": -0.025,
+      "vpin": 0.6232,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "WOULD_CROSS"
     }
   ],
   "intersection": {
-    "liquid": 252,
-    "hGe": 9,
-    "band": 151,
+    "liquid": 255,
+    "hGe": 10,
+    "band": 164,
     "both": 0
   },
   "formula": "H=spread*0.35-4bps; width is a toxicity prior. Kalman+VPIN+GLFT. not a GO."
