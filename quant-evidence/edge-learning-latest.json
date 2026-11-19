@@ -5,15 +5,27 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-11-19T02:00:43.114Z",
+  "completedAt": "2026-11-19T13:55:26.315Z",
   "summary": {
     "hypotheses": 432,
-    "paperCandidates": 5,
-    "interesting": 68,
-    "regimeDivergence": 293,
-    "killed": 379
+    "paperCandidates": 6,
+    "interesting": 67,
+    "regimeDivergence": 295,
+    "killed": 192
   },
   "rules": [
+    {
+      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+      "total": 4,
+      "interesting": 0,
+      "regimeDivergence": 1,
+      "paper": 3,
+      "reasons": {
+        "NEGATIVE_TRAIN_EXPECTANCY": 1
+      },
+      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
+      "action": "PROMOTE_TO_FORWARD_PAPER"
+    },
     {
       "hypothesisKey": "opening_range_breakout:ADAUSDT:4h:LONDON",
       "total": 4,
@@ -25,25 +37,13 @@
       "action": "PROMOTE_TO_FORWARD_PAPER"
     },
     {
-      "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:ASIA",
+      "hypothesisKey": "failed_breakout:SOLUSDT:30m:ALL",
       "total": 4,
       "interesting": 1,
       "regimeDivergence": 1,
-      "paper": 2,
-      "reasons": {
-        "NEGATIVE_TRAIN_EXPECTANCY": 1
-      },
-      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
-      "action": "PROMOTE_TO_FORWARD_PAPER"
-    },
-    {
-      "hypothesisKey": "failed_breakout:SOLUSDT:30m:ALL",
-      "total": 4,
-      "interesting": 2,
-      "regimeDivergence": 0,
       "paper": 1,
       "reasons": {
-        "NEGATIVE_TRAIN_EXPECTANCY": 1
+        "NEGATIVE_TRAIN_EXPECTANCY": 2
       },
       "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
       "action": "PROMOTE_TO_FORWARD_PAPER"
@@ -198,38 +198,37 @@
       "paper": 0,
       "reasons": {
         "NEGATIVE_TRAIN_EXPECTANCY": 1,
-        "NEGATIVE_HOLDOUT_EXPECTANCY": 1
+        "THREE_FAILED_GENERATIONS": 1
       },
       "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
     },
     {
-      "hypothesisKey": "volatility_squeeze:AVAXUSDT:4h:ALL",
-      "total": 4,
-      "interesting": 2,
-      "regimeDivergence": 1,
-      "paper": 0,
-      "reasons": {
-        "NEGATIVE_TRAIN_EXPECTANCY": 1,
-        "NEGATIVE_VALIDATION_EXPECTANCY": 1
-      },
-      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
-      "action": "MUTATE_AND_RETEST"
-    },
-    {
-      "hypothesisKey": "failed_breakout:BTCUSDT:1h:ASIA",
+      "hypothesisKey": "failed_breakout:AVAXUSDT:1h:ASIA",
       "total": 4,
       "interesting": 2,
       "regimeDivergence": 0,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_HOLDOUT_EXPECTANCY": 2
+        "INSUFFICIENT_SAMPLE": 2
       },
-      "dominantFailure": "NEGATIVE_HOLDOUT_EXPECTANCY",
+      "dominantFailure": "INSUFFICIENT_SAMPLE",
       "action": "MUTATE_AND_RETEST"
     },
     {
       "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:NY",
+      "total": 4,
+      "interesting": 2,
+      "regimeDivergence": 0,
+      "paper": 0,
+      "reasons": {
+        "NEGATIVE_VALIDATION_EXPECTANCY": 2
+      },
+      "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
+      "action": "MUTATE_AND_RETEST"
+    },
+    {
+      "hypothesisKey": "failed_breakout:BTCUSDT:1h:ASIA",
       "total": 4,
       "interesting": 2,
       "regimeDivergence": 0,
@@ -272,22 +271,23 @@
       "regimeDivergence": 2,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_TRAIN_EXPECTANCY": 3
+        "NEGATIVE_TRAIN_EXPECTANCY": 2,
+        "THREE_FAILED_GENERATIONS": 1
       },
       "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
     },
     {
-      "hypothesisKey": "opening_range_breakout:ETHUSDT:4h:NY",
+      "hypothesisKey": "volatility_squeeze:AVAXUSDT:4h:ALL",
       "total": 4,
       "interesting": 1,
-      "regimeDivergence": 1,
+      "regimeDivergence": 2,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_TRAIN_EXPECTANCY": 1,
-        "NEGATIVE_VALIDATION_EXPECTANCY": 2
+        "NEGATIVE_TRAIN_EXPECTANCY": 2,
+        "NEGATIVE_VALIDATION_EXPECTANCY": 1
       },
-      "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
+      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
     }
   ]
