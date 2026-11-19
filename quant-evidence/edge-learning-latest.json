@@ -5,13 +5,13 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-11-18T17:34:43.579Z",
+  "completedAt": "2026-11-19T02:00:43.114Z",
   "summary": {
     "hypotheses": 432,
     "paperCandidates": 5,
-    "interesting": 72,
-    "regimeDivergence": 291,
-    "killed": 440
+    "interesting": 68,
+    "regimeDivergence": 293,
+    "killed": 379
   },
   "rules": [
     {
@@ -37,13 +37,13 @@
       "action": "PROMOTE_TO_FORWARD_PAPER"
     },
     {
-      "hypothesisKey": "failed_breakout:AVAXUSDT:1h:ALL",
+      "hypothesisKey": "failed_breakout:SOLUSDT:30m:ALL",
       "total": 4,
-      "interesting": 1,
-      "regimeDivergence": 2,
+      "interesting": 2,
+      "regimeDivergence": 0,
       "paper": 1,
       "reasons": {
-        "NEGATIVE_TRAIN_EXPECTANCY": 2
+        "NEGATIVE_TRAIN_EXPECTANCY": 1
       },
       "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
       "action": "PROMOTE_TO_FORWARD_PAPER"
@@ -155,18 +155,6 @@
       "action": "MUTATE_AND_RETEST"
     },
     {
-      "hypothesisKey": "failed_breakout:SOLUSDT:30m:ALL",
-      "total": 4,
-      "interesting": 3,
-      "regimeDivergence": 0,
-      "paper": 0,
-      "reasons": {
-        "THREE_FAILED_GENERATIONS": 1
-      },
-      "dominantFailure": "THREE_FAILED_GENERATIONS",
-      "action": "MUTATE_AND_RETEST"
-    },
-    {
       "hypothesisKey": "volatility_squeeze:LINKUSDT:30m:NY",
       "total": 4,
       "interesting": 2,
@@ -210,7 +198,7 @@
       "paper": 0,
       "reasons": {
         "NEGATIVE_TRAIN_EXPECTANCY": 1,
-        "NEGATIVE_VALIDATION_EXPECTANCY": 1
+        "NEGATIVE_HOLDOUT_EXPECTANCY": 1
       },
       "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
@@ -226,18 +214,6 @@
         "NEGATIVE_VALIDATION_EXPECTANCY": 1
       },
       "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
-      "action": "MUTATE_AND_RETEST"
-    },
-    {
-      "hypothesisKey": "failed_breakout:AVAXUSDT:1h:ASIA",
-      "total": 4,
-      "interesting": 2,
-      "regimeDivergence": 0,
-      "paper": 0,
-      "reasons": {
-        "INSUFFICIENT_SAMPLE": 2
-      },
-      "dominantFailure": "INSUFFICIENT_SAMPLE",
       "action": "MUTATE_AND_RETEST"
     },
     {
@@ -259,9 +235,9 @@
       "regimeDivergence": 0,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_VALIDATION_EXPECTANCY": 2
+        "THREE_FAILED_GENERATIONS": 2
       },
-      "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
+      "dominantFailure": "THREE_FAILED_GENERATIONS",
       "action": "MUTATE_AND_RETEST"
     },
     {
@@ -287,6 +263,31 @@
         "NEGATIVE_TRAIN_EXPECTANCY": 3
       },
       "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
+      "action": "MUTATE_AND_RETEST"
+    },
+    {
+      "hypothesisKey": "failed_breakout:SOLUSDT:4h:ASIA",
+      "total": 4,
+      "interesting": 1,
+      "regimeDivergence": 2,
+      "paper": 0,
+      "reasons": {
+        "NEGATIVE_TRAIN_EXPECTANCY": 3
+      },
+      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
+      "action": "MUTATE_AND_RETEST"
+    },
+    {
+      "hypothesisKey": "opening_range_breakout:ETHUSDT:4h:NY",
+      "total": 4,
+      "interesting": 1,
+      "regimeDivergence": 1,
+      "paper": 0,
+      "reasons": {
+        "NEGATIVE_TRAIN_EXPECTANCY": 1,
+        "NEGATIVE_VALIDATION_EXPECTANCY": 2
+      },
+      "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
     }
   ]
