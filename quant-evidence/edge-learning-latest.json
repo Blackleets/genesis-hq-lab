@@ -5,13 +5,13 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-11-20T17:17:41.990Z",
+  "completedAt": "2026-11-21T01:45:23.327Z",
   "summary": {
     "hypotheses": 432,
     "paperCandidates": 6,
     "interesting": 67,
-    "regimeDivergence": 308,
-    "killed": 377
+    "regimeDivergence": 316,
+    "killed": 193
   },
   "rules": [
     {
@@ -199,7 +199,7 @@
       "paper": 0,
       "reasons": {
         "NEGATIVE_TRAIN_EXPECTANCY": 1,
-        "NEGATIVE_HOLDOUT_EXPECTANCY": 1
+        "THREE_FAILED_GENERATIONS": 1
       },
       "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
@@ -217,15 +217,27 @@
       "action": "MUTATE_AND_RETEST"
     },
     {
+      "hypothesisKey": "volatility_squeeze:AVAXUSDT:30m:ALL",
+      "total": 4,
+      "interesting": 2,
+      "regimeDivergence": 0,
+      "paper": 0,
+      "reasons": {
+        "NEGATIVE_TRAIN_EXPECTANCY": 2
+      },
+      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
+      "action": "MUTATE_AND_RETEST"
+    },
+    {
       "hypothesisKey": "opening_range_breakout:BNBUSDT:4h:NY",
       "total": 4,
       "interesting": 2,
       "regimeDivergence": 0,
       "paper": 0,
       "reasons": {
-        "THREE_FAILED_GENERATIONS": 2
+        "NEGATIVE_VALIDATION_EXPECTANCY": 2
       },
-      "dominantFailure": "THREE_FAILED_GENERATIONS",
+      "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
     },
     {
@@ -235,9 +247,9 @@
       "regimeDivergence": 0,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_HOLDOUT_EXPECTANCY": 2
+        "THREE_FAILED_GENERATIONS": 2
       },
-      "dominantFailure": "NEGATIVE_HOLDOUT_EXPECTANCY",
+      "dominantFailure": "THREE_FAILED_GENERATIONS",
       "action": "MUTATE_AND_RETEST"
     },
     {
@@ -255,18 +267,6 @@
     },
     {
       "hypothesisKey": "volatility_squeeze:SOLUSDT:1h:ASIA",
-      "total": 4,
-      "interesting": 1,
-      "regimeDivergence": 3,
-      "paper": 0,
-      "reasons": {
-        "NEGATIVE_TRAIN_EXPECTANCY": 3
-      },
-      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
-      "action": "MUTATE_AND_RETEST"
-    },
-    {
-      "hypothesisKey": "failed_breakout:SOLUSDT:30m:ALL",
       "total": 4,
       "interesting": 1,
       "regimeDivergence": 3,
