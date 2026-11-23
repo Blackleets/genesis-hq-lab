@@ -5,13 +5,13 @@
   "liveOrders": false,
   "executionAuthority": false,
   "capitalEligible": false,
-  "completedAt": "2026-11-22T22:03:00.081Z",
+  "completedAt": "2026-11-23T08:15:24.177Z",
   "summary": {
     "hypotheses": 432,
-    "paperCandidates": 6,
-    "interesting": 65,
-    "regimeDivergence": 305,
-    "killed": 343
+    "paperCandidates": 7,
+    "interesting": 64,
+    "regimeDivergence": 304,
+    "killed": 433
   },
   "rules": [
     {
@@ -30,6 +30,18 @@
       "interesting": 0,
       "regimeDivergence": 1,
       "paper": 3,
+      "reasons": {
+        "NEGATIVE_TRAIN_EXPECTANCY": 1
+      },
+      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
+      "action": "PROMOTE_TO_FORWARD_PAPER"
+    },
+    {
+      "hypothesisKey": "volatility_squeeze:LINKUSDT:1h:ASIA",
+      "total": 4,
+      "interesting": 2,
+      "regimeDivergence": 1,
+      "paper": 1,
       "reasons": {
         "NEGATIVE_TRAIN_EXPECTANCY": 1
       },
@@ -107,18 +119,6 @@
       "action": "MUTATE_AND_RETEST"
     },
     {
-      "hypothesisKey": "volatility_squeeze:LINKUSDT:1h:ASIA",
-      "total": 4,
-      "interesting": 3,
-      "regimeDivergence": 1,
-      "paper": 0,
-      "reasons": {
-        "NEGATIVE_TRAIN_EXPECTANCY": 1
-      },
-      "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
-      "action": "MUTATE_AND_RETEST"
-    },
-    {
       "hypothesisKey": "opening_range_breakout:ADAUSDT:1h:ASIA",
       "total": 4,
       "interesting": 3,
@@ -162,7 +162,7 @@
       "paper": 0,
       "reasons": {
         "NEGATIVE_TRAIN_EXPECTANCY": 1,
-        "THREE_FAILED_GENERATIONS": 1
+        "NEGATIVE_HOLDOUT_EXPECTANCY": 1
       },
       "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
@@ -175,7 +175,7 @@
       "paper": 0,
       "reasons": {
         "NEGATIVE_TRAIN_EXPECTANCY": 1,
-        "NEGATIVE_HOLDOUT_EXPECTANCY": 1
+        "THREE_FAILED_GENERATIONS": 1
       },
       "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
@@ -187,9 +187,9 @@
       "regimeDivergence": 0,
       "paper": 0,
       "reasons": {
-        "THREE_FAILED_GENERATIONS": 2
+        "INSUFFICIENT_SAMPLE": 2
       },
-      "dominantFailure": "THREE_FAILED_GENERATIONS",
+      "dominantFailure": "INSUFFICIENT_SAMPLE",
       "action": "MUTATE_AND_RETEST"
     },
     {
@@ -223,9 +223,10 @@
       "regimeDivergence": 0,
       "paper": 0,
       "reasons": {
-        "THREE_FAILED_GENERATIONS": 2
+        "NEGATIVE_VALIDATION_EXPECTANCY": 1,
+        "NEGATIVE_TRAIN_EXPECTANCY": 1
       },
-      "dominantFailure": "THREE_FAILED_GENERATIONS",
+      "dominantFailure": "NEGATIVE_VALIDATION_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
     },
     {
@@ -272,7 +273,7 @@
       "paper": 0,
       "reasons": {
         "NEGATIVE_TRAIN_EXPECTANCY": 2,
-        "THREE_FAILED_GENERATIONS": 1
+        "NEGATIVE_VALIDATION_EXPECTANCY": 1
       },
       "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
@@ -284,8 +285,7 @@
       "regimeDivergence": 2,
       "paper": 0,
       "reasons": {
-        "NEGATIVE_TRAIN_EXPECTANCY": 2,
-        "THREE_FAILED_GENERATIONS": 1
+        "NEGATIVE_TRAIN_EXPECTANCY": 3
       },
       "dominantFailure": "NEGATIVE_TRAIN_EXPECTANCY",
       "action": "MUTATE_AND_RETEST"
