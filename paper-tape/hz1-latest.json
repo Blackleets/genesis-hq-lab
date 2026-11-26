@@ -1,54 +1,60 @@
 {
-  "ts": "2026-11-25T19:09:48.330Z",
+  "ts": "2026-11-26T02:17:43.956Z",
   "liveOff": true,
   "paper": true,
   "go": false,
   "hz": 1,
   "tickers": 539,
-  "preQuote": 14,
+  "preQuote": 10,
   "full": 4,
   "quoted": 0,
   "quotedNames": [],
   "filled": 0,
   "paperPnl": 0,
   "reasons": {
-    "TAPE_PENDING": 4
+    "TAPE_PENDING": 3,
+    "VPIN_HALT": 1
   },
-  "ms": 896,
+  "ms": 1112,
   "scored": [
     {
       "symbol": "SKUU-USDT-SWAP",
-      "preH": 0.18910831837214204,
-      "spread": 11.968880909634693,
+      "preH": -0.029495178672802602,
+      "spread": 11.344299489506279,
+      "quote": false,
+      "reason": "TAPE_PENDING"
+    },
+    {
+      "symbol": "ASTS-USDT-SWAP",
+      "preH": -0.1046188091266349,
+      "spread": 11.129660545352472,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
       "symbol": "PONS-USDT-SWAP",
-      "preH": 0.0863981319323992,
-      "spread": 11.67542323409257,
+      "preH": -0.05188945290456859,
+      "spread": 11.28031584884409,
       "quote": false,
       "reason": "TAPE_PENDING"
     },
     {
-      "symbol": "MOVE-USDT-SWAP",
-      "preH": 0.1314184536690437,
-      "spread": 11.804052724768697,
+      "symbol": "GIGADEV-USDT-SWAP",
+      "preH": -0.14975615122276498,
+      "spread": 11.0006967107921,
       "quote": false,
-      "reason": "TAPE_PENDING"
-    },
-    {
-      "symbol": "AXIS-USDT-SWAP",
-      "preH": 0.01965163019173133,
-      "spread": 11.484718943404948,
-      "quote": false,
-      "reason": "TAPE_PENDING"
+      "reason": "VPIN_HALT",
+      "harvestBps": null,
+      "vpin": 0.7852,
+      "fillCount": 0,
+      "netPnl": 0,
+      "captureReason": "VPIN_HALT"
     }
   ],
   "intersection": {
-    "liquid": 250,
-    "hGe": 14,
-    "band": 163,
+    "liquid": 257,
+    "hGe": 10,
+    "band": 154,
     "both": 0
   },
   "formula": "H=spread*0.35-4bps; width is a toxicity prior. Kalman+VPIN+GLFT. not a GO."
